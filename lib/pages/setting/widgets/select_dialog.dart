@@ -6,6 +6,7 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
+import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:dio/dio.dart';
@@ -83,9 +84,6 @@ class CdnSelectDialog extends StatefulWidget {
 }
 
 class _CdnSelectDialogState extends State<CdnSelectDialog> {
-  static const _warmupBytes = 4 * 1024 * 1024;
-  static const _maxBytes = 16 * 1024 * 1024;
-
   late final List<ValueNotifier<String?>> _cdnResList;
   late final List<CancelToken?> _tokens;
   late final bool _cdnSpeedTest;
@@ -144,27 +142,39 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   Future<void> _startSpeedTest() async {
     try {
+      final limits =
+          (await ConnectivityUtils.resolveForPlayback())
+              .useCellularPreferences
+          ? (warmup: 4194304, max: 16777216)
+          : (warmup: 8388608, max: 67108864);
       final videoItem = widget.sample ?? await _getSampleUrl();
-      await _testAllCdnServices(videoItem);
+      await _testAllCdnServices(videoItem, limits);
     } catch (e) {
       if (kDebugMode) debugPrint('CDN speed test failed: $e');
     }
   }
 
-  Future<void> _testAllCdnServices(BaseItem videoItem) async {
+  Future<void> _testAllCdnServices(
+    BaseItem videoItem,
+    ({int warmup, int max}) limits,
+  ) async {
     for (final item in CDNService.values) {
       if (!mounted) break;
-      await _testSingleCdn(item, videoItem);
+      await _testSingleCdn(item, videoItem, limits);
     }
   }
 
-  Future<void> _testSingleCdn(CDNService item, BaseItem videoItem) async {
+  Future<void> _testSingleCdn(
+    CDNService item,
+    BaseItem videoItem,
+    ({int warmup, int max}) limits,
+  ) async {
     try {
       final cdnUrl = VideoUtils.getCdnUrl(
         videoItem.playUrls,
         defaultCDNService: item,
       );
-      await _measureDownloadSpeed(cdnUrl, item.index);
+      await _measureDownloadSpeed(cdnUrl, item.index, limits);
     } catch (e) {
       _handleSpeedTestError(e, item.index);
     }
@@ -172,14 +182,18 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   late final Dio _dio;
 
-  Future<void> _measureDownloadSpeed(String url, int index) async {
+  Future<void> _measureDownloadSpeed(
+    String url,
+    int index,
+    ({int warmup, int max}) limits,
+  ) async {
     _CdnSpeedSample sample;
     try {
-      sample = await _measureStream(url, index);
+      sample = await _measureStream(url, index, limits);
     } catch (e) {
       if (!mounted) return;
       if (kDebugMode) debugPrint('CDN stream speed test failed: $e');
-      sample = await _measureLegacy(url, index);
+      sample = await _measureLegacy(url, index, limits);
     }
     if (mounted) _updateSpeedResult(index, sample);
   }
@@ -191,7 +205,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     return token;
   }
 
-  Future<_CdnSpeedSample> _measureStream(String url, int index) async {
+  Future<_CdnSpeedSample> _measureStream(
+    String url,
+    int index,
+    ({int warmup, int max}) limits,
+  ) async {
     final token = _newToken(index);
     final watch = Stopwatch()..start();
     Timer? measureTimer;
@@ -211,7 +229,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         url,
         cancelToken: token,
         options: Options(
-          headers: const {'range': 'bytes=0-16777215'},
+          headers: {'range': 'bytes=0-${limits.max - 1}'},
           responseType: ResponseType.stream,
           receiveTimeout: Duration.zero,
           validateStatus: (status) => status == 200 || status == 206,
@@ -225,9 +243,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         final now = watch.elapsedMicroseconds;
         firstByteUs ??= now;
         final total = downloaded + chunk.length;
-        downloaded = total > _maxBytes ? _maxBytes : total;
+        downloaded = total > limits.max ? limits.max : total;
 
-        if (sampleStartUs == null && downloaded >= _warmupBytes) {
+        if (sampleStartUs == null && downloaded >= limits.warmup) {
           sampleStartUs = now;
           sampleStartBytes = downloaded;
           measureTimer = Timer(const Duration(seconds: 8), () {
@@ -235,7 +253,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
             token.cancel();
           });
         }
-        if (downloaded >= _maxBytes) break;
+        if (downloaded >= limits.max) break;
       }
     } on DioException {
       if (!intentionalStop) rethrow;
@@ -251,13 +269,17 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       firstByteUs: firstByteUs,
       sampleStartUs: sampleStartUs,
       sampleStartBytes: sampleStartBytes,
-      type: downloaded >= _maxBytes
+      type: downloaded >= limits.max
           ? _CdnSpeedSampleType.complete
           : _CdnSpeedSampleType.partial,
     );
   }
 
-  Future<_CdnSpeedSample> _measureLegacy(String url, int index) async {
+  Future<_CdnSpeedSample> _measureLegacy(
+    String url,
+    int index,
+    ({int warmup, int max}) limits,
+  ) async {
     final token = _newToken(index);
     final watch = Stopwatch()..start();
     Timer? measureTimer;
@@ -280,9 +302,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           if (count <= 0 || intentionalStop) return;
           final now = watch.elapsedMicroseconds;
           firstByteUs ??= now;
-          downloaded = count > _maxBytes ? _maxBytes : count;
+          downloaded = count > limits.max ? limits.max : count;
 
-          if (sampleStartUs == null && downloaded >= _warmupBytes) {
+          if (sampleStartUs == null && downloaded >= limits.warmup) {
             sampleStartUs = now;
             sampleStartBytes = downloaded;
             measureTimer = Timer(const Duration(seconds: 8), () {
@@ -290,7 +312,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
               token.cancel();
             });
           }
-          if (downloaded >= _maxBytes) {
+          if (downloaded >= limits.max) {
             intentionalStop = true;
             token.cancel();
           }
