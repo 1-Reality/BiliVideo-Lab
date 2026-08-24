@@ -41,6 +41,8 @@ abstract final class SettingBoxKey {
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
+      longPressSpeedFactor = 'longPressSpeedFactor',
+      enableLongPressSlideSpeed = 'enableLongPressSlideSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
       enableQuickDouble = 'enableQuickDouble',
@@ -156,6 +158,16 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream';
 
+  static const String wiredNetworkPolicy = 'wiredNetworkPolicy',
+      wiredMinLinkSpeed = 'wiredMinLinkSpeed',
+      wiredNonstandardLinkSpeed = 'wiredNonstandardLinkSpeed',
+      wifiNetworkPolicy = 'wifiNetworkPolicy',
+      wifiNetworkPolicyMode = 'wifiNetworkPolicyMode',
+      wifiRssiThreshold = 'wifiRssiThreshold',
+      wifiMinLinkSpeed = 'wifiMinLinkSpeed',
+      networkPeakPeriods = 'networkPeakPeriods',
+      networkPeakCodecs = 'networkPeakCodecs';
+
   static const String minimizeOnExit = 'minimizeOnExit',
       windowSize = 'windowSize',
       windowPosition = 'windowPosition',
@@ -254,5 +266,6 @@ abstract final class VideoBoxKey {
       playSpeedDefault = 'playSpeedDefault',
       longPressSpeedDefault = 'longPressSpeedDefault',
       speedsList = 'speedsList',
+      playbackStats = 'playbackStats',
       cacheVideoFit = 'cacheVideoFit';
 }

@@ -9,6 +9,24 @@ abstract final class PiliAndroidHelper {
   @pragma('vm:prefer-inline')
   static void back() => AndroidHelper.back();
 
+  static ({int? linkSpeed, int? rssi, int? signalLevel, bool metered, bool weakHint})?
+  networkInfo() {
+    final info = AndroidHelper.networkInfo();
+    if (info == null) return null;
+    try {
+      final flags = info[3];
+      return (
+        linkSpeed: info[0] < 0 ? null : info[0],
+        rssi: info[1] <= -127 || info[1] > 0 ? null : info[1],
+        signalLevel: info[2] < 0 ? null : info[2],
+        metered: flags & 1 != 0,
+        weakHint: flags & 14 != 0,
+      );
+    } finally {
+      info.release();
+    }
+  }
+
   static void biliSendCommAntifraud(
     int action,
     int oid,

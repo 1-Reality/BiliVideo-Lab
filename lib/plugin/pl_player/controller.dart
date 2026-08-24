@@ -11,7 +11,9 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
+import 'package:PiliPlus/models/common/network_profile.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
@@ -31,10 +33,12 @@ import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
 import 'package:PiliPlus/utils/asset_utils.dart';
+import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/box_ext.dart';
@@ -148,7 +152,10 @@ class PlPlayerController with BlockConfigMixin {
   late DataSource dataSource;
 
   Timer? _timer;
+  Timer? _weakWifiBufferTimer;
   StreamSubscription? _subForSeek;
+  StreamSubscription<NetworkPolicyChange>? _networkPolicySubscription;
+  Future<void> Function(NetworkPolicyChange change)? onNetworkPolicyChanged;
 
   Box setting = GStorage.setting;
 
@@ -312,6 +319,8 @@ class PlPlayerController with BlockConfigMixin {
 
   late List<double> speedList = Pref.speedList;
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
+  late double longPressSpeedFactor = Pref.longPressSpeedFactor;
+  late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
   late final showControlDuration = Pref.enableLongShowControl
       ? const Duration(seconds: 30)
       : const Duration(seconds: 3);
@@ -358,8 +367,12 @@ class PlPlayerController with BlockConfigMixin {
 
   late final bool tempPlayerConf = Pref.tempPlayerConf;
 
-  late int? cacheVideoQa = PlatformUtils.isMobile ? null : Pref.defaultVideoQa;
+  int? cacheVideoQa;
   late int cacheAudioQa = Pref.defaultAudioQa;
+  List<VideoDecodeFormatType>? cachePreferCodecs;
+  List<VideoDecodeFormatType>? peakPreferCodecs;
+  NetworkProfile? playbackNetworkProfile;
+  int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
 
@@ -458,8 +471,13 @@ class PlPlayerController with BlockConfigMixin {
   static Future<void> seekToIfExists(
     Duration position, {
     bool isSeek = true,
+    bool recordStats = true,
   }) async {
-    await _instance?.seekTo(position, isSeek: isSeek);
+    await _instance?.seekTo(
+      position,
+      isSeek: isSeek,
+      recordStats: recordStats,
+    );
   }
 
   static double? getVolumeIfExists() {
@@ -530,6 +548,9 @@ class PlPlayerController with BlockConfigMixin {
 
   // 添加一个私有构造函数
   PlPlayerController._() {
+    _networkPolicySubscription = ConnectivityUtils.changes.listen((change) {
+      onNetworkPolicyChanged?.call(change);
+    });
     if (PlatformUtils.isMobile) {
       _orientationListener = NativeDeviceOrientationPlatform.instance
           .onOrientationChanged(
@@ -553,6 +574,54 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
   }
+
+  void applyNetworkProfile(
+    NetworkProfile profile, {
+    required bool resetSessionPreferences,
+    bool refreshPeakPreferences = false,
+  }) {
+    playbackNetworkProfile = profile;
+    if (resetSessionPreferences) {
+      cacheVideoQa = profile.useCellularPreferences
+          ? Pref.defaultVideoQaCellular
+          : Pref.defaultVideoQa;
+      cacheAudioQa = profile.useCellularPreferences
+          ? Pref.defaultAudioQaCellular
+          : Pref.defaultAudioQa;
+      cachePreferCodecs = profile.useCellularPreferences
+          ? Pref.preferCodecsCellular
+          : Pref.preferCodecs;
+    }
+    final peakActive = ConnectivityUtils.isNetworkPeak(profile);
+    if (resetSessionPreferences ||
+        refreshPeakPreferences ||
+        peakActive != (peakPreferCodecs != null)) {
+      cachePreferCodecs ??= profile.useCellularPreferences
+          ? Pref.preferCodecsCellular
+          : Pref.preferCodecs;
+      peakPreferCodecs = peakActive
+          ? ConnectivityUtils.effectiveCodecs(cachePreferCodecs!, profile)
+          : null;
+    }
+  }
+
+  Future<NetworkProfile> resolveNetworkProfile() async {
+    _networkProfileResolutions++;
+    try {
+      return await ConnectivityUtils.resolveForPlayback();
+    } finally {
+      _networkProfileResolutions--;
+    }
+  }
+
+  bool get isResolvingNetworkProfile => _networkProfileResolutions != 0;
+
+  List<VideoDecodeFormatType> get effectivePreferCodecs =>
+      peakPreferCodecs ??
+      cachePreferCodecs ??
+      (playbackNetworkProfile?.useCellularPreferences == true
+          ? Pref.preferCodecsCellular
+          : Pref.preferCodecs);
 
   void _onUserLeaveHint() {
     if (playerStatus.isPlaying && _isCurrVideoPage) {
@@ -601,11 +670,14 @@ class PlPlayerController with BlockConfigMixin {
     int? epid,
     int? seasonId,
     int? pgcType,
+    int? liveUid,
     VideoType? videoType,
     VoidCallback? onInit,
     Volume? volume,
     bool autoFullScreenFlag = false,
   }) async {
+    final previousPosition =
+        _videoPlayerController?.state.position ?? Duration.zero;
     try {
       _processing = true;
       this.isLive = isLive;
@@ -639,6 +711,15 @@ class PlPlayerController with BlockConfigMixin {
       if (_playerCount == 0) {
         return;
       }
+      PlaybackStatsService.openMedia(
+        isLive: isLive,
+        previousPosition: previousPosition,
+        initialPosition: seekTo ?? Duration.zero,
+        speed: _playbackSpeed.value,
+        defaultSpeed: Pref.playSpeedDefault,
+        cid: cid,
+        liveUid: liveUid,
+      );
       // 配置Player 音轨、字幕等等
       await _createVideoController(dataSource, seekTo, volume);
 
@@ -775,6 +856,8 @@ class PlPlayerController with BlockConfigMixin {
     Duration? seekTo,
     Volume? volume,
   ) async {
+    _weakWifiBufferTimer?.cancel();
+    _weakWifiBufferTimer = null;
     isBuffering.value = false;
     _heartDuration = 0;
     danmakuController?.clear();
@@ -862,6 +945,7 @@ class PlPlayerController with BlockConfigMixin {
       return null;
     }
     if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
+      PlaybackStatsService.rebase(ctr.state.position);
       return ctr.open(
         ctr.current.last.copyWith(start: ctr.state.position),
         play: true,
@@ -875,10 +959,10 @@ class PlPlayerController with BlockConfigMixin {
     if (_instance == null) return;
     // 设置倍速
     if (isLive) {
-      await setPlaybackSpeed(1.0);
+      await setPlaybackSpeed(1.0, recordSelection: false);
     } else {
       if (_videoPlayerController?.state.rate != _playbackSpeed.value) {
-        await setPlaybackSpeed(_playbackSpeed.value);
+        await setPlaybackSpeed(_playbackSpeed.value, recordSelection: false);
       }
     }
     _initVideoFit();
@@ -909,6 +993,7 @@ class PlPlayerController with BlockConfigMixin {
     _subscriptions = [
       /// playing
       stream.playing.listen((bool playing) {
+        PlaybackStatsService.updatePlaying(playing, player.state.position);
         WakelockPlus.toggle(enable: playing);
         if (playing) {
           if (_isAutoEnterPip) {
@@ -943,6 +1028,7 @@ class PlPlayerController with BlockConfigMixin {
       ///completed
       stream.completed.listen((bool completed) {
         if (completed) {
+          PlaybackStatsService.markCompleted(player.state.position);
           playerStatus.value = .completed;
 
           for (final element in _statusListeners) {
@@ -955,6 +1041,7 @@ class PlPlayerController with BlockConfigMixin {
 
       /// position
       stream.position.listen((Duration position) {
+        PlaybackStatsService.samplePosition(position);
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
@@ -976,7 +1063,22 @@ class PlPlayerController with BlockConfigMixin {
         buffered.value = buffer.inSeconds;
       }),
       stream.buffering.listen((bool buffering) {
+        PlaybackStatsService.updateBuffering(
+          buffering,
+          player.state.position,
+        );
         isBuffering.value = buffering;
+        if (buffering && !isLive) {
+          _weakWifiBufferTimer ??= Timer(const Duration(seconds: 5), () {
+            _weakWifiBufferTimer = null;
+            if (isBuffering.value && playerStatus.isPlaying) {
+              ConnectivityUtils.markCurrentWifiWeak();
+            }
+          });
+        } else {
+          _weakWifiBufferTimer?.cancel();
+          _weakWifiBufferTimer = null;
+        }
         videoPlayerServiceHandler?.onStatusChange(
           playerStatus.value,
           buffering,
@@ -1066,13 +1168,22 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   /// 跳转至指定位置
-  Future<void> seekTo(Duration position, {bool isSeek = true}) async {
+  Future<void> seekTo(
+    Duration position, {
+    bool isSeek = true,
+    bool recordStats = true,
+  }) async {
     if (_playerCount == 0) {
       return;
     }
     if (position < Duration.zero) {
       position = Duration.zero;
     }
+    PlaybackStatsService.seek(
+      _videoPlayerController?.state.position ?? Duration.zero,
+      position,
+      userInitiated: recordStats,
+    );
     _heartDuration = position.inSeconds;
 
     Future<void> seek() async {
@@ -1101,12 +1212,21 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   /// 设置倍速
-  Future<void> setPlaybackSpeed(double speed) async {
+  Future<void> setPlaybackSpeed(
+    double speed, {
+    bool recordSelection = true,
+  }) async {
     lastPlaybackSpeed = playbackSpeed;
 
     if (speed == _videoPlayerController?.state.rate) {
       return;
     }
+
+    PlaybackStatsService.changeSpeed(
+      speed,
+      _videoPlayerController?.state.position ?? Duration.zero,
+      recordSelection: recordSelection,
+    );
 
     await _videoPlayerController?.setRate(speed);
     _playbackSpeed.value = speed;
@@ -1140,7 +1260,7 @@ class PlPlayerController with BlockConfigMixin {
     // repeat为true，将从头播放
     if (repeat) {
       // await seekTo(Duration.zero);
-      await seekTo(Duration.zero, isSeek: false);
+      await seekTo(Duration.zero, isSeek: false, recordStats: false);
     }
 
     await _videoPlayerController?.play();
@@ -1253,6 +1373,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   Timer? longPressTimer;
+  double? _longPressRestoreSpeed;
   void cancelLongPressTimer() {
     longPressTimer?.cancel();
     longPressTimer = null;
@@ -1271,17 +1392,32 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (val) {
       if (playerStatus.isPlaying) {
+        _longPressRestoreSpeed = playbackSpeed;
         longPressStatus.value = val;
         HapticFeedback.lightImpact();
         await setPlaybackSpeed(
-          enableAutoLongPressSpeed ? playbackSpeed * 2 : longPressSpeed,
+          enableAutoLongPressSpeed
+              ? playbackSpeed * longPressSpeedFactor
+              : longPressSpeed,
+          recordSelection: false,
         );
       }
     } else {
-      // if (kDebugMode) debugPrint('$playbackSpeed');
       longPressStatus.value = val;
-      await setPlaybackSpeed(lastPlaybackSpeed);
+      final restoreSpeed = _longPressRestoreSpeed ?? lastPlaybackSpeed;
+      _longPressRestoreSpeed = null;
+      await setPlaybackSpeed(restoreSpeed, recordSelection: false);
     }
+  }
+
+  Future<void> adjustLongPressSpeed(int steps) {
+    if (!longPressStatus.value || !enableLongPressSlideSpeed || steps == 0) {
+      return Future.value();
+    }
+    return setPlaybackSpeed(
+      max(0.25, playbackSpeed + steps * 0.25),
+      recordSelection: false,
+    );
   }
 
   bool get isCompleted =>
@@ -1291,7 +1427,7 @@ class PlPlayerController with BlockConfigMixin {
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
     if (!isLive && isCompleted) {
-      await videoPlayerController!.seek(Duration.zero);
+      await seekTo(Duration.zero, isSeek: false, recordStats: false);
       videoPlayerController!.play();
     } else {
       videoPlayerController!.playOrPause();
@@ -1573,6 +1709,11 @@ class PlPlayerController with BlockConfigMixin {
       AndroidHelper$ToDart.onUserLeaveHint = null;
     }
     _timer?.cancel();
+    _weakWifiBufferTimer?.cancel();
+    _weakWifiBufferTimer = null;
+    _networkPolicySubscription?.cancel();
+    _networkPolicySubscription = null;
+    onNetworkPolicyChanged = null;
     // _position.close();
     // _playerEventSubs?.cancel();
     // _sliderPosition.close();
@@ -1599,6 +1740,9 @@ class PlPlayerController with BlockConfigMixin {
     if (kDebugMode) {
       debugPrint('dispose player');
     }
+    PlaybackStatsService.endMedia(
+      _videoPlayerController?.state.position ?? Duration.zero,
+    );
     _videoPlayerController?.dispose();
     _videoPlayerController = null;
     _videoController = null;
