@@ -7,7 +7,9 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
 import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
+import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -23,10 +25,10 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key, this.showAppBar = true});
@@ -39,7 +41,7 @@ class AboutPage extends StatefulWidget {
 
 class _AboutPageState extends State<AboutPage> {
   final currentVersion =
-      '${BuildConfig.versionName}+${BuildConfig.versionCode}';
+      '${BuildConfig.displayVersionName}+${BuildConfig.versionCode}';
   RxString cacheSize = ''.obs;
 
   late int _pressCount = 0;
@@ -88,9 +90,8 @@ class _AboutPageState extends State<AboutPage> {
     final subTitleStyle = TextStyle(fontSize: 13, color: outline);
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
-    return Scaffold(
+    return SimpleScaffold(
       appBar: showAppBar ? AppBar(title: const Text('关于')) : null,
-      resizeToAvoidBottomInset: false,
       body: ListView(
         padding: EdgeInsets.only(
           left: showAppBar ? padding.left : 0,
@@ -181,22 +182,14 @@ Commit Hash: ${BuildConfig.commitHash}''',
               onTap: PiliAndroidHelper.openLinkVerifySettings,
               leading: const Icon(MdiIcons.linkBoxOutline),
               title: const Text('打开受支持的链接'),
-              trailing: Icon(
-                Icons.arrow_forward,
-                size: 16,
-                color: outline,
-              ),
+              trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
             ),
           ListTile(
             onTap: () =>
                 PageUtils.launchURL('${Constants.sourceCodeUrl}/issues'),
             leading: const Icon(Icons.feedback_outlined),
             title: const Text('问题反馈'),
-            trailing: Icon(
-              Icons.arrow_forward,
-              size: 16,
-              color: outline,
-            ),
+            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(
             onTap: () => Get.toNamed('/logs'),
@@ -284,9 +277,8 @@ Commit Hash: ${BuildConfig.commitHash}''',
                   clipBehavior: Clip.hardEdge,
                   title: const Text('是否重置所有设置？'),
                   children: [
-                    ListTile(
-                      dense: true,
-                      onTap: () async {
+                    DialogOption(
+                      onPressed: () async {
                         Get.back();
                         await Future.wait([
                           GStorage.setting.clear(),
@@ -294,16 +286,15 @@ Commit Hash: ${BuildConfig.commitHash}''',
                         ]);
                         SmartDialog.showToast('重置成功');
                       },
-                      title: const Text('重置可导出的设置', style: style),
+                      child: const Text('重置可导出的设置', style: style),
                     ),
-                    ListTile(
-                      dense: true,
-                      onTap: () async {
+                    DialogOption(
+                      onPressed: () async {
                         Get.back();
                         await GStorage.clear();
                         SmartDialog.showToast('重置成功');
                       },
-                      title: const Text('重置所有数据（含登录信息）', style: style),
+                      child: const Text('重置所有数据（含登录信息）', style: style),
                     ),
                   ],
                 );

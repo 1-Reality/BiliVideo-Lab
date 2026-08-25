@@ -1,6 +1,8 @@
 import 'package:PiliPlus/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliPlus/http/live.dart';
 import 'package:PiliPlus/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliPlus/models_new/live/live_superchat/item.dart';
@@ -11,7 +13,7 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -39,7 +41,6 @@ class LiveRoomChatPanel extends StatelessWidget {
     late final nameColor = isPP
         ? Colors.white.withValues(alpha: 0.9)
         : Colors.white.withValues(alpha: 0.6);
-    late final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     late final colorScheme = ColorScheme.of(context);
     late final primary = colorScheme.isDark
         ? colorScheme.primary
@@ -54,7 +55,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemCount: liveRoomController.builtLength =
                 liveRoomController.messages.length,
-            physics: const ClampingScrollPhysics(),
+            physics: platformClampingPhysics,
             itemBuilder: (_, index) {
               final item = liveRoomController.messages[index];
               if (item is DanmakuMsg) {
@@ -117,7 +118,7 @@ class LiveRoomChatPanel extends StatelessWidget {
                                     ..onTap = () =>
                                         Get.toNamed('/member?mid=${reply.mid}'),
                                 ),
-                              _buildMsg(devicePixelRatio, item),
+                              _buildMsg(item),
                             ],
                           ),
                         ),
@@ -231,16 +232,16 @@ class LiveRoomChatPanel extends StatelessWidget {
     );
   }
 
-  InlineSpan _buildMsg(double devicePixelRatio, DanmakuMsg obj) {
+  InlineSpan _buildMsg(DanmakuMsg obj) {
     final uemote = obj.uemote;
     if (uemote != null) {
       // "room_{{room_id}}_{{int}}" , "upower_[{{emote}}]" , "official_{{int}}"
       final double width, height;
       if (uemote.isOfficial) {
-        width = uemote.width / devicePixelRatio;
-        height = uemote.height / devicePixelRatio;
+        width = uemote.width / 3;
+        height = uemote.height / 3;
       } else {
-        width = height = 162.0 / devicePixelRatio;
+        width = height = 54;
       }
       return WidgetSpan(
         child: NetworkImgLayer(

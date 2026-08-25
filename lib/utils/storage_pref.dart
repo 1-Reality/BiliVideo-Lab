@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' show pow, sqrt;
 
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop;
@@ -45,9 +44,9 @@ import 'package:PiliPlus/utils/utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class Pref {
   static final Box _setting = GStorage.setting;
@@ -106,8 +105,10 @@ abstract final class Pref {
 
   static List<double> get springDescription => List<double>.from(
     _setting.get(SettingBoxKey.springDescription) ??
-        [0.5, 100.0, 2.2 * sqrt(50)], // [mass, stiffness, damping]
+        // duration: 0.3, bounce: 0.0
+        const [1.0, 438.64908449286037, 41.88790204786391],
   );
+  //   [0.5, 100.0, 2.2 * math.sqrt(50)], // [mass, stiffness, damping]
 
   static List<double> get speedList => List<double>.from(
     _video.get(
@@ -156,7 +157,7 @@ abstract final class Pref {
   static DynamicBadgeMode get dynamicBadgeType =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
+        defaultValue: DynamicBadgeMode.point.index,
       )];
 
   static DynamicBadgeMode get msgBadgeMode =>
@@ -169,7 +170,7 @@ abstract final class Pref {
       (_setting.get(SettingBoxKey.msgUnReadTypeV2) as List?)
           ?.map((index) => MsgUnReadType.values[index])
           .toSet() ??
-      MsgUnReadType.values.toSet();
+      MsgUnReadType.values.where((item) => item != MsgUnReadType.like).toSet();
 
   static NavigationBarType get defaultHomePage =>
       NavigationBarType.values[defaultHomePageIndex];
@@ -218,6 +219,11 @@ abstract final class Pref {
         defaultValue: SubtitlePrefType.off.index,
       )];
 
+  static int get subtitleFollowerThreshold => _setting.get(
+    SettingBoxKey.subtitleFollowerThreshold,
+    defaultValue: 0,
+  );
+
   static bool get useRelativeSlide =>
       _setting.get(SettingBoxKey.useRelativeSlide, defaultValue: false);
 
@@ -244,20 +250,89 @@ abstract final class Pref {
     defaultValue: AudioQuality.k192.code,
   );
 
-  static String get defaultDecode => _setting.get(
-    SettingBoxKey.defaultDecode,
-    defaultValue: VideoDecodeFormatType.AVC.codes.first,
+  static List<VideoDecodeFormatType> get preferCodecs {
+    // TODO: remove next 2 version
+    if (_setting.get('defaultDecode') case String codecStr) {
+      String? codecStr2 = _setting.get('secondDecode');
+      _setting.deleteAll(const ['defaultDecode', 'secondDecode']);
+      final codecs = [
+        VideoDecodeFormatType.values.firstWhere(
+          (i) => i.codes.contains(codecStr),
+        ),
+        if (codecStr2 != null && codecStr2 != codecStr)
+          VideoDecodeFormatType.values.firstWhere(
+            (i) => i.codes.contains(codecStr2),
+          ),
+      ];
+      _setting.put(
+        SettingBoxKey.preferCodecs,
+        codecs.map((i) => i.name).toList(),
+      );
+      return codecs;
+    }
+
+    final codecs = _setting.get(SettingBoxKey.preferCodecs);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return PlatformUtils.isMobile
+        ? const <VideoDecodeFormatType>[.AVC, .HEVC]
+        : const <VideoDecodeFormatType>[.AVC, .AV1];
+  }
+
+  static List<VideoDecodeFormatType> get preferCodecsCellular {
+    final codecs = _setting.get(SettingBoxKey.preferCodecsCellular);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return const <VideoDecodeFormatType>[.HEVC, .AV1];
+  }
+
+  static bool get wiredNetworkPolicy =>
+      _setting.get(SettingBoxKey.wiredNetworkPolicy, defaultValue: false);
+
+  static int get wiredMinLinkSpeed =>
+      _setting.get(SettingBoxKey.wiredMinLinkSpeed, defaultValue: 1000);
+
+  static bool get wiredNonstandardLinkSpeed => _setting.get(
+    SettingBoxKey.wiredNonstandardLinkSpeed,
+    defaultValue: false,
   );
 
-  static String get secondDecode => _setting.get(
-    SettingBoxKey.secondDecode,
-    defaultValue: VideoDecodeFormatType.AV1.codes.first,
-  );
+  static bool get wifiNetworkPolicy =>
+      _setting.get(SettingBoxKey.wifiNetworkPolicy, defaultValue: false);
+
+  static int get wifiNetworkPolicyMode =>
+      _setting.get(SettingBoxKey.wifiNetworkPolicyMode, defaultValue: 0);
+
+  static int get wifiRssiThreshold =>
+      _setting.get(SettingBoxKey.wifiRssiThreshold, defaultValue: -70);
+
+  static int get wifiMinLinkSpeed =>
+      _setting.get(SettingBoxKey.wifiMinLinkSpeed, defaultValue: 100);
+
+  static List<Map<String, dynamic>> get networkPeakPeriods =>
+      (_setting.get(SettingBoxKey.networkPeakPeriods) as List?)
+          ?.whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .toList() ??
+      const [];
+
+  static List<VideoDecodeFormatType> get networkPeakCodecs {
+    final codecs = _setting.get(SettingBoxKey.networkPeakCodecs);
+    if (codecs is List) {
+      return codecs
+          .whereType<String>()
+          .map(VideoDecodeFormatType.values.byName)
+          .toList();
+    }
+    return const [];
+  }
 
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
-        ? HwDecType.autoSafe.hwdec
+        ? HwDecType.androidDefault
         : HwDecType.auto.hwdec,
   );
 
@@ -274,6 +349,39 @@ abstract final class Pref {
       return CDNService.values.byName(cdnName);
     }
     return CDNService.backupUrl;
+  }
+
+  static List<CDNService> get defaultCDNServices =>
+      _readCDNServices(SettingBoxKey.CDNServices);
+
+  static List<CDNService> get defaultCDNServicesCellular =>
+      _readCDNServices(SettingBoxKey.CDNServicesCellular);
+
+  static List<CDNService> _readCDNServices(String key) {
+    if (_setting.get(key) case final List stored) {
+      final result = <CDNService>[];
+      for (final name in stored.whereType<String>()) {
+        for (final cdn in CDNService.values) {
+          if (cdn.name == name && !result.contains(cdn)) {
+            result.add(cdn);
+            break;
+          }
+        }
+      }
+      if (result.isNotEmpty) return result;
+    }
+    final legacy = defaultCDNService;
+    return [
+      legacy,
+      for (final cdn in const [
+        CDNService.backupUrl,
+        CDNService.baseUrl,
+        CDNService.ali,
+        CDNService.cos,
+        CDNService.hw,
+      ])
+        if (cdn != legacy) cdn,
+    ];
   }
 
   static String get banWordForRecommend =>
@@ -307,9 +415,6 @@ abstract final class Pref {
 
   static double get blockLimit =>
       _setting.get(SettingBoxKey.blockLimit, defaultValue: 0.0);
-
-  static double get refreshDragPercentage =>
-      _setting.get(SettingBoxKey.refreshDragPercentage, defaultValue: 0.25);
 
   static double get refreshDisplacement => _setting.get(
     SettingBoxKey.refreshDisplacement,
@@ -596,7 +701,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? pow(1024, 3);
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
@@ -641,7 +746,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
 
   static bool get disableLikeMsg =>
-      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: false);
+      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: true);
 
   static bool get enableWordRe =>
       _setting.get(SettingBoxKey.enableWordRe, defaultValue: false);
@@ -715,9 +820,6 @@ abstract final class Pref {
       !Platform.isIOS &&
       _setting.get(SettingBoxKey.dynamicColor, defaultValue: true);
 
-  static bool get autoClearCache =>
-      _setting.get(SettingBoxKey.autoClearCache, defaultValue: false);
-
   static bool get enableSystemProxy =>
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
@@ -730,10 +832,16 @@ abstract final class Pref {
         defaultValue: ReplySortType.hot.index,
       )];
 
+  static ReplySortType get reply2SortType =>
+      ReplySortType.values[_setting.get(
+        SettingBoxKey.reply2SortType,
+        defaultValue: ReplySortType.time.index,
+      )];
+
   static DynamicBadgeMode get dynamicBadgeMode =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
+        defaultValue: DynamicBadgeMode.point.index,
       )];
 
   static bool get enableMYBar =>
@@ -803,6 +911,39 @@ abstract final class Pref {
   static double get bufferSec =>
       _setting.get(SettingBoxKey.bufferSec, defaultValue: 16.0);
 
+  static double get bufferSizeCellular =>
+      _setting.get(SettingBoxKey.bufferSizeCellular, defaultValue: 4.0);
+
+  static double get bufferSecCellular =>
+      _setting.get(SettingBoxKey.bufferSecCellular, defaultValue: 16.0);
+
+  static Map<String, String> initBuffer([
+    double playbackSpeed = 1.0,
+    bool cellular = false,
+  ]) {
+    final bufSec = (cellular ? bufferSecCellular : bufferSec) * playbackSpeed;
+    final bufSiz =
+        ((cellular ? bufferSizeCellular : bufferSize) * 0x100000)
+            .toStringAsFixed(0);
+    return {
+      'cache': 'yes',
+      'cache-secs': bufSec.toStringAsFixed(3),
+      'demuxer-hysteresis-secs': (bufSec / 1.5).toStringAsFixed(3),
+      'demuxer-max-bytes': bufSiz,
+      'demuxer-max-back-bytes': bufSiz,
+    };
+  }
+
+  static Map<String, String> initLiveBuffer([bool cellular = false]) {
+    return {
+      'cache': 'yes',
+      'demuxer-max-bytes':
+          ((cellular ? bufferSizeCellular : bufferSize) * 0x200000)
+              .toStringAsFixed(0),
+      'demuxer-max-back-bytes': '0',
+    };
+  }
+
   static String get audioOutput => _setting.get(
     SettingBoxKey.audioOutput,
     defaultValue: AudioOutput.defaultValue,
@@ -819,6 +960,14 @@ abstract final class Pref {
 
   static bool get enableAutoLongPressSpeed =>
       _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: false);
+
+  static double get longPressSpeedFactor =>
+      _setting.get(SettingBoxKey.longPressSpeedFactor, defaultValue: 2.0);
+
+  static bool get enableLongPressSlideSpeed => _setting.get(
+    SettingBoxKey.enableLongPressSlideSpeed,
+    defaultValue: false,
+  );
 
   static double get playSpeedDefault =>
       _video.get(VideoBoxKey.playSpeedDefault, defaultValue: 1.0);
@@ -994,4 +1143,8 @@ abstract final class Pref {
 
   static double get maxVolume => // desktop
       _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
+
+  static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
+
+  static String? get appFont => _setting.get(SettingBoxKey.appFont);
 }

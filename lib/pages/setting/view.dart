@@ -1,24 +1,21 @@
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
+import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/http/login.dart';
 import 'package:PiliPlus/models/common/setting_type.dart';
 import 'package:PiliPlus/pages/about/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
-import 'package:PiliPlus/pages/setting/extra_setting.dart';
-import 'package:PiliPlus/pages/setting/play_setting.dart';
-import 'package:PiliPlus/pages/setting/privacy_setting.dart';
-import 'package:PiliPlus/pages/setting/recommend_setting.dart';
-import 'package:PiliPlus/pages/setting/style_setting.dart';
-import 'package:PiliPlus/pages/setting/video_setting.dart';
+import 'package:PiliPlus/pages/setting/common_setting.dart';
 import 'package:PiliPlus/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliPlus/pages/webdav/view.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class _SettingsModel {
   final SettingType type;
@@ -43,6 +40,7 @@ class _SettingPageState extends State<SettingPage> {
   late SettingType _type = SettingType.privacySetting;
   final RxBool _noAccount = Accounts.account.isEmpty.obs;
   late bool _isPortrait;
+  late ThemeData theme;
 
   static const List<_SettingsModel> _items = [
     _SettingsModel(
@@ -86,11 +84,16 @@ class _SettingPageState extends State<SettingPage> {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    theme = Theme.of(context);
     _isPortrait = MediaQuery.sizeOf(context).isPortrait;
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleScaffold(
       appBar: AppBar(
         title: _isPortrait ? const Text('设置') : Text(_type.title),
       ),
@@ -111,28 +114,19 @@ class _SettingPageState extends State<SettingPage> {
                   Expanded(
                     flex: 6,
                     child: switch (_type) {
-                      SettingType.privacySetting => const PrivacySetting(
+                      .privacySetting ||
+                      .recommendSetting ||
+                      .videoSetting ||
+                      .playSetting ||
+                      .styleSetting ||
+                      .extraSetting => CommonSetting(
+                        settingType: _type,
                         showAppBar: false,
                       ),
-                      SettingType.recommendSetting => const RecommendSetting(
+                      .webdavSetting => const WebDavSettingPage(
                         showAppBar: false,
                       ),
-                      SettingType.videoSetting => const VideoSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.playSetting => const PlaySetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.styleSetting => const StyleSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.extraSetting => const ExtraSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.webdavSetting => const WebDavSettingPage(
-                        showAppBar: false,
-                      ),
-                      SettingType.about => const AboutPage(showAppBar: false),
+                      .about => const AboutPage(showAppBar: false),
                     },
                   ),
                 ],
@@ -149,7 +143,18 @@ class _SettingPageState extends State<SettingPage> {
 
   void _toPage(SettingType type) {
     if (_isPortrait) {
-      Get.toNamed('/${type.name}');
+      Get.to(
+        () => switch (type) {
+          .privacySetting ||
+          .recommendSetting ||
+          .videoSetting ||
+          .playSetting ||
+          .styleSetting ||
+          .extraSetting => CommonSetting(settingType: type),
+          .webdavSetting => const WebDavSettingPage(),
+          .about => const AboutPage(),
+        },
+      );
     } else {
       _type = type;
       setState(() {});
@@ -174,6 +179,7 @@ class _SettingPageState extends State<SettingPage> {
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
         _buildSearchItem(theme),
+        _buildEngineerEntrypoints(theme, titleStyle, subTitleStyle),
         ..._items
             .take(_items.length - 1)
             .map(
@@ -211,6 +217,37 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
+  Widget _buildEngineerEntrypoints(
+    ThemeData theme,
+    TextStyle titleStyle,
+    TextStyle subTitleStyle,
+  ) => Column(
+    children: [
+      ListTile(
+        leading: const Icon(Icons.speed_outlined),
+        title: Text('倍速设置', style: titleStyle),
+        subtitle: Text('默认、长按与倍速统计', style: subTitleStyle),
+        onTap: () => Get.toNamed('/playSpeedSet'),
+      ),
+      ListTile(
+        leading: const Icon(MdiIcons.cloudPlusOutline),
+        title: Text('CDN 设置', style: titleStyle),
+        subtitle: Text('优先级、测速与回退策略', style: subTitleStyle),
+        onTap: () => Get.toNamed('/cdnSettings'),
+      ),
+      ListTile(
+        leading: const Icon(Icons.lan_outlined),
+        title: Text('PC 网络状态联动判断', style: titleStyle),
+        subtitle: Text('等效宽带、等效移网与网络高峰期', style: subTitleStyle),
+        onTap: () => Get.toNamed('/networkPolicy'),
+      ),
+      Divider(
+        height: 1,
+        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+      ),
+    ],
+  );
+
   Future<void> _logoutDialog(BuildContext context) async {
     final result = await showDialog<Set<LoginAccount>>(
       context: context,
@@ -223,9 +260,21 @@ class _SettingPageState extends State<SettingPage> {
       ),
     );
     if (!context.mounted || result == null || result.isEmpty) return;
-    Future<void> logout() {
-      _noAccount.value = result.length == Accounts.account.length;
-      return Accounts.deleteAll(result);
+    Future<void> removeAccounts(Set<LoginAccount> accounts) async {
+      await Accounts.deleteAll(accounts);
+      _noAccount.value = Accounts.account.isEmpty;
+    }
+
+    Future<({LoginAccount account, bool success})> logoutAccount(
+      LoginAccount account,
+    ) async {
+      try {
+        final res = await LoginHttp.logout(account);
+        return (account: account, success: res['status'] == true);
+      } catch (e, s) {
+        Utils.reportError(e, s);
+        return (account: account, success: false);
+      }
     }
 
     showDialog(
@@ -248,9 +297,9 @@ class _SettingPageState extends State<SettingPage> {
               ),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Get.back();
-                logout();
+                await removeAccounts(result);
               },
               child: Text(
                 '仅登出',
@@ -260,14 +309,34 @@ class _SettingPageState extends State<SettingPage> {
             TextButton(
               onPressed: () async {
                 SmartDialog.showLoading();
-                final res = await LoginHttp.logout(Accounts.main);
-                if (res['status']) {
+                try {
+                  final responses = await Future.wait(
+                    result.map(logoutAccount),
+                  );
+                  final successfulAccounts = {
+                    for (final response in responses)
+                      if (response.success) response.account,
+                  };
+                  if (successfulAccounts.isNotEmpty) {
+                    await removeAccounts(successfulAccounts);
+                  }
+                  final failedMids = responses
+                      .where((response) => !response.success)
+                      .map((response) => response.account.mid)
+                      .join('、');
                   SmartDialog.dismiss();
-                  logout();
-                  Get.back();
-                } else {
+                  if (successfulAccounts.length == result.length) {
+                    Get.back();
+                  } else if (successfulAccounts.isEmpty) {
+                    SmartDialog.showToast('账号 $failedMids 退出登录失败');
+                  } else {
+                    Get.back();
+                    SmartDialog.showToast('账号 $failedMids 退出登录失败');
+                  }
+                } catch (e, s) {
+                  Utils.reportError(e, s);
                   SmartDialog.dismiss();
-                  SmartDialog.showToast(res['msg'].toString());
+                  SmartDialog.showToast('退出登录失败：$e');
                 }
               },
               child: const Text('确认'),
@@ -285,17 +354,14 @@ class _SettingPageState extends State<SettingPage> {
       bottom: 8,
     ),
     child: Material(
-      type: MaterialType.transparency,
+      color: theme.colorScheme.onInverseSurface,
+      borderRadius: const BorderRadius.all(Radius.circular(50)),
       child: InkWell(
         onTap: () => Get.toNamed('/settingsSearch'),
         borderRadius: const BorderRadius.all(Radius.circular(50)),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(50)),
-            color: theme.colorScheme.onInverseSurface,
-          ),
-          child: const Center(
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

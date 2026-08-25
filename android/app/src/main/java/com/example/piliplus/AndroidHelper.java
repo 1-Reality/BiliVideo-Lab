@@ -1,5 +1,6 @@
 package com.example.piliplus;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
@@ -15,14 +16,22 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.media.session.PlaybackState;
 import android.net.Uri;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.net.TrafficStats;
 import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Rational;
 import android.view.WindowManager;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Keep;
@@ -31,7 +40,10 @@ import androidx.annotation.RequiresApi;
 
 import com.github.dart_lang.jni_flutter.JniFlutterPlugin;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Objects;
 
 @Keep
@@ -57,6 +69,105 @@ public final class AndroidHelper {
 
     public static int sdkInt() {
         return Build.VERSION.SDK_INT;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static int[] networkInfo() {
+        Context context = getContext();
+        ConnectivityManager connectivityManager = context.getSystemService(ConnectivityManager.class);
+        NetworkCapabilities capabilities = connectivityManager == null
+                ? null
+                : connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+        if (capabilities == null) {
+            return null;
+        }
+
+        int linkSpeed = -1;
+        int rssi = -127;
+        int signalLevel = -1;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            WifiManager wifiManager = context.getSystemService(WifiManager.class);
+            WifiInfo wifiInfo = wifiManager == null ? null : wifiManager.getConnectionInfo();
+            if (wifiInfo != null) {
+                linkSpeed = wifiInfo.getLinkSpeed();
+                rssi = wifiInfo.getRssi();
+                if (rssi > -127 && rssi <= 0) {
+                    signalLevel = WifiManager.calculateSignalLevel(rssi, 5);
+                }
+            }
+        } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                SignalStrength strength = telephonyManager == null ? null : telephonyManager.getSignalStrength();
+                if (strength != null) {
+                    signalLevel = strength.getLevel();
+                }
+            } catch (SecurityException ignored) {
+            }
+        }
+
+        int flags = connectivityManager.isActiveNetworkMetered() ? 1 : 0;
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+            flags |= 2;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)) {
+            flags |= 4;
+        }
+        if (Build.VERSION.SDK_INT >= 36
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_BANDWIDTH_CONSTRAINED)) {
+            flags |= 8;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+            flags |= 16;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+            flags |= 32;
+        }
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            flags |= 64;
+        }
+        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
+            flags |= 128;
+        }
+        int networkType = -1;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                if (telephonyManager != null) {
+                    networkType = telephonyManager.getDataNetworkType();
+                }
+            } catch (SecurityException ignored) {
+            }
+        }
+        return new int[]{
+                linkSpeed,
+                rssi,
+                signalLevel,
+                flags,
+                capabilities.getLinkDownstreamBandwidthKbps(),
+                capabilities.getLinkUpstreamBandwidthKbps(),
+                networkType
+        };
+    }
+
+    public static String networkOperator() {
+        try {
+            TelephonyManager telephonyManager = getContext().getSystemService(TelephonyManager.class);
+            if (telephonyManager == null) {
+                return null;
+            }
+            String name = telephonyManager.getNetworkOperatorName();
+            return name == null || name.isEmpty() ? null : name;
+        } catch (SecurityException ignored) {
+            return null;
+        }
+    }
+
+    public static long[] trafficStats() {
+        int uid = android.os.Process.myUid();
+        return new long[]{TrafficStats.getUidRxBytes(uid), TrafficStats.getUidTxBytes(uid)};
     }
 
     public static void back() {
@@ -259,6 +370,27 @@ public final class AndroidHelper {
                 shortcutManager.requestPinShortcut(shortcut, pendingIntent.getIntentSender());
             }
         }
+    }
+
+    @SuppressLint("BlockedPrivateApi")
+    public static String[] fontFamilies() {
+        Map<String, Typeface> systemFontMap = null;
+        try {
+            Method method = Typeface.class.getDeclaredMethod("getSystemFontMap");
+            method.setAccessible(true);
+            systemFontMap = (Map<String, Typeface>) method.invoke(null);
+        } catch (Exception ignored) {
+            try {
+                @SuppressLint("DiscouragedPrivateApi") Field field = Typeface.class.getDeclaredField("sSystemFontMap");
+                field.setAccessible(true);
+                systemFontMap = (Map<String, Typeface>) field.get(null);
+            } catch (Exception ignored0) {
+            }
+        }
+        if (null != systemFontMap) {
+            return systemFontMap.keySet().toArray(new String[0]);
+        }
+        return null;
     }
 
     @Keep

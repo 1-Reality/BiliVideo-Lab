@@ -411,7 +411,7 @@ abstract final class Api {
 
   // github 获取最新版
   static const String latestApp =
-      'https://api.github.com/repos/bggRGjQaUbCoE/PiliPlus/releases';
+      'https://api.github.com/repos/ucxn/Bili.Libre.Speed/releases';
 
   // 多少人在看
   // https://api.bilibili.com/x/player/online/total?aid=913663681&cid=1203559746&bvid=BV1MM4y1s7NZ&ts=56427838
@@ -810,6 +810,8 @@ abstract final class Api {
 
   static const String topicFeed = '/x/polymer/web-dynamic/v1/feed/topic';
 
+  static const String topicFold = '/x/topic/web/details/fold';
+
   static const String spaceOpus = '/x/polymer/web-dynamic/v1/opus/feed/space';
 
   static const String articleList = '/x/article/list/web/articles';
@@ -1008,4 +1010,11 @@ abstract final class Api {
   static const String bubble = '/x/tribee/v1/dyn/all';
 
   static const String sortFollowTag = '/x/relation/tags/update_sort';
+
+  static const String replyReport = '/x/v2/reply/report';
+
+  static const String dynReaction = '/x/polymer/web-dynamic/v1/detail/reaction';
+
+  static const String liveFeedback =
+      '${HttpString.liveBaseUrl}/xlive/app-interface/v2/index/feedback';
 }

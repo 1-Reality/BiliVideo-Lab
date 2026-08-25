@@ -8,14 +8,16 @@ abstract final class SettingBoxKey {
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
       fullScreenMode = 'fullScreenMode',
-      defaultDecode = 'defaultDecode',
-      secondDecode = 'secondDecode',
+      preferCodecs = 'preferCodecs',
+      preferCodecsCellular = 'preferCodecsCellular',
       defaultToastOp = 'defaultToastOp',
       defaultPicQa = 'defaultPicQa',
       enableHA = 'enableHA',
       audioOutput = 'audioOutput',
       bufferSize = 'bufferSize',
       bufferSec = 'bufferSec',
+      bufferSizeCellular = 'bufferSizeCellular',
+      bufferSecCellular = 'bufferSecCellular',
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',
       autosync = 'autosync',
@@ -38,9 +40,13 @@ abstract final class SettingBoxKey {
       enableLongShowControl = 'enableLongShowControl',
       horizontalScreen = 'horizontalScreen',
       CDNService = 'CDNService',
+      CDNServices = 'CDNServices',
+      CDNServicesCellular = 'CDNServicesCellular',
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
+      longPressSpeedFactor = 'longPressSpeedFactor',
+      enableLongPressSlideSpeed = 'enableLongPressSlideSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
       enableQuickDouble = 'enableQuickDouble',
@@ -56,10 +62,10 @@ abstract final class SettingBoxKey {
       banWordForRecommend = 'banWordForRecommend',
       applyFilterToRelatedVideos = 'applyFilterToRelatedVideos',
       autoUpdate = 'autoUpdate',
-      autoClearCache = 'autoClearCache',
       maxCacheSize = 'maxCacheSize',
       defaultShowComment = 'defaultShowComment',
       replySortType = 'replySortType',
+      reply2SortType = 'reply2SortType',
       defaultDynamicType = 'defaultDynamicType',
       showDynInteraction = 'showDynInteraction',
       enableHotKey = 'enableHotKey',
@@ -94,7 +100,6 @@ abstract final class SettingBoxKey {
       banWordForZone = 'banWordForZone',
       savedRcmdTip = 'savedRcmdTip',
       openInBrowser = 'openInBrowser',
-      refreshDragPercentage = 'refreshDragPercentage',
       refreshDisplacement = 'refreshDisplacement',
       showHotRcmd = 'showHotRcmd',
       audioNormalization = 'audioNormalization',
@@ -129,7 +134,6 @@ abstract final class SettingBoxKey {
       retryDelay = 'retryDelay',
       liveQuality = 'liveQuality',
       liveQualityCellular = 'liveQualityCellular',
-      appFontWeight = 'appFontWeight',
       fastForBackwardDuration = 'fastForBackwardDuration',
       recordSearchHistory = 'recordSearchHistory',
       showPgcTimeline = 'showPgcTimeline',
@@ -155,7 +159,18 @@ abstract final class SettingBoxKey {
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
       removeSafeArea = 'removeSafeArea',
-      angleDegrees = 'angleDegrees';
+      angleDegrees = 'angleDegrees',
+      liveStream = 'liveStream';
+
+  static const String wiredNetworkPolicy = 'wiredNetworkPolicy',
+      wiredMinLinkSpeed = 'wiredMinLinkSpeed',
+      wiredNonstandardLinkSpeed = 'wiredNonstandardLinkSpeed',
+      wifiNetworkPolicy = 'wifiNetworkPolicy',
+      wifiNetworkPolicyMode = 'wifiNetworkPolicyMode',
+      wifiRssiThreshold = 'wifiRssiThreshold',
+      wifiMinLinkSpeed = 'wifiMinLinkSpeed',
+      networkPeakPeriods = 'networkPeakPeriods',
+      networkPeakCodecs = 'networkPeakCodecs';
 
   static const String minimizeOnExit = 'minimizeOnExit',
       windowSize = 'windowSize',
@@ -167,6 +182,7 @@ abstract final class SettingBoxKey {
       uiScale = 'uiScale';
 
   static const String subtitlePreferenceV2 = 'subtitlePreferenceV2',
+      subtitleFollowerThreshold = 'subtitleFollowerThreshold',
       enableDragSubtitle = 'enableDragSubtitle',
       subtitlePaddingH = 'subtitlePaddingH',
       subtitlePaddingB = 'subtitlePaddingB',
@@ -215,6 +231,7 @@ abstract final class SettingBoxKey {
 
   static const String themeMode = 'themeMode',
       defaultTextScale = 'textScale',
+      appFontWeight = 'appFontWeight',
       dynamicColor = 'dynamicColor',
       customColor = 'customColor',
       displayMode = 'displayMode',
@@ -236,7 +253,8 @@ abstract final class SettingBoxKey {
       tempPlayerConf = 'tempPlayerConf',
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
-      saveReply = 'saveReply';
+      saveReply = 'saveReply',
+      appFont = 'appFont';
 }
 
 abstract final class LocalCacheKey {
@@ -253,5 +271,7 @@ abstract final class VideoBoxKey {
       playSpeedDefault = 'playSpeedDefault',
       longPressSpeedDefault = 'longPressSpeedDefault',
       speedsList = 'speedsList',
+      playbackStats = 'playbackStats',
+      trafficStats = 'trafficStats',
       cacheVideoFit = 'cacheVideoFit';
 }
