@@ -294,15 +294,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       token.cancel();
     });
 
-    try {
-      await _dio.get(
-        url,
-        cancelToken: token,
-        onReceiveProgress: (count, _) {
-          if (count <= 0 || intentionalStop) return;
-          final now = watch.elapsedMicroseconds;
-          firstByteUs ??= now;
-          downloaded = count > limits.max ? limits.max : count;
+        downloaded = count;
 
           if (sampleStartUs == null && downloaded >= limits.warmup) {
             sampleStartUs = now;
