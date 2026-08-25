@@ -39,6 +39,11 @@ abstract final class PlaybackStatsService {
   static bool _temporaryRate = false;
   static double _defaultRate = 1;
   static _RewindEpisode? _rewind;
+  static int _trailingPauseUs = 0;
+  static int _trailingNormalPauseUs = 0;
+  static int _trailingRewindPauseUs = 0;
+  static final Map<String, int> _trailingNormalPauseBySpeed = {};
+  static final Map<String, int> _trailingRewindPauseBySpeed = {};
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -189,6 +194,7 @@ abstract final class PlaybackStatsService {
         ? null
         : 'cid:$cid';
     if (nextKey == null) {
+      if (_active && !_live) _reclassifyTrailingPauseAsComment();
       _finishRewind(now, completed: false);
       _active = false;
       _mediaKey = null;
@@ -200,6 +206,7 @@ abstract final class PlaybackStatsService {
 
     final sameMedia = _active && _live == isLive && _mediaKey == nextKey;
     if (!sameMedia) {
+      if (_active && !_live) _reclassifyTrailingPauseAsComment();
       _finishRewind(now, completed: false);
       if (isLive) {
         _videoUpUid = null;
@@ -275,6 +282,7 @@ abstract final class PlaybackStatsService {
       }
       if (playing != _playing) {
         if (playing) {
+          _clearTrailingPause();
           _add('playbackSegments', 1);
         } else if (!_completedIdle) {
           _add('pauseCount', 1);
@@ -358,6 +366,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live || _completedIdle) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    _reclassifyTrailingPauseAsComment();
     _add('completedVideos', 1);
     _addVideoUp('completedCount', 1);
     _completedIdle = true;
@@ -371,6 +380,7 @@ abstract final class PlaybackStatsService {
       _settleLive(now);
     } else {
       _settleVideo(position.inMicroseconds, now);
+      _reclassifyTrailingPauseAsComment();
     }
     _finishRewind(now, completed: false);
     _active = false;
@@ -528,19 +538,63 @@ abstract final class PlaybackStatsService {
     } else {
       _add('pausedUs', wallUs);
       _addVideoUp('pausedUs', wallUs);
+      _trailingPauseUs += wallUs;
       final rewind = _rewind;
       if (rewind == null) {
+        final speed = _speedKey(_rate);
         _add('normalPausedUs', wallUs);
-        _addBucket('normalSpeedPausedUs', _speedKey(_rate), wallUs);
+        _addBucket('normalSpeedPausedUs', speed, wallUs);
+        _trailingNormalPauseUs += wallUs;
+        _trailingNormalPauseBySpeed.update(
+          speed,
+          (value) => value + wallUs,
+          ifAbsent: () => wallUs,
+        );
       } else {
+        final speed = _speedKey(_rate);
         _add('rewindPausedUs', wallUs);
-        _addBucket('rewindSpeedPausedUs', _speedKey(_rate), wallUs);
+        _addBucket('rewindSpeedPausedUs', speed, wallUs);
+        _trailingRewindPauseUs += wallUs;
+        _trailingRewindPauseBySpeed.update(
+          speed,
+          (value) => value + wallUs,
+          ifAbsent: () => wallUs,
+        );
         rewind.pausedUs += wallUs;
       }
     }
 
     _lastWallUs = now;
     _lastPositionUs = positionUs;
+  }
+
+  static void _clearTrailingPause() {
+    _trailingPauseUs = 0;
+    _trailingNormalPauseUs = 0;
+    _trailingRewindPauseUs = 0;
+    _trailingNormalPauseBySpeed.clear();
+    _trailingRewindPauseBySpeed.clear();
+  }
+
+  static void _reclassifyTrailingPauseAsComment() {
+    if (_trailingPauseUs == 0) return;
+    _add('pausedUs', -_trailingPauseUs);
+    _addVideoUp('pausedUs', -_trailingPauseUs);
+    _add('commentAreaUs', _trailingPauseUs);
+    _addVideoUp('commentAreaUs', _trailingPauseUs);
+    _add('normalPausedUs', -_trailingNormalPauseUs);
+    _add('rewindPausedUs', -_trailingRewindPauseUs);
+    for (final entry in _trailingNormalPauseBySpeed.entries) {
+      _addBucket('normalSpeedPausedUs', entry.key, -entry.value);
+    }
+    for (final entry in _trailingRewindPauseBySpeed.entries) {
+      _addBucket('rewindSpeedPausedUs', entry.key, -entry.value);
+    }
+    final rewind = _rewind;
+    if (rewind != null) {
+      rewind.pausedUs = max(0, rewind.pausedUs - _trailingRewindPauseUs);
+    }
+    _clearTrailingPause();
   }
 
   static void _recordSeek(int fromUs, int toUs, int now) {
@@ -629,6 +683,7 @@ abstract final class PlaybackStatsService {
     }
     _rewind = null;
     _pendingPositionUs = null;
+    _clearTrailingPause();
   }
 
   static Map<String, dynamic> snapshot() {
@@ -773,6 +828,7 @@ abstract final class PlaybackStatsService {
     };
     _rewind = null;
     _pendingPositionUs = null;
+    _clearTrailingPause();
     _dirty = true;
     _appLastWallUs = _clock.elapsedMicroseconds;
     if (_active) {

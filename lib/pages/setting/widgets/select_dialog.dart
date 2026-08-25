@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,11 +10,13 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/pages/setting/widgets/checkbox_num_list_tile.dart';
+import 'package:PiliPlus/services/cdn_diagnostics_service.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SelectDialog<T> extends StatelessWidget {
@@ -261,9 +264,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
   late final List<CancelToken?> _tokens;
   late final bool _cdnSpeedTest;
   late final Map<CDNService, int> _tempValues;
+  late final int _testRunStartedAtUs;
 
   @override
   void initState() {
+    _testRunStartedAtUs = DateTime.now().microsecondsSinceEpoch;
     _tempValues = {
       for (final (index, item) in widget.initValues.indexed) item: index + 1,
     };
@@ -372,9 +377,10 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int index,
     ({int warmup, int max}) limits,
   ) async {
+    final dns = await _resolveDns(url);
+    final probes = await _measureLatencyProbes(url, index, limits.max);
     _CdnSpeedSample sample;
     try {
-      final probes = await _measureLatencyProbes(url, index, limits.max);
       final probeBytes = probes.fold<int>(0, (sum, probe) => sum + probe.bytes);
       final remainingBytes = limits.max - probeBytes;
       final streamMax = remainingBytes > 1 ? remainingBytes : 1;
@@ -386,11 +392,22 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         index,
         (warmup: streamWarmup < 0 ? 0 : streamWarmup, max: streamMax),
         probes,
+        dns,
       );
     } catch (e) {
       if (!mounted) return;
       if (kDebugMode) debugPrint('CDN stream speed test failed: $e');
-      sample = await _measureLegacy(url, index, limits, const []);
+      try {
+        sample = await _measureLegacy(url, index, limits, probes, dns);
+      } catch (fallbackError) {
+        sample = _CdnSpeedSample.error(
+          _speedTestErrorMessage(fallbackError),
+          sourceHost: Uri.parse(url).host,
+          dnsLookupUs: dns.elapsedUs,
+          dnsError: dns.error,
+          resolvedIps: dns.addresses,
+        );
+      }
     }
     if (mounted) _updateSpeedResult(index, sample);
   }
@@ -458,6 +475,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int index,
     ({int warmup, int max}) limits,
     List<_CdnLatencyProbe> probes,
+    _CdnDnsResult dns,
   ) async {
     final token = _newToken(index);
     final watch = Stopwatch()..start();
@@ -469,7 +487,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? sampleStartUs;
     var sampleStartBytes = 0;
     final points = <_CdnPoint>[];
-    List<String> resolvedIps = const [];
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
       intentionalStop = true;
@@ -509,7 +526,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         }
         if (downloaded >= limits.max) break;
       }
-      resolvedIps = await _resolveIps(url);
     } on DioException {
       if (!intentionalStop) rethrow;
     } finally {
@@ -527,7 +543,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       sampleStartBytes: sampleStartBytes,
       points: points,
       probes: probes,
-      resolvedIps: resolvedIps,
+      dns: dns,
+      sourceHost: Uri.parse(url).host,
       type: downloaded >= limits.max
           ? _CdnSpeedSampleType.complete
           : _CdnSpeedSampleType.partial,
@@ -539,6 +556,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int index,
     ({int warmup, int max}) limits,
     List<_CdnLatencyProbe> probes,
+    _CdnDnsResult dns,
   ) async {
     final token = _newToken(index);
     final watch = Stopwatch()..start();
@@ -598,7 +616,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       sampleStartBytes: sampleStartBytes,
       points: points,
       probes: probes,
-      resolvedIps: const [],
+      dns: dns,
+      sourceHost: Uri.parse(url).host,
       type: _CdnSpeedSampleType.fallback,
     );
   }
@@ -612,7 +631,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     required int sampleStartBytes,
     required List<_CdnPoint> points,
     required List<_CdnLatencyProbe> probes,
-    required List<String> resolvedIps,
+    required _CdnDnsResult dns,
+    required String sourceHost,
     required _CdnSpeedSampleType type,
   }) {
     watch.stop();
@@ -637,24 +657,148 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       measurementStartUs: startUs,
       points: points,
       probes: probes,
-      resolvedIps: resolvedIps,
+      resolvedIps: dns.addresses,
+      dnsLookupUs: dns.elapsedUs,
+      dnsError: dns.error,
+      sourceHost: sourceHost,
       type: type,
     );
   }
 
-  Future<List<String>> _resolveIps(String url) async {
+  Future<_CdnDnsResult> _resolveDns(String url) async {
+    final watch = Stopwatch()..start();
     try {
-      return (await InternetAddress.lookup(Uri.parse(url).host))
+      final addresses = (await InternetAddress.lookup(Uri.parse(url).host))
           .map((item) => item.address)
           .toSet()
           .toList(growable: false);
-    } catch (_) {
-      return const [];
+      watch.stop();
+      return (addresses: addresses, elapsedUs: watch.elapsedMicroseconds, error: null);
+    } catch (e) {
+      watch.stop();
+      return (
+        addresses: const <String>[],
+        elapsedUs: watch.elapsedMicroseconds,
+        error: e.toString(),
+      );
     }
   }
 
-  void _updateSpeedResult(int index, _CdnSpeedSample sample) =>
-      _cdnResList[index].value = sample;
+  Map<String, dynamic> _diagnosticRecord(
+    int index,
+    _CdnSpeedSample sample,
+  ) {
+    final cdn = CDNService.values[index];
+    final config = widget.speedConfig;
+    final profile = ConnectivityUtils.current;
+    final metrics = sample.hasError ? null : sample.metrics;
+    return {
+      'schemaVersion': 1,
+      'recordedAtUs': DateTime.now().microsecondsSinceEpoch,
+      'testRunStartedAtUs': _testRunStartedAtUs,
+      'cdn': {
+        'index': index,
+        'name': cdn.name,
+        'description': cdn.desc,
+        'sourceHost': sample.sourceHost,
+      },
+      if (config != null)
+        'config': {
+          'totalBytes': config.totalBytes,
+          'warmupBytes': config.warmupBytes,
+          'cooldownUs': config.cooldown.inMicroseconds,
+          'parallel': config.parallel,
+        },
+      if (profile != null)
+        'network': {
+          'transport': profile.transport.name,
+          'useCellularPreferences': profile.useCellularPreferences,
+          'rssi': profile.rssi,
+          'linkSpeedMbps': profile.linkSpeedMbps,
+          'signalLevel': profile.signalLevel,
+          'downstreamKbps': profile.downstreamKbps,
+          'upstreamKbps': profile.upstreamKbps,
+          'networkType': profile.networkType,
+          'carrierName': profile.carrierName,
+          'adapterName': profile.adapterName,
+          'adapterDescription': profile.adapterDescription,
+          'receiveLinkSpeedMbps': profile.receiveLinkSpeedMbps,
+          'transmitLinkSpeedMbps': profile.transmitLinkSpeedMbps,
+          'interfaceMetric': profile.interfaceMetric,
+          'mtu': profile.mtu,
+          'metered': profile.metered,
+          'captivePortal': profile.captivePortal,
+          'congested': profile.congested,
+          'bandwidthConstrained': profile.bandwidthConstrained,
+          'validated': profile.validated,
+          'internet': profile.internet,
+          'vpn': profile.vpn,
+          'roaming': profile.roaming,
+          'weakHint': profile.weakHint,
+        },
+      'sample': {
+        'type': sample.type.name,
+        'unit': sample.unit,
+        'error': sample.errorMessage,
+        'bytes': sample.bytes,
+        'elapsedUs': sample.elapsedUs,
+        'downloadedBytes': sample.downloaded,
+        'sampleStartBytes': sample.sampleStartBytes,
+        'measurementStartUs': sample.measurementStartUs,
+        'headersUs': sample.headersUs,
+        'firstByteUs': sample.firstByteUs,
+        'dnsLookupUs': sample.dnsLookupUs,
+        'dnsAddresses': sample.resolvedIps,
+        'dnsError': sample.dnsError,
+        'points': [
+          for (final point in sample.points)
+            {'elapsedUs': point.elapsedUs, 'bytes': point.bytes},
+        ],
+        'latencyProbes': [
+          for (final probe in sample.probes)
+            {
+              'headersUs': probe.headersUs,
+              'firstByteUs': probe.firstByteUs,
+              'bytes': probe.bytes,
+            },
+        ],
+      },
+      if (metrics != null)
+        'derived': {
+          'fixedWindowUs': _CdnMetrics.windowUs,
+          'averageRateBytesPerSecond': sample.averageRate,
+          'fixedWindowRatesBytesPerSecond': metrics.segmentRates,
+          'p02': metrics.p02,
+          'p05': metrics.p05,
+          'p50': metrics.p50,
+          'p95': metrics.p95,
+          'p98': metrics.p98,
+          'minRate': metrics.minRate,
+          'maxRate': metrics.maxRate,
+          'standardDeviation': metrics.standardDeviation,
+          'variance': metrics.variance,
+          'absoluteJitter': metrics.absoluteJitter,
+          'relativeJitter': metrics.relativeJitter,
+          'rollingLow': metrics.rollingLow,
+          'rollingHigh': metrics.rollingHigh,
+          'trendPercent': metrics.trendPercent,
+          'maxGapUs': metrics.maxGapUs,
+          'gap250ms': metrics.gap250ms,
+          'gap500ms': metrics.gap500ms,
+          'gap1000ms': metrics.gap1000ms,
+          'latencySamplesUs': metrics.latencySamples,
+          'latencyMeanUs': metrics.latencyMeanUs,
+          'latencyStdUs': metrics.latencyStdUs,
+          'latencyVariance': metrics.latencyVariance,
+          'latencyJitterUs': metrics.latencyJitterUs,
+        },
+    };
+  }
+
+  void _updateSpeedResult(int index, _CdnSpeedSample sample) {
+    _cdnResList[index].value = sample;
+    unawaited(CdnDiagnosticsService.append(_diagnosticRecord(index, sample)));
+  }
 
   void _handleSpeedTestError(dynamic error, int index) {
     _tokens
@@ -665,6 +809,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
     if (kDebugMode) debugPrint('CDN speed test error: $error');
     if (!mounted) return;
+    final message = _speedTestErrorMessage(error);
+    _updateSpeedResult(index, _CdnSpeedSample.error(message));
+  }
+
+  String _speedTestErrorMessage(dynamic error) {
     String message;
     if (error is DioException) {
       final statusCode = error.response?.statusCode;
@@ -679,7 +828,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     if (message.isEmpty) {
       message = '测速失败';
     }
-    item.value = _CdnSpeedSample.error(message);
+    return message;
   }
 
   String _rate(_CdnSpeedSample sample, double bytesPerSecond) =>
@@ -717,9 +866,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final metrics = sample.metrics;
     final rows = [
       '测试模式：${sample.type.name}；总接收 ${(sample.downloaded / 1048576).toStringAsPrecision(4)} MiB',
-      '测量区间：${_duration(sample.elapsedUs)}；传输片段：${metrics.segmentRates.length}',
+      '测量区间：${_duration(sample.elapsedUs)}；固定 250ms 窗口样本：${metrics.segmentRates.length}',
       '平均带宽：${_rate(sample, sample.averageRate)}',
-      '原始最小／最大：${_rate(sample, metrics.minRate)} ／ ${_rate(sample, metrics.maxRate)}',
+      '固定窗口最低／最高：${_rate(sample, metrics.minRate)} ／ ${_rate(sample, metrics.maxRate)}',
       'P02／P05／P50：${_rate(sample, metrics.p02)} ／ ${_rate(sample, metrics.p05)} ／ ${_rate(sample, metrics.p50)}',
       'P95／P98：${_rate(sample, metrics.p95)} ／ ${_rate(sample, metrics.p98)}',
       'P95−P05 极差：${_rate(sample, metrics.p95 - metrics.p05)}',
@@ -729,11 +878,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '带宽标准差：${_rate(sample, metrics.standardDeviation)}；方差 ${(metrics.variance / (sample.divisor * sample.divisor)).toStringAsPrecision(4)}',
       '带宽抖动：${_rate(sample, metrics.absoluteJitter)}；相对 ${(metrics.relativeJitter * 100).toStringAsPrecision(3)}%',
       '最大传输空窗：${_duration(metrics.maxGapUs)}；≥250/500/1000ms：${metrics.gap250ms}/${metrics.gap500ms}/${metrics.gap1000ms}',
-      '首包等待：${_ms(sample.firstByteUs)}；响应头：${sample.headersUs == null ? "—" : _ms(sample.headersUs!)}',
+      'DNS 查询：${_ms(sample.dnsLookupUs)}；首包等待（不含 DNS）：${_ms(sample.firstByteUs)}；响应头（不含 DNS）：${sample.headersUs == null ? "—" : _ms(sample.headersUs!)}',
       '首包样本：${metrics.latencySamples.length}；平均 ${_ms(metrics.latencyMeanUs)}；标准差 ${_ms(metrics.latencyStdUs)}；方差 ${(metrics.latencyVariance / 1000000).toStringAsPrecision(4)} ms²；抖动 ${_ms(metrics.latencyJitterUs)}',
-      '计算方法：带宽抖动为相邻传输片段速率差的绝对值平均；相对抖动 = 带宽抖动 ÷ 平均带宽。首包抖动按相邻首包等待差的绝对值平均计算。',
+      '计算方法：原始累计字节按固定 250ms 时间边界插值取样；带宽抖动为相邻固定窗口速率差的绝对值平均；相对抖动 = 带宽抖动 ÷ 平均带宽。首包抖动按相邻首包等待差的绝对值平均计算。',
       '综合排序优先看 P05 低谷带宽，再同时扣除相对抖动、首包等待与最大传输空窗；它只调整当前列表顺序，不会自动改写播放优先级。',
       if (sample.resolvedIps.isNotEmpty) 'DNS 地址：${sample.resolvedIps.join("，")}',
+      if (sample.dnsError case final error?) 'DNS 预解析异常：$error',
     ];
     showDialog(
       context: context,
@@ -778,7 +928,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                         ? (_cdnSpeedTest ? '正在等待测速' : '未测速')
                         : failed
                         ? sample.errorMessage!
-                        : '${_rate(sample, sample.averageRate)} · 首包 ${_ms(sample.firstByteUs)}',
+                        : '${_rate(sample, sample.averageRate)} · DNS ${_ms(sample.dnsLookupUs)} · 首包 ${_ms(sample.firstByteUs)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -818,16 +968,117 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     );
   }
 
+  void _showDiagnosticHistory(BuildContext context) {
+    final records = CdnDiagnosticsService.snapshot();
+    final encoder = const JsonEncoder.withIndent('  ');
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('CDN 历史诊断 · ${records.length} 条'),
+            actions: [
+              if (records.isNotEmpty)
+                IconButton(
+                  tooltip: '复制全部原始记录',
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: encoder.convert(records)),
+                    );
+                    if (dialogContext.mounted) {
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        const SnackBar(content: Text('已复制全部诊断记录')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.copy_all_outlined),
+                ),
+            ],
+          ),
+          body: records.isEmpty
+              ? const Center(child: Text('还没有保存过 CDN 诊断记录'))
+              : ListView.builder(
+                  itemCount: records.length,
+                  itemBuilder: (context, index) {
+                    final record = records[index];
+                    final cdn = record['cdn'] is Map
+                        ? record['cdn'] as Map
+                        : const {};
+                    final sample = record['sample'] is Map
+                        ? record['sample'] as Map
+                        : const {};
+                    final recordedAtUs =
+                        (record['recordedAtUs'] as num?)?.toInt() ?? 0;
+                    final timestamp = recordedAtUs == 0
+                        ? '时间未知'
+                        : DateTime.fromMicrosecondsSinceEpoch(
+                            recordedAtUs,
+                          ).toString();
+                    final error = sample['error'];
+                    final dnsUs = (sample['dnsLookupUs'] as num?) ?? 0;
+                    final firstByteUs = (sample['firstByteUs'] as num?) ?? 0;
+                    return ListTile(
+                      title: Text('${cdn['description'] ?? cdn['name'] ?? "CDN"} · $timestamp'),
+                      subtitle: Text(
+                        error == null
+                            ? 'DNS ${_ms(dnsUs)} · 首包 ${_ms(firstByteUs)}'
+                            : error.toString(),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        showDialog<void>(
+                          context: dialogContext,
+                          builder: (detailContext) => Dialog.fullscreen(
+                            child: Scaffold(
+                              appBar: AppBar(
+                                title: Text(
+                                  cdn['description']?.toString() ?? 'CDN 诊断原语',
+                                ),
+                                actions: [
+                                  IconButton(
+                                    tooltip: '复制本条记录',
+                                    onPressed: () => Clipboard.setData(
+                                      ClipboardData(text: encoder.convert(record)),
+                                    ),
+                                    icon: const Icon(Icons.copy_outlined),
+                                  ),
+                                ],
+                              ),
+                              body: SingleChildScrollView(
+                                padding: const EdgeInsets.all(16),
+                                child: SelectableText(encoder.convert(record)),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog.fullscreen(
       child: Scaffold(
-        appBar: AppBar(title: const Text('CDN 优先级与网络诊断')),
+        appBar: AppBar(
+          title: const Text('CDN 优先级与网络诊断'),
+          actions: [
+            IconButton(
+              tooltip: '历史诊断',
+              onPressed: () => _showDiagnosticHistory(context),
+              icon: const Icon(Icons.history),
+            ),
+          ],
+        ),
         body: Column(
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(18, 12, 18, 4),
-              child: Text('按编号依次尝试；当前 CDN 打不开时自动回退到下一项。首包等待、带宽抖动与百分位均按单个 CDN 独立计算。'),
+              child: Text('按编号依次尝试；当前 CDN 打不开时自动回退到下一项。DNS、首包等待、固定时间窗带宽抖动与百分位均按单个 CDN 独立计算。'),
             ),
             Expanded(
               child: LayoutBuilder(
@@ -887,6 +1138,11 @@ enum _CdnSpeedSampleType { complete, partial, fallback }
 
 typedef _CdnPoint = ({int elapsedUs, int bytes});
 typedef _CdnLatencyProbe = ({int headersUs, int firstByteUs, int bytes});
+typedef _CdnDnsResult = ({
+  List<String> addresses,
+  int elapsedUs,
+  String? error,
+});
 
 class _CdnSpeedSample {
   _CdnSpeedSample({
@@ -900,10 +1156,19 @@ class _CdnSpeedSample {
     required this.points,
     required this.probes,
     required this.resolvedIps,
+    required this.dnsLookupUs,
+    required this.dnsError,
+    required this.sourceHost,
     required this.type,
   }) : errorMessage = null;
 
-  _CdnSpeedSample.error(this.errorMessage)
+  _CdnSpeedSample.error(
+    this.errorMessage, {
+    this.sourceHost = '',
+    this.dnsLookupUs = 0,
+    this.dnsError,
+    this.resolvedIps = const [],
+  })
     : bytes = 0,
       elapsedUs = 1,
       firstByteUs = 0,
@@ -913,7 +1178,6 @@ class _CdnSpeedSample {
       measurementStartUs = 0,
       points = const [],
       probes = const [],
-      resolvedIps = const [],
       type = _CdnSpeedSampleType.fallback;
 
   final int bytes;
@@ -926,6 +1190,9 @@ class _CdnSpeedSample {
   final List<_CdnPoint> points;
   final List<_CdnLatencyProbe> probes;
   final List<String> resolvedIps;
+  final int dnsLookupUs;
+  final String? dnsError;
+  final String sourceHost;
   final _CdnSpeedSampleType type;
   final String? errorMessage;
 
@@ -941,6 +1208,8 @@ class _CdnSpeedSample {
 }
 
 class _CdnMetrics {
+  static const windowUs = 250000;
+
   _CdnMetrics._({
     required this.segmentRates,
     required this.p02,
@@ -994,19 +1263,18 @@ class _CdnMetrics {
   final double latencyJitterUs;
 
   factory _CdnMetrics.from(_CdnSpeedSample sample) {
-    final rates = <double>[];
+    final activePoints = sample.points
+        .where((point) => point.elapsedUs >= sample.measurementStartUs)
+        .toList(growable: false);
     var previousTime = sample.measurementStartUs;
     var previousBytes = sample.sampleStartBytes;
     var maxGapUs = 0;
     var gap250ms = 0;
     var gap500ms = 0;
     var gap1000ms = 0;
-    for (final point in sample.points) {
-      if (point.elapsedUs < sample.measurementStartUs) continue;
+    for (final point in activePoints) {
       final elapsed = point.elapsedUs - previousTime;
-      final bytes = point.bytes - previousBytes;
-      if (elapsed > 0 && bytes > 0) {
-        rates.add(bytes * Duration.microsecondsPerSecond / elapsed);
+      if (elapsed > 0 && point.bytes >= previousBytes) {
         if (elapsed > maxGapUs) maxGapUs = elapsed;
         if (elapsed >= 250000) gap250ms++;
         if (elapsed >= 500000) gap500ms++;
@@ -1014,6 +1282,42 @@ class _CdnMetrics {
       }
       previousTime = point.elapsedUs;
       previousBytes = point.bytes;
+    }
+
+    final rates = <double>[];
+    if (activePoints.isNotEmpty) {
+      var pointIndex = 0;
+      var leftTime = sample.measurementStartUs;
+      var leftBytes = sample.sampleStartBytes.toDouble();
+      double bytesAt(int targetUs) {
+        while (pointIndex < activePoints.length &&
+            activePoints[pointIndex].elapsedUs < targetUs) {
+          leftTime = activePoints[pointIndex].elapsedUs;
+          leftBytes = activePoints[pointIndex].bytes.toDouble();
+          pointIndex++;
+        }
+        if (pointIndex >= activePoints.length) return leftBytes;
+        final right = activePoints[pointIndex];
+        if (right.elapsedUs == leftTime) return right.bytes.toDouble();
+        final fraction = (targetUs - leftTime) /
+            (right.elapsedUs - leftTime);
+        return leftBytes + (right.bytes - leftBytes) * fraction;
+      }
+
+      final lastUs = activePoints.last.elapsedUs;
+      var windowStartUs = sample.measurementStartUs;
+      var windowStartBytes = sample.sampleStartBytes.toDouble();
+      while (windowStartUs + windowUs <= lastUs) {
+        final windowEndUs = windowStartUs + windowUs;
+        final windowEndBytes = bytesAt(windowEndUs);
+        rates.add(
+          math.max(0, windowEndBytes - windowStartBytes) *
+              Duration.microsecondsPerSecond /
+              windowUs,
+        );
+        windowStartUs = windowEndUs;
+        windowStartBytes = windowEndBytes;
+      }
     }
     if (rates.isEmpty) rates.add(sample.averageRate);
     final sorted = List<double>.of(rates)..sort();
@@ -1052,20 +1356,10 @@ class _CdnMetrics {
               ).reduce((a, b) => a + b) /
             (latency.length - 1);
     final rolling = <double>[];
-    final activePoints = sample.points
-        .where((point) => point.elapsedUs >= sample.measurementStartUs)
-        .toList(growable: false);
-    var startIndex = 0;
-    for (var endIndex = 0; endIndex < activePoints.length; endIndex++) {
-      while (startIndex < endIndex &&
-          activePoints[endIndex].elapsedUs - activePoints[startIndex].elapsedUs > 1000000) {
-        startIndex++;
-      }
-      final elapsed = activePoints[endIndex].elapsedUs - activePoints[startIndex].elapsedUs;
-      final bytes = activePoints[endIndex].bytes - activePoints[startIndex].bytes;
-      if (elapsed >= 250000 && bytes > 0) {
-        rolling.add(bytes * Duration.microsecondsPerSecond / elapsed);
-      }
+    const rollingWindowCount = 1000000 ~/ windowUs;
+    for (var index = rollingWindowCount; index <= rates.length; index++) {
+      final window = rates.sublist(index - rollingWindowCount, index);
+      rolling.add(window.reduce((a, b) => a + b) / window.length);
     }
     if (rolling.isEmpty) rolling.addAll(rates);
     final split = rates.length ~/ 2 == 0 ? 1 : rates.length ~/ 2;
