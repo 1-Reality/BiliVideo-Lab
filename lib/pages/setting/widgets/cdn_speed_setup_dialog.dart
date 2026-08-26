@@ -65,24 +65,16 @@ Future<CdnSpeedSetup?> showCdnSpeedSetupDialog(BuildContext context) async {
     return (config: null, sample: null);
   }
 
-  VideoDecodeFormatType initial = byCodec.keys.first;
-  final preferred = last.preferredCodec;
-  if (preferred != null) {
-    for (final item in byCodec.keys) {
-      if (item.name == preferred) {
-        initial = item;
-        break;
-      }
-    }
-  }
-
   final codec = await showDialog<VideoDecodeFormatType>(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('上次播放视频 · 选择编码'),
       contentPadding: const EdgeInsets.symmetric(vertical: 12),
       content: RadioGroup<VideoDecodeFormatType>(
-        groupValue: initial,
+        // This dialog advances immediately on selection. Keeping a visual
+        // default made tapping that already-selected codec a no-op, so leave
+        // the group unselected until the user actually chooses one.
+        groupValue: null,
         onChanged: (value) {
           if (value != null) Navigator.of(context).pop(value);
         },
