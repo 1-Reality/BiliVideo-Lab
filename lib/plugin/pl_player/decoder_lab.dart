@@ -37,6 +37,9 @@ class DecoderBenchmarkResult {
 
 extension DecoderLabController on PlPlayerController {
   static const _androidVoProperty = 'user-data/piliplus-decoder-lab-vo';
+  static const _androidHwdecProperty = 'user-data/piliplus-decoder-lab-hwdec';
+  static const _androidFallbackProperty =
+      'user-data/piliplus-decoder-lab-hwdec-fallback';
 
   bool _decoderLabPrimary(String hwdec) {
     if (Platform.isAndroid) {
@@ -104,22 +107,35 @@ extension DecoderLabController on PlPlayerController {
     final wasPlaying = player.state.playing;
     final oldPosition = player.state.position;
     final speed = playbackSpeed;
-    final media = player.current.last.copyWith(start: oldPosition);
+    final currentMedia = player.current.last;
+    final extras = Map<String, String>.from(
+      currentMedia.extras ?? const <String, String>{},
+    );
 
     if (Platform.isAndroid) {
-      // media_kit owns android.view.Surface / --wid. The Android build hook
-      // reads this property from its onLoad hook and chooses the requested VO
-      // while it still controls the required --wid -> --vo initialization
-      // order. Do not force mediacodec_embed after open(): doing so bypasses
-      // that lifecycle and can crash inside the native video output path.
-      await player.command([
-        'set',
-        _androidVoProperty,
-        mode.vo ?? '',
-      ]);
+      final labVo = mode.vo ?? 'gpu';
+      final fallback = labVo == 'mediacodec_embed' ? 'no' : '3';
+
+      // Apply the experiment as per-file options as well as through media_kit's
+      // Android on_load hook. This puts hwdec/vo on the same load lifecycle,
+      // before decoder probing begins, rather than changing hwdec globally and
+      // hoping the later Surface/VO recreation observes it.
+      extras
+        ..['hwdec'] = mode.hwdec
+        ..['vo'] = labVo
+        ..['hwdec-software-fallback'] = fallback;
+
+      await player.command(['set', _androidVoProperty, labVo]);
+      await player.command(['set', _androidHwdecProperty, mode.hwdec]);
+      await player.command(['set', _androidFallbackProperty, fallback]);
+    } else {
+      await player.command(['set', 'hwdec', mode.hwdec]);
     }
 
-    await player.command(['set', 'hwdec', mode.hwdec]);
+    final media = currentMedia.copyWith(
+      start: oldPosition,
+      extras: extras,
+    );
     await player.open(media, play: false);
     await setPlaybackSpeed(speed, recordSelection: false);
 
