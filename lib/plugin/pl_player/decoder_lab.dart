@@ -36,7 +36,7 @@ class DecoderBenchmarkResult {
 }
 
 extension DecoderLabController on PlPlayerController {
-  static const _androidVoMarkerPrefix = 'piliplus-decoder-lab-vo=';
+  static const _androidVoProperty = 'user-data/piliplus-decoder-lab-vo';
 
   bool _decoderLabPrimary(String hwdec) {
     if (Platform.isAndroid) {
@@ -108,14 +108,14 @@ extension DecoderLabController on PlPlayerController {
 
     if (Platform.isAndroid) {
       // media_kit owns android.view.Surface / --wid. The Android build hook
-      // reads this marker from its onLoad hook and chooses the requested VO
+      // reads this property from its onLoad hook and chooses the requested VO
       // while it still controls the required --wid -> --vo initialization
       // order. Do not force mediacodec_embed after open(): doing so bypasses
       // that lifecycle and can crash inside the native video output path.
       await player.command([
         'set',
-        'user-data',
-        mode.vo == null ? '' : '$_androidVoMarkerPrefix${mode.vo}',
+        _androidVoProperty,
+        mode.vo ?? '',
       ]);
     }
 
