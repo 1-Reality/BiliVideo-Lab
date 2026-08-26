@@ -1,5 +1,4 @@
 diff --git a/media_kit_video/windows/video_output.cc b/media_kit_video/windows/video_output.cc
-index 1153ce0..0000000 100644
 --- a/media_kit_video/windows/video_output.cc
 +++ b/media_kit_video/windows/video_output.cc
 @@ -55,9 +55,11 @@ VideoOutput::VideoOutput(int64_t handle,
