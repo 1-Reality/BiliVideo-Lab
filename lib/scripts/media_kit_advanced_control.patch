@@ -13,7 +13,7 @@ diff --git a/media_kit_video/windows/video_output.cc b/media_kit_video/windows/v
              {MPV_RENDER_PARAM_INVALID, nullptr},
          };
          // Create render context.
-@@ -147,7 +149,11 @@ void VideoOutput::NotifyRender() {
+@@ -147,8 +149,13 @@ void VideoOutput::NotifyRender() {
    if (destroyed_) {
      return;
    }
