@@ -4,19 +4,55 @@ on:
   push:
     branches:
       - feat/decoder-lab-glue
+  workflow_dispatch:
 
 jobs:
   windows:
     name: Windows decoder lab
-    uses: ./.github/workflows/win_x64.yml
-    permissions: write-all
-    with:
-      tag: ""
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Set version
+        shell: pwsh
+        run: lib/scripts/build.ps1
+
+      - name: Apply project patches
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
+
+      - name: Build Windows
+        shell: pwsh
+        run: flutter build windows --release --dart-define-from-file=pili_release.json --no-pub
+
+      - name: Pack Windows portable
+        shell: pwsh
+        run: Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "PiliBro_decoder_lab_windows_x64.zip"
+
+      - name: Upload Windows decoder lab
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          name: Windows-x64-decoder-lab
+          path: PiliBro_decoder_lab_windows_x64.zip
 
   android-arm64:
     name: Android arm64 decoder lab
     runs-on: ubuntu-latest
-    permissions: write-all
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
