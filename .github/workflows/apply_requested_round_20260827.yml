@@ -1,0 +1,36 @@
+name: Apply requested decoder and CDN round
+
+on:
+  push:
+    branches:
+      - feat/decoder-lab-glue
+    paths:
+      - tools/transform_large_files_20260827.py
+      - .github/workflows/apply_requested_round_20260827.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/decoder-lab-glue
+          fetch-depth: 0
+
+      - name: Apply large-file transformations
+        run: python tools/transform_large_files_20260827.py
+
+      - name: Commit transformed source
+        shell: bash
+        run: |
+          rm -f tools/transform_large_files_20260827.py
+          rm -f .github/workflows/apply_requested_round_20260827.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: refine decoder lab and CDN controls"
+          git push origin HEAD:feat/decoder-lab-glue
