@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.piliplus">
 
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -106,7 +108,7 @@
             <intent-filter android:label="PiliPlus">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEARCH" />
-                <action android:name="com.example.piliplus.SHORTCUT" />
+                <action android:name="org.BroTech.gege.piliplus.SHORTCUT" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

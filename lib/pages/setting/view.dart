@@ -179,6 +179,34 @@ class _SettingPageState extends State<SettingPage> {
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
         _buildSearchItem(theme),
+        ListTile(
+          onTap: () => Get.toNamed('/playSpeedSet'),
+          leading: const Icon(Icons.speed_outlined),
+          title: Text('倍速设置', style: titleStyle),
+          subtitle: Text(
+            '默认/长按倍速、滑动临时倍速与倍速统计',
+            style: subTitleStyle,
+          ),
+        ),
+        ListTile(
+          onTap: () => Get.toNamed('/cdnSettings'),
+          leading: const Icon(MdiIcons.cloudOutline),
+          title: Text('CDN 设置', style: titleStyle),
+          subtitle: Text(
+            '宽带/蜂窝优先级、测速与工程网络诊断',
+            style: subTitleStyle,
+          ),
+        ),
+        ListTile(
+          onTap: () => Get.toNamed('/networkPolicy'),
+          leading: const Icon(Icons.lan_outlined),
+          title: Text('PC 网络联动状态', style: titleStyle),
+          subtitle: Text(
+            '当前网卡、链路、RSSI、运营商与等效网络判定',
+            style: subTitleStyle,
+          ),
+        ),
+        const Divider(height: 1),
         ..._items
             .take(_items.length - 1)
             .map(
@@ -189,7 +217,13 @@ class _SettingPageState extends State<SettingPage> {
                 title: Text(item.type.title, style: titleStyle),
                 subtitle: item.subtitle == null
                     ? null
-                    : Text(item.subtitle!, style: subTitleStyle),
+                    : Text(
+                        item.type == SettingType.extraSetting &&
+                                Accounts.x
+                            ? item.subtitle!.replaceAll('ai', 'AI')
+                            : item.subtitle!,
+                        style: subTitleStyle,
+                      ),
               ),
             ),
         ListTile(

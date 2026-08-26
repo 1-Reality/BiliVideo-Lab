@@ -20,11 +20,24 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.media.session.PlaybackState;
 import android.net.Uri;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.net.TrafficStats;
 import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Rational;
 import android.view.WindowManager;
+import android.telephony.CellSignalStrength;
+import android.telephony.SignalStrength;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Keep;
@@ -62,6 +75,244 @@ public final class AndroidHelper {
 
     public static int sdkInt() {
         return Build.VERSION.SDK_INT;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static int[] networkInfo() {
+        Context context = getContext();
+        ConnectivityManager connectivityManager = context.getSystemService(ConnectivityManager.class);
+        NetworkCapabilities capabilities = connectivityManager == null
+                ? null
+                : connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+        if (capabilities == null) {
+            return null;
+        }
+
+        int linkSpeed = -1;
+        int rssi = -127;
+        int signalLevel = -1;
+        int cellularDbm = Integer.MAX_VALUE;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            WifiManager wifiManager = context.getSystemService(WifiManager.class);
+            WifiInfo wifiInfo = wifiManager == null ? null : wifiManager.getConnectionInfo();
+            if (wifiInfo != null) {
+                linkSpeed = wifiInfo.getLinkSpeed();
+                rssi = wifiInfo.getRssi();
+                if (rssi > -127 && rssi <= 0) {
+                    signalLevel = WifiManager.calculateSignalLevel(rssi, 5);
+                }
+            }
+        } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        ? SubscriptionManager.getDefaultDataSubscriptionId()
+                        : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        && telephonyManager != null
+                        && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                    telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+                }
+                SignalStrength strength = telephonyManager == null ? null : telephonyManager.getSignalStrength();
+                if (strength != null) {
+                    signalLevel = strength.getLevel();
+                    int bestLevel = -1;
+                    for (CellSignalStrength cell : strength.getCellSignalStrengths()) {
+                        int dbm = cell.getDbm();
+                        int level = cell.getLevel();
+                        if (dbm == Integer.MAX_VALUE || dbm >= 0 || dbm < -200) {
+                            continue;
+                        }
+                        if (level > bestLevel || (level == bestLevel && (cellularDbm == Integer.MAX_VALUE || dbm > cellularDbm))) {
+                            bestLevel = level;
+                            cellularDbm = dbm;
+                        }
+                    }
+                }
+            } catch (SecurityException | UnsupportedOperationException ignored) {
+            }
+        }
+
+        int flags = connectivityManager.isActiveNetworkMetered() ? 1 : 0;
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+            flags |= 2;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)) {
+            flags |= 4;
+        }
+        if (Build.VERSION.SDK_INT >= 36
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_BANDWIDTH_CONSTRAINED)) {
+            flags |= 8;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+            flags |= 16;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+            flags |= 32;
+        }
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            flags |= 64;
+        }
+        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
+            flags |= 128;
+        }
+        int networkType = -1;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        ? SubscriptionManager.getDefaultDataSubscriptionId()
+                        : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        && telephonyManager != null
+                        && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                    telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+                }
+                if (telephonyManager != null) {
+                    networkType = telephonyManager.getDataNetworkType();
+                }
+            } catch (SecurityException ignored) {
+            }
+        }
+        return new int[]{
+                linkSpeed,
+                rssi,
+                signalLevel,
+                flags,
+                capabilities.getLinkDownstreamBandwidthKbps(),
+                capabilities.getLinkUpstreamBandwidthKbps(),
+                networkType,
+                cellularDbm
+        };
+    }
+
+    public static String networkOperator() {
+        try {
+            TelephonyManager telephonyManager = getContext().getSystemService(TelephonyManager.class);
+            int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    ? SubscriptionManager.getDefaultDataSubscriptionId()
+                    : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    && telephonyManager != null
+                    && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+            }
+            if (telephonyManager == null) {
+                return null;
+            }
+            String name = telephonyManager.getNetworkOperatorName();
+            return name == null || name.isEmpty() ? null : name;
+        } catch (SecurityException ignored) {
+            return null;
+        }
+    }
+
+    public static String subscriptionInfoJson() {
+        Context context = getContext();
+        JSONObject root = new JSONObject();
+        try {
+            int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    ? SubscriptionManager.getDefaultDataSubscriptionId()
+                    : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            root.put("defaultDataSubscriptionId", defaultDataSubId);
+
+            TelephonyManager baseTelephony = context.getSystemService(TelephonyManager.class);
+            TelephonyManager dataTelephony = baseTelephony;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    && baseTelephony != null
+                    && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                dataTelephony = baseTelephony.createForSubscriptionId(defaultDataSubId);
+            }
+            if (dataTelephony != null) {
+                root.put("networkOperatorName", dataTelephony.getNetworkOperatorName());
+                root.put("networkOperator", dataTelephony.getNetworkOperator());
+                root.put("simOperatorName", dataTelephony.getSimOperatorName());
+                root.put("simOperator", dataTelephony.getSimOperator());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    root.put("dataNetworkType", dataTelephony.getDataNetworkType());
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    root.put("simCarrierId", dataTelephony.getSimCarrierId());
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    SignalStrength strength = dataTelephony.getSignalStrength();
+                    if (strength != null) {
+                        root.put("signalLevel", strength.getLevel());
+                        JSONArray cells = new JSONArray();
+                        for (CellSignalStrength cell : strength.getCellSignalStrengths()) {
+                            JSONObject item = new JSONObject();
+                            item.put("class", cell.getClass().getSimpleName());
+                            item.put("dbm", cell.getDbm());
+                            item.put("asuLevel", cell.getAsuLevel());
+                            item.put("level", cell.getLevel());
+                            item.put("raw", cell.toString());
+                            cells.put(item);
+                        }
+                        root.put("cellSignalStrengths", cells);
+                    }
+                }
+            }
+
+            SubscriptionManager manager = context.getSystemService(SubscriptionManager.class);
+            JSONArray subscriptions = new JSONArray();
+            if (manager != null) {
+                try {
+                    java.util.List<SubscriptionInfo> list = manager.getActiveSubscriptionInfoList();
+                    if (list != null) {
+                        for (SubscriptionInfo info : list) {
+                            JSONObject item = new JSONObject();
+                            item.put("subscriptionId", info.getSubscriptionId());
+                            item.put("simSlotIndex", info.getSimSlotIndex());
+                            item.put("displayName", String.valueOf(info.getDisplayName()));
+                            item.put("carrierName", String.valueOf(info.getCarrierName()));
+                            item.put("countryIso", info.getCountryIso());
+                            item.put("dataRoaming", info.getDataRoaming());
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                item.put("carrierId", info.getCarrierId());
+                                item.put("cardId", info.getCardId());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                item.put("portIndex", info.getPortIndex());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                item.put("embedded", info.isEmbedded());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                item.put("opportunistic", info.isOpportunistic());
+                                item.put("mccString", info.getMccString());
+                                item.put("mncString", info.getMncString());
+                            }
+                            boolean defaultData = info.getSubscriptionId() == defaultDataSubId;
+                            item.put("defaultData", defaultData);
+                            if (defaultData) {
+                                root.put("defaultDataSubscription", item);
+                            }
+                            subscriptions.put(item);
+                        }
+                    }
+                    root.put("readPhoneState", true);
+                } catch (SecurityException e) {
+                    root.put("readPhoneState", false);
+                    root.put("subscriptionError", e.getClass().getName());
+                }
+            }
+            root.put("subscriptions", subscriptions);
+            return root.toString();
+        } catch (Exception e) {
+            try {
+                root.put("error", e.getClass().getName() + ": " + e.getMessage());
+                return root.toString();
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
+
+    public static long[] trafficStats() {
+        int uid = android.os.Process.myUid();
+        return new long[]{TrafficStats.getUidRxBytes(uid), TrafficStats.getUidTxBytes(uid)};
     }
 
     public static void back() {

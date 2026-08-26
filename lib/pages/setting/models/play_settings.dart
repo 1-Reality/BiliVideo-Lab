@@ -17,6 +17,7 @@ import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -144,6 +145,14 @@ List<SettingsModel> get playSettings => [
     leading: const Icon(Icons.closed_caption_outlined),
     getSubtitle: () => '当前选择偏好：${Pref.subtitlePreferenceV2.desc}',
     onTap: _showSubtitleDialog,
+  ),
+  NormalModel(
+    title: 'AI 字幕粉丝数阈值',
+    leading: const Icon(Icons.people_outline),
+    getSubtitle: () => Pref.subtitleFollowerThreshold == 0
+        ? '当前关闭；仅用于“静音时自动启用”偏好'
+        : 'UP 主粉丝少于 ${Pref.subtitleFollowerThreshold} 时，非静音也启用 AI 字幕',
+    onTap: _showSubtitleFollowerThresholdDialog,
   ),
   if (PlatformUtils.isDesktop)
     SwitchModel(
@@ -311,6 +320,49 @@ Future<void> _showSubtitleDialog(
     );
     setState();
   }
+}
+
+Future<void> _showSubtitleFollowerThresholdDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  var value = Pref.subtitleFollowerThreshold.toString();
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('AI 字幕粉丝数阈值'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: value,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(
+          suffixText: '粉丝',
+          helperText: '设置为 0 关闭',
+        ),
+        onChanged: (text) => value = text,
+      ),
+      actions: [
+        TextButton(onPressed: Get.back, child: const Text('取消')),
+        TextButton(
+          onPressed: () async {
+            final threshold = int.tryParse(value);
+            if (threshold == null) {
+              SmartDialog.showToast('请输入有效的粉丝数');
+              return;
+            }
+            Get.back();
+            await GStorage.setting.put(
+              SettingBoxKey.subtitleFollowerThreshold,
+              threshold,
+            );
+            setState();
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<void> _showSuperChatDialog(

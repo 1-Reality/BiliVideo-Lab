@@ -16,6 +16,11 @@ abstract final class SettingBoxKey {
       audioOutput = 'audioOutput',
       bufferSize = 'bufferSize',
       bufferSec = 'bufferSec',
+      bufferSizeCellular = 'bufferSizeCellular',
+      bufferSecCellular = 'bufferSecCellular',
+      bufferSizeWeak = 'bufferSizeWeak',
+      bufferSecWeak = 'bufferSecWeak',
+      bufferWeakSync = 'bufferWeakSync',
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',
       autosync = 'autosync',
@@ -38,9 +43,13 @@ abstract final class SettingBoxKey {
       enableLongShowControl = 'enableLongShowControl',
       horizontalScreen = 'horizontalScreen',
       CDNService = 'CDNService',
+      CDNServices = 'CDNServices',
+      CDNServicesCellular = 'CDNServicesCellular',
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
+      longPressSpeedFactor = 'longPressSpeedFactor',
+      enableLongPressSlideSpeed = 'enableLongPressSlideSpeed',
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderOffset',
       enableQuickDouble = 'enableQuickDouble',
@@ -156,6 +165,24 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream';
 
+  static const String wiredNetworkPolicy = 'wiredNetworkPolicy',
+      wiredMinLinkSpeed = 'wiredMinLinkSpeed',
+      wiredNonstandardLinkSpeed = 'wiredNonstandardLinkSpeed',
+      wifiNetworkPolicy = 'wifiNetworkPolicy',
+      wifiNetworkPolicyMode = 'wifiNetworkPolicyMode',
+      wifiRssiThreshold = 'wifiRssiThreshold',
+      wifiMinLinkSpeed = 'wifiMinLinkSpeed',
+      networkPeakPeriods = 'networkPeakPeriods',
+      networkPeakCodecs = 'networkPeakCodecs',
+      cellularQualityMode = 'cellularQualityMode',
+      cellularQualityMatch = 'cellularQualityMatch',
+      cellularQualityJudgeMode = 'cellularQualityJudgeMode',
+      cellularDownstreamThresholdMbps = 'cellularDownstreamThresholdMbps',
+      cellularDbmThreshold = 'cellularDbmThreshold',
+      cellularSignalLevelThreshold = 'cellularSignalLevelThreshold',
+      webdavBackupPlaybackStats = 'webdavBackupPlaybackStats',
+      webdavBackupCdnDiagnostics = 'webdavBackupCdnDiagnostics';
+
   static const String minimizeOnExit = 'minimizeOnExit',
       windowSize = 'windowSize',
       windowPosition = 'windowPosition',
@@ -166,6 +193,7 @@ abstract final class SettingBoxKey {
       uiScale = 'uiScale';
 
   static const String subtitlePreferenceV2 = 'subtitlePreferenceV2',
+      subtitleFollowerThreshold = 'subtitleFollowerThreshold',
       enableDragSubtitle = 'enableDragSubtitle',
       subtitlePaddingH = 'subtitlePaddingH',
       subtitlePaddingB = 'subtitlePaddingB',
@@ -254,5 +282,7 @@ abstract final class VideoBoxKey {
       playSpeedDefault = 'playSpeedDefault',
       longPressSpeedDefault = 'longPressSpeedDefault',
       speedsList = 'speedsList',
+      playbackStats = 'playbackStats',
+      trafficStats = 'trafficStats',
       cacheVideoFit = 'cacheVideoFit';
 }
