@@ -44,6 +44,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
+
       - name: Build Windows
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
