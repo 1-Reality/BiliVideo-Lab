@@ -39,40 +39,52 @@ class DecoderBenchmarkResult {
 
 extension DecoderLabController on PlPlayerController {
   List<DecoderLabMode> get decoderLabModes {
+    final original = DecoderLabMode(
+      label: '当前设置',
+      hwdec: hwdec ?? 'no',
+      vo: Platform.isAndroid ? 'gpu' : null,
+    );
     if (Platform.isAndroid) {
-      return const [
-        DecoderLabMode(label: 'MediaCodec', hwdec: 'mediacodec', vo: 'gpu'),
-        DecoderLabMode(
+      return [
+        original,
+        const DecoderLabMode(
+          label: 'MediaCodec',
+          hwdec: 'mediacodec',
+          vo: 'gpu',
+        ),
+        const DecoderLabMode(
           label: 'MediaCodec Copy',
           hwdec: 'mediacodec-copy',
           vo: 'gpu',
         ),
-        DecoderLabMode(
+        const DecoderLabMode(
           label: 'MediaCodec Embed',
           hwdec: 'mediacodec',
           vo: 'mediacodec_embed',
         ),
-        DecoderLabMode(label: '软件解码', hwdec: 'no', vo: 'gpu'),
-        DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe', vo: 'gpu'),
+        const DecoderLabMode(label: '软件解码', hwdec: 'no', vo: 'gpu'),
+        const DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe', vo: 'gpu'),
       ];
     }
     if (Platform.isWindows) {
-      return const [
-        DecoderLabMode(label: 'D3D11VA', hwdec: 'd3d11va'),
-        DecoderLabMode(label: 'D3D11VA Copy', hwdec: 'd3d11va-copy'),
-        DecoderLabMode(label: 'NVDEC', hwdec: 'nvdec'),
-        DecoderLabMode(label: 'NVDEC Copy', hwdec: 'nvdec-copy'),
-        DecoderLabMode(label: 'D3D12VA', hwdec: 'd3d12va'),
-        DecoderLabMode(label: 'D3D12VA Copy', hwdec: 'd3d12va-copy'),
-        DecoderLabMode(label: 'CUDA', hwdec: 'cuda'),
-        DecoderLabMode(label: 'CUDA Copy', hwdec: 'cuda-copy'),
-        DecoderLabMode(label: '软件解码', hwdec: 'no'),
-        DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe'),
+      return [
+        original,
+        const DecoderLabMode(label: 'D3D11VA', hwdec: 'd3d11va'),
+        const DecoderLabMode(label: 'D3D11VA Copy', hwdec: 'd3d11va-copy'),
+        const DecoderLabMode(label: 'NVDEC', hwdec: 'nvdec'),
+        const DecoderLabMode(label: 'NVDEC Copy', hwdec: 'nvdec-copy'),
+        const DecoderLabMode(label: 'D3D12VA', hwdec: 'd3d12va'),
+        const DecoderLabMode(label: 'D3D12VA Copy', hwdec: 'd3d12va-copy'),
+        const DecoderLabMode(label: 'CUDA', hwdec: 'cuda'),
+        const DecoderLabMode(label: 'CUDA Copy', hwdec: 'cuda-copy'),
+        const DecoderLabMode(label: '软件解码', hwdec: 'no'),
+        const DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe'),
       ];
     }
-    return const [
-      DecoderLabMode(label: '软件解码', hwdec: 'no'),
-      DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe'),
+    return [
+      original,
+      const DecoderLabMode(label: '软件解码', hwdec: 'no'),
+      const DecoderLabMode(label: 'Auto Safe', hwdec: 'auto-safe'),
     ];
   }
 
