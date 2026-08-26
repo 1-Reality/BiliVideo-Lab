@@ -55,6 +55,7 @@ import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
+import 'package:PiliPlus/services/cdn_last_video_service.dart';
 import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -173,6 +174,8 @@ class VideoDetailController extends GetxController
   List<CDNService> _cdnPriority = const [CDNService.backupUrl];
   int _cdnIndex = 0;
   bool _cdnFallbackInProgress = false;
+  CDNService? _manualCdn;
+  String? _manualCdnPlaybackKey;
   Duration? defaultST;
   Duration? playedTime;
   String get playedTimePos {
@@ -742,10 +745,42 @@ class VideoDetailController extends GetxController
     return bestVideo ?? videoList.first;
   }
 
+  String get _cdnPlaybackKey => '$bvid:${cid.value}';
+
   CDNService get _currentCdn =>
       _cdnPriority.getOrNull(_cdnIndex) ?? _cdnPriority.first;
 
+  CDNService get currentCdn => _currentCdn;
+
+  bool get isCdnLockedForCurrentPlayback =>
+      _manualCdn != null && _manualCdnPlaybackKey == _cdnPlaybackKey;
+
+  Future<void> selectCdnForCurrentPlayback(CDNService cdn) async {
+    final wasPlaying = plPlayerController.playerStatus.isPlaying;
+    playedTime = plPlayerController.videoPlayerController?.state.position;
+    _manualCdn = cdn;
+    _manualCdnPlaybackKey = _cdnPlaybackKey;
+    _cdnPriority = [cdn];
+    _cdnIndex = 0;
+    _cdnFallbackInProgress = false;
+
+    if (data.dash != null) {
+      _selectPreferredStreams();
+    } else if (data.durl case final durl?) {
+      _selectLegacyStreams(durl);
+    }
+    SmartDialog.showToast('本次播放已锁定：${cdn.desc}');
+    await playerInit(autoplay: wasPlaying);
+  }
+
   void _resetCdnPriority(NetworkProfile profile) {
+    if (_manualCdnPlaybackKey == _cdnPlaybackKey && _manualCdn != null) {
+      _cdnPriority = [_manualCdn!];
+      _cdnIndex = 0;
+      return;
+    }
+    _manualCdn = null;
+    _manualCdnPlaybackKey = null;
     _cdnPriority = List.of(
       profile.useCellularPreferences
           ? Pref.defaultCDNServicesCellular
@@ -1148,6 +1183,18 @@ class VideoDetailController extends GetxController
         _pendingNetworkRefresh = false;
         preferCodecs = plPlayerController.effectivePreferCodecs;
         _selectPreferredStreams();
+        unawaited(
+          CdnLastVideoService.remember(
+            bvid: bvid,
+            cid: cid.value,
+            quality: currentVideoQa.value!.code,
+            preferredCodec: currentDecodeFormats.name,
+            videoType: _actualVideoType ?? videoType,
+            tryLook: plPlayerController.tryLook,
+            epId: epId,
+            seasonId: seasonId,
+          ),
+        );
         await _initPlayerIfNeeded(autoFullScreenFlag);
       } else {
         _autoPlay.value = false;
