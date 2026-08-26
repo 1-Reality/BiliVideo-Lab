@@ -1,0 +1,55 @@
+--- a/lib/pages/video/member/controller.dart
++++ b/lib/pages/video/member/controller.dart
+@@ -89,17 +89,9 @@
+ 
+   @override
+   Future<void> onRefresh() {
+-<<<<<<< HEAD
+-    if (!hasPrev) {
+-      return Future.value(null);
+-    }
+-    isLoadPrevious = true;
+-    return queryData();
+-=======
+     lastAid = null;
+     hasNext = true;
+     return super.onRefresh();
+->>>>>>> a78fe9df0 (fix: resolve several navigation and display bugs)
+   }
+ 
+   @override
+--- a/lib/utils/page_utils.dart
++++ b/lib/utils/page_utils.dart
+@@ -472,26 +472,20 @@
+         launchURL(url);
+       }
+     } else {
+-<<<<<<< HEAD
+       if (off) {
+         Get.offNamed(
+           '/webview',
+           parameters: {
+-            'url': url,
++            'url': url.http2https,
+             ...?parameters,
+           },
+         );
+       } else {
+-        PiliScheme.routePushFromUrl(url, parameters: parameters);
+-      }
+-=======
+-      Get.offOrToNamed(
+-        '/webview',
+-        parameters: {'url': url.http2https, ...?parameters},
+-        preventDuplicates: off,
+-        off: off,
+-      );
+->>>>>>> a78fe9df0 (fix: resolve several navigation and display bugs)
++        PiliScheme.routePushFromUrl(
++          url.http2https,
++          parameters: parameters,
++        );
++      }
+     }
+   }
+ 
