@@ -1,0 +1,46 @@
+diff --git a/media_kit_video/windows/video_output.cc b/media_kit_video/windows/video_output.cc
+index 1153ce0..0000000 100644
+--- a/media_kit_video/windows/video_output.cc
++++ b/media_kit_video/windows/video_output.cc
+@@ -55,9 +55,11 @@ VideoOutput::VideoOutput(int64_t handle,
+             },
+             nullptr,
+         };
++        int advanced_control = 1;
+         mpv_render_param params[] = {
+             {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_OPENGL},
+             {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
++            {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced_control},
+             {MPV_RENDER_PARAM_INVALID, nullptr},
+         };
+         // Create render context.
+@@ -69,7 +71,10 @@ VideoOutput::VideoOutput(int64_t handle,
+                 // rendering will take place in the |Render| method, which will
+                 // be called by Flutter on the render thread.
+                 auto that = reinterpret_cast<VideoOutput*>(context);
+-                that->NotifyRender();
++                // Advanced control requires mpv_render_context_update() on
++                // the render thread. Keep the mpv callback itself minimal.
++                that->thread_pool_ref_->Post(
++                    std::bind(&VideoOutput::NotifyRender, that));
+               },
+               reinterpret_cast<void*>(this));
+@@ -147,8 +152,14 @@ VideoOutput::~VideoOutput() {
+ void VideoOutput::NotifyRender() {
+   if (destroyed_) {
+     return;
+   }
+-  thread_pool_ref_->Post(std::bind(&VideoOutput::CheckAndResize, this));
+-  thread_pool_ref_->Post(std::bind(&VideoOutput::Render, this));
++  // With MPV_RENDER_PARAM_ADVANCED_CONTROL libmpv can hand decoder-backed
++  // textures directly to the render API. Acknowledge the update on the same
++  // serialized worker used for rendering and only draw when mpv requests it.
++  const uint64_t flags = mpv_render_context_update(render_context_);
++  if (!(flags & MPV_RENDER_UPDATE_FRAME)) {
++    return;
++  }
++  CheckAndResize();
++  Render();
+ }
+ 
+ void VideoOutput::Render() {
