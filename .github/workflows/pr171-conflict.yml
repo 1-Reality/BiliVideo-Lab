@@ -1,87 +1,128 @@
 name: PR171 semantic merge diagnostics
-
 on:
   push:
     branches: [resolve/pr171-ci]
-
 permissions:
   contents: read
-
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Reproduce resolved semantic port
+        with: {fetch-depth: 0}
+      - name: Semantic port
         shell: bash
         run: |
-          set +e
+          set -u
           git config user.name "PR171 merge diagnostic"
           git config user.email "pr171-merge@users.noreply.github.com"
           mkdir -p /tmp/pr171
-          : > /tmp/pr171/summary.txt
+          : >/tmp/pr171/summary.txt
 
-          collect_conflicts() {
-            git status --short | tee -a /tmp/pr171/summary.txt
-            git diff --name-only --diff-filter=U > /tmp/pr171/conflicts.txt
-            mkdir -p /tmp/pr171/stages
-            while IFS= read -r f; do
-              safe=$(printf '%s' "$f" | sed 's#/#__#g')
-              git show ":1:$f" > "/tmp/pr171/stages/${safe}.base" 2>/dev/null || true
-              git show ":2:$f" > "/tmp/pr171/stages/${safe}.ohos" 2>/dev/null || true
-              git show ":3:$f" > "/tmp/pr171/stages/${safe}.feature" 2>/dev/null || true
-              cp "$f" "/tmp/pr171/stages/${safe}.conflicted" 2>/dev/null || true
-            done < /tmp/pr171/conflicts.txt
-            git diff > /tmp/pr171/conflict.diff
-            cp -a /tmp/pr171 "$GITHUB_WORKSPACE/pr171-diagnostic"
-          }
-
-          echo "=== c24 ===" | tee -a /tmp/pr171/summary.txt
-          git cherry-pick c24de2cf355360f4a6090dafa4801ed7dba194d5
-          if [ $? -ne 0 ]; then
-            git checkout --ours lib/utils/android/bindings.g.dart
-            git apply --recount .pr171-resolve/c24-ohos-resolve.patch
-            git checkout 496e9b681087313cd9f0229168e6792ddd574539 -- lib/utils/android/android_helper.dart
-            python3 - <<'PY'
+          git cherry-pick c24de2cf355360f4a6090dafa4801ed7dba194d5 || true
+          python3 - <<'PY'
           from pathlib import Path
-          p=Path('lib/utils/android/android_helper.dart'); s=p.read_text()
-          needle='  static void back() {}\n'
+          import subprocess
+
+          def resolve(path, choices):
+              p=Path(path); text=p.read_text(); pos=0; out=[]; i=0
+              while True:
+                  a=text.find('<<<<<<<',pos)
+                  if a<0:
+                      out.append(text[pos:]); break
+                  out.append(text[pos:a])
+                  ls=text.find('\n',a)+1; b=text.find('=======',ls); bl=text.find('\n',b)+1
+                  c=text.find('>>>>>>>',bl); ce=text.find('\n',c)
+                  ce=len(text) if ce<0 else ce+1
+                  ours=text[ls:b]; theirs=text[bl:c]
+                  choice=choices[i]; i+=1
+                  if callable(choice): out.append(choice(ours,theirs))
+                  elif choice=='ours': out.append(ours)
+                  elif choice=='theirs': out.append(theirs)
+                  elif choice=='empty': pass
+                  else: out.append(choice)
+                  pos=ce
+              if i!=len(choices): raise RuntimeError((path,i,len(choices)))
+              p.write_text(''.join(out))
+
+          audio='''    final player = this.player;\n    if (player != null) {\n      await player.open(\n        Media(\n          url,\n          start: _start,\n          httpHeaders: {\n            'user-agent': ua,\n            'referer': ?referer,\n          },\n        ),\n        play: autoplay ?? _autoplayOnOpen,\n      );\n    }\n    _autoplayOnOpen = true;\n'''
+          resolve('lib/pages/audio/controller.dart',[audio])
+          p=Path('lib/pages/audio/controller.dart'); s=p.read_text()
+          s=s.replace('    bool autoplay = true,\n  }) async {\n    await _initPlayerIfNeeded();','    bool? autoplay,\n  }) async {\n    await _initPlayerIfNeeded();',1); p.write_text(s)
+
+          live0='''    HarmonyChannel.holdContinuation(this);\n    if (Get.parameters['onlyAudio'] == 'true') {\n      plPlayerController.onlyPlayAudio.value = true;\n    }\n    _previousNetworkPolicyCallback = plPlayerController.onNetworkPolicyChanged;\n    plPlayerController.onNetworkPolicyChanged = _onNetworkPolicyChanged;\n    queryLiveUrl(\n      autoplay: Get.parameters['autoplay'] != 'false',\n      autoFullScreenFlag: true,\n    );\n'''
+          live5='''    HarmonyChannel.releaseContinuation(this);\n    PlaybackStatsService.endMediaIfMatches(\n      isLive: true,\n      liveUid: ruid,\n      position: plPlayerController.videoPlayerController?.state.position ?? Duration.zero,\n    );\n    plPlayerController.onNetworkPolicyChanged = _previousNetworkPolicyCallback;\n'''
+          resolve('lib/pages/live_room/controller.dart',[live0,'theirs','theirs','ours','ours',live5])
+          p=Path('lib/pages/live_room/controller.dart'); s=p.read_text()
+          needle='          liveUrlIndex: liveUrlIndex,\n          autoplay: autoplay,\n        );'
+          if needle in s: s=s.replace(needle,'          liveUrlIndex: liveUrlIndex,\n          autoplay: autoplay,\n          autoFullScreenFlag: autoFullScreenFlag,\n        );',1)
+          p.write_text(s)
+
+          resolve('lib/pages/video/controller.dart',['theirs'])
+          resolve('lib/pages/video/widgets/header_control.dart',['empty'])
+
+          def plreload(ours,theirs):
+              anchor='    String? audioUri;\n'
+              ins='    PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position ?? Duration.zero,\n    );\n'+anchor
+              return ours.replace(anchor,ins,1)
+          pldispose='''    PlaybackStatsService.endMedia(\n      _videoPlayerController?.state.position ?? Duration.zero,\n    );\n    await _videoPlayerController?.dispose();\n'''
+          resolve('lib/plugin/pl_player/controller.dart',['theirs',plreload,pldispose])
+
+          lifecycle='''    if (const <AppLifecycleState>[.paused, .detached].contains(state)) {\n      unawaited(PlaybackStatsService.flush());\n    }\n    final player = plPlayerController.videoPlayerController;\n    if (player == null) return;\n    if (state != AppLifecycleState.paused && state != AppLifecycleState.detached) {\n      plPlayerController.autoResumeInPipIfNeeded();\n    }\n'''
+          resolve('lib/plugin/pl_player/view/view.dart',[lifecycle])
+
+          storage='''    if (OS.isHarmony) return const <VideoDecodeFormatType>[.HEVC, .AVC];\n    return PlatformUtils.isMobile\n        ? const <VideoDecodeFormatType>[.AVC, .HEVC]\n        : const <VideoDecodeFormatType>[.AVC, .AV1];\n'''
+          resolve('lib/utils/storage_pref.dart',[storage])
+
+          subprocess.run(['git','checkout','--ours','lib/utils/android/bindings.g.dart'],check=True)
+          feature=subprocess.check_output(['git','show',':3:lib/utils/connectivity_utils.dart'],text=True)
+          feature=feature.replace('StreamSubscription<List<ConnectivityResult>>?', 'StreamSubscription<ConnectivityResult>?')
+          feature=feature.replace('if (connectivity.length == 1 &&\n          connectivity.single == ConnectivityResult.none)', 'if (connectivity == ConnectivityResult.none)')
+          feature=feature.replace('connectivity.contains(ConnectivityResult.wifi)', 'connectivity == ConnectivityResult.wifi')
+          feature=feature.replace('connectivity.contains(ConnectivityResult.ethernet)', 'connectivity == ConnectivityResult.ethernet')
+          feature=feature.replace('connectivity.contains(ConnectivityResult.mobile)', 'connectivity == ConnectivityResult.mobile')
+          Path('lib/utils/connectivity_utils.dart').write_text(feature)
+
+          subprocess.run(['git','checkout','496e9b681087313cd9f0229168e6792ddd574539','--','lib/utils/android/android_helper.dart'],check=True)
+          p=Path('lib/utils/android/android_helper.dart'); s=p.read_text(); needle='  static void back() {}\n'
           addition='''  static void back() {}\n\n  static ({\n    int? linkSpeed,\n    int? rssi,\n    int? signalLevel,\n    bool metered,\n    bool weakHint,\n  })? networkInfo() => null;\n'''
-          if 'networkInfo()' not in s:
-              s=s.replace(needle,addition,1)
-          p.write_text(s)
-          p=Path('lib/plugin/pl_player/controller.dart'); s=p.read_text()
-          anchor='    String? audioUri;\n'
-          insert='    PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position ?? Duration.zero,\n    );\n    String? audioUri;\n'
-          if 'PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position' not in s:
-              s=s.replace(anchor,insert,1)
-          p.write_text(s)
+          s=s.replace(needle,addition,1); p.write_text(s)
           PY
-            git add -A
-            git cherry-pick --continue || { echo C24_RESOLUTION_FAILED >> /tmp/pr171/summary.txt; collect_conflicts; exit 0; }
-          fi
+          if grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' lib android; then echo C24_MARKERS_REMAIN; exit 1; fi
+          git add android lib
+          git cherry-pick --continue
 
-          echo "=== a78 ===" | tee -a /tmp/pr171/summary.txt
-          git cherry-pick a78fe9df0e360e24bdd484957fd0401bb45ec419
-          if [ $? -ne 0 ]; then
-            git apply --recount .pr171-resolve/a78-ohos-resolve.patch
-            git add -A
-            git cherry-pick --continue || { echo A78_RESOLUTION_FAILED >> /tmp/pr171/summary.txt; collect_conflicts; exit 0; }
-          fi
+          git cherry-pick a78fe9df0e360e24bdd484957fd0401bb45ec419 || true
+          python3 - <<'PY'
+          from pathlib import Path
+          def resolve(path, choice):
+              p=Path(path); t=p.read_text(); a=t.find('<<<<<<<'); ls=t.find('\n',a)+1; b=t.find('=======',ls); bl=t.find('\n',b)+1; c=t.find('>>>>>>>',bl); ce=t.find('\n',c); ce=len(t) if ce<0 else ce+1
+              ours=t[ls:b]; theirs=t[bl:c]
+              repl=theirs if choice=='theirs' else choice
+              p.write_text(t[:a]+repl+t[ce:])
+          resolve('lib/pages/video/member/controller.dart','theirs')
+          custom='''      if (off) {\n        Get.offNamed(\n          '/webview',\n          parameters: {'url': url.http2https, ...?parameters},\n        );\n      } else {\n        PiliScheme.routePushFromUrl(url.http2https, parameters: parameters);\n      }\n'''
+          resolve('lib/utils/page_utils.dart',custom)
+          PY
+          if grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' lib; then echo A78_MARKERS_REMAIN; exit 1; fi
+          git add lib
+          git cherry-pick --continue
 
-          echo "=== 0af ===" | tee -a /tmp/pr171/summary.txt
           git cherry-pick 0af224fafcf2a440cd915f861e69eca5cf1714a0
-          if [ $? -ne 0 ]; then
-            collect_conflicts
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            git status --short >/tmp/pr171/summary.txt
+            git diff --name-only --diff-filter=U >/tmp/pr171/conflicts.txt
+            git diff >/tmp/pr171/conflict.diff
+            cp -a /tmp/pr171 "$GITHUB_WORKSPACE/pr171-diagnostic"
             exit 0
           fi
 
-          echo "ALL_THREE_COMMITS_PORTED" | tee -a /tmp/pr171/summary.txt
-          git log --oneline -5 >> /tmp/pr171/summary.txt
-          git diff 496e9b681087313cd9f0229168e6792ddd574539..HEAD > /tmp/pr171/result.diff
-          git diff --check 496e9b681087313cd9f0229168e6792ddd574539..HEAD >> /tmp/pr171/summary.txt 2>&1
+          echo ALL_THREE_COMMITS_PORTED >/tmp/pr171/summary.txt
+          if grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' lib android >>/tmp/pr171/summary.txt; then echo MARKERS_REMAIN >>/tmp/pr171/summary.txt; fi
+          git diff --check 496e9b681087313cd9f0229168e6792ddd574539..HEAD >>/tmp/pr171/summary.txt 2>&1
+          git diff 496e9b681087313cd9f0229168e6792ddd574539..HEAD >/tmp/pr171/result.diff
+          git status --short >>/tmp/pr171/summary.txt
           cp -a /tmp/pr171 "$GITHUB_WORKSPACE/pr171-diagnostic"
       - uses: actions/upload-artifact@v4
         with:
