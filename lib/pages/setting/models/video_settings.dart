@@ -7,6 +7,7 @@ import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/cdn_speed_setup_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
@@ -238,17 +239,18 @@ Future<void> _showCDNDialog(
   VoidCallback setState, {
   required bool cellular,
 }) async {
-  final speedConfig = Pref.cdnSpeedTest
-      ? await showCdnSpeedConfigDialog(context)
+  final speedSetup = Pref.cdnSpeedTest
+      ? await showCdnSpeedSetupDialog(context)
       : null;
-  if (Pref.cdnSpeedTest && speedConfig == null || !context.mounted) return;
+  if (!context.mounted) return;
   final res = await showDialog<List<CDNService>>(
     context: context,
     builder: (context) => CdnSelectDialog(
+      sample: speedSetup?.sample,
       initValues: cellular
           ? Pref.defaultCDNServicesCellular
           : Pref.defaultCDNServices,
-      speedConfig: speedConfig,
+      speedConfig: speedSetup?.config,
     ),
   );
   if (res != null && res.isNotEmpty) {

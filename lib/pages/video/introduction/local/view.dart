@@ -34,6 +34,8 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
 
   int _decoderModeIndex = 0;
   int _benchmarkSeconds = 10;
+  double _benchmarkSpeed = 10.0;
+  bool _showAllDecoders = false;
   bool _benchmarking = false;
   bool _decoderFrameDrop = false;
   bool _skipNonRef = false;
@@ -75,6 +77,10 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
       _decoderModeIndex = 0;
     }
     final result = _lastBenchmark;
+    final visibleModeIndexes = <int>[
+      for (final (index, mode) in modes.indexed)
+        if (_showAllDecoders || mode.primary || index == _decoderModeIndex) index,
+    ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -116,7 +122,8 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   spacing: 6,
-                  children: List.generate(modes.length, (index) {
+                  children: List.generate(visibleModeIndexes.length, (visibleIndex) {
+                    final index = visibleModeIndexes[visibleIndex];
                     final mode = modes[index];
                     return ChoiceChip(
                       label: Text(mode.label),
@@ -145,6 +152,23 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                             },
                     );
                   }),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _benchmarking
+                      ? null
+                      : () => setState(() => _showAllDecoders = !_showAllDecoders),
+                  icon: Icon(
+                    _showAllDecoders ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _showAllDecoders
+                        ? '收起更多解码器'
+                        : '展开全部 ${modes.length - 1} 个解码器',
+                  ),
                 ),
               ),
               Wrap(
@@ -183,6 +207,31 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                               }
                             }
                           },
+                  ),
+                  PopupMenuButton<double>(
+                    enabled: !_benchmarking,
+                    initialValue: _benchmarkSpeed,
+                    onSelected: (value) {
+                      setState(() => _benchmarkSpeed = value);
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 0.0, child: Text('不改变')),
+                      PopupMenuItem(value: 4.0, child: Text('4×')),
+                      PopupMenuItem(value: 6.0, child: Text('6×')),
+                      PopupMenuItem(value: 8.0, child: Text('8×')),
+                      PopupMenuItem(value: 10.0, child: Text('10×')),
+                      PopupMenuItem(value: 12.0, child: Text('12×')),
+                      PopupMenuItem(value: 13.5, child: Text('13.5×')),
+                      PopupMenuItem(value: 15.0, child: Text('15×')),
+                      PopupMenuItem(value: 16.0, child: Text('16×')),
+                    ],
+                    child: Chip(
+                      label: Text(
+                        _benchmarkSpeed == 0
+                            ? '倍速：不改变'
+                            : '倍速：${_benchmarkSpeed.toStringAsFixed(_benchmarkSpeed % 1 == 0 ? 0 : 1)}×',
+                      ),
+                    ),
                   ),
                   PopupMenuButton<int>(
                     enabled: !_benchmarking,
@@ -237,12 +286,15 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
     setState(() {
       _benchmarking = true;
       _lastBenchmark = null;
-      _labMessage =
-          '${mode.label}：按当前 ${player.playbackSpeed.toStringAsFixed(2)}× 跑 $_benchmarkSeconds 秒…';
+      final target = _benchmarkSpeed == 0
+          ? '当前 ${player.playbackSpeed.toStringAsFixed(2)}×'
+          : '${_benchmarkSpeed.toStringAsFixed(_benchmarkSpeed % 1 == 0 ? 0 : 1)}×';
+      _labMessage = '${mode.label}：按 $target 跑 $_benchmarkSeconds 秒…';
     });
     try {
       final result = await player.runDecoderBenchmark(
         mode: mode,
+        targetSpeed: _benchmarkSpeed == 0 ? null : _benchmarkSpeed,
         wallTime: Duration(seconds: _benchmarkSeconds),
       );
       if (!mounted) return;
