@@ -82,6 +82,10 @@ jobs:
               shell: pwsh
               run: lib/scripts/patch.ps1 android
 
+            - name: Apply media_kit Android decoder lab hook
+              shell: pwsh
+              run: lib/scripts/patch_media_kit_android_decoder_lab.ps1
+
             - name: Write fixed Android signing key
               env:
                   SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
