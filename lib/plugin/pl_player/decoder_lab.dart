@@ -8,11 +8,13 @@ class DecoderLabMode {
     required this.label,
     required this.hwdec,
     required this.primary,
+    this.vo,
   });
 
   final String label;
   final String hwdec;
   final bool primary;
+  final String? vo;
 }
 
 class DecoderBenchmarkResult {
@@ -34,6 +36,8 @@ class DecoderBenchmarkResult {
 }
 
 extension DecoderLabController on PlPlayerController {
+  static const _androidVoMarkerPrefix = 'piliplus-decoder-lab-vo=';
+
   bool _decoderLabPrimary(String hwdec) {
     if (Platform.isAndroid) {
       return const {
@@ -72,6 +76,13 @@ extension DecoderLabController on PlPlayerController {
         hwdec: current,
         primary: true,
       ),
+      if (Platform.isAndroid)
+        const DecoderLabMode(
+          label: 'mediacodec + mediacodec_embed · MediaCodec Embed',
+          hwdec: 'mediacodec',
+          vo: 'mediacodec_embed',
+          primary: true,
+        ),
       for (final type in HwDecType.values)
         DecoderLabMode(
           label: '${type.hwdec} · ${type.desc}',
@@ -95,9 +106,21 @@ extension DecoderLabController on PlPlayerController {
     final speed = playbackSpeed;
     final media = player.current.last.copyWith(start: oldPosition);
 
+    if (Platform.isAndroid) {
+      // media_kit owns android.view.Surface / --wid. The Android build hook
+      // reads this marker from its onLoad hook and chooses the requested VO
+      // while it still controls the required --wid -> --vo initialization
+      // order. Do not force mediacodec_embed after open(): doing so bypasses
+      // that lifecycle and can crash inside the native video output path.
+      await player.command([
+        'set',
+        'user-data',
+        mode.vo == null ? '' : '$_androidVoMarkerPrefix${mode.vo}',
+      ]);
+    }
+
     await player.command(['set', 'hwdec', mode.hwdec]);
     await player.open(media, play: false);
-    await player.command(['set', 'hwdec', mode.hwdec]);
     await setPlaybackSpeed(speed, recordSelection: false);
 
     if (wasPlaying) {
