@@ -18,17 +18,14 @@ if (-not $MediaKitDir) {
 
 $Target = Join-Path $MediaKitDir.FullName $RelativePath
 $Text = [IO.File]::ReadAllText($Target)
-$Old = @'
+
+$OldGetter = @'
   /// --vo
   String get vo => configuration.vo ?? 'gpu';
 '@
-$New = @'
-  /// --vo
-  ///
-  /// Decoder lab may request a different Android VO for the current player.
-  /// Read it here so media_kit still owns the Surface/--wid/--vo ordering.
-  String? get _decoderLabVo {
-    final name = 'user-data/piliplus-decoder-lab-vo'.toNativeUtf8();
+$NewGetter = @'
+  String? _decoderLabProperty(String property) {
+    final name = property.toNativeUtf8();
     final value = NativePlayer.mpv.mpv_get_property_string(player.ctx, name);
     calloc.free(name.cast());
     if (value.address == 0) return null;
@@ -37,14 +34,62 @@ $New = @'
     return result.isEmpty ? null : result;
   }
 
-  String get vo => _decoderLabVo ?? configuration.vo ?? 'gpu';
+  /// --vo
+  String get vo =>
+      _decoderLabProperty('user-data/piliplus-decoder-lab-vo') ??
+      configuration.vo ??
+      'gpu';
+
+  String? get _decoderLabHwdec =>
+      _decoderLabProperty('user-data/piliplus-decoder-lab-hwdec');
+
+  String? get _decoderLabHwdecFallback =>
+      _decoderLabProperty('user-data/piliplus-decoder-lab-hwdec-fallback');
 '@
 
-$Count = ([regex]::Matches($Text, [regex]::Escape($Old))).Count
-if ($Count -ne 1) {
-    throw "expected exactly one AndroidVideoController --vo getter, found $Count"
+$GetterCount = ([regex]::Matches($Text, [regex]::Escape($OldGetter))).Count
+if ($GetterCount -ne 1) {
+    throw "expected exactly one AndroidVideoController --vo getter, found $GetterCount"
 }
+$Text = $Text.Replace($OldGetter, $NewGetter)
 
-$Text = $Text.Replace($Old, $New)
+$OldLoad = @'
+        try {
+          // ----------------------------------------------
+          if (!androidAttachSurfaceAfterVideoParameters) {
+            player.setOption('wid', _wid.toString());
+            player.setOption('vo', vo);
+          }
+          // ----------------------------------------------
+        } catch (exception, stacktrace) {
+'@
+$NewLoad = @'
+        try {
+          // Decoder-lab hwdec must be visible during on_load, before decoder
+          // probing starts. Applying only VO here can make mediacodec_embed
+          // initialize correctly while hwdec has already fallen back to SW.
+          final labHwdec = _decoderLabHwdec;
+          final labFallback = _decoderLabHwdecFallback;
+          if (labHwdec != null) {
+            player.setOption('hwdec', labHwdec);
+          }
+          if (labFallback != null) {
+            player.setOption('hwdec-software-fallback', labFallback);
+          }
+          // ----------------------------------------------
+          if (!androidAttachSurfaceAfterVideoParameters) {
+            player.setOption('wid', _wid.toString());
+            player.setOption('vo', vo);
+          }
+          // ----------------------------------------------
+        } catch (exception, stacktrace) {
+'@
+
+$LoadCount = ([regex]::Matches($Text, [regex]::Escape($OldLoad))).Count
+if ($LoadCount -ne 1) {
+    throw "expected exactly one AndroidVideoController on_load VO block, found $LoadCount"
+}
+$Text = $Text.Replace($OldLoad, $NewLoad)
+
 [IO.File]::WriteAllText($Target, $Text, [Text.UTF8Encoding]::new($false))
-Write-Host "media-kit Android decoder-lab VO hook applied: $Target"
+Write-Host "media-kit Android decoder-lab hwdec/VO hook applied: $Target"
