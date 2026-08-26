@@ -1,0 +1,453 @@
+--- a/lib/pages/audio/controller.dart
++++ b/lib/pages/audio/controller.dart
+@@ -380,33 +380,24 @@
+     String url, {
+     String ua = Constants.userAgentApp,
+     String? referer,
+-    bool autoplay = true,
++    bool? autoplay,
+   }) async {
+     await _initPlayerIfNeeded();
+-<<<<<<< HEAD
+-    player?.open(
+-      Media(
+-        url,
+-        start: _start,
+-        httpHeaders: {
+-          'user-agent': ua,
+-          'referer': ?referer,
+-        },
+-      ),
+-      play: _autoplayOnOpen,
+-    );
+-    _autoplayOnOpen = true;
+-=======
+     final player = this.player;
+     if (player != null) {
+-      player.setMediaHeader(
+-        userAgent: ua,
+-        // mpv cannot clear referer option
+-        headers: {'Referer': ?referer},
++      await player.open(
++        Media(
++          url,
++          start: _start,
++          httpHeaders: {
++            'user-agent': ua,
++            'referer': ?referer,
++          },
++        ),
++        play: autoplay ?? _autoplayOnOpen,
+       );
+-      await player.open(Media(url, start: _start), play: autoplay);
+     }
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
++    _autoplayOnOpen = true;
+     _start = null;
+   }
+ 
+--- a/lib/pages/live_room/controller.dart
++++ b/lib/pages/live_room/controller.dart
+@@ -188,21 +188,21 @@
+     final account = Accounts.main;
+     isLogin = account.isLogin;
+     mid = account.mid;
+-<<<<<<< HEAD
+     HarmonyChannel.holdContinuation(this);
+     // 跨设备接续等场景显式指定初始状态（听直播/暂停），优先于默认行为
+     if (Get.parameters['onlyAudio'] == 'true') {
+       plPlayerController.onlyPlayAudio.value = true;
+     }
++    _previousNetworkPolicyCallback = plPlayerController.onNetworkPolicyChanged;
++    plPlayerController.onNetworkPolicyChanged = _onNetworkPolicyChanged;
+     queryLiveUrl(
+       autoplay: Get.parameters['autoplay'] != 'false',
+       autoFullScreenFlag: true,
+     );
+-=======
+-    _previousNetworkPolicyCallback = plPlayerController.onNetworkPolicyChanged;
+-    plPlayerController.onNetworkPolicyChanged = _onNetworkPolicyChanged;
+-    queryLiveUrl(autoFullScreenFlag: true);
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     queryLiveInfoH5();
+     if (Accounts.heartbeat.isLogin && !Pref.historyPause) {
+       VideoHttp.roomEntryAction(roomId: roomId);
+@@ -230,23 +230,10 @@
+   }
+ 
+   Future<void> queryLiveUrl({
+-<<<<<<< HEAD
+-    bool autoplay = true,
+-    bool autoFullScreenFlag = false,
+-  }) async {
+-    currentQn ??= await ConnectivityUtils.isWiFi
+-        ? Pref.liveQuality
+-        : Pref.liveQualityCellular;
+-    final res = await LiveHttp.liveRoomInfo(
+-      roomId: roomId,
+-      qn: currentQn,
+-      onlyAudio: plPlayerController.onlyPlayAudio.value,
+-    );
+-    if (res case Success(:final response)) {
+-      if (response.liveStatus != 1) {
+-        _showDialog('当前直播间未开播');
+-        return;
+-=======
+     bool autoFullScreenFlag = false,
+     bool autoplay = true,
+   }) async {
+@@ -266,7 +253,6 @@
+         currentQn = profile.useCellularPreferences
+             ? Pref.liveQualityCellular
+             : Pref.liveQuality;
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+       }
+ 
+       final res = await LiveHttp.liveRoomInfo(
+@@ -294,6 +280,7 @@
+           codecIndex: codecIndex,
+           liveUrlIndex: liveUrlIndex,
+           autoplay: autoplay,
++          autoFullScreenFlag: autoFullScreenFlag,
+         );
+         isLoaded.value = true;
+       } else {
+@@ -310,25 +297,6 @@
+         _pendingNetworkReload = false;
+         await _reloadForNetworkPolicy();
+       }
+-<<<<<<< HEAD
+-      liveTime.value = response.liveTime;
+-      startLiveTimer();
+-      isPortrait.value = response.isPortrait ?? false;
+-      stream = playurl.stream;
+-      _initStreamIndex();
+-      await initLiveUrl(
+-        streamIndex: streamIndex,
+-        formatIndex: formatIndex,
+-        codecIndex: codecIndex,
+-        liveUrlIndex: liveUrlIndex,
+-        autoplay: autoplay,
+-        autoFullScreenFlag: autoFullScreenFlag,
+-      );
+-      isLoaded.value = true;
+-    } else {
+-      _showDialog(res.toString());
+-=======
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     }
+   }
+ 
+@@ -393,11 +361,7 @@
+     int codecIndex = 0,
+     int liveUrlIndex = 0,
+     bool autoplay = true,
+-<<<<<<< HEAD
+     bool autoFullScreenFlag = false,
+-=======
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+   }) {
+     this.streamIndex = streamIndex;
+     this.formatIndex = formatIndex;
+@@ -420,14 +384,10 @@
+     currentQnDesc.value =
+         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
+-<<<<<<< HEAD
+     return playerInit(
+       autoplay: autoplay,
+       autoFullScreenFlag: autoFullScreenFlag,
+     )?.whenComplete(_startSizeSub);
+-=======
+-    return playerInit(autoplay: autoplay)?.whenComplete(_startSizeSub);
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+   }
+ 
+   Future<void> queryLiveInfoH5() async {
+@@ -583,17 +543,16 @@
+ 
+   @override
+   void onClose() {
+-<<<<<<< HEAD
+     HarmonyChannel.releaseContinuation(this);
+-=======
+     PlaybackStatsService.endMediaIfMatches(
+       isLive: true,
+       liveUid: ruid,
+       position:
+           plPlayerController.videoPlayerController?.state.position ??
+           Duration.zero,
+     );
+     plPlayerController.onNetworkPolicyChanged = _previousNetworkPolicyCallback;
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     _stopSizeSub();
+     closeLiveMsg();
+     cancelLikeTimer();
+--- a/lib/pages/video/controller.dart
++++ b/lib/pages/video/controller.dart
+@@ -999,111 +999,6 @@
+              plPlayerController.triggerFullScreen(status: false);
+            }
+-<<<<<<< HEAD
+-          isQuerying = false;
+-          return;
+-        }
+-      }
+-
+-      final List<VideoItem> videoList = data.dash!.video!;
+-      // if (kDebugMode) debugPrint("allVideosList:${allVideosList}");
+-      // 当前可播放的最高质量视频
+-      final curHighestVideoQa = videoList.first.quality.code;
+-      // 预设的画质为null，则当前可用的最高质量
+-      int targetVideoQa = curHighestVideoQa;
+-      if (data.acceptQuality?.isNotEmpty == true &&
+-          plPlayerController.cacheVideoQa! <= curHighestVideoQa) {
+-        // 如果预设的画质低于当前最高
+-        targetVideoQa = data.acceptQuality!.findClosestTarget(
+-          (e) => e <= plPlayerController.cacheVideoQa!,
+-          (a, b) => a > b ? a : b,
+-        );
+-      }
+-      currentVideoQa.value = VideoQuality.fromCode(targetVideoQa);
+-
+-      /// 优先顺序 设置中指定解码格式 -> 当前可选的首个解码格式
+-      final supportFormats = data.supportFormats!;
+-
+-      // 根据画质选编码格式
+-      currentDecodeFormats = VideoUtils.selectCodec(
+-        supportFormats
+-            .firstWhere(
+-              (e) => e.quality == targetVideoQa,
+-              orElse: () => supportFormats.first,
+-            )
+-            .codecs!,
+-        preferCodecs,
+-      );
+-
+-      /// 取出符合当前画质的videoList
+-      final videosList = videoList
+-          .where((e) => e.quality.code == targetVideoQa)
+-          .toList();
+-
+-      /// 取出符合当前解码格式的videoItem
+-      firstVideo = videosList.firstWhere(
+-        (e) => currentDecodeFormats.codes.any(e.codecs!.startsWith),
+-        orElse: () => videosList.first,
+-      );
+-      _setVideoHeight();
+-
+-      videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
+-
+-      /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
+-      AudioItem? firstAudio;
+-      final audioList = data.dash?.audio;
+-      if (audioList != null && audioList.isNotEmpty) {
+-        final List<int> audioIds = audioList.map((map) => map.id!).toList();
+-        int closestNumber = audioIds.findClosestTarget(
+-          (e) => e <= plPlayerController.cacheAudioQa,
+-          (a, b) => a > b ? a : b,
+-        );
+-        if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
+-            audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {
+-          closestNumber = AudioQuality.k192.code;
+-        }
+-        firstAudio = audioList.firstWhere(
+-          (e) => e.id == closestNumber,
+-          orElse: () => audioList.first,
+-        );
+-        audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
+-        if (firstAudio.id case final int id?) {
+-          currentAudioQa = AudioQuality.fromCode(id);
+-=======
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+          }
+         hasDashResponse = true;
+         _pendingNetworkRefresh = false;
+--- a/lib/pages/video/widgets/header_control.dart
++++ b/lib/pages/video/widgets/header_control.dart
+@@ -43,11 +43,6 @@
+     show shutdownTimerService;
+ import 'package:PiliPlus/utils/accounts.dart';
+ import 'package:PiliPlus/utils/accounts/account.dart';
+-<<<<<<< HEAD
+-import 'package:PiliPlus/utils/connectivity_utils.dart';
+-=======
+-import 'package:PiliPlus/utils/android/bindings.g.dart';
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+ import 'package:PiliPlus/utils/extension/num_ext.dart';
+ import 'package:PiliPlus/utils/extension/string_ext.dart';
+ import 'package:PiliPlus/utils/image_utils.dart';
+--- a/lib/plugin/pl_player/controller.dart
++++ b/lib/plugin/pl_player/controller.dart
+@@ -674,9 +674,6 @@
+       }
+     }
+   }
+-
+-<<<<<<< HEAD
+-=======
+   void applyNetworkProfile(
+     NetworkProfile profile, {
+     required bool resetSessionPreferences,
+@@ -729,7 +726,6 @@
+       enterPip();
+     }
+   }
+-
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+   // 获取实例 传参
+   static PlPlayerController getInstance({bool isLive = false}) {
+     // 如果实例尚未创建，则创建一个新实例
+@@ -1163,37 +1159,38 @@
+     if (dataSource is FileSource) {
+       return null;
+     }
+-<<<<<<< HEAD
+     if (_videoPlayerController == null) {
+       // SmartDialog.showToast('视频播放器为空，请重新进入本页面');
+       return false;
+@@ -1200,14 +1197,9 @@
+         extras: audioUri == null ? null : {'audio-files': '"$audioUri"'},
+       ),
+       play: true,
+-=======
+-    if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
+-      PlaybackStatsService.rebase(ctr.state.position);
+-      return ctr.open(
+-        ctr.current.last.copyWith(start: ctr.state.position),
+-        play: true,
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     );
+     return true;
+     // seekTo(currentPos);
+@@ -2204,14 +2196,11 @@
+     if (kDebugMode) {
+       debugPrint('dispose player');
+     }
+-<<<<<<< HEAD
+-    await _videoPlayerController?.dispose();
+-=======
+     PlaybackStatsService.endMedia(
+       _videoPlayerController?.state.position ?? Duration.zero,
+     );
+-    _videoPlayerController?.dispose();
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
++    await _videoPlayerController?.dispose();
+     _videoPlayerController = null;
+     _videoController = null;
+     _instance = null;
+--- a/lib/plugin/pl_player/view/view.dart
++++ b/lib/plugin/pl_player/view/view.dart
+@@ -359,16 +359,15 @@
+ 
+   @override
+   void didChangeAppLifecycleState(AppLifecycleState state) {
+-<<<<<<< HEAD
++    if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
++      unawaited(PlaybackStatsService.flush());
++    }
+     final player = plPlayerController.videoPlayerController;
+     if (player == null) return;
+     if (state != AppLifecycleState.paused &&
+         state != AppLifecycleState.detached) {
+       plPlayerController.autoResumeInPipIfNeeded();
+-=======
+-    if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
+-      unawaited(PlaybackStatsService.flush());
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     }
+     if (!plPlayerController.continuePlayInBackground.value) {
+       if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
+--- a/lib/utils/connectivity_utils.dart
++++ b/lib/utils/connectivity_utils.dart
+@@ -1,25 +1,32 @@
+ import 'dart:async';
+ import 'dart:io' show Platform;
+ 
+ import 'package:PiliPlus/models/common/network_profile.dart';
+ import 'package:PiliPlus/models/common/video/video_decode_type.dart';
+ import 'package:PiliPlus/utils/android/android_helper.dart';
+ import 'package:PiliPlus/utils/storage_pref.dart';
+ import 'package:PiliPlus/utils/windows/network_info.dart';
+ import 'package:connectivity_plus/connectivity_plus.dart';
+ 
+ abstract final class ConnectivityUtils {
+-<<<<<<< HEAD
+-  static Future<bool> get isWiFi async {
+-    try {
+-      // connectivity_plus 5.x 返回单值（鸿蒙适配版本），非上游 7.x 的 List
+-      // 鸿蒙上 checkConnectivity 可能抛异常，catch 后按 wifi 处理
+-      return PlatformUtils.isMobile &&
+-          (await Connectivity().checkConnectivity()) == ConnectivityResult.wifi;
+-    } catch (_) {
+-      return true;
+-=======
+   static final _changes = StreamController<NetworkPolicyChange>.broadcast(
+     sync: true,
+   );
+   static Stream<NetworkPolicyChange> get changes => _changes.stream;
+ 
+   // App-lifetime observer; ConnectivityUtils lives for the whole process.
+   // ignore: cancel_subscriptions
+-  static StreamSubscription<List<ConnectivityResult>>? _subscription;
++  static StreamSubscription<ConnectivityResult>? _subscription;
+   static Timer? _networkDebounce;
+   static Timer? _peakTimer;
+   static NetworkProfile? _current;
+@@ -158,18 +165,15 @@
+           _schedulePeakBoundary();
+         },
+       );
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+     }
+   }
+ 
+   static Future<NetworkProfile> _sample() async {
+     try {
+       final connectivity = await Connectivity().checkConnectivity();
+-      if (connectivity.length == 1 &&
+-          connectivity.single == ConnectivityResult.none) {
++      if (connectivity == ConnectivityResult.none) {
+         return _current ?? _fallback;
+       }
+ 
+-      if (connectivity.contains(ConnectivityResult.wifi)) {
++      if (connectivity == ConnectivityResult.wifi) {
+         int? rssi;
+         int? linkSpeed;
+         int? signalLevel;
+@@ -210,7 +214,7 @@
+         );
+       }
+ 
+-      if (connectivity.contains(ConnectivityResult.ethernet)) {
++      if (connectivity == ConnectivityResult.ethernet) {
+         final speed = Platform.isWindows
+             ? WindowsNetworkInfoReader.read().wiredMbps
+             : null;
+@@ -227,7 +231,7 @@
+         );
+       }
+ 
+-      if (connectivity.contains(ConnectivityResult.mobile)) {
++      if (connectivity == ConnectivityResult.mobile) {
+         return const NetworkProfile(
+           transport: NetworkTransport.cellular,
+           useCellularPreferences: true,
+--- a/lib/utils/storage_pref.dart
++++ b/lib/utils/storage_pref.dart
+@@ -269,14 +269,11 @@
+     if (codecs is List) {
+       return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+     }
+-<<<<<<< HEAD
+     if (OS.isHarmony) return const <VideoDecodeFormatType>[.HEVC, .AVC];
+-    return const <VideoDecodeFormatType>[.AVC, .AV1];
+-=======
+     return PlatformUtils.isMobile
+         ? const <VideoDecodeFormatType>[.AVC, .HEVC]
+         : const <VideoDecodeFormatType>[.AVC, .AV1];
+->>>>>>> c24de2cf3 (feat: add adaptive playback policies and speed insights)
+   }
+ 
+   static List<VideoDecodeFormatType> get preferCodecsCellular {
