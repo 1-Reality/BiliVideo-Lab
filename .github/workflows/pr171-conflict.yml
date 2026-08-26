@@ -2,8 +2,7 @@ name: PR171 semantic merge diagnostics
 
 on:
   push:
-    branches:
-      - resolve/pr171-ci
+    branches: [resolve/pr171-ci]
 
 permissions:
   contents: read
@@ -39,75 +38,52 @@ jobs:
             cp -a /tmp/pr171 "$GITHUB_WORKSPACE/pr171-diagnostic"
           }
 
-          echo "=== cherry-pick c24 with reviewed OHOS resolutions ===" | tee -a /tmp/pr171/summary.txt
+          echo "=== c24 ===" | tee -a /tmp/pr171/summary.txt
           git cherry-pick c24de2cf355360f4a6090dafa4801ed7dba194d5
           if [ $? -ne 0 ]; then
-            # The generated Android JNI bindings are deliberately replaced by
-            # no-op stubs on the OHOS branch. Preserve that architecture.
             git checkout --ours lib/utils/android/bindings.g.dart
-
-            # Apply reviewed semantic resolutions to the remaining conflict
-            # blocks: retain OHOS PiP/continuation/media behavior while porting
-            # playback statistics and the network-policy state machine.
             git apply --recount .pr171-resolve/c24-ohos-resolve.patch
-
-            # OHOS deliberately has no jni package. Keep its Android helper
-            # stub and expose only the compile-time networkInfo shape needed by
-            # the shared network policy; it is never called on HarmonyOS.
             git checkout 496e9b681087313cd9f0229168e6792ddd574539 -- lib/utils/android/android_helper.dart
             python3 - <<'PY'
           from pathlib import Path
-          p = Path('lib/utils/android/android_helper.dart')
-          s = p.read_text()
-          needle = '  static void back() {}\n'
-          addition = '''  static void back() {}\n\n  static ({\n    int? linkSpeed,\n    int? rssi,\n    int? signalLevel,\n    bool metered,\n    bool weakHint,\n  })? networkInfo() => null;\n'''
+          p=Path('lib/utils/android/android_helper.dart'); s=p.read_text()
+          needle='  static void back() {}\n'
+          addition='''  static void back() {}\n\n  static ({\n    int? linkSpeed,\n    int? rssi,\n    int? signalLevel,\n    bool metered,\n    bool weakHint,\n  })? networkInfo() => null;\n'''
           if 'networkInfo()' not in s:
-              if needle not in s:
-                  raise SystemExit('PiliAndroidHelper.back() anchor not found')
-              s = s.replace(needle, addition, 1)
+              s=s.replace(needle,addition,1)
           p.write_text(s)
-          PY
-
-            # The reviewed reload resolution keeps the OHOS audio-files path;
-            # ensure the statistics timeline is rebased before reopening.
-            python3 - <<'PY'
-          from pathlib import Path
-          p = Path('lib/plugin/pl_player/controller.dart')
-          s = p.read_text()
-          anchor = "    String? audioUri;\n"
-          insert = "    PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position ?? Duration.zero,\n    );\n    String? audioUri;\n"
+          p=Path('lib/plugin/pl_player/controller.dart'); s=p.read_text()
+          anchor='    String? audioUri;\n'
+          insert='    PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position ?? Duration.zero,\n    );\n    String? audioUri;\n'
           if 'PlaybackStatsService.rebase(\n      _videoPlayerController?.state.position' not in s:
-              if anchor not in s:
-                  raise SystemExit('reload audioUri anchor not found')
-              s = s.replace(anchor, insert, 1)
+              s=s.replace(anchor,insert,1)
           p.write_text(s)
           PY
-
             git add -A
-            git cherry-pick --continue
-            if [ $? -ne 0 ]; then
-              echo "C24_RESOLUTION_FAILED" | tee -a /tmp/pr171/summary.txt
-              collect_conflicts
-              exit 0
-            fi
+            git cherry-pick --continue || { echo C24_RESOLUTION_FAILED >> /tmp/pr171/summary.txt; collect_conflicts; exit 0; }
           fi
 
-          for commit in a78fe9df0e360e24bdd484957fd0401bb45ec419 0af224fafcf2a440cd915f861e69eca5cf1714a0; do
-            echo "=== cherry-pick $commit ===" | tee -a /tmp/pr171/summary.txt
-            git cherry-pick "$commit"
-            if [ $? -ne 0 ]; then
-              collect_conflicts
-              exit 0
-            fi
-          done
+          echo "=== a78 ===" | tee -a /tmp/pr171/summary.txt
+          git cherry-pick a78fe9df0e360e24bdd484957fd0401bb45ec419
+          if [ $? -ne 0 ]; then
+            git apply --recount .pr171-resolve/a78-ohos-resolve.patch
+            git add -A
+            git cherry-pick --continue || { echo A78_RESOLUTION_FAILED >> /tmp/pr171/summary.txt; collect_conflicts; exit 0; }
+          fi
+
+          echo "=== 0af ===" | tee -a /tmp/pr171/summary.txt
+          git cherry-pick 0af224fafcf2a440cd915f861e69eca5cf1714a0
+          if [ $? -ne 0 ]; then
+            collect_conflicts
+            exit 0
+          fi
 
           echo "ALL_THREE_COMMITS_PORTED" | tee -a /tmp/pr171/summary.txt
           git log --oneline -5 >> /tmp/pr171/summary.txt
           git diff 496e9b681087313cd9f0229168e6792ddd574539..HEAD > /tmp/pr171/result.diff
           git diff --check 496e9b681087313cd9f0229168e6792ddd574539..HEAD >> /tmp/pr171/summary.txt 2>&1
           cp -a /tmp/pr171 "$GITHUB_WORKSPACE/pr171-diagnostic"
-      - name: Upload diagnostics
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: pr171-merge-diagnostic
           path: pr171-diagnostic
