@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliPlus/build_config.dart';
@@ -91,6 +92,15 @@ Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 
+void _deferNetworkServicesUntilAfterFirstFrame() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(() async {
+      await ConnectivityUtils.initialize();
+      await TrafficStatsService.instance.initialize();
+    }());
+  });
+}
+
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
@@ -109,8 +119,6 @@ void main() async {
     _initTmpPath(),
     CacheManager.ensureInitialized(),
   ]);
-  await ConnectivityUtils.initialize();
-  await TrafficStatsService.instance.initialize();
   Get
     ..lazyPut(AccountService.new)
     ..lazyPut(DownloadService.new);
@@ -193,6 +201,8 @@ void main() async {
   if (Pref.dynamicColor) {
     await MyApp.initPlatformState();
   }
+
+  _deferNetworkServicesUntilAfterFirstFrame();
 
   if (Pref.enableLog) {
     // 异常捕获 logo记录
@@ -366,7 +376,6 @@ class MyApp extends StatelessWidget {
 
     try {
       final Color? accentColor = await DynamicColorPlugin.getAccentColor();
-
       if (accentColor != null) {
         if (kDebugMode) {
           debugPrint('dynamic_color: Accent color detected.');
