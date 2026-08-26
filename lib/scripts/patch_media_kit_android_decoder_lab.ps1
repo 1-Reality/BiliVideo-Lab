@@ -26,18 +26,14 @@ $New = @'
   /// --vo
   ///
   /// Decoder lab may request a different Android VO for the current player.
-  /// The value is read here instead of being forced from Dart after open(), so
-  /// media_kit still owns the Surface/--wid/--vo initialization order.
+  /// Read it here so media_kit still owns the Surface/--wid/--vo ordering.
   String? get _decoderLabVo {
-    final name = 'user-data'.toNativeUtf8();
+    final name = 'user-data/piliplus-decoder-lab-vo'.toNativeUtf8();
     final value = NativePlayer.mpv.mpv_get_property_string(player.ctx, name);
     calloc.free(name.cast());
     if (value.address == 0) return null;
-    final raw = value.toDartString();
+    final result = value.toDartString();
     NativePlayer.mpv.mpv_free(value.cast());
-    const prefix = 'piliplus-decoder-lab-vo=';
-    if (!raw.startsWith(prefix)) return null;
-    final result = raw.substring(prefix.length);
     return result.isEmpty ? null : result;
   }
 
