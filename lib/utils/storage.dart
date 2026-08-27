@@ -253,20 +253,26 @@ abstract final class GStorage {
       );
 
     if (includePlaybackStats) {
+      final legacyPlayback = video.get(VideoBoxKey.playbackStats);
       final playback =
           readJsonMapSync(playbackStatsFile) ??
-          (video.get(VideoBoxKey.playbackStats) case final Map raw
-              ? raw.map((key, value) => MapEntry(key.toString(), value))
+          (legacyPlayback is Map
+              ? legacyPlayback.map(
+                  (key, value) => MapEntry(key.toString(), value),
+                )
               : null);
       if (playback != null) {
         videoData[VideoBoxKey.playbackStats] = playback;
       }
     }
 
+    final legacyTraffic = video.get(VideoBoxKey.trafficStats);
     final traffic =
         readJsonMapSync(trafficStatsFile) ??
-        (video.get(VideoBoxKey.trafficStats) case final Map raw
-            ? raw.map((key, value) => MapEntry(key.toString(), value))
+        (legacyTraffic is Map
+            ? legacyTraffic.map(
+                (key, value) => MapEntry(key.toString(), value),
+              )
             : null);
     if (traffic != null) {
       videoData[VideoBoxKey.trafficStats] = traffic;
@@ -304,10 +310,11 @@ abstract final class GStorage {
     final keepDiagnostics =
         meta is Map && meta['includeCdnDiagnostics'] == false;
 
+    final legacyPlayback = video.get(VideoBoxKey.playbackStats);
     final preservedPlayback = keepPlayback
         ? readJsonMapSync(playbackStatsFile) ??
-              (video.get(VideoBoxKey.playbackStats) case final Map raw
-                  ? raw.map(
+              (legacyPlayback is Map
+                  ? legacyPlayback.map(
                       (key, value) => MapEntry(key.toString(), value),
                     )
                   : null)
