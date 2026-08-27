@@ -62,10 +62,13 @@ abstract final class PlaybackStatsService {
 
   static void _ensureInitialized() {
     if (_stats != null) return;
-    final raw = GStorage.video.get(VideoBoxKey.playbackStats);
-    _stats = raw is Map
-        ? _stringMap(raw)
-        : <String, dynamic>{
+    final raw =
+        GStorage.readJsonMapSync(GStorage.playbackStatsFile) ??
+        (GStorage.video.get(VideoBoxKey.playbackStats) case final Map legacy
+            ? legacy.map((key, value) => MapEntry(key.toString(), value))
+            : null);
+    _stats = raw ??
+        <String, dynamic>{
             'schemaVersion': schemaVersion,
             'createdAtMs': DateTime.now().millisecondsSinceEpoch,
           };
@@ -819,8 +822,8 @@ abstract final class PlaybackStatsService {
     _dirty = false;
     final value = jsonDecode(jsonEncode(_stats!));
     _writeChain = _writeChain.then(
-      (_) => GStorage.video.put(VideoBoxKey.playbackStats, value),
-      onError: (_) => GStorage.video.put(VideoBoxKey.playbackStats, value),
+      (_) => GStorage.writeJsonFile(GStorage.playbackStatsFile, value),
+      onError: (_) => GStorage.writeJsonFile(GStorage.playbackStatsFile, value),
     );
     await _writeChain;
   }
