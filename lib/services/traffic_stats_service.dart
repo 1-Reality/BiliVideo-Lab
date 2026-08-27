@@ -24,10 +24,13 @@ final class TrafficStatsService with WidgetsBindingObserver {
 
   Future<void> initialize() async {
     if (!Platform.isAndroid || _timer != null) return;
+    final legacy = GStorage.video.get(VideoBoxKey.trafficStats);
     final raw =
         GStorage.readJsonMapSync(GStorage.trafficStatsFile) ??
-        (GStorage.video.get(VideoBoxKey.trafficStats) case final Map legacy
-            ? legacy.map((key, value) => MapEntry(key.toString(), value))
+        (legacy is Map
+            ? legacy.map(
+                (key, value) => MapEntry(key.toString(), value),
+              )
             : null);
     if (raw != null) _data.addAll(raw);
     WidgetsBinding.instance.addObserver(this);

@@ -62,10 +62,13 @@ abstract final class PlaybackStatsService {
 
   static void _ensureInitialized() {
     if (_stats != null) return;
+    final legacy = GStorage.video.get(VideoBoxKey.playbackStats);
     final raw =
         GStorage.readJsonMapSync(GStorage.playbackStatsFile) ??
-        (GStorage.video.get(VideoBoxKey.playbackStats) case final Map legacy
-            ? legacy.map((key, value) => MapEntry(key.toString(), value))
+        (legacy is Map
+            ? legacy.map(
+                (key, value) => MapEntry(key.toString(), value),
+              )
             : null);
     _stats = raw ??
         <String, dynamic>{
