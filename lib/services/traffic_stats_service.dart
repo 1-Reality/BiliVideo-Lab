@@ -24,9 +24,12 @@ final class TrafficStatsService with WidgetsBindingObserver {
 
   Future<void> initialize() async {
     if (!Platform.isAndroid || _timer != null) return;
-    if (GStorage.video.get(VideoBoxKey.trafficStats) case final Map raw) {
-      _data.addAll(raw.map((key, value) => MapEntry(key.toString(), value)));
-    }
+    final raw =
+        GStorage.readJsonMapSync(GStorage.trafficStatsFile) ??
+        (GStorage.video.get(VideoBoxKey.trafficStats) case final Map legacy
+            ? legacy.map((key, value) => MapEntry(key.toString(), value))
+            : null);
+    if (raw != null) _data.addAll(raw);
     WidgetsBinding.instance.addObserver(this);
     await _sample();
     _networkSubscription = ConnectivityUtils.changes.listen((_) => _sample());
@@ -88,7 +91,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     if (!_dirty) return;
     _dirty = false;
     _lastFlush = DateTime.now();
-    await GStorage.video.put(VideoBoxKey.trafficStats, Map.of(_data));
+    await GStorage.writeJsonFile(GStorage.trafficStatsFile, Map.of(_data));
   }
 
   Future<Map<String, dynamic>> snapshot() async {

@@ -7,33 +7,43 @@ typedef CdnDiagnosticGroup = ({
 });
 
 abstract final class CdnDiagnosticsService {
-  // Manual CDN diagnostics are intentionally append-only with no age/count/size
-  // pruning. Records live until the user explicitly deletes test groups or
-  // clears app data/storage.
   static const _prefix = 'cdnDiagnostic:';
   static int _sequence = 0;
 
   static Future<void> append(Map<String, dynamic> record) async {
     final now = DateTime.now().microsecondsSinceEpoch;
-    final key = '$_prefix$now:${_sequence++}';
+    final id = '$_prefix$now:${_sequence++}';
     try {
-      await GStorage.video.put(key, record);
+      await GStorage.appendCdnDiagnostic((id: id, record: record));
     } catch (_) {
       // 诊断记录失败绝不能反过来影响测速本身。
     }
   }
 
-  static List<Map<String, dynamic>> snapshot() {
-    final records = <Map<String, dynamic>>[];
+  static List<({String id, Map<String, dynamic> record})> _allEntries() {
+    final merged = <String, Map<String, dynamic>>{
+      for (final entry in GStorage.readCdnDiagnosticsSync())
+        entry.id: entry.record,
+    };
     for (final key in GStorage.video.keys) {
       if (key is! String || !key.startsWith(_prefix)) continue;
-      final value = GStorage.video.get(key);
-      if (value is Map) {
-        records.add(
-          value.map((key, value) => MapEntry(key.toString(), value)),
+      final raw = GStorage.video.get(key);
+      if (raw is Map) {
+        merged[key] = raw.map(
+          (key, value) => MapEntry(key.toString(), value),
         );
       }
     }
+    return [
+      for (final entry in merged.entries)
+        (id: entry.key, record: entry.value),
+    ];
+  }
+
+  static List<Map<String, dynamic>> snapshot() {
+    final records = [
+      for (final entry in _allEntries()) entry.record,
+    ];
     records.sort(
       (a, b) => ((b['recordedAtUs'] as num?) ?? 0).compareTo(
         (a['recordedAtUs'] as num?) ?? 0,
@@ -66,16 +76,27 @@ abstract final class CdnDiagnosticsService {
 
   static Future<void> deleteRuns(Set<int> runStartedAtUs) async {
     if (runStartedAtUs.isEmpty) return;
-    final keys = <dynamic>[];
-    for (final key in GStorage.video.keys) {
-      if (key is! String || !key.startsWith(_prefix)) continue;
-      final value = GStorage.video.get(key);
-      if (value is! Map) continue;
+
+    final keep = <({String id, Map<String, dynamic> record})>[];
+    final legacyKeys = <dynamic>[];
+
+    for (final entry in _allEntries()) {
+      final value = entry.record;
       final run = (value['testRunStartedAtUs'] as num?)?.toInt() ??
           (value['recordedAtUs'] as num?)?.toInt() ??
           0;
-      if (runStartedAtUs.contains(run)) keys.add(key);
+      if (runStartedAtUs.contains(run)) {
+        if (GStorage.video.containsKey(entry.id)) {
+          legacyKeys.add(entry.id);
+        }
+      } else {
+        keep.add(entry);
+      }
     }
-    if (keys.isNotEmpty) await GStorage.video.deleteAll(keys);
+
+    await GStorage.replaceCdnDiagnostics(keep);
+    if (legacyKeys.isNotEmpty) {
+      await GStorage.video.deleteAll(legacyKeys);
+    }
   }
 }

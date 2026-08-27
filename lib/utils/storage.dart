@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliPlus/models/model_owner.dart';
@@ -24,6 +25,167 @@ abstract final class GStorage {
   static late final Box<dynamic> video;
   static late final Box<int> watchProgress;
   static late final Box<Uint8List>? reply;
+
+  static const _heavyTelemetryMigrationKey = 'heavyTelemetryExternalV1';
+  static const _cdnDiagnosticPrefix = 'cdnDiagnostic:';
+
+  static File get playbackStatsFile =>
+      File(path.join(appSupportDirPath, 'playback_stats.json'));
+
+  static File get trafficStatsFile =>
+      File(path.join(appSupportDirPath, 'traffic_stats.json'));
+
+  static File get cdnDiagnosticsFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostics.jsonl'));
+
+  static Map<String, dynamic>? readJsonMapSync(File file) {
+    if (!file.existsSync()) return null;
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is Map) {
+        return decoded.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> writeJsonFile(File file, Object? value) async {
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(value), flush: true);
+  }
+
+  static Future<void> _deleteFileIfExists(File file) async {
+    if (await file.exists()) await file.delete();
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  readCdnDiagnosticsSync() {
+    if (!cdnDiagnosticsFile.existsSync()) return const [];
+    final result = <({String id, Map<String, dynamic> record})>[];
+    try {
+      for (final line in cdnDiagnosticsFile.readAsLinesSync()) {
+        if (line.trim().isEmpty) continue;
+        try {
+          final decoded = jsonDecode(line);
+          if (decoded is! Map) continue;
+          final id = decoded['id']?.toString();
+          final raw = decoded['record'];
+          if (id == null || raw is! Map) continue;
+          result.add((
+            id: id,
+            record: raw.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ),
+          ));
+        } catch (_) {
+          // One damaged diagnostic line must not hide the rest of the history.
+        }
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  static Future<void> replaceCdnDiagnostics(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) {
+      await _deleteFileIfExists(cdnDiagnosticsFile);
+      return;
+    }
+    await cdnDiagnosticsFile.parent.create(recursive: true);
+    final sink = cdnDiagnosticsFile.openWrite(mode: FileMode.write);
+    try {
+      for (final entry in entries) {
+        sink.writeln(jsonEncode({'id': entry.id, 'record': entry.record}));
+      }
+      await sink.flush();
+    } finally {
+      await sink.close();
+    }
+  }
+
+  static Future<void> appendCdnDiagnostic(
+    ({String id, Map<String, dynamic> record}) entry,
+  ) async {
+    await cdnDiagnosticsFile.parent.create(recursive: true);
+    await cdnDiagnosticsFile.writeAsString(
+      '${jsonEncode({'id': entry.id, 'record': entry.record})}\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  _legacyCdnDiagnostics() {
+    final result = <({String id, Map<String, dynamic> record})>[];
+    for (final key in video.keys) {
+      if (key is! String || !key.startsWith(_cdnDiagnosticPrefix)) continue;
+      final raw = video.get(key);
+      if (raw is Map) {
+        result.add((
+          id: key,
+          record: raw.map(
+            (key, value) => MapEntry(key.toString(), value),
+          ),
+        ));
+      }
+    }
+    return result;
+  }
+
+  static Future<void> migrateHeavyTelemetryFromVideoBox() async {
+    if (localCache.get(_heavyTelemetryMigrationKey, defaultValue: false) ==
+        true) {
+      return;
+    }
+
+    final keysToDelete = <dynamic>[];
+
+    final legacyPlayback = video.get(VideoBoxKey.playbackStats);
+    if (legacyPlayback is Map) {
+      if (!playbackStatsFile.existsSync()) {
+        await writeJsonFile(playbackStatsFile, legacyPlayback);
+      }
+      keysToDelete.add(VideoBoxKey.playbackStats);
+    }
+
+    final legacyTraffic = video.get(VideoBoxKey.trafficStats);
+    if (legacyTraffic is Map) {
+      if (!trafficStatsFile.existsSync()) {
+        await writeJsonFile(trafficStatsFile, legacyTraffic);
+      }
+      keysToDelete.add(VideoBoxKey.trafficStats);
+    }
+
+    final legacyDiagnostics = _legacyCdnDiagnostics();
+    if (legacyDiagnostics.isNotEmpty) {
+      final merged = <String, Map<String, dynamic>>{
+        for (final entry in readCdnDiagnosticsSync())
+          entry.id: entry.record,
+        for (final entry in legacyDiagnostics)
+          entry.id: entry.record,
+      };
+      await replaceCdnDiagnostics([
+        for (final entry in merged.entries)
+          (id: entry.key, record: entry.value),
+      ]);
+      keysToDelete.addAll(
+        legacyDiagnostics.map((entry) => entry.id),
+      );
+    }
+
+    if (keysToDelete.isNotEmpty) {
+      await video.deleteAll(keysToDelete);
+    }
+
+    // The old 30-second full-map telemetry writes leave large stale Hive
+    // frames behind. Compact once after the first visible frame so future cold
+    // starts no longer scan hundreds of MiB of obsolete data.
+    await video.compact();
+    await localCache.put(_heavyTelemetryMigrationKey, true);
+  }
 
   static Future<void> init() async {
     Hive.init(path.join(appSupportDirPath, 'hive'));
@@ -82,15 +244,44 @@ abstract final class GStorage {
     bool includePlaybackStats = true,
     bool includeCdnDiagnostics = true,
   }) {
-    final videoData = Map<dynamic, dynamic>.from(video.toMap());
-    if (!includePlaybackStats) {
-      videoData.remove(VideoBoxKey.playbackStats);
-    }
-    if (!includeCdnDiagnostics) {
-      videoData.removeWhere(
-        (key, _) => key is String && key.startsWith('cdnDiagnostic:'),
+    final videoData = Map<dynamic, dynamic>.from(video.toMap())
+      ..remove(VideoBoxKey.playbackStats)
+      ..remove(VideoBoxKey.trafficStats)
+      ..removeWhere(
+        (key, _) =>
+            key is String && key.startsWith(_cdnDiagnosticPrefix),
       );
+
+    if (includePlaybackStats) {
+      final playback =
+          readJsonMapSync(playbackStatsFile) ??
+          (video.get(VideoBoxKey.playbackStats) case final Map raw
+              ? raw.map((key, value) => MapEntry(key.toString(), value))
+              : null);
+      if (playback != null) {
+        videoData[VideoBoxKey.playbackStats] = playback;
+      }
     }
+
+    final traffic =
+        readJsonMapSync(trafficStatsFile) ??
+        (video.get(VideoBoxKey.trafficStats) case final Map raw
+            ? raw.map((key, value) => MapEntry(key.toString(), value))
+            : null);
+    if (traffic != null) {
+      videoData[VideoBoxKey.trafficStats] = traffic;
+    }
+
+    if (includeCdnDiagnostics) {
+      final diagnostics = <String, Map<String, dynamic>>{
+        for (final entry in _legacyCdnDiagnostics())
+          entry.id: entry.record,
+        for (final entry in readCdnDiagnosticsSync())
+          entry.id: entry.record,
+      };
+      videoData.addAll(diagnostics);
+    }
+
     return Utils.jsonEncoder.convert({
       'backupMeta': {
         'includePlaybackStats': includePlaybackStats,
@@ -106,38 +297,78 @@ abstract final class GStorage {
 
   static Future<List<void>> importAllJsonSettings(
     Map<String, dynamic> map,
-  ) {
+  ) async {
     final meta = map['backupMeta'];
-    final preservePlayback =
-        meta is Map && meta['includePlaybackStats'] == false
-        ? video.get(VideoBoxKey.playbackStats)
+    final keepPlayback =
+        meta is Map && meta['includePlaybackStats'] == false;
+    final keepDiagnostics =
+        meta is Map && meta['includeCdnDiagnostics'] == false;
+
+    final preservedPlayback = keepPlayback
+        ? readJsonMapSync(playbackStatsFile) ??
+              (video.get(VideoBoxKey.playbackStats) case final Map raw
+                  ? raw.map(
+                      (key, value) => MapEntry(key.toString(), value),
+                    )
+                  : null)
         : null;
-    final preserveDiagnostics = <dynamic, dynamic>{};
-    if (meta is Map && meta['includeCdnDiagnostics'] == false) {
-      for (final key in video.keys) {
-        if (key is String && key.startsWith('cdnDiagnostic:')) {
-          preserveDiagnostics[key] = video.get(key);
-        }
-      }
-    }
+
+    final preservedDiagnostics = keepDiagnostics
+        ? <String, Map<String, dynamic>>{
+            for (final entry in _legacyCdnDiagnostics())
+              entry.id: entry.record,
+            for (final entry in readCdnDiagnosticsSync())
+              entry.id: entry.record,
+          }
+        : const <String, Map<String, dynamic>>{};
+
     final importedSettings = Map<dynamic, dynamic>.from(
       map[setting.name] as Map? ?? const {},
     );
     final importedVideo = Map<dynamic, dynamic>.from(
       map[video.name] as Map? ?? const {},
     );
-    return Future.wait([
-      setting.clear().then((_) => setting.putAll(importedSettings)),
-      video.clear().then((_) async {
-        await video.putAll(importedVideo);
-        if (preservePlayback != null) {
-          await video.put(VideoBoxKey.playbackStats, preservePlayback);
-        }
-        if (preserveDiagnostics.isNotEmpty) {
-          await video.putAll(preserveDiagnostics);
-        }
-      }),
+
+    final importedPlayback = importedVideo.remove(VideoBoxKey.playbackStats);
+    final importedTraffic = importedVideo.remove(VideoBoxKey.trafficStats);
+    final importedDiagnostics = <String, Map<String, dynamic>>{};
+    importedVideo.removeWhere((key, value) {
+      if (key is String &&
+          key.startsWith(_cdnDiagnosticPrefix) &&
+          value is Map) {
+        importedDiagnostics[key] = value.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        return true;
+      }
+      return false;
+    });
+
+    await Future.wait<void>([
+      setting.clear().then<void>((_) => setting.putAll(importedSettings)),
+      video.clear().then<void>((_) => video.putAll(importedVideo)),
+      if (!keepPlayback)
+        importedPlayback is Map
+            ? writeJsonFile(playbackStatsFile, importedPlayback)
+            : _deleteFileIfExists(playbackStatsFile)
+      else if (preservedPlayback != null && !playbackStatsFile.existsSync())
+        writeJsonFile(playbackStatsFile, preservedPlayback),
+      importedTraffic is Map
+          ? writeJsonFile(trafficStatsFile, importedTraffic)
+          : _deleteFileIfExists(trafficStatsFile),
+      if (!keepDiagnostics)
+        replaceCdnDiagnostics([
+          for (final entry in importedDiagnostics.entries)
+            (id: entry.key, record: entry.value),
+        ])
+      else if (preservedDiagnostics.isNotEmpty)
+        replaceCdnDiagnostics([
+          for (final entry in preservedDiagnostics.entries)
+            (id: entry.key, record: entry.value),
+        ]),
     ]);
+
+    return const <void>[];
   }
 
   static void regAdapter() {
@@ -188,6 +419,9 @@ abstract final class GStorage {
       Accounts.clear(),
       watchProgress.clear(),
       ?reply?.clear(),
+      _deleteFileIfExists(playbackStatsFile),
+      _deleteFileIfExists(trafficStatsFile),
+      _deleteFileIfExists(cdnDiagnosticsFile),
     ]);
   }
 
