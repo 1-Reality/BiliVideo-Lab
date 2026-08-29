@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliPlus/common/assets.dart';
@@ -13,6 +14,8 @@ import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
+import 'package:PiliPlus/services/traffic_stats_service.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -129,8 +132,14 @@ class _MainAppState extends PopScopeState<MainApp>
     }
     removeObserverMobile(this);
     PiliScheme.listener?.cancel();
-    GStorage.close();
+    unawaited(_flushTelemetryAndCloseStorage());
     super.dispose();
+  }
+
+  Future<void> _flushTelemetryAndCloseStorage() async {
+    await PlaybackStatsService.flush();
+    await TrafficStatsService.instance.dispose();
+    await GStorage.close();
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -182,6 +191,8 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Future<void> _onClose() async {
+    await PlaybackStatsService.flush();
+    await TrafficStatsService.instance.dispose();
     await GStorage.compact();
     await GStorage.close();
     await trayManager.destroy();

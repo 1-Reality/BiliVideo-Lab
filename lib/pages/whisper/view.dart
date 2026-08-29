@@ -6,6 +6,7 @@ import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/whisper/controller.dart';
 import 'package:PiliPlus/pages/whisper/widgets/item.dart';
+import 'package:PiliPlus/services/comment_helper_service.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/extension/three_dot_ext.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
@@ -98,6 +99,36 @@ class _WhisperPageState extends State<WhisperPage> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildTopItems(theme, padding),
+            SliverToBoxAdapter(
+              child: ValueListenableBuilder<int>(
+                valueListenable: CommentHelperService.revision,
+                builder: (context, _, __) {
+                  final latest = CommentHelperService.latest;
+                  if (latest == null) return const SizedBox.shrink();
+                  return ListTile(
+                    contentPadding: EdgeInsets.fromLTRB(
+                      16 + padding.left,
+                      4,
+                      16 + padding.right,
+                      4,
+                    ),
+                    leading: const CircleAvatar(
+                      backgroundImage: AssetImage(
+                        CommentHelperService.avatarAsset,
+                      ),
+                    ),
+                    title: const Text(CommentHelperService.name),
+                    subtitle: Text(
+                      '检测到评论不可见：${latest['message'] ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Get.toNamed('/commentHelper'),
+                  );
+                },
+              ),
+            ),
             SliverPadding(
               padding: EdgeInsets.only(bottom: padding.bottom + 100),
               sliver: Obx(() => _buildBody(_controller.loadingState.value)),

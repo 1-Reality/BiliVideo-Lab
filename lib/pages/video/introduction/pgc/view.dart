@@ -16,8 +16,10 @@ import 'package:PiliPlus/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/pgc/widgets/pgc_panel.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
+import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -47,6 +49,55 @@ class PgcIntroPage extends StatefulWidget {
 class _PgcIntroPageState extends State<PgcIntroPage> {
   late final PgcIntroController introController;
   late final VideoDetailController videoDetailCtr;
+
+  Future<void> _showBvActions(String bvid, int aid) => showDialog<void>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text('$bvid  AV$aid'),
+      children: [
+        for (final action in <(String, String)>[
+          ('复制 AV', 'AV$aid'),
+          ('复制 BV', bvid),
+          ('复制完整链接', 'https://www.bilibili.com/video/$bvid'),
+          ('复制 b23.tv 链接', 'https://b23.tv/$bvid'),
+        ])
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Utils.copyText(action.$2);
+            },
+            child: Text(action.$1),
+          ),
+      ],
+    ),
+  );
+
+  Widget _videoIds(ColorScheme colorScheme) {
+    final bvid = videoDetailCtr.bvid;
+    final aid = videoDetailCtr.aid != 0
+        ? videoDetailCtr.aid
+        : IdUtils.bv2av(bvid);
+    final style = TextStyle(fontSize: 12, color: colorScheme.secondary);
+    return Wrap(
+      spacing: 10,
+      children: [
+        GestureDetector(
+          onLongPress: () {
+            Feedback.forLongPress(context);
+            _showBvActions(bvid, aid);
+          },
+          child: Text(bvid, style: style),
+        ),
+        GestureDetector(
+          onLongPress: () {
+            Feedback.forLongPress(context);
+            Utils.copyText('AV$aid');
+          },
+          child: Text('AV$aid', style: style),
+        ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -273,13 +324,25 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
           ),
           style: TextStyle(fontSize: 12, color: colorScheme.outline),
         ),
+        _videoIds(colorScheme),
         Obx(() {
           final metrics = videoDetailCtr.streamSizeAndBitrate;
+          final alternatives = videoDetailCtr.otherStreamSizeAndBitrates;
           return metrics == null
               ? const SizedBox.shrink()
-              : Text(
-                  '当前视频流：$metrics',
-                  style: TextStyle(fontSize: 12, color: colorScheme.outline),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '当前视频流：$metrics',
+                      style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                    ),
+                    for (final row in alternatives)
+                      Text(
+                        row,
+                        style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                      ),
+                  ],
                 );
         }),
       ];

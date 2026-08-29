@@ -156,6 +156,74 @@ class VideoDetailController extends GetxController
     }
   }
 
+  List<String> get otherStreamSizeAndBitrates {
+    if (!videoState.value || data.dash?.video == null) return const [];
+    try {
+      final audio = data.dash?.audio?.firstWhereOrNull(
+        (item) => item.id == currentAudioQa?.code,
+      );
+      final durationMs = data.timeLength ?? 0;
+      final current = _streamMetrics(firstVideo, audio, durationMs);
+      if (current == null || current.bytes <= 0) return const [];
+      final currentFormat = VideoDecodeFormatType.fromString(
+        firstVideo.codecs ?? '',
+      );
+      final quality = currentVideoQa.value?.code ?? firstVideo.id;
+      const order = [
+        VideoDecodeFormatType.AVC,
+        VideoDecodeFormatType.HEVC,
+        VideoDecodeFormatType.AV1,
+      ];
+      final rows = <String>[];
+      for (final format in order) {
+        if (format == currentFormat) continue;
+        final candidates = data.dash!.video!.where(
+          (item) =>
+              item.id == quality &&
+              item.codecs != null &&
+              format.codes.any(item.codecs!.startsWith),
+        );
+        if (candidates.isEmpty) continue;
+        final item = candidates.reduce(
+          (a, b) => (a.bandWidth ?? 0) >= (b.bandWidth ?? 0) ? a : b,
+        );
+        final metrics = _streamMetrics(item, audio, durationMs);
+        if (metrics == null || metrics.bytes <= 0) continue;
+        final relative = metrics.bytes * 100 / current.bytes;
+        rows.add(
+          '${_codecDisplayName(format)}: ${metrics.text} (${relative.toStringAsFixed(0)}%)',
+        );
+      }
+      return rows.take(2).toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  ({int bytes, int bitrate, String text})? _streamMetrics(
+    BaseItem video,
+    BaseItem? audio,
+    int durationMs,
+  ) {
+    final bitrate = (video.bandWidth ?? 0) + (audio?.bandWidth ?? 0);
+    if (bitrate <= 0 || durationMs <= 0) return null;
+    final bytes = (bitrate * durationMs / 8000).round();
+    final size = bytes >= 1073741824
+        ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
+        : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+    final rate = bitrate >= 1000000
+        ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
+        : '${(bitrate / 1000).toStringAsFixed(0)} kb/s';
+    return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
+  }
+
+  String _codecDisplayName(VideoDecodeFormatType format) => switch (format) {
+    VideoDecodeFormatType.AVC => 'H264',
+    VideoDecodeFormatType.HEVC => 'h265',
+    VideoDecodeFormatType.AV1 => 'AV1',
+    VideoDecodeFormatType.DVH1 => 'DVH1',
+  };
+
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
 
@@ -225,6 +293,43 @@ class VideoDetailController extends GetxController
       return detail.bvid == bvid ? detail.owner?.name : null;
     } catch (_) {
       return null;
+    }
+  }
+
+  int? get videoPartitionId {
+    if (!isUgc) return null;
+    try {
+      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+      return detail.bvid == bvid ? detail.tid : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? get videoPartitionName {
+    if (!isUgc) return null;
+    try {
+      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+      return detail.bvid == bvid ? detail.tname : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get videoCopyright {
+    if (!isUgc) return 'licensed';
+    try {
+      final value = Get.find<UgcIntroController>(tag: heroTag)
+          .videoDetail
+          .value
+          .copyright;
+      return switch (value) {
+        1 => 'original',
+        2 => 'repost',
+        _ => 'unknown',
+      };
+    } catch (_) {
+      return 'unknown';
     }
   }
 
@@ -924,6 +1029,11 @@ class VideoDetailController extends GetxController
       videoType: videoType,
       videoUpUid: videoUpUid,
       videoUpName: videoUpName,
+      partitionId: videoPartitionId,
+      partitionName: videoPartitionName,
+      copyright: videoCopyright,
+      codec: currentDecodeFormats.name,
+      quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;
         setSubtitle(vttSubtitlesIndex.value);
@@ -1261,6 +1371,11 @@ class VideoDetailController extends GetxController
     if (index <= 0) {
       await plPlayerController.videoPlayerController?.setSubtitleTrack(.no());
       vttSubtitlesIndex.value = index;
+      PlaybackStatsService.samplePosition(
+        plPlayerController.videoPlayerController?.state.position ??
+            Duration.zero,
+      );
+      PlaybackStatsService.updateVideoContext(subtitle: 'off');
       return;
     }
 
@@ -1275,6 +1390,13 @@ class VideoDetailController extends GetxController
         SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
       );
       vttSubtitlesIndex.value = index;
+      PlaybackStatsService.samplePosition(
+        plPlayerController.videoPlayerController?.state.position ??
+            Duration.zero,
+      );
+      PlaybackStatsService.updateVideoContext(
+        subtitle: sub.lan.isNotEmpty ? sub.lan : (sub.lanDoc ?? 'on'),
+      );
     }
 
     var subtitle = vttSubtitles[index - 1];

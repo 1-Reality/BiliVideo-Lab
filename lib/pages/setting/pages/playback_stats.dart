@@ -50,6 +50,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
     return '$text 倍';
   }
 
+  String _speedCompact(num value) =>
+      '${value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}×';
+
   Widget _section(String title) => Padding(
     padding: const .fromLTRB(16, 20, 16, 4),
     child: Text(title, style: Theme.of(context).textTheme.titleMedium),
@@ -86,6 +89,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   Widget build(BuildContext context) {
     final favorite = _derived['favoriteSpeed'] as num?;
     final favoriteDefault = _derived['favoriteSpeedWasDefault'] == true;
+    final favoriteSpeeds = (_derived['favoriteSpeeds'] as List? ?? const [])
+        .whereType<num>()
+        .toList(growable: false);
     final eligibleRewinds = _value('eligibleRewindCount');
     final completionRate = _derived['rewindCompletionRate'] as num? ?? 0;
     final speedSelections =
@@ -96,7 +102,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         (a, b) => ((b.value as Map)['activePlaybackUs'] as num? ?? 0)
             .compareTo((a.value as Map)['activePlaybackUs'] as num? ?? 0),
       );
-    final currentYear = DateTime.now().year.toString();
+    final now = DateTime.now();
+    final currentMonth =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
     return SimpleScaffold(
       appBar: AppBar(
@@ -125,6 +133,11 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   : '${_speed(favorite)}${favoriteDefault ? '（默认）' : ''}',
               '每次手动选择计一次；进入新的 CID 时，当前倍速也计一次',
             ),
+            if (favoriteSpeeds.length > 1)
+              _item(
+                '您次爱的倍速',
+                favoriteSpeeds.skip(1).take(4).map(_speedCompact).join('  '),
+              ),
             _item('实际平均倍速', _speed(_derived['actualAverageSpeed'] as num?)),
             _item(
               '名义平均倍速',
@@ -137,6 +150,24 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 _derived['nominalAverageSpeedIncludingLongPress'] as num?,
               ),
               '把长按期间的临时倍速也计入名义倍速积分',
+            ),
+            _item(
+              '新内容摄入倍速',
+              _speed(_derived['newContentEquivalentSpeed'] as num?),
+              '本次播放区间去重后的原视频覆盖量 ÷ 实际播放时间',
+            ),
+            _item(
+              '真实占用时间等效倍速',
+              _speed(_derived['observedEquivalentSpeed'] as num?),
+              '媒体推进量 ÷ 播放、暂停与缓冲总时间',
+            ),
+            _item(
+              '重复观看比例',
+              '${((_derived['repeatRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+            ),
+            _item(
+              '原视频覆盖率',
+              '${((_derived['coverageRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
             ),
             _item('实际播放视频时长', _duration(_value('activePlaybackUs'))),
             _item('倍速为您节约', _duration(_derived['savedTimeUs'] as num? ?? 0)),
@@ -155,19 +186,35 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             _item(
               '看评论区时间',
               _duration(_value('commentAreaUs')),
-              '视频播放完毕后，仍停留在当前详情页的近似时间；不计作暂停',
+              '视频播完后停留，或最后一次暂停后始终未恢复的时间；不计作暂停',
             ),
             if (upEntries?.isNotEmpty == true)
               ExpansionTile(
                 title: const Text('视频 UP 主观看时长'),
-                subtitle: const Text('按 UID 汇总，并保留逐年原语'),
+                subtitle: const Text('按 UID 汇总，并保留逐月原语'),
                 children: upEntries!.map((entry) {
                   final item = entry.value as Map;
-                  final year = (item['years'] as Map?)?[currentYear] as Map?;
+                  final month = (item['months'] as Map?)?[currentMonth] as Map?;
+                  final active = item['activePlaybackUs'] as num? ?? 0;
+                  final media = item['mediaAdvanceUs'] as num? ?? 0;
+                  final nominal = item['nominalMediaUs'] as num? ?? 0;
+                  final nominalLong =
+                      item['nominalMediaIncludingLongPressUs'] as num? ?? 0;
+                  final observed = active +
+                      (item['pausedUs'] as num? ?? 0) +
+                      (item['bufferingUs'] as num? ?? 0);
+                  final unique = item['uniqueCoveredUs'] as num? ?? 0;
+                  final repeat = item['repeatCoveredUs'] as num? ?? 0;
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
-                      'UID ${entry.key} · 今年 ${_duration(year?['activePlaybackUs'] as num? ?? 0)}'
+                      'UID ${entry.key} · 本月 ${_duration(month?['activePlaybackUs'] as num? ?? 0)}'
+                      ' · 名义 ${_speed(active == 0 ? 0 : nominal / active)}'
+                      ' · 含长按 ${_speed(active == 0 ? 0 : nominalLong / active)}\n'
+                      '推进 ${_speed(active == 0 ? 0 : media / active)}'
+                      ' · 新内容 ${_speed(active == 0 ? 0 : unique / active)}'
+                      ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
+                      ' · 重复 ${(media == 0 ? 0 : repeat / media * 100).toStringAsFixed(1)}%'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
                     trailing: Text(
@@ -216,7 +263,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '数据按正交原语保存：正常观看与倒带重看各自的播放、暂停和缓冲墙钟，以及媒体推进、倍速分桶、基础与含长按的名义倍速积分、评论区停留、前进跳转、倒带检查点、按 UP 主 UID 和年份汇总的视频时间，以及按主播 UID 汇总的直播时间。展示公式以后即使调整，也可以用这些原语重新计算。',
+                    '数据按正交原语保存：正常观看与倒带重看各自的播放、暂停和缓冲墙钟，以及媒体推进、倍速分桶、基础与含长按的名义倍速积分、去重覆盖、评论区停留、前进跳转、倒带检查点、按 UP 主 UID 和月份汇总的视频时间、按主播 UID 汇总的直播时间，以及页面、分区、横竖屏、编码、清晰度、网络和播放形态等维度。展示公式以后即使调整，也可以用这些原语重新计算。',
                     style: TextStyle(color: ColorScheme.of(context).outline),
                   ),
                 ),
