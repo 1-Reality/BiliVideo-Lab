@@ -958,11 +958,13 @@ abstract final class PlaybackStatsService {
       _sessionActiveUs / 1000000,
       const [60, 300, 1200, 3600, 7200],
     );
-    _addHistogram(
-      'sessionSourceDurationHistogram',
-      _sourceDurationUs / 1000000,
-      const [60, 300, 1200, 3600, 7200],
-    );
+    if (_sourceDurationUs > 0) {
+      _addHistogram(
+        'sessionSourceDurationHistogram',
+        _sourceDurationUs / 1000000,
+        const [60, 300, 1200, 3600, 7200],
+      );
+    }
     _addBucket(
       'sessionOutcomeCounts',
       _sessionCompleted ? 'completed' : 'earlyExit',
@@ -1202,6 +1204,7 @@ abstract final class PlaybackStatsService {
       // Waiting on an already completed video is neither playback nor pause.
       _add('commentAreaUs', wallUs);
       _addVideoUp('commentAreaUs', wallUs);
+      _addDimension('commentAreaUs', wallUs);
     } else if (_buffering) {
       _sessionBufferingUs += wallUs;
       _add('bufferingUs', wallUs);
@@ -1367,8 +1370,10 @@ abstract final class PlaybackStatsService {
     if (_trailingPauseUs == 0) return;
     _add('pausedUs', -_trailingPauseUs);
     _addVideoUp('pausedUs', -_trailingPauseUs);
+    _addDimension('pausedUs', -_trailingPauseUs);
     _add('commentAreaUs', _trailingPauseUs);
     _addVideoUp('commentAreaUs', _trailingPauseUs);
+    _addDimension('commentAreaUs', _trailingPauseUs);
     _add('normalPausedUs', -_trailingNormalPauseUs);
     _add('rewindPausedUs', -_trailingRewindPauseUs);
     _sessionPausedUs = max(0, _sessionPausedUs - _trailingPauseUs);
