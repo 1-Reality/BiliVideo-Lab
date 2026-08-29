@@ -218,6 +218,10 @@ class PlPlayerController with BlockConfigMixin {
 
   Future<void> exitDesktopPip() {
     isDesktopPip = false;
+    PlaybackStatsService.changePlaybackForm(
+      'window',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
     return Future.wait([
       if (showWindowTitleBar)
         windowManager.setTitleBarStyle(TitleBarStyle.normal),
@@ -232,6 +236,10 @@ class PlPlayerController with BlockConfigMixin {
     if (isFullScreen.value) return;
 
     isDesktopPip = true;
+    PlaybackStatsService.changePlaybackForm(
+      'pip',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
 
     _lastWindowBounds = await windowManager.getBounds();
 
@@ -682,8 +690,14 @@ class PlPlayerController with BlockConfigMixin {
     int? seasonId,
     int? pgcType,
     int? liveUid,
+    String? liveName,
     int? videoUpUid,
     String? videoUpName,
+    int? partitionId,
+    String? partitionName,
+    String? copyright,
+    String? codec,
+    String? quality,
     VideoType? videoType,
     VoidCallback? onInit,
     Volume? volume,
@@ -733,8 +747,31 @@ class PlPlayerController with BlockConfigMixin {
         defaultSpeed: Pref.playSpeedDefault,
         cid: cid,
         liveUid: liveUid,
+        liveName: liveName,
         videoUpUid: videoUpUid,
         videoUpName: videoUpName,
+        partitionId: partitionId,
+        partitionName: partitionName,
+        copyright: copyright,
+        sourceDuration: duration,
+        orientation: isVertical == null
+            ? 'unknown'
+            : isVertical
+            ? 'vertical'
+            : 'horizontal',
+        contentType: dataSource is FileSource
+            ? 'local'
+            : (videoType ?? VideoType.ugc).name,
+        codec: codec,
+        quality: quality,
+        network: switch (ConnectivityUtils.current) {
+          final profile? =>
+            '${profile.transport.name}:${profile.useCellularPreferences ? 'cellularPreference' : 'broadbandPreference'}',
+          null => 'unknown',
+        },
+        subtitle: Pref.subtitlePreferenceV2.name,
+        danmakuEnabled: enableShowDanmakuAdaptive.value,
+        decoder: hwdec ?? 'software',
       );
       // 配置Player 音轨、字幕等等
       await _createVideoController(dataSource, seekTo, volume);
@@ -1565,6 +1602,10 @@ class PlPlayerController with BlockConfigMixin {
 
   void _setFullScreen(bool val) {
     isFullScreen.value = val;
+    PlaybackStatsService.changePlaybackForm(
+      val ? 'fullscreen' : 'window',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
     updateSubtitleStyle();
   }
 
