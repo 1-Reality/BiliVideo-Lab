@@ -91,8 +91,38 @@ class WebDav {
     return 'pilibro_settings_${DeviceUtils.platformName}.json';
   }
 
+  String _legacyDirectory() {
+    String directory = Pref.webdavDirectory;
+    if (!directory.endsWith('/')) {
+      directory += '/';
+    }
+    return '${directory}PiliPlus';
+  }
+
+  String _legacyFileName() {
+    return 'piliplus_settings_${DeviceUtils.platformName}.json';
+  }
+
   String _snapshotDirectory(_WebDavConfig config) =>
       '${config.directory}/snapshot_${DeviceUtils.platformName}';
+
+  String _legacySnapshotDirectory() =>
+      '${_legacyDirectory()}/snapshot_${DeviceUtils.platformName}';
+
+  Future<String> _resolveSnapshotDirectory(
+    webdav.Client client,
+    _WebDavConfig config,
+  ) async {
+    final current = _snapshotDirectory(config);
+    try {
+      await client.read('$current/manifest.json');
+      return current;
+    } catch (_) {}
+
+    final legacy = _legacySnapshotDirectory();
+    await client.read('$legacy/manifest.json');
+    return legacy;
+  }
 
   Future<void> backup() async {
     if (_busy) {
@@ -218,7 +248,7 @@ class WebDav {
       await GStorage.initializePlaybackStats();
       final config = _getConfig();
       final client = await _connect(config);
-      final remoteDirectory = _snapshotDirectory(config);
+      final remoteDirectory = await _resolveSnapshotDirectory(client, config);
       final manifestBytes = await client.read('$remoteDirectory/manifest.json');
       final manifest = jsonDecode(utf8.decode(manifestBytes));
       if (manifest is! Map || manifest['schemaVersion'] != 1) {
@@ -296,9 +326,18 @@ class WebDav {
     try {
       final config = _getConfig();
       final client = await _connect(config);
-      final data = await client.read('${config.directory}/${_getFileName()}');
-      await GStorage.importAllSettings(utf8.decode(data));
-      SmartDialog.showToast('已恢复旧版设置备份');
+      for (final remotePath in [
+        '${config.directory}/${_getFileName()}',
+        '${_legacyDirectory()}/${_legacyFileName()}',
+      ]) {
+        try {
+          final data = await client.read(remotePath);
+          await GStorage.importAllSettings(utf8.decode(data));
+          SmartDialog.showToast('已恢复旧版设置备份');
+          return;
+        } catch (_) {}
+      }
+      SmartDialog.showToast('恢复失败: $snapshotError');
     } catch (_) {
       SmartDialog.showToast('恢复失败: $snapshotError');
     }
