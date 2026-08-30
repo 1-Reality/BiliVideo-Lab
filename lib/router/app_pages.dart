@@ -3,6 +3,7 @@ import 'package:PiliPlus/pages/article_list/view.dart';
 import 'package:PiliPlus/pages/audio/view.dart';
 import 'package:PiliPlus/pages/blacklist/view.dart';
 import 'package:PiliPlus/pages/bubble/view.dart';
+import 'package:PiliPlus/pages/comment_helper/view.dart';
 import 'package:PiliPlus/pages/danmaku_block/view.dart';
 import 'package:PiliPlus/pages/dlna/view.dart';
 import 'package:PiliPlus/pages/download/view.dart';
@@ -134,6 +135,7 @@ class Routes {
     GetPage(name: '/followSearch', page: () => const FollowSearchPage()),
     // 消息页面
     GetPage(name: '/whisper', page: () => const WhisperPage()),
+    GetPage(name: '/commentHelper', page: () => const CommentHelperPage()),
     // 私信详情
     GetPage(name: '/whisperDetail', page: () => const WhisperDetailPage()),
     // 回复我的

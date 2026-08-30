@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliPlus/build_config.dart';
@@ -12,6 +13,7 @@ import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/router/app_pages.dart';
 import 'package:PiliPlus/services/account_service.dart';
+import 'package:PiliPlus/services/cdn_diagnostics_service.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/services/playback_stats_service.dart';
@@ -91,6 +93,21 @@ Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 
+void _deferNonCriticalServicesUntilAfterFirstFrame() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(Future<void>(() async {
+      // Large telemetry/history is deliberately kept off the cold-start path.
+      // The first upgraded launch may still pay the old Hive-open cost once;
+      // after this migration the startup-critical video box stays small.
+      await GStorage.initializePlaybackStats();
+      PlaybackStatsService.initializeAppLifecycle();
+      await ConnectivityUtils.initialize();
+      await TrafficStatsService.instance.initialize();
+      await GStorage.migrateHeavyTelemetryFromVideoBox();
+    }));
+  });
+}
+
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
@@ -102,15 +119,12 @@ void main() async {
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
   }
-  PlaybackStatsService.initializeAppLifecycle();
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   await Future.wait([
     _initDownPath(),
     _initTmpPath(),
     CacheManager.ensureInitialized(),
   ]);
-  await ConnectivityUtils.initialize();
-  await TrafficStatsService.instance.initialize();
   Get
     ..lazyPut(AccountService.new)
     ..lazyPut(DownloadService.new);
@@ -193,6 +207,8 @@ void main() async {
   if (Pref.dynamicColor) {
     await MyApp.initPlatformState();
   }
+
+  _deferNonCriticalServicesUntilAfterFirstFrame();
 
   if (Pref.enableLog) {
     // 异常捕获 logo记录
@@ -297,6 +313,7 @@ class MyApp extends StatelessWidget {
       ),
       navigatorObservers: [
         routeObserver,
+        PlaybackStatsService.pageRouteObserver,
         FlutterSmartDialog.observer,
       ],
       scrollBehavior: PlatformUtils.isDesktop
@@ -366,7 +383,6 @@ class MyApp extends StatelessWidget {
 
     try {
       final Color? accentColor = await DynamicColorPlugin.getAccentColor();
-
       if (accentColor != null) {
         if (kDebugMode) {
           debugPrint('dynamic_color: Accent color detected.');

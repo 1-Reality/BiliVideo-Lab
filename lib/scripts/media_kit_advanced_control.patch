@@ -1,0 +1,31 @@
+diff --git a/media_kit_video/windows/video_output.cc b/media_kit_video/windows/video_output.cc
+--- a/media_kit_video/windows/video_output.cc
++++ b/media_kit_video/windows/video_output.cc
+@@ -55,9 +55,11 @@ VideoOutput::VideoOutput(int64_t handle,
+             },
+             nullptr,
+         };
++        int advanced_control = 1;
+         mpv_render_param params[] = {
+             {MPV_RENDER_PARAM_API_TYPE, MPV_RENDER_API_TYPE_OPENGL},
+             {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl_init_params},
++            {MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced_control},
+             {MPV_RENDER_PARAM_INVALID, nullptr},
+         };
+         // Create render context.
+@@ -147,8 +149,13 @@ void VideoOutput::NotifyRender() {
+   if (destroyed_) {
+     return;
+   }
+-  thread_pool_ref_->Post(std::bind(&VideoOutput::CheckAndResize, this));
+-  thread_pool_ref_->Post(std::bind(&VideoOutput::Render, this));
++  thread_pool_ref_->Post([this]() {
++    if (destroyed_) return;
++    const uint64_t flags = mpv_render_context_update(render_context_);
++    if (!(flags & MPV_RENDER_UPDATE_FRAME)) return;
++    CheckAndResize();
++    Render();
++  });
+ }
+ 
+ void VideoOutput::Render() {

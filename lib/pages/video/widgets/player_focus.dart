@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -185,6 +186,11 @@ class PlayerFocus extends StatelessWidget {
         case LogicalKeyboardKey.keyD:
           final newVal = !plPlayerController.enableShowDanmakuAdaptive.value;
           plPlayerController.enableShowDanmakuAdaptive.value = newVal;
+          final position =
+              plPlayerController.videoPlayerController?.state.position ??
+              Duration.zero;
+          PlaybackStatsService.samplePosition(position);
+          PlaybackStatsService.updateVideoContext(danmakuEnabled: newVal);
           if (!plPlayerController.tempPlayerConf) {
             GStorage.setting.put(
               plPlayerController.isLive

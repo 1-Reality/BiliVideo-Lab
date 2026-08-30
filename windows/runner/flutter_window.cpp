@@ -3,6 +3,8 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "flutter/standard_method_codec.h"
+#include "network_traffic_meter.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +28,75 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
 
+  network_traffic_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "org.brotech.piliplus/network_traffic",
+          &flutter::StandardMethodCodec::GetInstance());
+  network_traffic_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "installMediaHook") {
+          result->Success(flutter::EncodableValue(InstallMediaWinsockMeter()));
+          return;
+        }
+        if (call.method_name() == "trafficCounters") {
+          InstallMediaWinsockMeter();
+          const NetworkByteCounters media = GetMediaWinsockCounters();
+          const NetworkByteCounters network = GetActiveInterfaceCounters();
+          result->Success(flutter::EncodableValue(flutter::EncodableMap{
+              {flutter::EncodableValue("media"),
+               flutter::EncodableValue(flutter::EncodableMap{
+                   {flutter::EncodableValue("received"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(media.received))},
+                   {flutter::EncodableValue("sent"),
+                    flutter::EncodableValue(static_cast<int64_t>(media.sent))},
+                   {flutter::EncodableValue("available"),
+                    flutter::EncodableValue(media.available)},
+                   {flutter::EncodableValue("sourceId"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(media.source_id))},
+               })},
+              {flutter::EncodableValue("interface"),
+               flutter::EncodableValue(flutter::EncodableMap{
+                   {flutter::EncodableValue("received"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.received))},
+                   {flutter::EncodableValue("sent"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.sent))},
+                   {flutter::EncodableValue("available"),
+                    flutter::EncodableValue(network.available)},
+                   {flutter::EncodableValue("sourceId"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.source_id))},
+               })},
+          }));
+          return;
+        }
+        NetworkByteCounters counters{};
+        if (call.method_name() == "mediaCounters") {
+          InstallMediaWinsockMeter();
+          counters = GetMediaWinsockCounters();
+        } else if (call.method_name() == "interfaceCounters") {
+          counters = GetActiveInterfaceCounters();
+        } else {
+          result->NotImplemented();
+          return;
+        }
+        result->Success(flutter::EncodableValue(flutter::EncodableMap{
+            {flutter::EncodableValue("received"),
+             flutter::EncodableValue(static_cast<int64_t>(counters.received))},
+            {flutter::EncodableValue("sent"),
+             flutter::EncodableValue(static_cast<int64_t>(counters.sent))},
+            {flutter::EncodableValue("available"),
+             flutter::EncodableValue(counters.available)},
+            {flutter::EncodableValue("sourceId"),
+             flutter::EncodableValue(static_cast<int64_t>(counters.source_id))},
+        }));
+      });
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   // flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -42,6 +113,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
+    network_traffic_channel_.reset();
     flutter_controller_ = nullptr;
   }
 

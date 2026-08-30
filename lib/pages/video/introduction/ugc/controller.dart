@@ -42,6 +42,7 @@ import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -117,6 +118,35 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         cid: cid.value,
         videoUpUid: response.owner?.mid,
         videoUpName: response.owner?.name,
+      );
+      final page = response.pages?.firstWhereOrNull(
+        (item) => item.cid == cid.value,
+      );
+      final dimension = page?.dimension ?? response.dimension;
+      PlaybackStatsService.updateVideoContext(
+        sourceDuration: page?.duration == null
+            ? (response.duration == null
+                  ? null
+                  : Duration(seconds: response.duration!))
+            : Duration(seconds: page!.duration!),
+        partitionId: response.tid,
+        partitionName: response.tname,
+        orientation: dimension == null ||
+                dimension.width == null ||
+                dimension.height == null ||
+                dimension.width! <= 0 ||
+                dimension.height! <= 0
+            ? null
+            : dimension.width == dimension.height
+            ? 'square'
+            : dimension.isVertical
+            ? 'vertical'
+            : 'horizontal',
+        copyright: switch (response.copyright) {
+          1 => 'original',
+          2 => 'repost',
+          _ => 'unknown',
+        },
       );
       try {
         if (videoDetailCtr.cover.value.isEmpty ||

@@ -35,7 +35,9 @@ import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
+import 'package:PiliPlus/pages/video/widgets/playback_cdn_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
@@ -499,43 +501,22 @@ class HeaderControlState extends State<HeaderControl>
                 if (!isFileSource)
                   ListTile(
                     dense: true,
-                    title: const Text('CDN 设置', style: titleStyle),
+                    title: const Text('本次播放 CDN', style: titleStyle),
                     leading: const Icon(MdiIcons.cloudPlusOutline, size: 20),
                     subtitle: Text(
-                      '当前：${VideoUtils.effectiveCdnServices.map((item) => item.desc).join(" → ")}',
+                      '当前：${videoDetailCtr.currentCdn.desc}'
+                      '${videoDetailCtr.isCdnLockedForCurrentPlayback ? " · 已锁定" : ""}',
                       style: subTitleStyle,
                     ),
                     onTap: () async {
                       Get.back();
-                      final profile = await ConnectivityUtils.resolveForPlayback();
-                      if (!context.mounted) return;
-                      final cellular = profile.useCellularPreferences;
-                      final speedConfig = Pref.cdnSpeedTest
-                          ? await showCdnSpeedConfigDialog(context)
-                          : null;
-                      if (Pref.cdnSpeedTest && speedConfig == null ||
-                          !context.mounted) {
-                        return;
-                      }
-                      final result = await showDialog<List<CDNService>>(
-                        context: context,
-                        builder: (context) => CdnSelectDialog(
-                          sample: videoInfo.dash?.video?.firstOrNull,
-                          initValues: cellular
-                              ? Pref.defaultCDNServicesCellular
-                              : Pref.defaultCDNServices,
-                          speedConfig: speedConfig,
-                        ),
+                      final selected = await showPlaybackCdnDialog(
+                        this.context,
+                        current: videoDetailCtr.currentCdn,
+                        locked: videoDetailCtr.isCdnLockedForCurrentPlayback,
                       );
-                      if (result != null && result.isNotEmpty) {
-                        await setting.put(
-                          cellular
-                              ? SettingBoxKey.CDNServicesCellular
-                              : SettingBoxKey.CDNServices,
-                          result.map((item) => item.name).toList(),
-                        );
-                        SmartDialog.showToast('CDN 优先级已更新，正在重载视频');
-                        videoDetailCtr.queryVideoUrl(fromReset: true);
+                      if (selected != null) {
+                        await videoDetailCtr.selectCdnForCurrentPlayback(selected);
                       }
                     },
                   ),
@@ -1899,6 +1880,13 @@ class HeaderControlState extends State<HeaderControl>
                       style: btnStyle,
                       onPressed: () {
                         final newVal = !enableShowDanmaku;
+                        final position =
+                            plPlayerController.videoPlayerController?.state.position ??
+                            Duration.zero;
+                        PlaybackStatsService.samplePosition(position);
+                        PlaybackStatsService.updateVideoContext(
+                          danmakuEnabled: newVal,
+                        );
                         plPlayerController.enableShowDanmaku.value = newVal;
                         if (!plPlayerController.tempPlayerConf) {
                           setting.put(

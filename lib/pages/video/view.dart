@@ -52,6 +52,7 @@ import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -134,6 +135,27 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   final videoReplyPanelKey = GlobalKey();
   final videoRelatedKey = GlobalKey();
   final videoIntroKey = GlobalKey();
+  TabController? _commentTabController;
+  int _commentTabIndex = -1;
+
+  void _syncCommentPanelVisibility() {
+    PlaybackStatsService.setVideoCommentPanelVisible(
+      _commentTabIndex >= 0 &&
+          _commentTabController?.index == _commentTabIndex &&
+          !isFullScreen,
+    );
+  }
+
+  void _watchCommentTab(List<String> tabs) {
+    _commentTabIndex = tabs.indexOf('评论');
+    final controller = videoDetailController.tabCtr;
+    if (!identical(_commentTabController, controller)) {
+      _commentTabController?.removeListener(_syncCommentPanelVisibility);
+      _commentTabController = controller
+        ..addListener(_syncCommentPanelVisibility);
+    }
+    _syncCommentPanelVisibility();
+  }
 
   @override
   void initState() {
@@ -327,6 +349,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    _commentTabController?.removeListener(_syncCommentPanelVisibility);
+    PlaybackStatsService.setVideoCommentPanelVisible(false);
     plPlayerController
       ?..removeStatusLister(playerListener)
       ..removePositionListener(positionListener);
@@ -1300,6 +1324,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       if (_shouldShowSeasonPanel) '播放列表',
     ];
     if (videoDetailController.tabCtr.length != tabs.length) {
+      _commentTabController?.removeListener(_syncCommentPanelVisibility);
+      _commentTabController = null;
       videoDetailController.tabCtr.dispose();
       videoDetailController.tabCtr = TabController(
         vsync: videoDetailController,
@@ -1309,6 +1335,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             : videoDetailController.tabCtr.index.clamp(0, tabs.length - 1),
       );
     }
+    _watchCommentTab(tabs);
 
     Widget tabBar() {
       final flag = !needIndicator || tabs.length == 1;
@@ -1415,6 +1442,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   return IconButton(
                     onPressed: () {
                       final newVal = !enableShowDanmaku;
+                      final position = ctr.videoPlayerController?.state.position ??
+                          Duration.zero;
+                      PlaybackStatsService.samplePosition(position);
+                      PlaybackStatsService.updateVideoContext(
+                        danmakuEnabled: newVal,
+                      );
                       ctr.enableShowDanmaku.value = newVal;
                       if (!ctr.tempPlayerConf) {
                         GStorage.setting.put(

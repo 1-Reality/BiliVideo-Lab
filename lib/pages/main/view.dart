@@ -1,3 +1,4 @@
+import 'dart:async' show Timer, unawaited;
 import 'dart:io';
 
 import 'package:PiliPlus/common/assets.dart';
@@ -13,6 +14,8 @@ import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
+import 'package:PiliPlus/services/traffic_stats_service.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
@@ -43,11 +46,13 @@ class _MainAppState extends PopScopeState<MainApp>
         WidgetsBindingObserver,
         WindowListener,
         TrayListener {
+  static final Future<void> _windowEventHandled = Future.value();
   final _mainController = Get.put(MainController());
   late final _setting = GStorage.setting;
   late EdgeInsets _padding;
   late ColorScheme _colorScheme;
   Brightness? _brightness;
+  Timer? _windowGeometryTimer;
 
   @override
   bool get initCanPop => false;
@@ -120,6 +125,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void dispose() {
+    _windowGeometryTimer?.cancel();
     if (Platform.isMacOS) {
       HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     }
@@ -129,8 +135,14 @@ class _MainAppState extends PopScopeState<MainApp>
     }
     removeObserverMobile(this);
     PiliScheme.listener?.cancel();
-    GStorage.close();
+    unawaited(_flushTelemetryAndCloseStorage());
     super.dispose();
+  }
+
+  Future<void> _flushTelemetryAndCloseStorage() async {
+    await PlaybackStatsService.flush();
+    await TrafficStatsService.instance.dispose();
+    await GStorage.close();
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -151,21 +163,35 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   @override
-  Future<void> onWindowMoved() async {
-    if (PlPlayerController.instance?.isDesktopPip ?? false) {
-      return;
-    }
-    final Offset offset = await windowManager.getPosition();
-    _setting.put(SettingBoxKey.windowPosition, [offset.dx, offset.dy]);
+  Future<void> onWindowMoved() {
+    _queueWindowGeometrySave();
+    return _windowEventHandled;
   }
 
   @override
-  Future<void> onWindowResized() async {
+  Future<void> onWindowResized() {
+    _queueWindowGeometrySave();
+    return _windowEventHandled;
+  }
+
+  void _queueWindowGeometrySave() {
     if (PlPlayerController.instance?.isDesktopPip ?? false) {
       return;
     }
+    _windowGeometryTimer?.cancel();
+    _windowGeometryTimer = Timer(
+      const Duration(milliseconds: 400),
+      () {
+        _windowGeometryTimer = null;
+        unawaited(_saveWindowGeometry());
+      },
+    );
+  }
+
+  Future<void> _saveWindowGeometry() async {
+    if (PlPlayerController.instance?.isDesktopPip ?? false) return;
     final Rect bounds = await windowManager.getBounds();
-    _setting.putAll({
+    await _setting.putAll({
       SettingBoxKey.windowSize: [bounds.width, bounds.height],
       SettingBoxKey.windowPosition: [bounds.left, bounds.top],
     });
@@ -182,7 +208,10 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Future<void> _onClose() async {
-    await GStorage.compact();
+    _windowGeometryTimer?.cancel();
+    await _saveWindowGeometry();
+    await PlaybackStatsService.flush();
+    await TrafficStatsService.instance.dispose();
     await GStorage.close();
     await trayManager.destroy();
     if (Platform.isWindows) {

@@ -329,6 +329,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final currentPlayer = plPlayerController.videoPlayerController;
+    PlaybackStatsService.changePlaybackForm(
+      const <AppLifecycleState>[.paused, .detached].contains(state)
+          ? (plPlayerController.isPipMode ? 'pip' : 'background')
+          : (plPlayerController.isFullScreen.value ? 'fullscreen' : 'window'),
+      currentPlayer?.state.position ?? Duration.zero,
+    );
     if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
       unawaited(PlaybackStatsService.flush());
     }

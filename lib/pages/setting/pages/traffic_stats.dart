@@ -26,6 +26,18 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
     'other': '其他网络',
   };
 
+  String _label(String key) {
+    if (key.startsWith('appObserved.')) {
+      final network = key.substring('appObserved.'.length);
+      return '本应用观察值 · ${labels[network] ?? network}';
+    }
+    if (key.startsWith('activeInterface.')) {
+      final network = key.substring('activeInterface.'.length);
+      return '活动网卡总量 · ${labels[network] ?? network}';
+    }
+    return labels[key] ?? key;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +45,10 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
   }
 
   Future<void> _refresh() async {
-    final value = await TrafficStatsService.instance.snapshot();
+    final value = await TrafficStatsService.instance.snapshot(
+      start: start,
+      end: end,
+    );
     if (mounted) setState(() => data = value);
   }
 
@@ -49,6 +64,7 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
         start = DateUtils.dateOnly(range.start);
         end = DateUtils.dateOnly(range.end);
       });
+      await _refresh();
     }
   }
 
@@ -88,6 +104,19 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
       '${value.year}-${value.month.toString().padLeft(2, '0')}-'
       '${value.day.toString().padLeft(2, '0')}';
 
+  ({int received, int sent}) _sourceTotal(
+    Map<String, ({int received, int sent})> totals,
+    String prefix,
+  ) => totals.entries
+      .where((entry) => entry.key.startsWith(prefix))
+      .fold(
+        (received: 0, sent: 0),
+        (sum, entry) => (
+          received: sum.received + entry.value.received,
+          sent: sum.sent + entry.value.sent,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final entries = data.entries.where((entry) => _inRange(entry.key)).toList()
@@ -95,6 +124,8 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
     final totals = _aggregate(entries);
     final received = totals.values.fold(0, (sum, item) => sum + item.received);
     final sent = totals.values.fold(0, (sum, item) => sum + item.sent);
+    final appTotal = _sourceTotal(totals, 'appObserved.');
+    final interfaceTotal = _sourceTotal(totals, 'activeInterface.');
     return SimpleScaffold(
       appBar: AppBar(
         title: const Text('应用流量统计'),
@@ -105,10 +136,35 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
       body: ViewSafeArea(
         child: ListView(
           children: [
-            if (!Platform.isAndroid)
-              const ListTile(
-                title: Text('当前平台暂不提供应用级流量计数'),
-                subtitle: Text('Android 使用系统 UID 计数，能够覆盖播放器原生网络流量且无需新增权限。'),
+            if (Platform.isWindows)
+              ValueListenableBuilder<WindowsTrafficLive?>(
+                valueListenable: TrafficStatsService.instance.windowsLive,
+                builder: (context, live, _) => Column(
+                  children: [
+                    ListTile(
+                      title: const Text('本应用观察值 · 本次运行'),
+                      subtitle: Text(
+                        live == null
+                            ? '正在连接进程内网络电表'
+                            : '下行 ${_bytes(live.appReceived)} · 上行 ${_bytes(live.appSent)}',
+                      ),
+                      trailing: live == null
+                          ? null
+                          : Text('${_bytes(live.appReceiveRate.round())}/s'),
+                    ),
+                    ListTile(
+                      title: const Text('活动网卡总量 · 本次运行'),
+                      subtitle: Text(
+                        live == null
+                            ? '正在读取活动接口计数器'
+                            : '下行 ${_bytes(live.interfaceReceived)} · 上行 ${_bytes(live.interfaceSent)}',
+                      ),
+                      trailing: live == null
+                          ? null
+                          : Text('${_bytes(live.interfaceReceiveRate.round())}/s'),
+                    ),
+                  ],
+                ),
               ),
             ListTile(
               title: const Text('日期范围'),
@@ -116,14 +172,28 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
               trailing: const Icon(Icons.date_range),
               onTap: _selectRange,
             ),
-            ListTile(
-              title: const Text('范围合计'),
-              subtitle: Text('下行 ${_bytes(received)} · 上行 ${_bytes(sent)}'),
-            ),
+            if (Platform.isWindows) ...[
+              ListTile(
+                title: const Text('范围合计 · 本应用观察值'),
+                subtitle: Text(
+                  '下行 ${_bytes(appTotal.received)} · 上行 ${_bytes(appTotal.sent)}',
+                ),
+              ),
+              ListTile(
+                title: const Text('范围合计 · 活动网卡总量'),
+                subtitle: Text(
+                  '下行 ${_bytes(interfaceTotal.received)} · 上行 ${_bytes(interfaceTotal.sent)}',
+                ),
+              ),
+            ] else
+              ListTile(
+                title: const Text('范围合计'),
+                subtitle: Text('下行 ${_bytes(received)} · 上行 ${_bytes(sent)}'),
+              ),
             const Divider(),
             for (final item in totals.entries)
               ListTile(
-                title: Text(labels[item.key] ?? item.key),
+                title: Text(_label(item.key)),
                 subtitle: Text(
                   '下行 ${_bytes(item.value.received)} · 上行 ${_bytes(item.value.sent)}',
                 ),
@@ -135,6 +205,17 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
                 subtitle: Builder(
                   builder: (_) {
                     final value = _aggregate([entry]);
+                    if (Platform.isWindows) {
+                      final app = _sourceTotal(value, 'appObserved.');
+                      final interface = _sourceTotal(
+                        value,
+                        'activeInterface.',
+                      );
+                      return Text(
+                        '应用 ↓${_bytes(app.received)} ↑${_bytes(app.sent)} · '
+                        '网卡 ↓${_bytes(interface.received)} ↑${_bytes(interface.sent)}',
+                      );
+                    }
                     final rx = value.values.fold(
                       0,
                       (sum, item) => sum + item.received,
@@ -147,7 +228,7 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
                   for (final item in _aggregate([entry]).entries)
                     ListTile(
                       dense: true,
-                      title: Text(labels[item.key] ?? item.key),
+                      title: Text(_label(item.key)),
                       subtitle: Text(
                         '下行 ${_bytes(item.value.received)} · 上行 ${_bytes(item.value.sent)}',
                       ),
