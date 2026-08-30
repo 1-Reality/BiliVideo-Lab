@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/space/space_season_series/meta.dart';
+import 'package:PiliBro/models_new/space/space_season_series/meta.dart';
 
 class SpaceSsModel {
   SpaceSsMeta? meta;

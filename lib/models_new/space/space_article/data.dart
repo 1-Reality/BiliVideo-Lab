@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/space/space_article/item.dart';
+import 'package:PiliBro/models_new/space/space_article/item.dart';
 
 class SpaceArticleData {
   int? count;

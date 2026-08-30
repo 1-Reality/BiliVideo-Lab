@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/bubble/category_list.dart';
+import 'package:PiliBro/models_new/bubble/category_list.dart';
 
 class Category {
   List<CategoryList>? categoryList;

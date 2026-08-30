@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart'
+import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart'
     show displacement, kIndicatorSize;
-import 'package:PiliPlus/common/widgets/slotted_layout_helper.dart';
+import 'package:PiliBro/common/widgets/slotted_layout_helper.dart';
 import 'package:flutter/rendering.dart' show BoxHitTestResult, ClipRectLayer;
 import 'package:material_ui/material_ui.dart' hide RefreshIndicatorStatus;
 

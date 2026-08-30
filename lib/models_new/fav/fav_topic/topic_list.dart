@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/fav/fav_topic/page_info.dart';
-import 'package:PiliPlus/models_new/fav/fav_topic/topic_item.dart';
+import 'package:PiliBro/models_new/fav/fav_topic/page_info.dart';
+import 'package:PiliBro/models_new/fav/fav_topic/topic_item.dart';
 
 class TopicList {
   List<FavTopicItem>? topicItems;

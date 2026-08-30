@@ -1,4 +1,4 @@
-import 'package:PiliPlus/common/widgets/only_layout_widget.dart';
+import 'package:PiliBro/common/widgets/only_layout_widget.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SelfSizedHorizontalList extends StatefulWidget {

@@ -1,40 +1,40 @@
 import 'dart:async' show unawaited;
 import 'dart:io';
 
-import 'package:PiliPlus/build_config.dart';
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/common/widgets/back_detector.dart';
-import 'package:PiliPlus/common/widgets/custom_toast.dart';
-import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
-import 'package:PiliPlus/common/widgets/scale_app.dart';
-import 'package:PiliPlus/common/widgets/scroll_behavior.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliPlus/router/app_pages.dart';
-import 'package:PiliPlus/services/account_service.dart';
-import 'package:PiliPlus/services/cdn_diagnostics_service.dart';
-import 'package:PiliPlus/services/download/download_service.dart';
-import 'package:PiliPlus/services/logger.dart';
-import 'package:PiliPlus/services/playback_stats_service.dart';
-import 'package:PiliPlus/services/traffic_stats_service.dart';
-import 'package:PiliPlus/services/service_locator.dart';
-import 'package:PiliPlus/utils/cache_manager.dart';
-import 'package:PiliPlus/utils/calc_window_position.dart';
-import 'package:PiliPlus/utils/connectivity_utils.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/extension/core_palettes_ext.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/json_file_handler.dart';
-import 'package:PiliPlus/utils/max_screen_size.dart';
-import 'package:PiliPlus/utils/path_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/request_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/theme_utils.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/build_config.dart';
+import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/common/widgets/back_detector.dart';
+import 'package:PiliBro/common/widgets/custom_toast.dart';
+import 'package:PiliBro/common/widgets/route_aware_mixin.dart';
+import 'package:PiliBro/common/widgets/scale_app.dart';
+import 'package:PiliBro/common/widgets/scroll_behavior.dart';
+import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/models/common/theme/theme_color_type.dart';
+import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliBro/router/app_pages.dart';
+import 'package:PiliBro/services/account_service.dart';
+import 'package:PiliBro/services/cdn_diagnostics_service.dart';
+import 'package:PiliBro/services/download/download_service.dart';
+import 'package:PiliBro/services/logger.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/traffic_stats_service.dart';
+import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/cache_manager.dart';
+import 'package:PiliBro/utils/calc_window_position.dart';
+import 'package:PiliBro/utils/connectivity_utils.dart';
+import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/extension/core_palettes_ext.dart';
+import 'package:PiliBro/utils/extension/theme_ext.dart';
+import 'package:PiliBro/utils/json_file_handler.dart';
+import 'package:PiliBro/utils/max_screen_size.dart';
+import 'package:PiliBro/utils/path_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/request_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:PiliBro/utils/theme_utils.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:collection/collection.dart';
 import 'package:dynamic_color/dynamic_color.dart' show DynamicColorPlugin;
@@ -300,7 +300,7 @@ class MyApp extends StatelessWidget {
       locale: const Locale("zh", "CN"),
       fallbackLocale: const Locale("zh", "CN"),
       supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
-      initialRoute: '/',
+      initialRoute: GStorage.startupRoute,
       getPages: Routes.getPages,
       defaultTransition: Pref.pageTransition,
       builder: FlutterSmartDialog.init(

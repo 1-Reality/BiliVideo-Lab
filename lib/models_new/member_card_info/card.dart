@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/model_avatar.dart';
+import 'package:PiliBro/models/model_avatar.dart';
 
 class Card {
   String? mid;

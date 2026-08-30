@@ -1,8 +1,8 @@
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/blacklist/data.dart';
-import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models_new/blacklist/data.dart';
+import 'package:PiliBro/utils/accounts.dart';
 
 abstract final class BlackHttp {
   static Future<LoadingState<BlackListData>> blackList({

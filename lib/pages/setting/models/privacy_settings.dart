@@ -1,7 +1,7 @@
-import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/pages/setting/models/model.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/api_type.dart';
+import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/pages/setting/models/model.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/api_type.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

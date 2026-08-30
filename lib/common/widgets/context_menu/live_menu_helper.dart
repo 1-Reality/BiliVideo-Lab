@@ -1,4 +1,4 @@
-part of 'package:PiliPlus/pages/live_room/superchat/superchat_card.dart';
+part of 'package:PiliBro/pages/live_room/superchat/superchat_card.dart';
 
 Widget scMenuBuilder(
   BuildContext context,

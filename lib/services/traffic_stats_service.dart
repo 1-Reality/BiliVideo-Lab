@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
 
-import 'package:PiliPlus/models/common/network_profile.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
-import 'package:PiliPlus/utils/connectivity_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/connectivity_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_ce/hive.dart';
@@ -48,7 +48,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
   final ValueNotifier<WindowsTrafficLive?> windowsLive = ValueNotifier(null);
 
   static const _windowsChannel = MethodChannel(
-    'org.brotech.piliplus/network_traffic',
+    'org.brotech.pilibro/network_traffic',
   );
 
   Future<void> initialize() {

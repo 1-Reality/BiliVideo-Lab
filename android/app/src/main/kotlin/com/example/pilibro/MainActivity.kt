@@ -1,4 +1,4 @@
-package com.example.piliplus
+package com.example.pilibro
 
 import android.content.Intent
 import android.content.res.Configuration

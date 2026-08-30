@@ -1,4 +1,4 @@
-import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliBro/utils/storage.dart';
 
 typedef CdnDiagnosticGroup = ({
   int runStartedAtUs,

@@ -1,10 +1,10 @@
-import 'package:PiliPlus/models/common/video/video_decode_type.dart';
-import 'package:PiliPlus/models/video/play/url.dart';
-import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart'
+import 'package:PiliBro/models/common/video/video_decode_type.dart';
+import 'package:PiliBro/models/video/play/url.dart';
+import 'package:PiliBro/pages/setting/widgets/select_dialog.dart'
     show CdnSpeedConfig, CdnSpeedMode, showCdnSpeedConfigDialog;
-import 'package:PiliPlus/services/cdn_last_video_service.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/connectivity_utils.dart';
+import 'package:PiliBro/services/cdn_last_video_service.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 

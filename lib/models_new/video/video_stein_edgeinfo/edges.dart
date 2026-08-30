@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/video/video_stein_edgeinfo/question.dart';
+import 'package:PiliBro/models_new/video/video_stein_edgeinfo/question.dart';
 
 class Edges {
   List<Question>? questions;

@@ -1,6 +1,6 @@
-import 'package:PiliPlus/pages/fav/note/child_view.dart';
-import 'package:PiliPlus/pages/fav/note/controller.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliBro/pages/fav/note/child_view.dart';
+import 'package:PiliBro/pages/fav/note/controller.dart';
+import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

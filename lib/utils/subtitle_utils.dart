@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
 import 'package:collection/collection.dart' show IterableExtension;
 
 enum SubtitleFormat implements EnumWithLabel {

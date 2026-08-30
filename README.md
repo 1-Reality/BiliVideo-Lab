@@ -3,9 +3,9 @@
 一切为了提高倍速看B站、节约时间、增加信息熵、少即是多服务！
 
 <div align="center">
-  <img width="200" height="200" src="assets/images/logo/logo.png" alt="PiliPlus">
+  <img width="200" height="200" src="assets/images/logo/logo.png" alt="PiliBro">
   <h1>PiliBro FreeRate</h1>
-  <p>基于 Flutter 开发的 Biliplus 第三方客户端 · 哥哥科技维护的自由速率分支</p>
+  <p>基于 Flutter 开发的 PiliBro 第三方客户端 · 哥哥科技维护的自由速率分支</p>
   <p><img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/ucxn/Bili.Libre.Speed"> <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ucxn/Bili.Libre.Speed"> <img alt="GitHub all releases" src="https://img.shields.io/github/downloads/ucxn/Bili.Libre.Speed/total"></p>
   <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/850shots_so.png" width="32%" alt="home" />
   <br><img src="assets/screenshots/main_screen.png" width="96%" alt="main screen" />
@@ -13,7 +13,7 @@
 
 ## FreeRate · 自由速率
 
-哥哥科技维护的 PiliPlus 分支，顾名思义——“自由速率”~ 专为偏爱高倍速、高信息熵的朋友们打造：热爱博物、渴求信息、资源饥渴、节约时间……凡是想在有限的生命中了解更多信息、高效看视频的，都可以选择本软件！测试宽带真实业务速率：网络 CDN 诊断、高峰调控、弱网优化，助你流畅，护你冲浪！
+哥哥科技维护的 PiliBro 分支，顾名思义——“自由速率”~ 专为偏爱高倍速、高信息熵的朋友们打造：热爱博物、渴求信息、资源饥渴、节约时间……凡是想在有限的生命中了解更多信息、高效看视频的，都可以选择本软件！测试宽带真实业务速率：网络 CDN 诊断、高峰调控、弱网优化，助你流畅，护你冲浪！
 
 **高倍速与观看统计：** 默认倍速、长按倍速与长按倍率系数均可自定义，长按期间可滑动调整临时倍速，持续 2 秒可锁定当前速度；统计区分普通观看/倒带重看、播放/暂停/缓冲与基础/临时倍速，计算实际/名义平均倍速、倍速节约时间、倒带等效倍速与完成率，并记录评论区停留、前进跳转、按 UP 主/年份/直播主播汇总等，完整原始统计可随设置导入导出。<br>**网络与 CDN：** Wi-Fi/蜂窝可分别设置画质、音质、编码及 CDN 优先级，多 CDN 按顺序使用，连接失败自动回退并明确提示；测速直接模拟真实视频业务，可设置单 CDN 数据量、预热、冷却与并行/串行模式，长期保存原始诊断，分离 DNS 与首包等待，记录响应头、250 ms 固定窗吞吐、P02/P05/P50/P95、带宽抖动与趋势、最大传输空窗、解析 IP 等指标。
 
@@ -25,7 +25,7 @@
 ## 适配平台
 Android 手机、平板（Arm/×86-64）、iOS（含iPad）、MacOS、Windows（AMD64 安装/绿色）、Linux。
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/piliplus.svg)](https://repology.org/project/piliplus/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/pilibro.svg)](https://repology.org/project/pilibro/versions)
 
 ## PiliBro 基础功能
 
@@ -44,11 +44,11 @@ Android 手机、平板（Arm/×86-64）、iOS（含iPad）、MacOS、Windows（
 
 ## 下载
 
-可从右侧 Releases 下载，也可拉取 `dev` 分支本地编译。Android 使用独立包名 `org.BroTech.Gege.piliplus`，可与上游 PiliPlus 并存；本分支 Release 使用固定签名，同签名的后续构建可直接覆盖升级。
+可从右侧 Releases 下载，也可拉取 `dev` 分支本地编译。Android 使用独立包名 `org.BroTech.Gege.pilibro`，可与上游版本并存；本分支 Release 使用固定签名，同签名的后续构建可直接覆盖升级。
 
 ## 声明与致谢
 
-本项目基于 dom的[PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) 继续开发，仅用于学习和测试，请于下载后 24 小时内删除；所用 API 皆从官方网站收集，不提供任何破解内容。本仓库对倍速、网络、CDN 与播放策略进行了更激进的修改，感谢原作者 [guozhigq/pilipala](https://github.com/guozhigq/pilipala)、上游 [orz12/PiliPalaX](https://github.com/orz12/PiliPalaX) 以及 PiliPlus 全体贡献者的开源工作。
+本项目基于 dom 的[上游项目](https://github.com/bggRGjQaUbCoE/PiliPlus)继续开发，仅用于学习和测试，请于下载后 24 小时内删除；所用 API 皆从官方网站收集，不提供任何破解内容。本仓库对倍速、网络、CDN 与播放策略进行了更激进的修改，感谢原作者 [guozhigq/pilipala](https://github.com/guozhigq/pilipala)、上游 [orz12/PiliPalaX](https://github.com/orz12/PiliPalaX) 以及上游项目全体贡献者的开源工作。
 
 特别感谢 [@My-Responsitories](https://github.com/My-Responsitories) 等贡献者，以及 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)、[flutter_meedu_videoplayer](https://github.com/zezo357/flutter_meedu_videoplayer)、[media-kit](https://github.com/media-kit/media-kit)、[dio](https://pub.dev/packages/dio) 等项目。
 

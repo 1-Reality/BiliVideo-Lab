@@ -1,6 +1,6 @@
-import 'package:PiliPlus/models_new/video/video_play_info/interaction.dart';
-import 'package:PiliPlus/models_new/video/video_play_info/subtitle_info.dart';
-import 'package:PiliPlus/models_new/video/video_play_info/view_point.dart';
+import 'package:PiliBro/models_new/video/video_play_info/interaction.dart';
+import 'package:PiliBro/models_new/video/video_play_info/subtitle_info.dart';
+import 'package:PiliBro/models_new/video/video_play_info/view_point.dart';
 
 class PlayInfoData {
   int? lastPlayCid;

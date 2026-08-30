@@ -1,19 +1,19 @@
 import 'dart:io';
 
-import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/time_picker.dart' as pili;
-import 'package:PiliPlus/common/widgets/view_safe_area.dart';
-import 'package:PiliPlus/models/common/network_profile.dart';
-import 'package:PiliPlus/models/common/video/video_decode_type.dart';
-import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
-import 'package:PiliPlus/utils/connectivity_utils.dart';
-import 'package:PiliPlus/utils/permission_handler.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/time_picker.dart' as pili;
+import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/models/common/video/video_decode_type.dart';
+import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
+import 'package:PiliBro/utils/connectivity_utils.dart';
+import 'package:PiliBro/utils/permission_handler.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:get/get.dart';
@@ -205,12 +205,12 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             '电脑连接的是有线还是 Wi-Fi，只能说明接入方式，未必能说明这条网络现在是否适合高码率播放。这里可以根据链路协商速率和 Wi-Fi 状态，把当前连接判断为“等效宽带”或“等效移网”，并使用对应的画质、音质和编码偏好。\n\n'
             '这看起来相似，却可能差很多：千兆有线通常比较稳定，降到百兆时可能意味着链路协商出现了变化，也可能只是身处校园网或其他共享网络；Wi-Fi 的信号强度和协商速率，则更能说明这一刻的无线连接是否适合高码率播放。USB 网络共享、手机热点等连接，也可能披着“电脑网络”的外观出现。这项功能用于让电脑在网络条件可能变差时，临时沿用蜂窝网络下的画质、音质和编码偏好。\n\n'
             '这项功能把最终判断归纳为“等效宽带”和“等效移网”。等效宽带使用普通网络下的画质、音质和编码偏好，等效移网使用移动网络下的对应配置。用户可以自行决定哪些有线或 Wi-Fi 状态需要切换，不必受设备类型限制。\n\n'
-            '判断只读取当前连接类型、链路协商速率和 Wi-Fi 信号强度，不保存网络名称、IP 地址等无关信息。检测只发生在启动应用、进入播放器等关键节点，不会在播放过程中反复扫描，也不会因为信号的轻微波动频繁切换。所有门限均由用户自行设置，PiliPlus 只负责按照这些规则选择对应的播放配置。\n\n'
+            '判断只读取当前连接类型、链路协商速率和 Wi-Fi 信号强度，不保存网络名称、IP 地址等无关信息。检测只发生在启动应用、进入播放器等关键节点，不会在播放过程中反复扫描，也不会因为信号的轻微波动频繁切换。所有门限均由用户自行设置，PiliBro 只负责按照这些规则选择对应的播放配置。\n\n'
             '到了网络高峰期，部分地区的宽带、校园网或特定 CDN 路径可能突然变慢。网络高峰期可以在指定时间段临时使用另一套编码偏好。当前视频保持原样，下一次选择视频流时再应用新的偏好；临时状态只存在于本次运行中，不会改写长期配置，也不会公网测速。\n\n'
             '按流量计费的 Wi-Fi 会直接沿用蜂窝网络偏好。\n\n'
             '系统多做一次判断，只需要一瞬间；人们少遇到一次卡顿，省下的却是真实的时间。人的时间永远比机器值钱。愿这一点小小的自动化，能让每一次播放少一点等待，多一点顺畅。\n\n'
             '思路设计：哥哥科技\n\n\n'
-            'PiliPlus，乾杯- ( ゜- ゜)つロ\n'
+            'PiliBro，乾杯- ( ゜- ゜)つロ\n'
             '祝大家永远网络通畅，冲浪愉快。',
           ),
         ),
