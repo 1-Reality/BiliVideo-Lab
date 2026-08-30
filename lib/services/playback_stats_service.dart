@@ -522,6 +522,30 @@ abstract final class PlaybackStatsService {
     if (_videoUpUid == null || _videoUpStartRecorded) return;
     _videoUpStartRecorded = true;
     _addVideoUp('openCount', 1);
+    final name = _videoUpName;
+    if (name != null && name.isNotEmpty) {
+      final uid = _videoUpUid!;
+      final byUid = _map('videoByUpUid');
+      final item = byUid[uid] is Map
+          ? _stringMap(byUid[uid] as Map)
+          : <String, dynamic>{};
+      _rememberAlias(item, name);
+      byUid[uid] = item;
+      _markVideoUpDirty(uid);
+    }
+  }
+
+  static void _rememberAlias(Map<String, dynamic> item, String name) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final aliases = item['aliases'] is Map
+        ? _stringMap(item['aliases'] as Map)
+        : <String, dynamic>{};
+    final alias = aliases[name] is Map
+        ? _stringMap(aliases[name] as Map)
+        : <String, dynamic>{'firstSeenAtMs': now};
+    alias['lastSeenAtMs'] = now;
+    aliases[name] = alias;
+    item['aliases'] = aliases;
   }
 
   static String _speedKey(double speed) {
@@ -712,7 +736,10 @@ abstract final class PlaybackStatsService {
             ? _stringMap(byUid[_liveUid] as Map)
             : <String, dynamic>{};
         item['openCount'] = ((item['openCount'] as num?)?.toInt() ?? 0) + 1;
-        if (liveName case final name? when name.isNotEmpty) item['name'] = name;
+        if (liveName case final name? when name.isNotEmpty) {
+          item['name'] = name;
+          _rememberAlias(item, name);
+        }
         _addLiveMonth(item, 'openCount', 1);
         byUid[_liveUid!] = item;
         _markLiveDirty(_liveUid!);
@@ -786,9 +813,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live) return;
     if (sourceDuration != null && sourceDuration.inMicroseconds > 0) {
-      final next = sourceDuration.inMicroseconds;
-      if (_sourceDurationUs == 0) _add('openedSourceDurationUs', next);
-      _sourceDurationUs = next;
+      _sourceDurationUs = sourceDuration.inMicroseconds;
     }
     if (orientation != null) _orientation = orientation;
     if (contentType != null) _contentType = contentType;
@@ -821,6 +846,7 @@ abstract final class PlaybackStatsService {
         ? _stringMap(byUid[uid] as Map)
         : <String, dynamic>{};
     item['name'] = liveName;
+    _rememberAlias(item, liveName);
     byUid[uid] = item;
     _markLiveDirty(uid);
   }
@@ -859,7 +885,6 @@ abstract final class PlaybackStatsService {
     _danmaku = 'unknown';
     _copyright = 'unknown';
     _decoder = 'unknown';
-    if (sourceDurationUs > 0) _add('openedSourceDurationUs', sourceDurationUs);
   }
 
   static void _recordCoverage(int rawStartUs, int rawEndUs) {
@@ -907,6 +932,11 @@ abstract final class PlaybackStatsService {
   static void _finalizeVideoSession() {
     if (!_videoSessionOpen) return;
     _videoSessionOpen = false;
+    if (_sourceDurationUs > 0) {
+      _add('openedSourceDurationUs', _sourceDurationUs);
+      _addVideoUp('openedSourceDurationUs', _sourceDurationUs);
+      _addDimension('openedSourceDurationUs', _sourceDurationUs);
+    }
     _add('grossMediaAdvanceUs', _sessionMediaAdvanceUs);
     _add('uniqueCoveredUs', _sessionUniqueCoveredUs);
     _add('repeatCoveredUs', _sessionRepeatCoveredUs);
