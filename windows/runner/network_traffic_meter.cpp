@@ -1,8 +1,9 @@
 #include "network_traffic_meter.h"
 
 #include <winsock2.h>
-#include <iphlpapi.h>
+#include <ws2tcpip.h>
 #include <windows.h>
+#include <iphlpapi.h>
 
 #include <atomic>
 #include <cstring>
@@ -111,9 +112,12 @@ NetworkByteCounters GetMediaWinsockCounters() {
 }
 
 NetworkByteCounters GetActiveInterfaceCounters() {
+  IN_ADDR destination{};
+  if (InetPtonW(AF_INET, L"8.8.8.8", &destination) != 1) {
+    return {0, 0, false, 0};
+  }
   DWORD interface_index = 0;
-  const DWORD destination = inet_addr("8.8.8.8");
-  if (GetBestInterface(destination, &interface_index) != NO_ERROR) {
+  if (GetBestInterface(destination.S_un.S_addr, &interface_index) != NO_ERROR) {
     return {0, 0, false, 0};
   }
   MIB_IF_ROW2 row{};
