@@ -1793,7 +1793,7 @@ class _CdnMetrics {
         relativeJitter * 2 +
         coefficientOfVariation +
         latencyP95 / 500000 +
-        maxGapUs / 1000000;
+        sample.maxGapUs / 1000000;
     final stabilityScore = p05 / stabilityPenalty;
 
     return _CdnMetrics._(

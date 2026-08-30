@@ -1689,6 +1689,7 @@ abstract final class PlaybackStatsService {
         completed || now - rewind.startedAtUs >= _rewindEligibilityUs;
     if (eligible) {
       _add('eligibleRewindCount', 1);
+      _addVideoUp('eligibleRewindCount', 1);
       if (completed) {
         _add('completedRewindCount', 1);
         _add('completedRewindUs', rewind.distanceUs);
@@ -1696,6 +1697,12 @@ abstract final class PlaybackStatsService {
         _add('completedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
         _add('completedRewindPausedUs', rewind.pausedUs);
         _add('completedRewindBufferingUs', rewind.bufferingUs);
+        _addVideoUp('completedRewindCount', 1);
+        _addVideoUp('completedRewindUs', rewind.distanceUs);
+        _addVideoUp('completedRewindPlaybackUs', rewind.activePlaybackUs);
+        _addVideoUp('completedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
+        _addVideoUp('completedRewindPausedUs', rewind.pausedUs);
+        _addVideoUp('completedRewindBufferingUs', rewind.bufferingUs);
       } else {
         _add('abandonedRewindCount', 1);
         _add('abandonedRewindUs', rewind.distanceUs);
@@ -1703,6 +1710,12 @@ abstract final class PlaybackStatsService {
         _add('abandonedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
         _add('abandonedRewindPausedUs', rewind.pausedUs);
         _add('abandonedRewindBufferingUs', rewind.bufferingUs);
+        _addVideoUp('abandonedRewindCount', 1);
+        _addVideoUp('abandonedRewindUs', rewind.distanceUs);
+        _addVideoUp('abandonedRewindPlaybackUs', rewind.activePlaybackUs);
+        _addVideoUp('abandonedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
+        _addVideoUp('abandonedRewindPausedUs', rewind.pausedUs);
+        _addVideoUp('abandonedRewindBufferingUs', rewind.bufferingUs);
       }
     } else {
       _add('shortRewindExitCount', 1);
@@ -1711,6 +1724,12 @@ abstract final class PlaybackStatsService {
       _add('shortRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
       _add('shortRewindPausedUs', rewind.pausedUs);
       _add('shortRewindBufferingUs', rewind.bufferingUs);
+      _addVideoUp('shortRewindExitCount', 1);
+      _addVideoUp('shortRewindUs', rewind.distanceUs);
+      _addVideoUp('shortRewindPlaybackUs', rewind.activePlaybackUs);
+      _addVideoUp('shortRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
+      _addVideoUp('shortRewindPausedUs', rewind.pausedUs);
+      _addVideoUp('shortRewindBufferingUs', rewind.bufferingUs);
     }
     _rewind = null;
     _pendingPositionUs = null;

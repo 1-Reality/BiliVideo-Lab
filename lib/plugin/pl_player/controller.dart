@@ -754,9 +754,14 @@ class PlPlayerController with BlockConfigMixin {
         partitionName: partitionName,
         copyright: copyright,
         sourceDuration: duration,
-        orientation: isVertical == null
+        orientation: width == null ||
+                height == null ||
+                width <= 0 ||
+                height <= 0
             ? 'unknown'
-            : isVertical
+            : width == height
+            ? 'square'
+            : isVertical == true
             ? 'vertical'
             : 'horizontal',
         contentType: dataSource is FileSource
