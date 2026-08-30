@@ -127,12 +127,30 @@ abstract final class GStorage {
       await _deleteFileIfExists(cdnDiagnosticsFile);
       return;
     }
+    // A file is a latest-run snapshot, never an archive. This also collapses
+    // old imported JSON that predates the one-run rule before it can grow here.
+    var latestRun = 0;
+    for (final entry in entries) {
+      final record = entry.record;
+      final run = (record['testRunStartedAtUs'] as num?)?.toInt() ??
+          (record['recordedAtUs'] as num?)?.toInt() ??
+          0;
+      if (run > latestRun) latestRun = run;
+    }
+    final latest = [
+      for (final entry in entries)
+        if (((entry.record['testRunStartedAtUs'] as num?)?.toInt() ??
+                (entry.record['recordedAtUs'] as num?)?.toInt() ??
+                0) ==
+            latestRun)
+          entry.record,
+    ];
     await cdnDiagnosticsFile.parent.create(recursive: true);
     final temp = File('${cdnDiagnosticsFile.path}.tmp');
     await temp.writeAsString(
       jsonEncode({
         'schemaVersion': 3,
-        'records': [for (final entry in entries) entry.record],
+        'records': latest,
       }),
       flush: true,
     );
@@ -492,21 +510,6 @@ abstract final class GStorage {
       ..registerAdapter(AccountTypeAdapter())
       ..registerAdapter(SetIntAdapter())
       ..registerAdapter(RuleFilterAdapter());
-  }
-
-  static Future<List<void>> compact() {
-    return Future.wait([
-      userInfo.compact(),
-      historyWord.compact(),
-      localCache.compact(),
-      setting.compact(),
-      video.compact(),
-      if (_playbackStats case final box?) box.compact(),
-      commentHelper.compact(),
-      Accounts.account.compact(),
-      watchProgress.compact(),
-      ?reply?.compact(),
-    ]);
   }
 
   static Future<List<void>> close() {

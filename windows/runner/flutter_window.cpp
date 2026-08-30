@@ -40,6 +40,41 @@ bool FlutterWindow::OnCreate() {
           result->Success(flutter::EncodableValue(InstallMediaWinsockMeter()));
           return;
         }
+        if (call.method_name() == "trafficCounters") {
+          InstallMediaWinsockMeter();
+          const NetworkByteCounters media = GetMediaWinsockCounters();
+          const NetworkByteCounters network = GetActiveInterfaceCounters();
+          result->Success(flutter::EncodableValue(flutter::EncodableMap{
+              {flutter::EncodableValue("media"),
+               flutter::EncodableValue(flutter::EncodableMap{
+                   {flutter::EncodableValue("received"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(media.received))},
+                   {flutter::EncodableValue("sent"),
+                    flutter::EncodableValue(static_cast<int64_t>(media.sent))},
+                   {flutter::EncodableValue("available"),
+                    flutter::EncodableValue(media.available)},
+                   {flutter::EncodableValue("sourceId"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(media.source_id))},
+               })},
+              {flutter::EncodableValue("interface"),
+               flutter::EncodableValue(flutter::EncodableMap{
+                   {flutter::EncodableValue("received"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.received))},
+                   {flutter::EncodableValue("sent"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.sent))},
+                   {flutter::EncodableValue("available"),
+                    flutter::EncodableValue(network.available)},
+                   {flutter::EncodableValue("sourceId"),
+                    flutter::EncodableValue(
+                        static_cast<int64_t>(network.source_id))},
+               })},
+          }));
+          return;
+        }
         NetworkByteCounters counters{};
         if (call.method_name() == "mediaCounters") {
           InstallMediaWinsockMeter();

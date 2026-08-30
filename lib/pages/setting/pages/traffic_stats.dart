@@ -45,7 +45,10 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
   }
 
   Future<void> _refresh() async {
-    final value = await TrafficStatsService.instance.snapshot();
+    final value = await TrafficStatsService.instance.snapshot(
+      start: start,
+      end: end,
+    );
     if (mounted) setState(() => data = value);
   }
 
@@ -61,6 +64,7 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
         start = DateUtils.dateOnly(range.start);
         end = DateUtils.dateOnly(range.end);
       });
+      await _refresh();
     }
   }
 

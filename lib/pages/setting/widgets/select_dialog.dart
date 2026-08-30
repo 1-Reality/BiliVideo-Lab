@@ -377,6 +377,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   Future<void> _startSpeedTest() async {
     try {
+      await CdnDiagnosticsService.clearLatest();
       final config = widget.speedConfig!;
       final limits = (warmup: config.warmupBytes, max: config.totalBytes);
       final videoItem = widget.sample ?? await _getSampleUrl();
@@ -414,6 +415,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('CDN speed test failed: $e');
+    } finally {
+      await CdnDiagnosticsService.flushLatest();
     }
   }
 
@@ -638,7 +641,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? headersUs;
     int? sampleStartUs;
     var sampleStartBytes = 0;
-    final points = <_CdnPoint>[];
+    final tracker = _CdnStreamTracker();
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
       intentionalStop = true;
@@ -666,18 +669,23 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           received: chunk.length,
         );
         final now = watch.elapsedMicroseconds;
-        firstByteUs ??= now;
         final total = downloaded + chunk.length;
         downloaded = total > limits.max ? limits.max : total;
-        points.add((elapsedUs: now, bytes: downloaded));
+        if (firstByteUs == null) {
+          firstByteUs = now;
+          tracker.reset(now, downloaded, windowStartBytes: 0);
+        }
 
         if (sampleStartUs == null && downloaded >= limits.warmup) {
           sampleStartUs = now;
           sampleStartBytes = downloaded;
+          tracker.reset(now, downloaded);
           measureTimer = Timer(const Duration(seconds: 8), () {
             intentionalStop = true;
             token.cancel();
           });
+        } else {
+          tracker.add(now, downloaded);
         }
         if (downloaded >= limits.max) break;
       }
@@ -696,7 +704,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       headersUs: headersUs,
       sampleStartUs: sampleStartUs,
       sampleStartBytes: sampleStartBytes,
-      points: points,
+      tracker: tracker,
       probes: probes,
       dns: dns,
       sourceHost: Uri.parse(url).host,
@@ -722,7 +730,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? headersUs;
     int? sampleStartUs;
     var sampleStartBytes = 0;
-    final points = <_CdnPoint>[];
+    final tracker = _CdnStreamTracker();
     var lastProgress = 0;
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
@@ -740,17 +748,22 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           lastProgress = count;
           TrafficStatsService.instance.recordApplicationBytes(received: delta);
           final now = watch.elapsedMicroseconds;
-          firstByteUs ??= now;
           downloaded = count > limits.max ? limits.max : count;
-          points.add((elapsedUs: now, bytes: downloaded));
+          if (firstByteUs == null) {
+            firstByteUs = now;
+            tracker.reset(now, downloaded, windowStartBytes: 0);
+          }
 
           if (sampleStartUs == null && downloaded >= limits.warmup) {
             sampleStartUs = now;
             sampleStartBytes = downloaded;
+            tracker.reset(now, downloaded);
             measureTimer = Timer(const Duration(seconds: 8), () {
               intentionalStop = true;
               token.cancel();
             });
+          } else {
+            tracker.add(now, downloaded);
           }
           if (downloaded >= limits.max) {
             intentionalStop = true;
@@ -773,7 +786,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       headersUs: headersUs,
       sampleStartUs: sampleStartUs,
       sampleStartBytes: sampleStartBytes,
-      points: points,
+      tracker: tracker,
       probes: probes,
       dns: dns,
       sourceHost: Uri.parse(url).host,
@@ -788,7 +801,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     required int? headersUs,
     required int? sampleStartUs,
     required int sampleStartBytes,
-    required List<_CdnPoint> points,
+    required _CdnStreamTracker tracker,
     required List<_CdnLatencyProbe> probes,
     required _CdnDnsResult dns,
     required String sourceHost,
@@ -814,7 +827,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       downloaded: downloaded,
       sampleStartBytes: sampleStartBytes,
       measurementStartUs: startUs,
-      points: points,
+      segmentRates: tracker.rates,
+      maxGapUs: tracker.maxGapUs,
+      gap250ms: tracker.gap250ms,
+      gap500ms: tracker.gap500ms,
+      gap1000ms: tracker.gap1000ms,
       probes: probes,
       resolvedIps: dns.addresses,
       dnsLookupUs: dns.elapsedUs,
@@ -957,7 +974,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   void _updateSpeedResult(int index, _CdnSpeedSample sample) {
     _cdnResList[index].value = sample;
-    unawaited(CdnDiagnosticsService.append(_diagnosticRecord(index, sample)));
+    CdnDiagnosticsService.append(_diagnosticRecord(index, sample));
   }
 
   void _handleSpeedTestError(dynamic error, int index) {
@@ -1492,13 +1509,67 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
 enum _CdnSpeedSampleType { complete, partial, fallback }
 
-typedef _CdnPoint = ({int elapsedUs, int bytes});
 typedef _CdnLatencyProbe = ({int headersUs, int firstByteUs, int bytes});
 typedef _CdnDnsResult = ({
   List<String> addresses,
   int elapsedUs,
   String? error,
 });
+
+// The diagnostic needs fixed 250 ms rates and raw arrival gaps, not every
+// received chunk. Keeping only these sufficient statistics caps one CDN run at
+// roughly 32 doubles while preserving the existing formulas exactly.
+final class _CdnStreamTracker {
+  int _previousUs = 0;
+  int _previousBytes = 0;
+  int _nextWindowUs = 0;
+  double _windowBytes = 0;
+  int maxGapUs = 0;
+  int gap250ms = 0;
+  int gap500ms = 0;
+  int gap1000ms = 0;
+  final List<double> rates = [];
+
+  void reset(int elapsedUs, int bytes, {int? windowStartBytes}) {
+    _previousUs = elapsedUs;
+    _previousBytes = bytes;
+    _nextWindowUs = elapsedUs + _CdnMetrics.windowUs;
+    _windowBytes = (windowStartBytes ?? bytes).toDouble();
+    maxGapUs = 0;
+    gap250ms = 0;
+    gap500ms = 0;
+    gap1000ms = 0;
+    rates.clear();
+  }
+
+  void add(int elapsedUs, int bytes) {
+    if (_nextWindowUs == 0) {
+      reset(elapsedUs, bytes, windowStartBytes: 0);
+      return;
+    }
+    final gapUs = elapsedUs - _previousUs;
+    if (gapUs <= 0 || bytes < _previousBytes) return;
+    if (gapUs > maxGapUs) maxGapUs = gapUs;
+    if (gapUs >= 250000) gap250ms++;
+    if (gapUs >= 500000) gap500ms++;
+    if (gapUs >= 1000000) gap1000ms++;
+    while (_nextWindowUs <= elapsedUs) {
+      final endBytes = _previousBytes +
+          (bytes - _previousBytes) *
+              (_nextWindowUs - _previousUs) /
+              gapUs;
+      rates.add(
+        (endBytes > _windowBytes ? endBytes - _windowBytes : 0.0) *
+            Duration.microsecondsPerSecond /
+            _CdnMetrics.windowUs,
+      );
+      _windowBytes = endBytes;
+      _nextWindowUs += _CdnMetrics.windowUs;
+    }
+    _previousUs = elapsedUs;
+    _previousBytes = bytes;
+  }
+}
 
 class _CdnSpeedSample {
   _CdnSpeedSample({
@@ -1509,7 +1580,11 @@ class _CdnSpeedSample {
     required this.downloaded,
     required this.sampleStartBytes,
     required this.measurementStartUs,
-    required this.points,
+    required this.segmentRates,
+    required this.maxGapUs,
+    required this.gap250ms,
+    required this.gap500ms,
+    required this.gap1000ms,
     required this.probes,
     required this.resolvedIps,
     required this.dnsLookupUs,
@@ -1531,7 +1606,11 @@ class _CdnSpeedSample {
        downloaded = 0,
        sampleStartBytes = 0,
        measurementStartUs = 0,
-       points = const [],
+       segmentRates = const [],
+       maxGapUs = 0,
+       gap250ms = 0,
+       gap500ms = 0,
+       gap1000ms = 0,
        probes = const [],
        type = _CdnSpeedSampleType.fallback;
 
@@ -1542,7 +1621,11 @@ class _CdnSpeedSample {
   final int downloaded;
   final int sampleStartBytes;
   final int measurementStartUs;
-  final List<_CdnPoint> points;
+  final List<double> segmentRates;
+  final int maxGapUs;
+  final int gap250ms;
+  final int gap500ms;
+  final int gap1000ms;
   final List<_CdnLatencyProbe> probes;
   final List<String> resolvedIps;
   final int dnsLookupUs;
@@ -1638,65 +1721,9 @@ class _CdnMetrics {
   final double stabilityScore;
 
   factory _CdnMetrics.from(_CdnSpeedSample sample) {
-    final activePoints = sample.points
-        .where((point) => point.elapsedUs >= sample.measurementStartUs)
-        .toList(growable: false);
-
-    var previousTime = sample.measurementStartUs;
-    var previousBytes = sample.sampleStartBytes;
-    var maxGapUs = 0;
-    var gap250ms = 0;
-    var gap500ms = 0;
-    var gap1000ms = 0;
-    for (final point in activePoints) {
-      final elapsed = point.elapsedUs - previousTime;
-      if (elapsed > 0 && point.bytes >= previousBytes) {
-        if (elapsed > maxGapUs) maxGapUs = elapsed;
-        if (elapsed >= 250000) gap250ms++;
-        if (elapsed >= 500000) gap500ms++;
-        if (elapsed >= 1000000) gap1000ms++;
-      }
-      previousTime = point.elapsedUs;
-      previousBytes = point.bytes;
-    }
-
-    final rates = <double>[];
-    if (activePoints.isNotEmpty) {
-      var pointIndex = 0;
-      var leftTime = sample.measurementStartUs;
-      var leftBytes = sample.sampleStartBytes.toDouble();
-
-      double bytesAt(int targetUs) {
-        while (pointIndex < activePoints.length &&
-            activePoints[pointIndex].elapsedUs < targetUs) {
-          leftTime = activePoints[pointIndex].elapsedUs;
-          leftBytes = activePoints[pointIndex].bytes.toDouble();
-          pointIndex++;
-        }
-        if (pointIndex >= activePoints.length) return leftBytes;
-        final right = activePoints[pointIndex];
-        if (right.elapsedUs == leftTime) return right.bytes.toDouble();
-        final fraction =
-            (targetUs - leftTime) / (right.elapsedUs - leftTime);
-        return leftBytes + (right.bytes - leftBytes) * fraction;
-      }
-
-      final lastUs = activePoints.last.elapsedUs;
-      var windowStartUs = sample.measurementStartUs;
-      var windowStartBytes = sample.sampleStartBytes.toDouble();
-      while (windowStartUs + windowUs <= lastUs) {
-        final windowEndUs = windowStartUs + windowUs;
-        final windowEndBytes = bytesAt(windowEndUs);
-        rates.add(
-          math.max(0, windowEndBytes - windowStartBytes) *
-              Duration.microsecondsPerSecond /
-              windowUs,
-        );
-        windowStartUs = windowEndUs;
-        windowStartBytes = windowEndBytes;
-      }
-    }
-    if (rates.isEmpty) rates.add(sample.averageRate);
+    final rates = sample.segmentRates.isEmpty
+        ? <double>[sample.averageRate]
+        : sample.segmentRates;
 
     final sorted = List<double>.of(rates)..sort();
     final mean = _mean(rates);
@@ -1719,18 +1746,34 @@ class _CdnMetrics {
       latency.map((e) => e.toDouble()).toList(),
     );
 
-    final rolling = <double>[];
     const rollingWindowCount = 1000000 ~/ windowUs;
-    for (var index = rollingWindowCount; index <= rates.length; index++) {
-      final window = rates.sublist(index - rollingWindowCount, index);
-      rolling.add(_mean(window));
-    }
-    if (rolling.isEmpty) rolling.addAll(rates);
-
+    var rollingSum = 0.0;
+    var rollingLow = double.infinity;
+    var rollingHigh = double.negativeInfinity;
+    var earlySum = 0.0;
+    var lateSum = 0.0;
     final split = rates.length ~/ 2 == 0 ? 1 : rates.length ~/ 2;
-    final early = _mean(rates.take(split).toList());
-    final lateRates = rates.skip(split).toList();
-    final late = lateRates.isEmpty ? early : _mean(lateRates);
+    for (var index = 0; index < rates.length; index++) {
+      final value = rates[index];
+      rollingSum += value;
+      if (index >= rollingWindowCount) rollingSum -= rates[index - rollingWindowCount];
+      if (index + 1 >= rollingWindowCount) {
+        final rolling = rollingSum / rollingWindowCount;
+        if (rolling < rollingLow) rollingLow = rolling;
+        if (rolling > rollingHigh) rollingHigh = rolling;
+      }
+      if (index < split) {
+        earlySum += value;
+      } else {
+        lateSum += value;
+      }
+    }
+    if (!rollingLow.isFinite) {
+      rollingLow = rates.reduce((a, b) => a < b ? a : b);
+      rollingHigh = rates.reduce((a, b) => a > b ? a : b);
+    }
+    final early = earlySum / split;
+    final late = rates.length == split ? early : lateSum / (rates.length - split);
 
     final p02 = _percentile(sorted, 0.02);
     final p05 = _percentile(sorted, 0.05);
@@ -1766,14 +1809,14 @@ class _CdnMetrics {
       variance: variance,
       coefficientOfVariation: coefficientOfVariation,
       relativeJitter: relativeJitter,
-      rollingLow: rolling.reduce((a, b) => a < b ? a : b),
-      rollingHigh: rolling.reduce((a, b) => a > b ? a : b),
+      rollingLow: rollingLow,
+      rollingHigh: rollingHigh,
       trendPercent: early == 0 ? 0 : late / early - 1,
       absoluteJitter: absoluteJitter,
-      maxGapUs: maxGapUs,
-      gap250ms: gap250ms,
-      gap500ms: gap500ms,
-      gap1000ms: gap1000ms,
+      maxGapUs: sample.maxGapUs,
+      gap250ms: sample.gap250ms,
+      gap500ms: sample.gap500ms,
+      gap1000ms: sample.gap1000ms,
       latencySamples: latency,
       latencyMinUs: latencySorted.first,
       latencyMaxUs: latencySorted.last,

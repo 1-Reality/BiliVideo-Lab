@@ -94,6 +94,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         .toList(growable: false);
     final eligibleRewinds = _value('eligibleRewindCount');
     final completionRate = _derived['rewindCompletionRate'] as num? ?? 0;
+    final playedSessions = _value('sessionPlayedCount');
+    final completedSessions = _value('sessionCompletedCount');
+    final videoCompletionRate = _derived['videoCompletionRate'] as num? ?? 0;
     final speedSelections =
         (_derived['speedSelectionCounts'] as Map?)?.entries.toList()
           ?..sort((a, b) => (b.value as num).compareTo(a.value as num));
@@ -169,6 +172,18 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
               '原视频覆盖率',
               '${((_derived['coverageRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
             ),
+            _item(
+              '视频完播率',
+              playedSessions == 0
+                  ? '暂无数据'
+                  : '${(videoCompletionRate * 100).toStringAsFixed(1)}%',
+              '完成 $completedSessions 次／有效播放 $playedSessions 次；不保存单视频记录',
+            ),
+            _item(
+              '平均单次覆盖率',
+              '${((_derived['averageSessionCoverageRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+              '每次产生实际播放的视频会话等权平均',
+            ),
             _item('实际播放视频时长', _duration(_value('activePlaybackUs'))),
             _item('倍速为您节约', _duration(_derived['savedTimeUs'] as num? ?? 0)),
             _item(
@@ -184,7 +199,12 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             _item('暂停累计时间', _duration(_value('pausedUs'))),
             _item('缓冲等待时间', _duration(_value('bufferingUs'))),
             _item(
-              '看评论区时间',
+              '评论页前台停留',
+              _duration(_value('commentPanelForegroundUs')),
+              '评论标签处于当前页且应用在前台；可与视频播放重叠',
+            ),
+            _item(
+              '播后／终止暂停停留',
               _duration(_value('commentAreaUs')),
               '视频播完后停留，或最后一次暂停后始终未恢复的时间；不计作暂停',
             ),
@@ -217,6 +237,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                       ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
                       ' · 覆盖 ${(opened == 0 ? 0 : unique / opened * 100).toStringAsFixed(1)}%'
                       ' · 重复 ${(media == 0 ? 0 : repeat / media * 100).toStringAsFixed(1)}%'
+                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) / (item['sessionPlayedCount'] as num? ?? 0) * 100).toStringAsFixed(1)}%'}'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
                     trailing: Text(
