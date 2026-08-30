@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/view_safe_area.dart';
-import 'package:PiliPlus/services/comment_helper_service.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/services/comment_helper_service.dart';
 import 'package:material_ui/material_ui.dart';
 
 class CommentHelperPage extends StatelessWidget {

@@ -1,8 +1,8 @@
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/common/widgets/view_safe_area.dart';
-import 'package:PiliPlus/services/traffic_stats_service.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:material_ui/material_ui.dart';
 
 class TrafficStatsPage extends StatefulWidget {

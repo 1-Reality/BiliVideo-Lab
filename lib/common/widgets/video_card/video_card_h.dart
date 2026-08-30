@@ -1,17 +1,17 @@
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
-import 'package:PiliPlus/common/widgets/stat/stat.dart';
-import 'package:PiliPlus/common/widgets/video_popup_menu.dart';
-import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/models/horizontal_video_model.dart';
-import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/badge.dart';
+import 'package:PiliBro/common/widgets/image/image_save.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/progress_bar/video_progress_indicator.dart';
+import 'package:PiliBro/common/widgets/stat/stat.dart';
+import 'package:PiliBro/common/widgets/video_popup_menu.dart';
+import 'package:PiliBro/http/search.dart';
+import 'package:PiliBro/models/horizontal_video_model.dart';
+import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
+import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/duration_utils.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 水平布局

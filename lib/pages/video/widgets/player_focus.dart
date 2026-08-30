@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:io' show exit, Platform;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/pages/common/common_intro_controller.dart';
-import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/services/playback_stats_service.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliBro/pages/common/common_intro_controller.dart';
+import 'package:PiliBro/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey, HardwareKeyboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

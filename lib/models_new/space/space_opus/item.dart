@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/space/space_opus/cover.dart';
-import 'package:PiliPlus/models_new/space/space_opus/stat.dart';
+import 'package:PiliBro/models_new/space/space_opus/cover.dart';
+import 'package:PiliBro/models_new/space/space_opus/stat.dart';
 
 class SpaceOpusItemModel {
   String? content;

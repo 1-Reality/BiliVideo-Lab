@@ -1,20 +1,20 @@
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_article/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
-import 'package:PiliPlus/models_new/fav/fav_note/list.dart';
-import 'package:PiliPlus/models_new/fav/fav_pgc/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_topic/data.dart';
-import 'package:PiliPlus/models_new/space/space_cheese/data.dart';
-import 'package:PiliPlus/models_new/space/space_fav/data.dart';
-import 'package:PiliPlus/models_new/sub/sub_detail/data.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/app_sign.dart';
+import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
+import 'package:PiliBro/models_new/fav/fav_article/data.dart';
+import 'package:PiliBro/models_new/fav/fav_detail/data.dart';
+import 'package:PiliBro/models_new/fav/fav_folder/data.dart';
+import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
+import 'package:PiliBro/models_new/fav/fav_note/list.dart';
+import 'package:PiliBro/models_new/fav/fav_pgc/data.dart';
+import 'package:PiliBro/models_new/fav/fav_topic/data.dart';
+import 'package:PiliBro/models_new/space/space_cheese/data.dart';
+import 'package:PiliBro/models_new/space/space_fav/data.dart';
+import 'package:PiliBro/models_new/sub/sub_detail/data.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/app_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class FavHttp {

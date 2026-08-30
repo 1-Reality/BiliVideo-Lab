@@ -1,42 +1,42 @@
 /*
- * This file is part of PiliPlus
+ * This file is part of PiliBro
  *
- * PiliPlus is free software: you can redistribute it and/or modify
+ * PiliBro is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * PiliPlus is distributed in the hope that it will be useful,
+ * PiliBro is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with PiliPlus.  If not, see <https://www.gnu.org/licenses/>.
+ * along with PiliBro.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import 'dart:io' show File, Platform;
 
-import 'package:PiliPlus/common/widgets/colored_box_transition.dart';
-import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliPlus/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
-import 'package:PiliPlus/common/widgets/image_viewer/image.dart';
-import 'package:PiliPlus/common/widgets/image_viewer/loading_indicator.dart';
-import 'package:PiliPlus/common/widgets/image_viewer/viewer.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart'
+import 'package:PiliBro/common/widgets/colored_box_transition.dart';
+import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
+import 'package:PiliBro/common/widgets/image_viewer/image.dart';
+import 'package:PiliBro/common/widgets/image_viewer/loading_indicator.dart';
+import 'package:PiliBro/common/widgets/image_viewer/viewer.dart';
+import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
-import 'package:PiliPlus/main.dart' show tmpPadding;
-import 'package:PiliPlus/models/common/image_preview_type.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliPlus/utils/device_utils.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/max_screen_size.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/main.dart' show tmpPadding;
+import 'package:PiliBro/models/common/image_preview_type.dart';
+import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliBro/utils/device_utils.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/extension/string_ext.dart';
+import 'package:PiliBro/utils/image_utils.dart';
+import 'package:PiliBro/utils/max_screen_size.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/gestures.dart';

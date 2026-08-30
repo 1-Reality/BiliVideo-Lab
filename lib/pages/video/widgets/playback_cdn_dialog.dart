@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models/common/video/cdn_type.dart';
-import 'package:PiliPlus/services/cdn_diagnostics_service.dart';
+import 'package:PiliBro/models/common/video/cdn_type.dart';
+import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:material_ui/material_ui.dart';
 
 Future<CDNService?> showPlaybackCdnDialog(

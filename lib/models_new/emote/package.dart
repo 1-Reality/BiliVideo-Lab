@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/emote/emote.dart';
+import 'package:PiliBro/models_new/emote/emote.dart';
 
 class Package {
   String? url;

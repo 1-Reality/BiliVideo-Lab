@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/live/live_room_play_info/stream.dart';
+import 'package:PiliBro/models_new/live/live_room_play_info/stream.dart';
 
 class Playurl {
   List<Stream> stream;

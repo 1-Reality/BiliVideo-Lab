@@ -1,16 +1,16 @@
 import 'dart:convert';
 
-import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
-import 'package:PiliPlus/models/dynamics/article_content_model.dart';
-import 'package:PiliPlus/models/model_avatar.dart';
-import 'package:PiliPlus/models/model_owner.dart';
-import 'package:PiliPlus/models_new/live/live_feed_index/watched_show.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/parse_bool.dart';
-import 'package:PiliPlus/utils/parse_int.dart';
-import 'package:PiliPlus/utils/parse_string.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/widgets/pendant_avatar.dart';
+import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliBro/models/dynamics/article_content_model.dart';
+import 'package:PiliBro/models/model_avatar.dart';
+import 'package:PiliBro/models/model_owner.dart';
+import 'package:PiliBro/models_new/live/live_feed_index/watched_show.dart';
+import 'package:PiliBro/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/utils/parse_bool.dart';
+import 'package:PiliBro/utils/parse_int.dart';
+import 'package:PiliBro/utils/parse_string.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 
 class DynamicsDataModel {
   bool? hasMore;

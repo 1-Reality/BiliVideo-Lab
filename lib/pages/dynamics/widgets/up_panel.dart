@@ -1,14 +1,14 @@
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
-import 'package:PiliPlus/models/dynamics/up.dart';
-import 'package:PiliPlus/pages/dynamics/controller.dart';
-import 'package:PiliPlus/pages/live_follow/view.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliBro/common/assets.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
+import 'package:PiliBro/models/dynamics/up.dart';
+import 'package:PiliBro/pages/dynamics/controller.dart';
+import 'package:PiliBro/pages/live_follow/view.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/feed_back.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 

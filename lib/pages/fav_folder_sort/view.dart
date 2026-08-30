@@ -1,10 +1,10 @@
-import 'package:PiliPlus/common/widgets/reorder_mixin.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
-import 'package:PiliPlus/pages/fav/video/controller.dart';
-import 'package:PiliPlus/pages/fav/video/widgets/item.dart';
+import 'package:PiliBro/common/widgets/reorder_mixin.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/http/fav.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
+import 'package:PiliBro/pages/fav/video/controller.dart';
+import 'package:PiliBro/pages/fav/video/widgets/item.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

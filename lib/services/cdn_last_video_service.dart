@@ -1,8 +1,8 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/common/video/video_type.dart';
-import 'package:PiliPlus/models/video/play/url.dart';
-import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/common/video/video_type.dart';
+import 'package:PiliBro/models/video/play/url.dart';
+import 'package:PiliBro/utils/storage.dart';
 
 class CdnLastVideoSnapshot {
   const CdnLastVideoSnapshot({

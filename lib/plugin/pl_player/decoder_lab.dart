@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
 
 class DecoderLabMode {
   const DecoderLabMode({
@@ -36,10 +36,10 @@ class DecoderBenchmarkResult {
 }
 
 extension DecoderLabController on PlPlayerController {
-  static const _androidVoProperty = 'user-data/piliplus-decoder-lab-vo';
-  static const _androidHwdecProperty = 'user-data/piliplus-decoder-lab-hwdec';
+  static const _androidVoProperty = 'user-data/pilibro-decoder-lab-vo';
+  static const _androidHwdecProperty = 'user-data/pilibro-decoder-lab-hwdec';
   static const _androidFallbackProperty =
-      'user-data/piliplus-decoder-lab-hwdec-fallback';
+      'user-data/pilibro-decoder-lab-hwdec-fallback';
 
   bool _decoderLabPrimary(String hwdec) {
     if (Platform.isAndroid) {

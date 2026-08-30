@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:PiliPlus/services/logger.dart';
+import 'package:PiliBro/services/logger.dart';
 import 'package:catcher_2/catcher_2.dart';
 
 class JsonFileHandler extends ReportHandler {

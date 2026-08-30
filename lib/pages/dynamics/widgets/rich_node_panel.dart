@@ -1,17 +1,17 @@
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart';
-import 'package:PiliPlus/http/dynamics.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/models/common/image_preview_type.dart'
+import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/image_grid/image_grid_view.dart';
+import 'package:PiliBro/http/dynamics.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/search.dart';
+import 'package:PiliBro/models/common/image_preview_type.dart'
     show SourceModel;
-import 'package:PiliPlus/models/dynamics/result.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/vote.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/parse_string.dart';
+import 'package:PiliBro/models/dynamics/result.dart';
+import 'package:PiliBro/pages/dynamics/widgets/vote.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/parse_string.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/pages/home/controller.dart';
-import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/pages/home/controller.dart';
+import 'package:PiliBro/pages/main/controller.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';

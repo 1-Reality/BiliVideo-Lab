@@ -1,6 +1,6 @@
-import 'package:PiliPlus/utils/extension/get_ext.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliBro/utils/extension/get_ext.dart';
+import 'package:PiliBro/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

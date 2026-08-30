@@ -1,26 +1,26 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/gesture/tap_gesture_recognizer.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/image_viewer/hero.dart';
-import 'package:PiliPlus/common/widgets/selection_text.dart';
-import 'package:PiliPlus/grpc/bilibili/im/interfaces/v1.pb.dart'
+import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/badge.dart';
+import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/image_viewer/hero.dart';
+import 'package:PiliBro/common/widgets/selection_text.dart';
+import 'package:PiliBro/grpc/bilibili/im/interfaces/v1.pb.dart'
     show EmotionInfo;
-import 'package:PiliPlus/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
-import 'package:PiliPlus/http/search.dart';
-import 'package:PiliPlus/models/common/image_preview_type.dart';
-import 'package:PiliPlus/models/common/image_type.dart';
-import 'package:PiliPlus/utils/app_scheme.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliBro/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
+import 'package:PiliBro/http/search.dart';
+import 'package:PiliBro/models/common/image_preview_type.dart';
+import 'package:PiliBro/models/common/image_type.dart';
+import 'package:PiliBro/utils/app_scheme.dart';
+import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/duration_utils.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/id_utils.dart';
+import 'package:PiliBro/utils/image_utils.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

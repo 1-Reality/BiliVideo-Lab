@@ -1,13 +1,13 @@
-import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/media.dart';
-import 'package:PiliPlus/pages/common/search/common_search_page.dart';
-import 'package:PiliPlus/pages/fav_detail/widget/fav_video_card.dart';
-import 'package:PiliPlus/pages/fav_search/controller.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/grid.dart';
-import 'package:PiliPlus/utils/request_utils.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
+import 'package:PiliBro/models_new/fav/fav_detail/data.dart';
+import 'package:PiliBro/models_new/fav/fav_detail/media.dart';
+import 'package:PiliBro/pages/common/search/common_search_page.dart';
+import 'package:PiliBro/pages/fav_detail/widget/fav_video_card.dart';
+import 'package:PiliBro/pages/fav_search/controller.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/grid.dart';
+import 'package:PiliBro/utils/request_utils.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 

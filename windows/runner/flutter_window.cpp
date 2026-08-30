@@ -31,7 +31,7 @@ bool FlutterWindow::OnCreate() {
   network_traffic_channel_ =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           flutter_controller_->engine()->messenger(),
-          "org.brotech.piliplus/network_traffic",
+          "org.brotech.pilibro/network_traffic",
           &flutter::StandardMethodCodec::GetInstance());
   network_traffic_channel_->SetMethodCallHandler(
       [](const flutter::MethodCall<flutter::EncodableValue>& call,

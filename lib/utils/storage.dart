@@ -3,18 +3,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:PiliPlus/models/model_owner.dart';
-import 'package:PiliPlus/models/user/danmaku_rule_adapter.dart';
-import 'package:PiliPlus/models/user/info.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/account_adapter.dart';
-import 'package:PiliPlus/utils/accounts/account_type_adapter.dart';
-import 'package:PiliPlus/utils/accounts/cookie_jar_adapter.dart';
-import 'package:PiliPlus/utils/path_utils.dart';
-import 'package:PiliPlus/utils/set_int_adapter.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/models/model_owner.dart';
+import 'package:PiliBro/models/user/danmaku_rule_adapter.dart';
+import 'package:PiliBro/models/user/info.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/account_adapter.dart';
+import 'package:PiliBro/utils/accounts/account_type_adapter.dart';
+import 'package:PiliBro/utils/accounts/cookie_jar_adapter.dart';
+import 'package:PiliBro/utils/path_utils.dart';
+import 'package:PiliBro/utils/set_int_adapter.dart';
+import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
 
@@ -36,6 +36,12 @@ abstract final class GStorage {
   static const _nextPlaybackStatsCompactAtMs =
       'nextPlaybackStatsCompactAtMs';
   static const _cdnDiagnosticPrefix = 'cdnDiagnostic:';
+  static int? _startupBrandProfileMid;
+
+  static String get startupRoute => switch (_startupBrandProfileMid) {
+    final mid? => '/member?mid=$mid',
+    null => '/',
+  };
 
   static File get playbackStatsFile =>
       File(path.join(appSupportDirPath, 'playback_stats.json'));
@@ -296,6 +302,9 @@ abstract final class GStorage {
       _nextPlaybackStatsCompactAtMs,
       _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch,
     );
+    _startupBrandProfileMid = DateTime.now().millisecondsSinceEpoch.isOdd
+        ? 501430041
+        : 1225047446;
   }
 
   static DateTime _nextPlaybackMaintenanceAt(DateTime now) {

@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/common/widgets/pair.dart';
-import 'package:PiliPlus/services/comment_helper_service.dart';
-import 'package:PiliPlus/services/playback_stats_service.dart';
-import 'package:PiliPlus/services/traffic_stats_service.dart';
-import 'package:PiliPlus/utils/device_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/common/widgets/pair.dart';
+import 'package:PiliBro/services/comment_helper_service.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/traffic_stats_service.dart';
+import 'package:PiliBro/utils/device_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:path/path.dart' as path;
@@ -88,7 +88,7 @@ class WebDav {
   }
 
   String _getFileName() {
-    return 'piliplus_settings_${DeviceUtils.platformName}.json';
+    return 'pilibro_settings_${DeviceUtils.platformName}.json';
   }
 
   String _snapshotDirectory(_WebDavConfig config) =>
@@ -100,7 +100,7 @@ class WebDav {
       return;
     }
     _busy = true;
-    final temp = await Directory.systemTemp.createTemp('piliplus-webdav-');
+    final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
     try {
       await TrafficStatsService.instance.initialize();
       await GStorage.initializePlaybackStats();
@@ -211,7 +211,7 @@ class WebDav {
       return;
     }
     _busy = true;
-    final temp = await Directory.systemTemp.createTemp('piliplus-webdav-');
+    final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
     var localMutationStarted = false;
     try {
       await TrafficStatsService.instance.initialize();

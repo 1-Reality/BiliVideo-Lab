@@ -1,4 +1,4 @@
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/utils/extension/iterable_ext.dart';
 
 sealed class BiliDownloadMediaInfo {
   const BiliDownloadMediaInfo();

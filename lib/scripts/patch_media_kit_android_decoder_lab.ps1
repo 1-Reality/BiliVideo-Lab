@@ -36,15 +36,15 @@ $NewGetter = @'
 
   /// --vo
   String get vo =>
-      _decoderLabProperty('user-data/piliplus-decoder-lab-vo') ??
+      _decoderLabProperty('user-data/pilibro-decoder-lab-vo') ??
       configuration.vo ??
       'gpu';
 
   String? get _decoderLabHwdec =>
-      _decoderLabProperty('user-data/piliplus-decoder-lab-hwdec');
+      _decoderLabProperty('user-data/pilibro-decoder-lab-hwdec');
 
   String? get _decoderLabHwdecFallback =>
-      _decoderLabProperty('user-data/piliplus-decoder-lab-hwdec-fallback');
+      _decoderLabProperty('user-data/pilibro-decoder-lab-hwdec-fallback');
 '@
 
 $GetterCount = ([regex]::Matches($Text, [regex]::Escape($OldGetter))).Count

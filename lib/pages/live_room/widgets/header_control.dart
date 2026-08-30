@@ -1,25 +1,25 @@
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/draggable_sheet/dyn.dart';
-import 'package:PiliPlus/common/widgets/marquee.dart';
-import 'package:PiliPlus/models/common/video/live_quality.dart';
-import 'package:PiliPlus/pages/live_room/controller.dart';
-import 'package:PiliPlus/pages/setting/models/play_settings.dart'
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/draggable_sheet/dyn.dart';
+import 'package:PiliBro/common/widgets/marquee.dart';
+import 'package:PiliBro/models/common/video/live_quality.dart';
+import 'package:PiliBro/pages/live_room/controller.dart';
+import 'package:PiliBro/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
-import 'package:PiliPlus/pages/video/widgets/header_control.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
-import 'package:PiliPlus/services/shutdown_timer_service.dart'
+import 'package:PiliBro/pages/video/widgets/header_control.dart';
+import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/widgets/common_btn.dart';
+import 'package:PiliBro/services/shutdown_timer_service.dart'
     show shutdownTimerService;
-import 'package:PiliPlus/utils/android/bindings.g.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliBro/utils/android/bindings.g.dart';
+import 'package:PiliBro/utils/extension/context_ext.dart';
+import 'package:PiliBro/utils/extension/size_ext.dart';
+import 'package:PiliBro/utils/extension/string_ext.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';

@@ -54,14 +54,14 @@ jobs:
 
       - name: Prepare Upload
         run: |
-          mkdir -p Release/PiliPlus-Win
-          mkdir -p PiliPlus-Win-Setup
-          mv build/windows/x64/runner/Release/* Release/PiliPlus-Win/
-          mv dist/**/*.exe PiliPlus-Win-Setup/PiliPlus_windows_${{env.version}}_x64_setup.exe
+          mkdir -p Release/PiliBro-Win
+          mkdir -p PiliBro-Win-Setup
+          mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
+          mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
       - name: Compress
         run: |
-          Compress-Archive -Path "Release/PiliPlus-Win" -DestinationPath "PiliPlus_windows_${{env.version}}_x64_portable.zip"
+          Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
         shell: pwsh
 
       - name: Release
@@ -71,19 +71,19 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
           files: |
-            PiliPlus_windows_*.zip
-            PiliPlus-Win-Setup/PiliPlus_windows_*.exe
+            PiliBro_windows_*.zip
+            PiliBro-Win-Setup/PiliBro_windows_*.exe
 
       - name: Upload windows file release
         uses: actions/upload-artifact@v7
         with:
           archive: false
           name: Windows-file-x64-release
-          path: PiliPlus_windows_*.zip
+          path: PiliBro_windows_*.zip
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7
         with:
           archive: false
           name: Windows-setup-x64-release
-          path: PiliPlus-Win-Setup/PiliPlus_windows_*.exe
+          path: PiliBro-Win-Setup/PiliBro_windows_*.exe

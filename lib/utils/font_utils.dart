@@ -1,8 +1,8 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:PiliPlus/utils/android/bindings.g.dart';
-import 'package:PiliPlus/utils/fontconfig.g.dart';
+import 'package:PiliBro/utils/android/bindings.g.dart';
+import 'package:PiliBro/utils/fontconfig.g.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
