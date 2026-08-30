@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <!-- Main materials -->
+    <linearGradient id="screenFrame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8ffff"/>
+      <stop offset="0.48" stop-color="#d9ecec"/>
+      <stop offset="1" stop-color="#a8c2c4"/>
+    </linearGradient>
+    <linearGradient id="screenInner" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a2028"/>
+      <stop offset="0.48" stop-color="#123d49"/>
+      <stop offset="1" stop-color="#071217"/>
+    </linearGradient>
+    <linearGradient id="deck" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbfb"/>
+      <stop offset="0.55" stop-color="#e7eeee"/>
+      <stop offset="1" stop-color="#bdcacc"/>
+    </linearGradient>
+    <linearGradient id="frontEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9b8ba"/>
+      <stop offset="1" stop-color="#64777a"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8ef9ef"/>
+      <stop offset="0.48" stop-color="#39c5bb"/>
+      <stop offset="1" stop-color="#15988f"/>
+    </linearGradient>
+    <linearGradient id="pink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb3d2"/>
+      <stop offset="0.52" stop-color="#ff5b9e"/>
+      <stop offset="1" stop-color="#d82f77"/>
+    </linearGradient>
+    <linearGradient id="cyanBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#69f5ec"/>
+      <stop offset="0.5" stop-color="#35b8d8"/>
+      <stop offset="1" stop-color="#2b66ff"/>
+    </linearGradient>
+    <radialGradient id="screenGlow" cx="50%" cy="42%" r="58%">
+      <stop offset="0" stop-color="#4ef3e5" stop-opacity=".34"/>
+      <stop offset="0.55" stop-color="#35b8d8" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#051015" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Screen grid -->
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#8cfaf0" stroke-width="1" opacity=".11"/>
+    </pattern>
+
+    <!-- Keyboard key pattern -->
+    <pattern id="keys" width="58" height="48" patternUnits="userSpaceOnUse">
+      <rect x="5" y="5" width="47" height="34" rx="5" fill="#33464a" stroke="#7c9295" stroke-width="2"/>
+      <rect x="9" y="9" width="39" height="26" rx="3" fill="#455b5f"/>
+      <path d="M14 14h20" stroke="#d8e9e8" stroke-width="2" opacity=".42"/>
+    </pattern>
+
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+      <feOffset dy="20"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.02 0 0 0 0 0.08 0 0 0 0 0.1 0 0 0 .35 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <filter id="glowTeal" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <clipPath id="screenClip">
+      <path d="M357 150 L1218 117 Q1254 117 1255 153 L1244 542 L330 547 L338 184 Q338 155 357 150Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Transparent canvas; only artwork -->
+  <g filter="url(#softShadow)">
+    <!-- Rear accent fins -->
+    <path d="M1195 141 1325 84 1284 230 1220 250Z" fill="url(#teal)" opacity=".75"/>
+    <path d="M1242 173 1364 130 1317 280 1250 292Z" fill="url(#pink)" opacity=".82"/>
+    <path d="M330 177 215 116 252 282 326 304Z" fill="url(#teal)" opacity=".54"/>
+    <path d="M293 219 184 184 236 333 314 343Z" fill="url(#pink)" opacity=".52"/>
+
+    <!-- Display outer shell -->
+    <path d="M314 126 L1250 89 Q1302 87 1304 139 L1292 586 L289 590 L296 175 Q297 135 314 126Z"
+          fill="url(#screenFrame)" stroke="#768b8e" stroke-width="10"/>
+    <!-- angular top lip -->
+    <path d="M420 119 510 93 1084 70 1186 94 1250 89 1241 117 370 150 314 126Z"
+          fill="#e8f5f4" opacity=".9"/>
+    <path d="M760 104 839 101 864 113 742 118Z" fill="#4d6064"/>
+    <circle cx="802" cy="112" r="8" fill="#11272c"/>
+    <circle cx="802" cy="112" r="3.6" fill="#4ef3e5"/>
+
+    <!-- screen -->
+    <path d="M357 150 L1218 117 Q1254 117 1255 153 L1244 542 L330 547 L338 184 Q338 155 357 150Z"
+          fill="url(#screenInner)" stroke="#223a3f" stroke-width="8"/>
+
+    <g clip-path="url(#screenClip)">
+      <rect x="325" y="110" width="950" height="455" fill="url(#screenGlow)"/>
+      <rect x="325" y="110" width="950" height="455" fill="url(#grid)"/>
+
+      <!-- Diagonal anime-tech ribbons -->
+      <path d="M270 540 618 142 755 133 415 548Z" fill="url(#teal)" opacity=".89"/>
+      <path d="M948 123 1250 117 896 548 756 548Z" fill="#143f52" opacity=".85"/>
+      <path d="M1018 122 1242 118 982 530 903 543Z" fill="url(#pink)" opacity=".93"/>
+      <path d="M477 548 797 126 845 124 550 548Z" fill="#dffefb" opacity=".16"/>
+
+      <!-- Original anime-inspired silhouette, not a copyrighted character -->
+      <g transform="translate(680 308)">
+        <circle cx="0" cy="-56" r="55" fill="#f5ffff"/>
+        <path d="M-42-89Q0-125 42-88L34-57Q1-79-34-56Z" fill="#d9f7f4"/>
+        <!-- twin-tail / ribbon motif -->
+        <path d="M-45-73C-145-132-185-62-166 70-129 20-110-5-42-15Z" fill="#93f4ec" opacity=".94"/>
+        <path d="M45-73C145-132 185-62 166 70 129 20 110-5 42-15Z" fill="#93f4ec" opacity=".94"/>
+        <path d="M-31-17C-18 10 18 10 31-17L51 58H-51Z" fill="#f7ffff"/>
+        <path d="M-35 6-84 70-42 103 0 54 42 103 84 70 35 6Z" fill="#d9eeef"/>
+        <path d="M-83 70-108 124-65 117-42 103Z" fill="url(#teal)"/>
+        <path d="M83 70 108 124 65 117 42 103Z" fill="url(#pink)"/>
+        <!-- face kept symbolic -->
+        <path d="M-18-50h9M9-50h9" stroke="#2d5d65" stroke-width="6" stroke-linecap="round"/>
+        <path d="M-8-31Q0-25 8-31" fill="none" stroke="#ff78ad" stroke-width="4" stroke-linecap="round"/>
+      </g>
+
+      <!-- mecha UI -->
+      <g fill="none" stroke="#b9fff8" opacity=".75">
+        <circle cx="680" cy="312" r="182" stroke-width="4" stroke-dasharray="28 14"/>
+        <circle cx="680" cy="312" r="207" stroke-width="2" stroke-dasharray="5 14"/>
+        <path d="M421 208h128M421 224h79M1050 188h125M1080 207h95" stroke-width="5"/>
+        <path d="M391 463h153l22-31M1056 443h124l26-42" stroke-width="4"/>
+      </g>
+      <g fill="#a9fff6">
+        <rect x="397" y="188" width="14" height="14" rx="3"/>
+        <rect x="1165" y="164" width="16" height="16" rx="3"/>
+        <rect x="1135" y="429" width="18" height="18" rx="3"/>
+      </g>
+
+      <!-- tiny HUD bars -->
+      <g transform="translate(1087 246)">
+        <rect width="118" height="101" rx="10" fill="#0d2b32" stroke="#63eee4" stroke-width="3" opacity=".85"/>
+        <rect x="16" y="65" width="12" height="22" fill="#67f4ea"/>
+        <rect x="35" y="51" width="12" height="36" fill="#67f4ea"/>
+        <rect x="54" y="38" width="12" height="49" fill="#ff72ad"/>
+        <rect x="73" y="29" width="12" height="58" fill="#67f4ea"/>
+        <rect x="92" y="18" width="12" height="69" fill="#67f4ea"/>
+      </g>
+
+      <!-- decorative shards -->
+      <g fill="#f7ffff" opacity=".9">
+        <path d="M437 268 452 280 438 294 425 281Z"/>
+        <path d="M988 218 1002 228 991 243 977 232Z"/>
+        <path d="M1041 387 1052 395 1044 406 1032 398Z"/>
+      </g>
+    </g>
+
+    <!-- hinges -->
+    <path d="M377 556h188l34 36H349Z" fill="#50666a"/>
+    <path d="M1018 556h181l20 33h-231Z" fill="#50666a"/>
+    <rect x="423" y="552" width="717" height="30" rx="13" fill="#34494e"/>
+    <rect x="457" y="558" width="648" height="14" rx="7" fill="url(#teal)" opacity=".82"/>
+
+    <!-- lower deck -->
+    <path d="M283 572 1249 568 1444 749 Q1462 765 1440 788 L180 788 Q151 786 168 758Z"
+          fill="url(#deck)" stroke="#84979a" stroke-width="10"/>
+
+    <!-- side armor panels -->
+    <path d="M170 759 274 658 324 661 247 782 180 788Q151 786 168 758Z" fill="#eef7f6"/>
+    <path d="M1248 569 1444 749Q1462 765 1440 788H1343L1267 649Z" fill="#cedadc"/>
+    <path d="M202 747 246 695 265 742Z" fill="url(#pink)"/>
+    <path d="M1334 717 1390 754 1346 759Z" fill="url(#teal)"/>
+
+    <!-- keyboard recess -->
+    <path d="M409 604 1127 601 1241 707 328 710Z" fill="#64787b" stroke="#4c6064" stroke-width="6"/>
+    <path d="M431 614 1107 612 1204 692 355 695Z" fill="url(#keys)"/>
+
+    <!-- WASD accents -->
+    <g fill="#39c5bb" stroke="#bafff9" stroke-width="3">
+      <rect x="486" y="622" width="47" height="34" rx="6"/>
+      <rect x="432" y="662" width="47" height="26" rx="5"/>
+      <rect x="486" y="662" width="47" height="26" rx="5"/>
+      <rect x="540" y="662" width="47" height="26" rx="5"/>
+    </g>
+    <g fill="#17383e" font-family="Arial, sans-serif" font-weight="700" font-size="20" text-anchor="middle">
+      <text x="510" y="646">W</text>
+      <text x="455" y="682">A</text>
+      <text x="510" y="682">S</text>
+      <text x="564" y="682">D</text>
+    </g>
+
+    <!-- touchpad -->
+    <path d="M676 711 980 708 1028 763 635 763Z" fill="#dbe5e5" stroke="#75898c" stroke-width="5"/>
+    <path d="M691 720 960 718" stroke="#39c5bb" stroke-width="6" stroke-linecap="round"/>
+
+    <!-- front fascia -->
+    <path d="M181 788 1440 788 1408 831 219 831Z" fill="url(#frontEdge)"/>
+    <path d="M302 801H664" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" filter="url(#glowTeal)"/>
+    <path d="M1082 801h211" stroke="url(#pink)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M698 807h320" stroke="#91a5a7" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- side vents / ports -->
+    <g fill="#30464a">
+      <rect x="1202" y="688" width="45" height="16" rx="4"/>
+      <rect x="1256" y="698" width="48" height="14" rx="4"/>
+      <rect x="1320" y="714" width="40" height="14" rx="4"/>
+    </g>
+
+    <!-- tiny decorative marks -->
+    <g opacity=".95">
+      <path d="M325 602 347 590 371 607 347 619Z" fill="#39c5bb"/>
+      <path d="M1182 599 1201 588 1222 600 1203 613Z" fill="#ff5b9e"/>
+      <path d="M280 725h57" stroke="#39c5bb" stroke-width="6" stroke-linecap="round"/>
+      <path d="M1260 744h57" stroke="#ff5b9e" stroke-width="6" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>
