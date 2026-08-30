@@ -7,41 +7,34 @@ typedef CdnDiagnosticGroup = ({
 });
 
 abstract final class CdnDiagnosticsService {
-  static const _prefix = 'cdnDiagnostic:';
-  static int _sequence = 0;
   static int? _activeRun;
   static final List<Map<String, dynamic>> _activeRecords = [];
   static Future<void> _writeChain = Future.value();
 
-  static Future<void> append(Map<String, dynamic> record) => _enqueue(() async {
-      final now = DateTime.now().microsecondsSinceEpoch;
-      final id = '$_prefix$now:${_sequence++}';
-      final run = (record['testRunStartedAtUs'] as num?)?.toInt() ?? now;
-      if (_activeRun != run) {
-        _activeRun = run;
-        _activeRecords
-          ..clear()
-          ..addAll(
-            _allEntries()
-                .map((entry) => entry.record)
-                .where(
-                  (item) =>
-                      (item['testRunStartedAtUs'] as num?)?.toInt() == run,
-                ),
-          );
-      }
-      final cdn = record['cdn'] is Map ? record['cdn'] as Map : const {};
-      final index = cdn['index'];
-      _activeRecords.removeWhere((item) {
-        final old = item['cdn'];
-        return old is Map && old['index'] == index;
-      });
-      _activeRecords.add(record);
-      await GStorage.replaceCdnDiagnostics([
-        for (final item in _activeRecords)
-          (id: '$id:${item['recordedAtUs']}', record: item),
-      ]);
+  static void append(Map<String, dynamic> record) {
+    final run = (record['testRunStartedAtUs'] as num?)?.toInt() ??
+        DateTime.now().microsecondsSinceEpoch;
+    if (_activeRun != run) {
+      _activeRun = run;
+      _activeRecords.clear();
+    }
+    final cdn = record['cdn'] is Map ? record['cdn'] as Map : const {};
+    final index = cdn['index'];
+    _activeRecords.removeWhere((item) {
+      final old = item['cdn'];
+      return old is Map && old['index'] == index;
     });
+    _activeRecords.add(record);
+  }
+
+  static Future<void> flushLatest() {
+    if (_activeRecords.isEmpty) return _writeChain;
+    return _enqueue(() =>
+        GStorage.replaceCdnDiagnostics([
+          for (final item in _activeRecords)
+            (id: item['recordedAtUs']?.toString() ?? '', record: item),
+        ]));
+  }
 
   static Future<void> _enqueue(Future<void> Function() action) {
     Future<void> run(dynamic _) async {

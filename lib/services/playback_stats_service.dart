@@ -8,11 +8,12 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/widgets.dart';
 
 abstract final class PlaybackStatsService {
-  static const schemaVersion = 4;
-  static const metricDefinitionVersion = 1;
+  static const schemaVersion = 5;
+  static const metricDefinitionVersion = 3;
   static const storageLayoutVersion = 2;
   static const _seekThresholdUs = 1000000;
   static const _rewindEligibilityUs = 5000000;
+  static const _flushInterval = Duration(minutes: 2);
 
   static final _clock = Stopwatch()..start();
   static Map<String, dynamic>? _stats;
@@ -20,6 +21,8 @@ abstract final class PlaybackStatsService {
   static Future<void> _writeChain = Future.value();
   static bool _dirty = false;
   static bool _snapshotting = false;
+  static int _monthStamp = -1;
+  static String _cachedMonthKey = '';
   static final Set<String> _dirtyKeys = {};
   static final Set<String> _dirtyMonths = {};
   static final Set<String> _dirtyVideoUpUids = {};
@@ -53,6 +56,8 @@ abstract final class PlaybackStatsService {
   static bool _playing = false;
   static bool _buffering = false;
   static bool _completedIdle = false;
+  static bool _videoCommentPanelVisible = false;
+  static int _commentPanelLastWallUs = 0;
   static String? _mediaKey;
   static String? _liveUid;
   static String? _liveName;
@@ -83,7 +88,6 @@ abstract final class PlaybackStatsService {
   static int _sessionUniqueCoveredUs = 0;
   static int _sessionRepeatCoveredUs = 0;
   static int _sessionMaxPositionUs = 0;
-  static int _sessionStartPositionUs = 0;
   static bool _sessionCompleted = false;
   static bool _videoSessionOpen = false;
   static final List<({int start, int end})> _coveredIntervals = [];
@@ -103,14 +107,17 @@ abstract final class PlaybackStatsService {
   static void initializeAppLifecycle() {
     _ensureInitialized();
     if (_appLifecycleListener != null) return;
-    _appLastWallUs = _clock.elapsedMicroseconds;
-    _pageLastWallUs = _appLastWallUs;
+    final now = _clock.elapsedMicroseconds;
+    _appLastWallUs = now;
+    _pageLastWallUs = now;
+    _commentPanelLastWallUs = now;
     _appForeground = WidgetsBinding.instance.lifecycleState == .resumed;
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: (state) {
         final now = _clock.elapsedMicroseconds;
         _settleAppForeground(now);
         _settlePageDwell(now);
+        _settleCommentPanel(now);
         _appForeground = state == .resumed;
         if (!_appForeground) unawaited(flush());
       },
@@ -134,7 +141,7 @@ abstract final class PlaybackStatsService {
     ]);
     _queueLegacyCompositeMigration();
     _flushTimer ??= Timer.periodic(
-      const Duration(seconds: 30),
+      _flushInterval,
       (_) => flush(),
     );
   }
@@ -145,6 +152,17 @@ abstract final class PlaybackStatsService {
       value is Map ? _stringMap(value) : value,
     ),
   );
+
+  // Statistics stay in this process for their whole lifetime. Hive values are
+  // normalized when loading, so copying a nested record for every position
+  // callback only creates garbage and makes old months cost more than new
+  // ones. Convert legacy maps once; mutate normalized records in place.
+  static Map<String, dynamic> _mutableMap(dynamic value) =>
+      value is Map<String, dynamic>
+      ? value
+      : value is Map
+      ? _stringMap(value)
+      : <String, dynamic>{};
 
   static Map<String, dynamic> _loadStatsFromStorage() {
     final raw = GStorage.playbackStats.toMap();
@@ -319,16 +337,19 @@ abstract final class PlaybackStatsService {
 
   static String get _monthKey {
     final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}';
+    final stamp = now.year * 12 + now.month;
+    if (stamp != _monthStamp) {
+      _monthStamp = stamp;
+      _cachedMonthKey = '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}';
+    }
+    return _cachedMonthKey;
   }
 
   static void _addMonthValue(String key, num value) {
     if (value == 0 || key == 'months') return;
     final months = _map('months');
-    final month = months[_monthKey] is Map
-        ? _stringMap(months[_monthKey] as Map)
-        : <String, dynamic>{};
+    final month = _mutableMap(months[_monthKey]);
     final current = month[key] as num? ?? 0;
     month[key] = value is double || current is double
         ? current.toDouble() + value
@@ -349,6 +370,25 @@ abstract final class PlaybackStatsService {
       _addBucket('pageDwellUs', _pageCategory, elapsed);
     }
     _pageLastWallUs = now;
+  }
+
+  static void _settleCommentPanel(int now) {
+    final elapsed = max(0, now - _commentPanelLastWallUs);
+    if (_appForeground && _active && !_live && _videoCommentPanelVisible) {
+      _add('commentPanelForegroundUs', elapsed);
+      _addVideoUp('commentPanelForegroundUs', elapsed);
+      _addDimension('commentPanelForegroundUs', elapsed);
+    }
+    _commentPanelLastWallUs = now;
+  }
+
+  static void setVideoCommentPanelVisible(bool visible) {
+    _ensureInitialized();
+    if (_videoCommentPanelVisible == visible) return;
+    final now = _clock.elapsedMicroseconds;
+    _settleCommentPanel(now);
+    _videoCommentPanelVisible = visible;
+    _commentPanelLastWallUs = now;
   }
 
   static void _onPageRouteChanged(String? routeName) {
@@ -435,8 +475,7 @@ abstract final class PlaybackStatsService {
 
   static Map<String, dynamic> _map(String key) {
     final current = _stats![key];
-    if (current is Map<String, dynamic>) return current;
-    final value = current is Map ? _stringMap(current) : <String, dynamic>{};
+    final value = _mutableMap(current);
     _stats![key] = value;
     return value;
   }
@@ -450,12 +489,8 @@ abstract final class PlaybackStatsService {
         : current.toInt() + value.toInt();
     _markDirty(key);
     final months = _map('months');
-    final month = months[_monthKey] is Map
-        ? _stringMap(months[_monthKey] as Map)
-        : <String, dynamic>{};
-    final monthBuckets = month[key] is Map
-        ? _stringMap(month[key] as Map)
-        : <String, dynamic>{};
+    final month = _mutableMap(months[_monthKey]);
+    final monthBuckets = _mutableMap(month[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
     month[key] = monthBuckets;
     months[_monthKey] = month;
@@ -466,19 +501,13 @@ abstract final class PlaybackStatsService {
     final uid = _videoUpUid;
     if (uid == null || value == 0) return;
     final byUid = _map('videoByUpUid');
-    final item = byUid[uid] is Map
-        ? _stringMap(byUid[uid] as Map)
-        : <String, dynamic>{};
+    final item = _mutableMap(byUid[uid]);
     if (_videoUpName case final name? when name.isNotEmpty) {
       item['name'] = name;
     }
     item[key] = (item[key] as num? ?? 0) + value;
-    final months = item['months'] is Map
-        ? _stringMap(item['months'] as Map)
-        : <String, dynamic>{};
-    final monthItem = months[_monthKey] is Map
-        ? _stringMap(months[_monthKey] as Map)
-        : <String, dynamic>{};
+    final months = _mutableMap(item['months']);
+    final monthItem = _mutableMap(months[_monthKey]);
     monthItem[key] = (monthItem[key] as num? ?? 0) + value;
     if (_videoUpName case final name? when name.isNotEmpty) {
       monthItem['name'] = name;
@@ -493,23 +522,13 @@ abstract final class PlaybackStatsService {
     final uid = _videoUpUid;
     if (uid == null || value == 0) return;
     final byUid = _map('videoByUpUid');
-    final item = byUid[uid] is Map
-        ? _stringMap(byUid[uid] as Map)
-        : <String, dynamic>{};
-    final buckets = item[key] is Map
-        ? _stringMap(item[key] as Map)
-        : <String, dynamic>{};
+    final item = _mutableMap(byUid[uid]);
+    final buckets = _mutableMap(item[key]);
     buckets[bucket] = (buckets[bucket] as num? ?? 0) + value;
     item[key] = buckets;
-    final months = item['months'] is Map
-        ? _stringMap(item['months'] as Map)
-        : <String, dynamic>{};
-    final monthItem = months[_monthKey] is Map
-        ? _stringMap(months[_monthKey] as Map)
-        : <String, dynamic>{};
-    final monthBuckets = monthItem[key] is Map
-        ? _stringMap(monthItem[key] as Map)
-        : <String, dynamic>{};
+    final months = _mutableMap(item['months']);
+    final monthItem = _mutableMap(months[_monthKey]);
+    final monthBuckets = _mutableMap(monthItem[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
     monthItem[key] = monthBuckets;
     months[_monthKey] = monthItem;
@@ -526,9 +545,7 @@ abstract final class PlaybackStatsService {
     if (name != null && name.isNotEmpty) {
       final uid = _videoUpUid!;
       final byUid = _map('videoByUpUid');
-      final item = byUid[uid] is Map
-          ? _stringMap(byUid[uid] as Map)
-          : <String, dynamic>{};
+      final item = _mutableMap(byUid[uid]);
       _rememberAlias(item, name);
       byUid[uid] = item;
       _markVideoUpDirty(uid);
@@ -537,12 +554,9 @@ abstract final class PlaybackStatsService {
 
   static void _rememberAlias(Map<String, dynamic> item, String name) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final aliases = item['aliases'] is Map
-        ? _stringMap(item['aliases'] as Map)
-        : <String, dynamic>{};
-    final alias = aliases[name] is Map
-        ? _stringMap(aliases[name] as Map)
-        : <String, dynamic>{'firstSeenAtMs': now};
+    final aliases = _mutableMap(item['aliases']);
+    final alias = _mutableMap(aliases[name]);
+    alias.putIfAbsent('firstSeenAtMs', () => now);
     alias['lastSeenAtMs'] = now;
     aliases[name] = alias;
     item['aliases'] = aliases;
@@ -566,12 +580,8 @@ abstract final class PlaybackStatsService {
   }
 
   static void _addLiveMonth(Map<String, dynamic> item, String key, num value) {
-    final months = item['months'] is Map
-        ? _stringMap(item['months'] as Map)
-        : <String, dynamic>{};
-    final month = months[_monthKey] is Map
-        ? _stringMap(months[_monthKey] as Map)
-        : <String, dynamic>{};
+    final months = _mutableMap(item['months']);
+    final month = _mutableMap(months[_monthKey]);
     month[key] = (month[key] as num? ?? 0) + value;
     if (_liveName case final name? when name.isNotEmpty) month['name'] = name;
     months[_monthKey] = month;
@@ -604,19 +614,11 @@ abstract final class PlaybackStatsService {
     };
     final dimensions = _map('dimensions');
     for (final axis in axes.entries) {
-      final values = dimensions[axis.key] is Map
-          ? _stringMap(dimensions[axis.key] as Map)
-          : <String, dynamic>{};
-      final item = values[axis.value] is Map
-          ? _stringMap(values[axis.value] as Map)
-          : <String, dynamic>{};
+      final values = _mutableMap(dimensions[axis.key]);
+      final item = _mutableMap(values[axis.value]);
       item[primitive] = (item[primitive] as num? ?? 0) + value;
-      final months = item['months'] is Map
-          ? _stringMap(item['months'] as Map)
-          : <String, dynamic>{};
-      final month = months[_monthKey] is Map
-          ? _stringMap(months[_monthKey] as Map)
-          : <String, dynamic>{};
+      final months = _mutableMap(item['months']);
+      final month = _mutableMap(months[_monthKey]);
       month[primitive] = (month[primitive] as num? ?? 0) + value;
       months[_monthKey] = month;
       item['months'] = months;
@@ -631,19 +633,11 @@ abstract final class PlaybackStatsService {
         'partitionSpeed': '$_partitionId|$speed',
         'orientationSpeed': '$_orientation|$speed',
       }.entries) {
-        final values = crosses[entry.key] is Map
-            ? _stringMap(crosses[entry.key] as Map)
-            : <String, dynamic>{};
-        final item = values[entry.value] is Map
-            ? _stringMap(values[entry.value] as Map)
-            : <String, dynamic>{};
+        final values = _mutableMap(crosses[entry.key]);
+        final item = _mutableMap(values[entry.value]);
         item[primitive] = (item[primitive] as num? ?? 0) + value;
-        final months = item['months'] is Map
-            ? _stringMap(item['months'] as Map)
-            : <String, dynamic>{};
-        final month = months[_monthKey] is Map
-            ? _stringMap(months[_monthKey] as Map)
-            : <String, dynamic>{};
+        final months = _mutableMap(item['months']);
+        final month = _mutableMap(months[_monthKey]);
         month[primitive] = (month[primitive] as num? ?? 0) + value;
         months[_monthKey] = month;
         item['months'] = months;
@@ -651,6 +645,130 @@ abstract final class PlaybackStatsService {
         crosses[entry.key] = values;
         _markDimensionDirty(entry.key, entry.value, cross: true);
       }
+    }
+  }
+
+  // Position events are the hot path. Four independent calls used to rebuild
+  // every axis and recursively copy its month history for the same interval.
+  // These four primitives always share one context, month and speed, so update
+  // each target exactly once.
+  static void _addDimensionPlayback(
+    int activePlaybackUs,
+    int mediaAdvanceUs,
+    num nominalMediaUs,
+    num nominalMediaIncludingLongPressUs,
+    String speed,
+  ) {
+    final now = DateTime.now();
+    final month = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}';
+    final axes = <String, String>{
+      'orientation': _orientation,
+      'content': _contentType,
+      'partition': '$_partitionId:$_partitionName',
+      'codec': _codec,
+      'quality': _quality,
+      'network': _network,
+      'platform': defaultTargetPlatform.name,
+      'duration': _durationBand(_sourceDurationUs),
+      'playbackForm': _playbackForm,
+      'subtitle': _subtitle,
+      'danmaku': _danmaku,
+      'copyright': _copyright,
+      'decoder': _decoder,
+      'weekday': now.weekday.toString(),
+      'hour': now.hour.toString().padLeft(2, '0'),
+      'utcOffsetMinutes': now.timeZoneOffset.inMinutes.toString(),
+    };
+    final dimensions = _map('dimensions');
+    for (final axis in axes.entries) {
+      final values = _mutableMap(dimensions[axis.key]);
+      final item = _mutableMap(values[axis.value]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      item['activePlaybackUs'] =
+          (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      item['mediaAdvanceUs'] =
+          (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      item['nominalMediaUs'] =
+          (item['nominalMediaUs'] as num? ?? 0) + nominalMediaUs;
+      item['nominalMediaIncludingLongPressUs'] =
+          (item['nominalMediaIncludingLongPressUs'] as num? ?? 0) +
+          nominalMediaIncludingLongPressUs;
+      current['activePlaybackUs'] =
+          (current['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      current['mediaAdvanceUs'] =
+          (current['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      current['nominalMediaUs'] =
+          (current['nominalMediaUs'] as num? ?? 0) + nominalMediaUs;
+      current['nominalMediaIncludingLongPressUs'] =
+          (current['nominalMediaIncludingLongPressUs'] as num? ?? 0) +
+          nominalMediaIncludingLongPressUs;
+      months[month] = current;
+      item['months'] = months;
+      values[axis.value] = item;
+      dimensions[axis.key] = values;
+      _markDimensionDirty(axis.key, axis.value);
+    }
+    final crosses = _map('crossDimensions');
+    for (final entry in <String, String>{
+      'upSpeed': '${_videoUpUid ?? 'unknown'}|$speed',
+      'partitionSpeed': '$_partitionId|$speed',
+      'orientationSpeed': '$_orientation|$speed',
+    }.entries) {
+      final values = _mutableMap(crosses[entry.key]);
+      final item = _mutableMap(values[entry.value]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      item['activePlaybackUs'] =
+          (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      item['mediaAdvanceUs'] =
+          (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      current['activePlaybackUs'] =
+          (current['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      current['mediaAdvanceUs'] =
+          (current['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      months[month] = current;
+      item['months'] = months;
+      values[entry.value] = item;
+      crosses[entry.key] = values;
+      _markDimensionDirty(entry.key, entry.value, cross: true);
+    }
+  }
+
+  // Session outcomes have one final content identity. Keep them on dimensions
+  // that describe the media itself; network, quality and player UI can change
+  // during a session and receive interval primitives instead.
+  static void _addStaticSessionDimensions(Map<String, num> primitives) {
+    if (primitives.isEmpty) return;
+    final now = DateTime.now();
+    final month = '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}';
+    final axes = <String, String>{
+      'orientation': _orientation,
+      'content': _contentType,
+      'partition': '$_partitionId:$_partitionName',
+      'platform': defaultTargetPlatform.name,
+      'duration': _durationBand(_sourceDurationUs),
+      'copyright': _copyright,
+    };
+    final dimensions = _map('dimensions');
+    for (final axis in axes.entries) {
+      final values = _mutableMap(dimensions[axis.key]);
+      final item = _mutableMap(values[axis.value]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      for (final primitive in primitives.entries) {
+        item[primitive.key] =
+            (item[primitive.key] as num? ?? 0) + primitive.value;
+        current[primitive.key] =
+            (current[primitive.key] as num? ?? 0) + primitive.value;
+      }
+      months[month] = current;
+      item['months'] = months;
+      values[axis.value] = item;
+      dimensions[axis.key] = values;
+      _markDimensionDirty(axis.key, axis.value);
     }
   }
 
@@ -732,9 +850,7 @@ abstract final class PlaybackStatsService {
         _liveName = liveName;
         _add('liveOpenCount', 1);
         final byUid = _map('liveByUid');
-        final item = byUid[_liveUid] is Map
-            ? _stringMap(byUid[_liveUid] as Map)
-            : <String, dynamic>{};
+        final item = _mutableMap(byUid[_liveUid]);
         item['openCount'] = ((item['openCount'] as num?)?.toInt() ?? 0) + 1;
         if (liveName case final name? when name.isNotEmpty) {
           item['name'] = name;
@@ -756,6 +872,8 @@ abstract final class PlaybackStatsService {
           sourceDuration?.inMicroseconds ?? 0,
         );
       }
+    } else if (!isLive && _completedIdle) {
+      _restartCompletedVideoSession(initialPosition.inMicroseconds, now);
     } else if (!isLive && videoUpUid != null) {
       _videoUpUid = videoUpUid.toString();
       _videoUpName = videoUpName ?? _videoUpName;
@@ -774,6 +892,7 @@ abstract final class PlaybackStatsService {
     _defaultRate = defaultSpeed;
     _lastWallUs = now;
     _lastPositionUs = initialPosition.inMicroseconds;
+    _commentPanelLastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
     _suppressDiscontinuityUntilUs = now + _rewindEligibilityUs;
     if (!isLive) {
@@ -842,9 +961,7 @@ abstract final class PlaybackStatsService {
     final uid = _liveUid;
     if (uid == null) return;
     final byUid = _map('liveByUid');
-    final item = byUid[uid] is Map
-        ? _stringMap(byUid[uid] as Map)
-        : <String, dynamic>{};
+    final item = _mutableMap(byUid[uid]);
     item['name'] = liveName;
     _rememberAlias(item, liveName);
     byUid[uid] = item;
@@ -858,7 +975,11 @@ abstract final class PlaybackStatsService {
     _playbackForm = form;
   }
 
-  static void _beginVideoSession(int initialPositionUs, int sourceDurationUs) {
+  static void _beginVideoSession(
+    int initialPositionUs,
+    int sourceDurationUs, {
+    bool resetContext = true,
+  }) {
     _videoSessionOpen = true;
     _sourceDurationUs = sourceDurationUs;
     _sessionActiveUs = 0;
@@ -869,10 +990,10 @@ abstract final class PlaybackStatsService {
     _sessionBufferingUs = 0;
     _sessionUniqueCoveredUs = 0;
     _sessionRepeatCoveredUs = 0;
-    _sessionStartPositionUs = initialPositionUs;
     _sessionMaxPositionUs = initialPositionUs;
     _sessionCompleted = false;
     _coveredIntervals.clear();
+    if (!resetContext) return;
     _orientation = 'unknown';
     _contentType = 'ugc';
     _partitionId = 'unknown';
@@ -887,6 +1008,21 @@ abstract final class PlaybackStatsService {
     _decoder = 'unknown';
   }
 
+  static void _restartCompletedVideoSession(int positionUs, int now) {
+    _finalizeVideoSession();
+    _finishRewind(now, completed: false);
+    _beginVideoSession(
+      positionUs,
+      _sourceDurationUs,
+      resetContext: false,
+    );
+    _completedIdle = false;
+    _lastPositionUs = positionUs;
+    _lastWallUs = now;
+    _pendingPositionUs = positionUs;
+    _suppressDiscontinuityUntilUs = now + _rewindEligibilityUs;
+  }
+
   static void _recordCoverage(int rawStartUs, int rawEndUs) {
     var start = max(0, min(rawStartUs, rawEndUs));
     var end = max(0, max(rawStartUs, rawEndUs));
@@ -895,6 +1031,33 @@ abstract final class PlaybackStatsService {
       end = min(end, _sourceDurationUs);
     }
     if (end <= start) return;
+
+    final covered = _coveredIntervals;
+    final span = end - start;
+    if (covered.isEmpty) {
+      covered.add((start: start, end: end));
+      _sessionUniqueCoveredUs += span;
+      return;
+    }
+    final last = covered.last;
+    if (start >= last.start) {
+      if (start >= last.end) {
+        if (start == last.end) {
+          covered[covered.length - 1] = (start: last.start, end: end);
+        } else {
+          covered.add((start: start, end: end));
+        }
+        _sessionUniqueCoveredUs += span;
+        return;
+      }
+      if (end >= last.end) {
+        final unique = end - last.end;
+        covered[covered.length - 1] = (start: last.start, end: end);
+        _sessionUniqueCoveredUs += unique;
+        _sessionRepeatCoveredUs += span - unique;
+        return;
+      }
+    }
 
     var mergedStart = start;
     var mergedEnd = end;
@@ -923,7 +1086,6 @@ abstract final class PlaybackStatsService {
     _coveredIntervals
       ..clear()
       ..addAll(next);
-    final span = end - start;
     final unique = max(0, span - overlap);
     _sessionUniqueCoveredUs += unique;
     _sessionRepeatCoveredUs += span - unique;
@@ -932,6 +1094,24 @@ abstract final class PlaybackStatsService {
   static void _finalizeVideoSession() {
     if (!_videoSessionOpen) return;
     _videoSessionOpen = false;
+    final played = _sessionActiveUs > 0;
+    final sessionPrimitives = <String, num>{
+      'sessionOpenedCount': 1,
+      if (played) 'sessionPlayedCount': 1,
+      if (played && _sessionCompleted) 'sessionCompletedCount': 1,
+      if (played && !_sessionCompleted) 'sessionEarlyExitCount': 1,
+      if (!played && !_sessionCompleted) 'sessionNeverPlayedExitCount': 1,
+      if (played && _sourceDurationUs > 0) ...{
+        'playedSourceDurationUs': _sourceDurationUs,
+        'sessionCoverageRatioSum': _sessionUniqueCoveredUs / _sourceDurationUs,
+        'sessionCoverageEligibleCount': 1,
+      },
+    };
+    for (final primitive in sessionPrimitives.entries) {
+      _add(primitive.key, primitive.value);
+      _addVideoUp(primitive.key, primitive.value);
+    }
+    _addStaticSessionDimensions(sessionPrimitives);
     if (_sourceDurationUs > 0) {
       _add('openedSourceDurationUs', _sourceDurationUs);
       _addVideoUp('openedSourceDurationUs', _sourceDurationUs);
@@ -947,7 +1127,7 @@ abstract final class PlaybackStatsService {
     _addDimension('uniqueCoveredUs', _sessionUniqueCoveredUs);
     _addDimension('repeatCoveredUs', _sessionRepeatCoveredUs);
 
-    if (_sessionActiveUs > 0) {
+    if (played) {
       _addHistogram(
         'sessionActualSpeedHistogram',
         _sessionMediaAdvanceUs / _sessionActiveUs,
@@ -1049,6 +1229,9 @@ abstract final class PlaybackStatsService {
         _settleLive(now);
       } else {
         _settleVideo(position.inMicroseconds, now);
+        if (_completedIdle && playing) {
+          _restartCompletedVideoSession(position.inMicroseconds, now);
+        }
       }
       if (playing != _playing) {
         if (playing) {
@@ -1072,6 +1255,9 @@ abstract final class PlaybackStatsService {
         _settleLive(now);
       } else {
         _settleVideo(position.inMicroseconds, now);
+        if (_completedIdle && buffering) {
+          _restartCompletedVideoSession(position.inMicroseconds, now);
+        }
       }
       if (buffering && !_buffering) {
         _add('bufferingCount', 1);
@@ -1117,12 +1303,17 @@ abstract final class PlaybackStatsService {
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
     _settleVideo(from.inMicroseconds, now);
+    if (_completedIdle) {
+      _restartCompletedVideoSession(to.inMicroseconds, now);
+      return;
+    }
     _completedIdle = false;
     if (userInitiated) {
       _recordSeek(from.inMicroseconds, to.inMicroseconds, now);
     } else {
       _finishRewind(now, completed: false);
     }
+    _sessionMaxPositionUs = max(_sessionMaxPositionUs, to.inMicroseconds);
     _lastPositionUs = to.inMicroseconds;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
@@ -1134,7 +1325,6 @@ abstract final class PlaybackStatsService {
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
     _settleVideo(position.inMicroseconds, now);
-    _completedIdle = false;
     _lastPositionUs = position.inMicroseconds;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
@@ -1200,9 +1390,7 @@ abstract final class PlaybackStatsService {
       final uid = _liveUid;
       if (uid != null) {
         final byUid = _map('liveByUid');
-        final item = byUid[uid] is Map
-            ? _stringMap(byUid[uid] as Map)
-            : <String, dynamic>{};
+        final item = _mutableMap(byUid[uid]);
         item['watchUs'] = ((item['watchUs'] as num?) ?? 0).toInt() + elapsed;
         if (_liveName case final name? when name.isNotEmpty) item['name'] = name;
         _addLiveMonth(item, 'watchUs', elapsed);
@@ -1215,6 +1403,7 @@ abstract final class PlaybackStatsService {
 
   static void _settleVideo(int positionUs, int now) {
     if (!_active || _live) return;
+    _settleCommentPanel(now);
     final wallUs = max(0, now - _lastWallUs);
     final mediaDeltaUs = positionUs - _lastPositionUs;
     if (_pendingPositionUs case final target?) {
@@ -1241,12 +1430,17 @@ abstract final class PlaybackStatsService {
       _addVideoUp('bufferingUs', wallUs);
       _addDimension('bufferingUs', wallUs);
       final rewind = _rewind;
+      final speed = _speedKey(_rate);
       if (rewind == null) {
         _add('normalBufferingUs', wallUs);
-        _addBucket('normalSpeedBufferingUs', _speedKey(_rate), wallUs);
+        _addVideoUp('normalBufferingUs', wallUs);
+        _addBucket('normalSpeedBufferingUs', speed, wallUs);
+        _addVideoUpBucket('normalSpeedBufferingUs', speed, wallUs);
       } else {
         _add('rewindBufferingUs', wallUs);
-        _addBucket('rewindSpeedBufferingUs', _speedKey(_rate), wallUs);
+        _addVideoUp('rewindBufferingUs', wallUs);
+        _addBucket('rewindSpeedBufferingUs', speed, wallUs);
+        _addVideoUpBucket('rewindSpeedBufferingUs', speed, wallUs);
         rewind.bufferingUs += wallUs;
       }
     } else if (_playing) {
@@ -1320,12 +1514,12 @@ abstract final class PlaybackStatsService {
       _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
       _addVideoUp('normalPlaybackUs', wallUs - rewindPlaybackUs);
       _addVideoUp('normalMediaAdvanceUs', mediaAdvanceUs - rewindMediaAdvanceUs);
-      _addDimension('activePlaybackUs', wallUs, speed: _speedKey(_rate));
-      _addDimension('mediaAdvanceUs', mediaAdvanceUs, speed: _speedKey(_rate));
-      _addDimension('nominalMediaUs', wallUs * _nominalRate);
-      _addDimension(
-        'nominalMediaIncludingLongPressUs',
+      _addDimensionPlayback(
+        wallUs,
+        mediaAdvanceUs,
+        wallUs * _nominalRate,
         wallUs * _rate,
+        _speedKey(_rate),
       );
       _addBucket(
         'rewindSpeedActiveUs',
@@ -1357,7 +1551,9 @@ abstract final class PlaybackStatsService {
       if (rewind == null) {
         final speed = _speedKey(_rate);
         _add('normalPausedUs', wallUs);
+        _addVideoUp('normalPausedUs', wallUs);
         _addBucket('normalSpeedPausedUs', speed, wallUs);
+        _addVideoUpBucket('normalSpeedPausedUs', speed, wallUs);
         _trailingNormalPauseUs += wallUs;
         _trailingNormalPauseBySpeed.update(
           speed,
@@ -1367,7 +1563,9 @@ abstract final class PlaybackStatsService {
       } else {
         final speed = _speedKey(_rate);
         _add('rewindPausedUs', wallUs);
+        _addVideoUp('rewindPausedUs', wallUs);
         _addBucket('rewindSpeedPausedUs', speed, wallUs);
+        _addVideoUpBucket('rewindSpeedPausedUs', speed, wallUs);
         _trailingRewindPauseUs += wallUs;
         _trailingRewindPauseBySpeed.update(
           speed,
@@ -1406,12 +1604,16 @@ abstract final class PlaybackStatsService {
     _addDimension('commentAreaUs', _trailingPauseUs);
     _add('normalPausedUs', -_trailingNormalPauseUs);
     _add('rewindPausedUs', -_trailingRewindPauseUs);
+    _addVideoUp('normalPausedUs', -_trailingNormalPauseUs);
+    _addVideoUp('rewindPausedUs', -_trailingRewindPauseUs);
     _sessionPausedUs = max(0, _sessionPausedUs - _trailingPauseUs);
     for (final entry in _trailingNormalPauseBySpeed.entries) {
       _addBucket('normalSpeedPausedUs', entry.key, -entry.value);
+      _addVideoUpBucket('normalSpeedPausedUs', entry.key, -entry.value);
     }
     for (final entry in _trailingRewindPauseBySpeed.entries) {
       _addBucket('rewindSpeedPausedUs', entry.key, -entry.value);
+      _addVideoUpBucket('rewindSpeedPausedUs', entry.key, -entry.value);
     }
     final rewind = _rewind;
     if (rewind != null) {
@@ -1519,8 +1721,9 @@ abstract final class PlaybackStatsService {
     final now = _clock.elapsedMicroseconds;
     _settleAppForeground(now);
     _settlePageDwell(now);
+    _settleCommentPanel(now);
     if (_active && _live) _settleLive(now);
-    final raw = jsonDecode(jsonEncode(_stats!)) as Map<String, dynamic>;
+    final raw = Map<String, dynamic>.from(_stats!);
     final source = _numericMap(raw['sourceSpeedSelections']);
     final manual = _numericMap(raw['manualSpeedSelections']);
     final selections = <String, num>{...source};
@@ -1570,6 +1773,10 @@ abstract final class PlaybackStatsService {
         rewindWall +
         _number(raw['completedRewindPausedUs']) +
         _number(raw['completedRewindBufferingUs']);
+    final openedSessions = _number(raw['sessionOpenedCount']);
+    final playedSessions = _number(raw['sessionPlayedCount']);
+    final completedSessions = _number(raw['sessionCompletedCount']);
+    final coverageSessions = _number(raw['sessionCoverageEligibleCount']);
     raw['derived'] = {
       'favoriteSpeed': favorite,
       'favoriteSpeeds': [for (final item in rankedSpeeds.take(5)) item.speed],
@@ -1596,6 +1803,15 @@ abstract final class PlaybackStatsService {
           ? 0
           : _number(raw['uniqueCoveredUs']) /
                 _number(raw['openedSourceDurationUs']),
+      'videoCompletionRate': playedSessions == 0
+          ? 0
+          : completedSessions / playedSessions,
+      'videoOpenCompletionRate': openedSessions == 0
+          ? 0
+          : completedSessions / openedSessions,
+      'averageSessionCoverageRatio': coverageSessions == 0
+          ? 0
+          : _number(raw['sessionCoverageRatioSum']) / coverageSessions,
       'nominalAverageSpeed': active == 0 ? 0 : nominal / active,
       'nominalAverageSpeedIncludingLongPress': active == 0
           ? 0
@@ -1650,7 +1866,13 @@ abstract final class PlaybackStatsService {
         'rewindObservedEquivalentSpeed': 'completedRewindUs /（completedRewindPlaybackUs + completedRewindPausedUs + completedRewindBufferingUs）；用于回看包含暂停与缓冲在内的真实时间成本',
         'rewindCompletionRate':
             'completedRewindCount / eligibleRewindCount；完成或倒带后停留至少 5 秒才进入分母',
-        'stateAxes': '普通观看／倒带重看 × 播放／暂停／缓冲 × 当前倍速；临时长按、评论区停留、去重覆盖、快进跳转、倒带结果，以及按月份、视频 UP、直播主播、页面、分区、横竖屏、编码、清晰度、网络和播放形态等维度汇总的数据另行保存',
+        'videoCompletionRate':
+            'sessionCompletedCount / sessionPlayedCount；只把至少产生过实际播放时间的会话放入分母',
+        'videoOpenCompletionRate':
+            'sessionCompletedCount / sessionOpenedCount；从加载媒体开始计算',
+        'averageSessionCoverageRatio':
+            'sessionCoverageRatioSum / sessionCoverageEligibleCount；每次有效会话等权，不被长视频额外放大',
+        'stateAxes': '普通观看／倒带重看 × 播放／暂停／缓冲 × 当前倍速；临时长按、评论标签实际前台停留、播后或终止暂停停留、去重覆盖、快进跳转、倒带结果，以及按月份、视频 UP、直播主播、页面、分区、横竖屏、编码、清晰度、网络和播放形态等维度汇总的数据另行保存',
       },
       '原语': data,
       '当前推导值': derived,
@@ -1682,6 +1904,7 @@ abstract final class PlaybackStatsService {
     final now = _clock.elapsedMicroseconds;
     _settleAppForeground(now);
     _settlePageDwell(now);
+    _settleCommentPanel(now);
     if (_active && _live) _settleLive(now);
     if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
@@ -1813,7 +2036,10 @@ abstract final class PlaybackStatsService {
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
     _legacyCompositeKeys.clear();
-    _appLastWallUs = _clock.elapsedMicroseconds;
+    final now = _clock.elapsedMicroseconds;
+    _appLastWallUs = now;
+    _pageLastWallUs = now;
+    _commentPanelLastWallUs = now;
     if (_active) {
       if (_live) {
         _add('liveOpenCount', 1);
@@ -1825,8 +2051,18 @@ abstract final class PlaybackStatsService {
         _videoUpStartRecorded = false;
         _recordVideoUpStart();
         _recordSourceSpeed(_rate, _defaultRate);
+        if (_completedIdle) {
+          _videoSessionOpen = false;
+          _coveredIntervals.clear();
+        } else {
+          _beginVideoSession(
+            _lastPositionUs,
+            _sourceDurationUs,
+            resetContext: false,
+          );
+        }
       }
-      _lastWallUs = _clock.elapsedMicroseconds;
+      _lastWallUs = now;
     }
     await flush();
   }
@@ -1846,6 +2082,7 @@ abstract final class PlaybackStatsService {
     _lastWallUs = now;
     _appLastWallUs = now;
     _pageLastWallUs = now;
+    _commentPanelLastWallUs = now;
     _ensureInitialized();
   }
 }

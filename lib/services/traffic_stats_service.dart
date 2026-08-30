@@ -37,7 +37,6 @@ final class TrafficStatsService with WidgetsBindingObserver {
   int _windowsInterfaceSessionSent = 0;
   DateTime? _lastAt;
   String? _lastCategory;
-  DateTime _lastFlush = DateTime.fromMillisecondsSinceEpoch(0);
   final Map<String, dynamic> _data = {};
   final Set<String> _dirtyHours = {};
   Box<dynamic>? _box;
@@ -45,7 +44,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
   bool _restoring = false;
   int _dartReceived = 0;
   int _dartSent = 0;
-  bool _samplingWindows = false;
+  Future<void>? _windowsSample;
   final ValueNotifier<WindowsTrafficLive?> windowsLive = ValueNotifier(null);
 
   static const _windowsChannel = MethodChannel(
@@ -122,6 +121,13 @@ final class TrafficStatsService with WidgetsBindingObserver {
       '${time.day.toString().padLeft(2, '0')}T'
       '${time.hour.toString().padLeft(2, '0')}';
 
+  Map<String, dynamic> _mutableMap(dynamic value) =>
+      value is Map<String, dynamic>
+      ? value
+      : value is Map
+      ? value.map((key, item) => MapEntry(key.toString(), item))
+      : <String, dynamic>{};
+
   Future<void> _sample() async {
     if (_restoring) return;
     if (Platform.isWindows) {
@@ -132,19 +138,16 @@ final class TrafficStatsService with WidgetsBindingObserver {
     if (current == null) return;
     final now = DateTime.now();
     final previous = _last;
-    if (previous != null && _lastAt != null && _lastCategory != null) {
+    final previousAt = _lastAt;
+    if (previous != null && previousAt != null && _lastCategory != null) {
       final received = current.received >= previous.received
           ? current.received - previous.received
           : 0;
       final sent = current.sent >= previous.sent ? current.sent - previous.sent : 0;
       if (received != 0 || sent != 0) {
-        final hour = _hourKey(_lastAt!);
-        final hourly = Map<String, dynamic>.from(
-          _data[hour] as Map? ?? const {},
-        );
-        final category = Map<String, dynamic>.from(
-          hourly[_lastCategory] as Map? ?? const {},
-        );
+        final hour = _hourKey(previousAt);
+        final hourly = _mutableMap(_data[hour]);
+        final category = _mutableMap(hourly[_lastCategory]);
         category
           ..['received'] = (category['received'] as num? ?? 0).toInt() + received
           ..['sent'] = (category['sent'] as num? ?? 0).toInt() + sent;
@@ -157,24 +160,29 @@ final class TrafficStatsService with WidgetsBindingObserver {
     _last = current;
     _lastAt = now;
     _lastCategory = _category(ConnectivityUtils.current);
-    if (_dirty && now.difference(_lastFlush) >= const Duration(seconds: 30)) {
+    if (_dirty &&
+        previousAt != null &&
+        (previousAt.year != now.year ||
+            previousAt.month != now.month ||
+            previousAt.day != now.day ||
+            previousAt.hour != now.hour)) {
       await flush();
     }
   }
 
-  Future<void> _sampleWindows() async {
-    if (_samplingWindows) return;
-    _samplingWindows = true;
-    Map<Object?, Object?>? media;
-    Map<Object?, Object?>? network;
+  Future<void> _sampleWindows() =>
+      _windowsSample ??= _sampleWindowsNow().whenComplete(() {
+        _windowsSample = null;
+      });
+
+  Future<void> _sampleWindowsNow() async {
     try {
-      final values = await Future.wait([
-        _windowsChannel.invokeMapMethod<Object?, Object?>('mediaCounters'),
-        _windowsChannel.invokeMapMethod<Object?, Object?>('interfaceCounters'),
-      ]);
-      media = values[0];
-      network = values[1];
+      final counters = await _windowsChannel
+          .invokeMapMethod<Object?, Object?>('trafficCounters');
+      final media = counters?['media'] as Map?;
+      final network = counters?['interface'] as Map?;
       final now = DateTime.now();
+      final previousAt = _lastAt;
       final app = (
         received:
             ((media?['received'] as num?)?.toInt() ?? 0) + _dartReceived,
@@ -184,9 +192,9 @@ final class TrafficStatsService with WidgetsBindingObserver {
         received: (network?['received'] as num?)?.toInt() ?? 0,
         sent: (network?['sent'] as num?)?.toInt() ?? 0,
       );
-      final elapsedUs = _lastAt == null
+      final elapsedUs = previousAt == null
           ? 0
-          : now.difference(_lastAt!).inMicroseconds;
+          : now.difference(previousAt).inMicroseconds;
       final appDelta = _delta(app, _lastWindowsApp);
       final interfaceAvailable = network?['available'] == true;
       final interfaceId = (network?['sourceId'] as num?)?.toInt();
@@ -198,12 +206,12 @@ final class TrafficStatsService with WidgetsBindingObserver {
           : (received: 0, sent: 0);
       _windowsInterfaceSessionReceived += interfaceDelta.received;
       _windowsInterfaceSessionSent += interfaceDelta.sent;
-      if (_lastAt != null && _lastCategory != null) {
-        _recordDelta('appObserved.${_lastCategory!}', appDelta, _lastAt!);
+      if (previousAt != null && _lastCategory != null) {
+        _recordDelta('appObserved.${_lastCategory!}', appDelta, previousAt);
         _recordDelta(
           'activeInterface.${_lastCategory!}',
           interfaceDelta,
-          _lastAt!,
+          previousAt,
         );
       }
       if (elapsedUs > 0) {
@@ -226,13 +234,15 @@ final class TrafficStatsService with WidgetsBindingObserver {
       _lastAt = now;
       _lastCategory = _category(ConnectivityUtils.current);
       if (_dirty &&
-          now.difference(_lastFlush) >= const Duration(seconds: 30)) {
+          previousAt != null &&
+          (previousAt.year != now.year ||
+              previousAt.month != now.month ||
+              previousAt.day != now.day ||
+              previousAt.hour != now.hour)) {
         await flush();
       }
     } catch (_) {
       return;
-    } finally {
-      _samplingWindows = false;
     }
   }
 
@@ -257,10 +267,8 @@ final class TrafficStatsService with WidgetsBindingObserver {
   ) {
     if (delta.received == 0 && delta.sent == 0) return;
     final hour = _hourKey(at);
-    final hourly = Map<String, dynamic>.from(_data[hour] as Map? ?? const {});
-    final category = Map<String, dynamic>.from(
-      hourly[source] as Map? ?? const {},
-    );
+    final hourly = _mutableMap(_data[hour]);
+    final category = _mutableMap(hourly[source]);
     category
       ..['received'] =
           (category['received'] as num? ?? 0).toInt() + delta.received
@@ -279,7 +287,6 @@ final class TrafficStatsService with WidgetsBindingObserver {
     };
     _dirty = false;
     _dirtyHours.removeAll(hours);
-    _lastFlush = DateTime.now();
     try {
       await _box?.putAll(values);
     } catch (_) {
@@ -289,10 +296,16 @@ final class TrafficStatsService with WidgetsBindingObserver {
     }
   }
 
-  Future<Map<String, dynamic>> snapshot() async {
+  Future<Map<String, dynamic>> snapshot({DateTime? start, DateTime? end}) async {
     if (Platform.isAndroid || Platform.isWindows) await _sample();
+    final first = start == null ? null : _hourKey(start);
+    final after = end == null
+        ? null
+        : _hourKey(DateTime(end.year, end.month, end.day + 1));
     return {
       for (final entry in _data.entries)
+        if ((first == null || entry.key.compareTo(first) >= 0) &&
+            (after == null || entry.key.compareTo(after) < 0))
         entry.key: Map<String, dynamic>.from(entry.value as Map),
     };
   }
@@ -306,6 +319,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     }
     final target = File(targetPath);
     final previous = File('$targetPath.webdav-previous');
+    await _sample();
     _restoring = true;
     try {
       await flush();
@@ -358,6 +372,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
 
   Future<void> reset() async {
     await initialize();
+    await _sample();
     _restoring = true;
     try {
       _data.clear();
@@ -383,6 +398,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     await initialize();
     final source = hiveFile;
     if (source == null || !await source.exists()) return null;
+    await _sample();
     _restoring = true;
     try {
       await flush();
@@ -398,7 +414,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     if (!Platform.isAndroid && !Platform.isWindows) {
       return (day: 0, week: 0, month: 0);
     }
-    final data = await snapshot();
+    await _sample();
     final now = DateTime.now();
     final dayStart = DateTime(now.year, now.month, now.day);
     final weekStart = dayStart.subtract(Duration(days: dayStart.weekday - 1));
@@ -406,7 +422,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     var day = 0;
     var week = 0;
     var month = 0;
-    for (final entry in data.entries) {
+    for (final entry in _data.entries) {
       final time = DateTime.tryParse('${entry.key}:00:00');
       if (time == null) continue;
       var total = 0;
@@ -443,6 +459,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     await _networkSubscription?.cancel();
     _networkSubscription = null;
     WidgetsBinding.instance.removeObserver(this);
+    await _sample();
     await flush();
     await _box?.close();
     _box = null;
