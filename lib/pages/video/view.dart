@@ -1442,6 +1442,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   return IconButton(
                     onPressed: () {
                       final newVal = !enableShowDanmaku;
+                      final position = ctr.videoPlayerController?.state.position ??
+                          Duration.zero;
+                      PlaybackStatsService.samplePosition(position);
+                      PlaybackStatsService.updateVideoContext(
+                        danmakuEnabled: newVal,
+                      );
                       ctr.enableShowDanmaku.value = newVal;
                       if (!ctr.tempPlayerConf) {
                         GStorage.setting.put(

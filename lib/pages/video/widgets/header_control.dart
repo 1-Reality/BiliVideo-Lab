@@ -37,6 +37,7 @@ import 'package:PiliPlus/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliPlus/pages/video/widgets/header_mixin.dart';
 import 'package:PiliPlus/pages/video/widgets/playback_cdn_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/services/playback_stats_service.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
@@ -1879,6 +1880,13 @@ class HeaderControlState extends State<HeaderControl>
                       style: btnStyle,
                       onPressed: () {
                         final newVal = !enableShowDanmaku;
+                        final position =
+                            plPlayerController.videoPlayerController?.state.position ??
+                            Duration.zero;
+                        PlaybackStatsService.samplePosition(position);
+                        PlaybackStatsService.updateVideoContext(
+                          danmakuEnabled: newVal,
+                        );
                         plPlayerController.enableShowDanmaku.value = newVal;
                         if (!plPlayerController.tempPlayerConf) {
                           setting.put(

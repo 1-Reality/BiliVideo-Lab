@@ -297,8 +297,10 @@ class VideoDetailController extends GetxController
   }
 
   int? get videoPartitionId {
-    if (!isUgc) return null;
     try {
+      if (!isUgc) {
+        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.type;
+      }
       final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
       return detail.bvid == bvid ? detail.tid : null;
     } catch (_) {
@@ -307,8 +309,11 @@ class VideoDetailController extends GetxController
   }
 
   String? get videoPartitionName {
-    if (!isUgc) return null;
     try {
+      if (!isUgc) {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        return 'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}';
+      }
       final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
       return detail.bvid == bvid ? detail.tname : null;
     } catch (_) {
