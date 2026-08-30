@@ -274,24 +274,92 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     );
   }
 
+  Future<void> _showBvActions(String bvid, int aid) => showDialog<void>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text('$bvid  AV$aid'),
+      children: [
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            Utils.copyText('AV$aid');
+          },
+          child: const Text('复制 AV'),
+        ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            Utils.copyText(bvid);
+          },
+          child: const Text('复制 BV'),
+        ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            Utils.copyText('https://www.bilibili.com/video/$bvid');
+          },
+          child: const Text('复制完整链接'),
+        ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            Utils.copyText('https://b23.tv/$bvid');
+          },
+          child: const Text('复制 b23.tv 链接'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _videoIds(VideoDetailData videoDetail) {
+    final bvid = videoDetail.bvid ?? videoDetailCtr.bvid;
+    final aid = videoDetail.aid ?? IdUtils.bv2av(bvid);
+    final style = TextStyle(fontSize: 14, color: colorScheme.secondary);
+    return Wrap(
+      spacing: 10,
+      children: [
+        GestureDetector(
+          onTap: () => Utils.copyText(bvid),
+          onLongPress: () {
+            Feedback.forLongPress(context);
+            _showBvActions(bvid, aid);
+          },
+          child: Text(bvid, style: style),
+        ),
+        GestureDetector(
+          onLongPress: () {
+            Feedback.forLongPress(context);
+            Utils.copyText('AV$aid');
+          },
+          child: Text('AV$aid', style: style),
+        ),
+      ],
+    );
+  }
+
   List<Widget> _infos(VideoDetailData videoDetail) => [
     const SizedBox(height: 8, width: .infinity),
-    GestureDetector(
-      onTap: () => Utils.copyText('${videoDetail.bvid}'),
-      child: Text(
-        videoDetail.bvid ?? '',
-        style: TextStyle(fontSize: 14, color: colorScheme.secondary),
-      ),
-    ),
+    _videoIds(videoDetail),
     Obx(() {
       final metrics = videoDetailCtr.streamSizeAndBitrate;
+      final alternatives = videoDetailCtr.otherStreamSizeAndBitrates;
       return metrics == null
           ? const SizedBox.shrink()
           : Padding(
               padding: const .only(top: 4),
-              child: Text(
-                '当前视频流：$metrics',
-                style: TextStyle(fontSize: 13, color: colorScheme.outline),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '当前视频流：$metrics',
+                    style: TextStyle(fontSize: 13, color: colorScheme.outline),
+                  ),
+                  for (final row in alternatives)
+                    Text(
+                      row,
+                      style: TextStyle(fontSize: 13, color: colorScheme.outline),
+                    ),
+                ],
               ),
             );
     }),

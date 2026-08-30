@@ -118,6 +118,23 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         videoUpUid: response.owner?.mid,
         videoUpName: response.owner?.name,
       );
+      PlaybackStatsService.updateVideoContext(
+        sourceDuration: response.duration == null
+            ? null
+            : Duration(seconds: response.duration!),
+        partitionId: response.tid,
+        partitionName: response.tname,
+        orientation: response.dimension == null
+            ? null
+            : response.dimension!.isVertical
+            ? 'vertical'
+            : 'horizontal',
+        copyright: switch (response.copyright) {
+          1 => 'original',
+          2 => 'repost',
+          _ => 'unknown',
+        },
+      );
       try {
         if (videoDetailCtr.cover.value.isEmpty ||
             (videoDetailCtr.videoUrl.isNullOrEmpty &&

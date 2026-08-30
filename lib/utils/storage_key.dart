@@ -181,6 +181,7 @@ abstract final class SettingBoxKey {
       cellularDbmThreshold = 'cellularDbmThreshold',
       cellularSignalLevelThreshold = 'cellularSignalLevelThreshold',
       webdavBackupPlaybackStats = 'webdavBackupPlaybackStats',
+      webdavBackupCommentHistory = 'webdavBackupCommentHistory',
       webdavBackupCdnDiagnostics = 'webdavBackupCdnDiagnostics';
 
   static const String minimizeOnExit = 'minimizeOnExit',

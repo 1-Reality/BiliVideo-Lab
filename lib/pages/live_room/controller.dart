@@ -206,6 +206,7 @@ class LiveRoomController extends GetxController {
       NetworkSource(videoSource: videoUrl!, audioSource: null),
       isLive: true,
       liveUid: ruid,
+      liveName: roomInfoH5.value?.anchorInfo?.baseInfo?.uname,
       autoplay: autoplay,
       isVertical: isPortrait.value,
       autoFullScreenFlag: autoFullScreenFlag,
@@ -371,6 +372,10 @@ class LiveRoomController extends GetxController {
       roomInfoH5.value = response;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
+      PlaybackStatsService.updateLiveIdentity(
+        liveUid: response.roomInfo?.uid ?? ruid,
+        liveName: response.anchorInfo?.baseInfo?.uname,
+      );
       videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);
     } else {
       res.toast();

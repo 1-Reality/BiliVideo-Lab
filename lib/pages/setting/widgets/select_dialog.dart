@@ -159,19 +159,12 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
     }
 
     final k = Accounts.x;
-    if (!k && total > 512) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-
-    if (!k && total > 256) {
+    if (!k && total > 256 && total <= 512) {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('大流量 CDN 测试'),
-          content: Text(
-            '当前设置为 ${total.toStringAsPrecision(4)} MiB / CDN。单个 CDN 最大允许 512 MiB；继续测试会快速消耗大量流量。',
-          ),
+          title: const Text('CDN 测速'),
+          content: const Text('本次文件较大，建议不要超过 512 MiB。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -187,11 +180,13 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
       if (proceed != true || !mounted) return;
     }
 
-    final totalBytes = (total * 1048576).round();
+    final effectiveTotal = !k && total > 512 ? 512.0 : total;
+    final effectiveWarmup = warmup.clamp(0.0, effectiveTotal * 0.999);
+    final totalBytes = (effectiveTotal * 1048576).round();
     if (!mounted) return;
     Navigator.of(context).pop((
       totalBytes: totalBytes,
-      warmupBytes: (warmup * 1048576).round(),
+      warmupBytes: (effectiveWarmup * 1048576).round(),
       cooldown: Duration(microseconds: (cooldown * 1000000).round()),
       mode: mode,
     ));
@@ -390,7 +385,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           ? null
           : List<String>.of(videoItem.backupUrl!);
       try {
-        if (Platform.isAndroid && !Accounts.x) {
+        if ((Platform.isAndroid || Platform.isWindows) && !Accounts.x) {
           final usage = await TrafficStatsService.instance.currentPeriodUsage();
           const gib = 1024 * 1024 * 1024;
           final projected = config.totalBytes * CDNService.values.length;
@@ -600,6 +595,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         await for (final chunk in stream) {
           if (chunk.isEmpty) continue;
           received += chunk.length;
+          TrafficStatsService.instance.recordApplicationBytes(
+            received: chunk.length,
+          );
           probes.add((
             headersUs: headersUs,
             firstByteUs: watch.elapsedMicroseconds,
@@ -664,6 +662,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
       await for (final chunk in stream) {
         if (chunk.isEmpty) continue;
+        TrafficStatsService.instance.recordApplicationBytes(
+          received: chunk.length,
+        );
         final now = watch.elapsedMicroseconds;
         firstByteUs ??= now;
         final total = downloaded + chunk.length;
@@ -722,6 +723,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? sampleStartUs;
     var sampleStartBytes = 0;
     final points = <_CdnPoint>[];
+    var lastProgress = 0;
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
       intentionalStop = true;
@@ -734,6 +736,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         cancelToken: token,
         onReceiveProgress: (count, _) {
           if (count <= 0 || intentionalStop) return;
+          final delta = math.max(0, count - lastProgress);
+          lastProgress = count;
+          TrafficStatsService.instance.recordApplicationBytes(received: delta);
           final now = watch.elapsedMicroseconds;
           firstByteUs ??= now;
           downloaded = count > limits.max ? limits.max : count;
@@ -851,7 +856,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final profile = ConnectivityUtils.current;
     final metrics = sample.hasError ? null : sample.metrics;
     return {
-      'schemaVersion': 2,
+      'schemaVersion': 3,
       'recordedAtUs': DateTime.now().microsecondsSinceEpoch,
       'testRunStartedAtUs': _testRunStartedAtUs,
       'cdn': {
@@ -910,24 +915,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         'dnsLookupUs': sample.dnsLookupUs,
         'dnsAddresses': sample.resolvedIps,
         'dnsError': sample.dnsError,
-        'points': [
-          for (final point in sample.points)
-            {'elapsedUs': point.elapsedUs, 'bytes': point.bytes},
-        ],
-        'latencyProbes': [
-          for (final probe in sample.probes)
-            {
-              'headersUs': probe.headersUs,
-              'firstByteUs': probe.firstByteUs,
-              'bytes': probe.bytes,
-            },
-        ],
       },
       if (metrics != null)
         'derived': {
           'fixedWindowUs': _CdnMetrics.windowUs,
           'averageRateBytesPerSecond': sample.averageRate,
-          'fixedWindowRatesBytesPerSecond': metrics.segmentRates,
           'p02': metrics.p02,
           'p05': metrics.p05,
           'p50': metrics.p50,
@@ -947,7 +939,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           'gap250ms': metrics.gap250ms,
           'gap500ms': metrics.gap500ms,
           'gap1000ms': metrics.gap1000ms,
-          'latencySamplesUs': metrics.latencySamples,
           'latencyMinUs': metrics.latencyMinUs,
           'latencyMaxUs': metrics.latencyMaxUs,
           'latencyP02Us': metrics.latencyP02Us,
@@ -1186,7 +1177,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           builder: (dialogContext, setDialogState) => Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text('CDN 历史诊断 · ${groups.length} 次测试'),
+                title: const Text('CDN 最新诊断'),
                 actions: [
                   if (editing && groups.isNotEmpty)
                     IconButton(
@@ -1250,7 +1241,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                         );
                         if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            const SnackBar(content: Text('已复制全部诊断记录')),
+                              const SnackBar(content: Text('已复制最新诊断记录')),
                           );
                         }
                       },
@@ -1267,7 +1258,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                 ],
               ),
               body: groups.isEmpty
-                  ? const Center(child: Text('还没有保存过 CDN 诊断记录'))
+                  ? const Center(child: Text('还没有 CDN 诊断记录'))
                   : ListView.builder(
                       itemCount: groups.length,
                       itemBuilder: (context, index) {
@@ -1291,7 +1282,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                                 )
                               : const Icon(Icons.science_outlined),
                           title: Text(
-                            '第 ${groups.length - index} 次测试 · ${timestamp(group.runStartedAtUs)}',
+                            '最新测试 · ${timestamp(group.runStartedAtUs)}',
                           ),
                           subtitle: Text(
                             '${group.records.length} 个 CDN · '
@@ -1425,7 +1416,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           title: const Text('CDN 优先级与网络诊断'),
           actions: [
             IconButton(
-              tooltip: '历史诊断',
+              tooltip: '最新诊断',
               onPressed: () => _showDiagnosticHistory(context),
               icon: const Icon(Icons.history),
             ),

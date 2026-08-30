@@ -3,6 +3,7 @@ import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart'
     show CdnSpeedConfig, CdnSpeedMode, showCdnSpeedConfigDialog;
 import 'package:PiliPlus/services/cdn_last_video_service.dart';
+import 'package:PiliPlus/services/cdn_diagnostics_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -40,6 +41,8 @@ Future<CdnSpeedSetup?> showCdnSpeedSetupDialog(BuildContext context) async {
   }
 
   if (source == _CdnTestSource.fixed) {
+    await CdnDiagnosticsService.clearLatest();
+    if (!context.mounted) return null;
     final config = await showCdnSpeedConfigDialog(context);
     return (config: config, sample: null);
   }
@@ -114,8 +117,10 @@ Future<CdnSpeedSetup?> showCdnSpeedSetupDialog(BuildContext context) async {
       (await ConnectivityUtils.resolveForPlayback()).useCellularPreferences;
   if (!context.mounted) return null;
   final defaultMiB = estimatedBytes > 0
-      ? estimatedBytes / 1048576
+      ? (estimatedBytes / 1048576).clamp(0.0, 512.0)
       : (cellular ? 16.0 : 64.0);
+  await CdnDiagnosticsService.clearLatest();
+  if (!context.mounted) return null;
   final config = await showDialog<CdnSpeedConfig>(
     context: context,
     builder: (context) => _LastVideoSpeedConfigDialog(
@@ -197,19 +202,12 @@ class _LastVideoSpeedConfigDialogState
     }
 
     final k = Accounts.x;
-    if (!k && total > 512) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-
-    if (!k && total > 256) {
+    if (!k && total > 256 && total <= 512) {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('大流量 CDN 测试'),
-          content: Text(
-            '当前设置为 ${total.toStringAsPrecision(4)} MiB / CDN。单个 CDN 最大允许 512 MiB；继续测试会快速消耗大量流量。',
-          ),
+          title: const Text('CDN 测速'),
+          content: const Text('本次文件较大，建议不要超过 512 MiB。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -225,9 +223,11 @@ class _LastVideoSpeedConfigDialogState
       if (proceed != true || !mounted) return;
     }
 
+    final effectiveTotal = !k && total > 512 ? 512.0 : total;
+    final effectiveWarmup = warmup.clamp(0.0, effectiveTotal * 0.999);
     Navigator.of(context).pop((
-      totalBytes: (total * 1048576).round(),
-      warmupBytes: (warmup * 1048576).round(),
+      totalBytes: (effectiveTotal * 1048576).round(),
+      warmupBytes: (effectiveWarmup * 1048576).round(),
       cooldown: Duration(microseconds: (cooldown * 1000000).round()),
       mode: mode,
     ));

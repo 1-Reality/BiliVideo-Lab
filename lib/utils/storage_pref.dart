@@ -356,9 +356,14 @@ abstract final class Pref {
     defaultValue: true,
   );
 
+  static bool get webdavBackupCommentHistory => _setting.get(
+    SettingBoxKey.webdavBackupCommentHistory,
+    defaultValue: true,
+  );
+
   static bool get webdavBackupCdnDiagnostics => _setting.get(
     SettingBoxKey.webdavBackupCdnDiagnostics,
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static String get hardwareDecoding => _setting.get(

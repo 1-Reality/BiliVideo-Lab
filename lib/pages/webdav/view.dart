@@ -27,6 +27,7 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
   final _directoryCtr = TextEditingController(text: Pref.webdavDirectory);
   bool _obscureText = true;
   bool _backupPlaybackStats = Pref.webdavBackupPlaybackStats;
+  bool _backupCommentHistory = Pref.webdavBackupCommentHistory;
   bool _backupCdnDiagnostics = Pref.webdavBackupCdnDiagnostics;
 
   @override
@@ -96,15 +97,23 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('备份完整播放 / 倍速统计'),
-              subtitle: const Text('包含按倍速、倒带、评论区、UP 主、年份等完整统计'),
+              subtitle: const Text('包含按倍速、倒带、评论区、UP 主、月份等完整统计'),
               value: _backupPlaybackStats,
               onChanged: (value) =>
                   setState(() => _backupPlaybackStats = value),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('备份 CDN 历史诊断'),
-              subtitle: const Text('包含长期保存的手动 CDN 测试组和全部原始记录'),
+              title: const Text('备份我的历史评论'),
+              subtitle: const Text('包含本客户端发送的评论和哥哥科技小助手记录'),
+              value: _backupCommentHistory,
+              onChanged: (value) =>
+                  setState(() => _backupCommentHistory = value),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('备份 CDN 最新诊断'),
+              subtitle: const Text('只包含最近一次测速的标量结果'),
               value: _backupCdnDiagnostics,
               onChanged: (value) =>
                   setState(() => _backupCdnDiagnostics = value),
@@ -123,6 +132,8 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                       await GStorage.setting.putAll({
                         SettingBoxKey.webdavBackupPlaybackStats:
                             _backupPlaybackStats,
+                        SettingBoxKey.webdavBackupCommentHistory:
+                            _backupCommentHistory,
                         SettingBoxKey.webdavBackupCdnDiagnostics:
                             _backupCdnDiagnostics,
                       });
@@ -163,6 +174,7 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 SettingBoxKey.webdavPassword: _passwordCtr.text,
                 SettingBoxKey.webdavDirectory: _directoryCtr.text,
                 SettingBoxKey.webdavBackupPlaybackStats: _backupPlaybackStats,
+                SettingBoxKey.webdavBackupCommentHistory: _backupCommentHistory,
                 SettingBoxKey.webdavBackupCdnDiagnostics: _backupCdnDiagnostics,
               });
               if (_uriCtr.text.isEmpty) {

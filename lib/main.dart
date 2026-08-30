@@ -99,10 +99,11 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       // Large telemetry/history is deliberately kept off the cold-start path.
       // The first upgraded launch may still pay the old Hive-open cost once;
       // after this migration the startup-critical video box stays small.
-      await GStorage.migrateHeavyTelemetryFromVideoBox();
+      await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
+      await GStorage.migrateHeavyTelemetryFromVideoBox();
     }));
   });
 }
@@ -312,6 +313,7 @@ class MyApp extends StatelessWidget {
       ),
       navigatorObservers: [
         routeObserver,
+        PlaybackStatsService.pageRouteObserver,
         FlutterSmartDialog.observer,
       ],
       scrollBehavior: PlatformUtils.isDesktop
