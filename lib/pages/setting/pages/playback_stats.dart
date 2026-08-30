@@ -205,6 +205,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                       (item['bufferingUs'] as num? ?? 0);
                   final unique = item['uniqueCoveredUs'] as num? ?? 0;
                   final repeat = item['repeatCoveredUs'] as num? ?? 0;
+                  final opened = item['openedSourceDurationUs'] as num? ?? 0;
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
@@ -214,6 +215,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                       '推进 ${_speed(active == 0 ? 0 : media / active)}'
                       ' · 新内容 ${_speed(active == 0 ? 0 : unique / active)}'
                       ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
+                      ' · 覆盖 ${(opened == 0 ? 0 : unique / opened * 100).toStringAsFixed(1)}%'
                       ' · 重复 ${(media == 0 ? 0 : repeat / media * 100).toStringAsFixed(1)}%'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
