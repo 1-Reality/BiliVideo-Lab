@@ -907,12 +907,16 @@ class PlPlayerController with BlockConfigMixin {
     _videoController = await VideoController.create(
       player,
       configuration: VideoControllerConfiguration(
-        width: Platform.isWindows && hwdec != null
-            ? (_hasKnownVideoOutputSize ? width : 1)
-            : (_hasKnownVideoOutputSize ? width : null),
-        height: Platform.isWindows && hwdec != null
-            ? (_hasKnownVideoOutputSize ? height : 1)
-            : (_hasKnownVideoOutputSize ? height : null),
+        width: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? width : null))
+            : null,
+        height: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? height : null))
+            : null,
         enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
         hwdec: hwdec,
@@ -955,7 +959,7 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    if (_hasKnownVideoOutputSize) {
+    if (Platform.isWindows && _hasKnownVideoOutputSize) {
       await _videoController?.setSize(width: width, height: height);
     }
 
