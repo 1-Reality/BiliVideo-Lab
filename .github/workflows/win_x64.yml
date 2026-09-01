@@ -8,6 +8,16 @@ on:
         required: false
         default: ""
         type: string
+      build_number:
+        description: "Build number (0 = auto)"
+        required: false
+        default: "0"
+        type: string
+      include_portable:
+        description: "Create portable ZIP"
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch:
 
 jobs:
@@ -38,6 +48,9 @@ jobs:
 
       - name: Set and Extract version
         shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
         run: lib/scripts/build.ps1
 
       - name: Apply Patch
@@ -59,22 +72,14 @@ jobs:
           mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
           mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
-      - name: Compress
+      - name: Compress portable ZIP
+        if: ${{ inputs.include_portable }}
         run: |
           Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
         shell: pwsh
 
-      - name: Release
-        if: ${{ github.event.inputs.tag != '' }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
-          files: |
-            PiliBro_windows_*.zip
-            PiliBro-Win-Setup/PiliBro_windows_*.exe
-
-      - name: Upload windows file release
+      - name: Upload windows portable release
+        if: ${{ inputs.include_portable }}
         uses: actions/upload-artifact@v7
         with:
           archive: false
