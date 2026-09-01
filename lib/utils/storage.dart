@@ -302,9 +302,16 @@ abstract final class GStorage {
       _nextPlaybackStatsCompactAtMs,
       _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch,
     );
-    _startupBrandProfileMid = DateTime.now().millisecondsSinceEpoch.isOdd
-        ? 501430041
-        : 1225047446;
+    _startupBrandProfileMid =
+        switch (DateTime.now().millisecondsSinceEpoch % 10) {
+          0 || 8 => 1225047446,
+          1 || 9 => 501430041,
+          2 => 36259372,
+          3 => 3884200,
+          4 || 5 => 544253177,
+          6 => 17047572,
+          _ => 37858284,
+        };
   }
 
   static DateTime _nextPlaybackMaintenanceAt(DateTime now) {
