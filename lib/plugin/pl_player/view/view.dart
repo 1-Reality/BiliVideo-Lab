@@ -1899,6 +1899,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ],
 
         Obx(() {
+          if (plPlayerController.dataStatus.error) {
+            return Center(
+              child: Text(
+                plPlayerController.isFileSource
+                    ? '离线缓存无法打开\n请确认缓存文件完整后重新下载'
+                    : '当前视频无法打开',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            );
+          }
           if (plPlayerController.dataStatus.loading ||
               (plPlayerController.isBuffering.value &&
                   plPlayerController.playerStatus.isPlaying)) {

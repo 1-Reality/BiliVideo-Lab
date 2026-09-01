@@ -662,6 +662,9 @@ class PlPlayerController with BlockConfigMixin {
   // offline
   bool get isFileSource => dataSource is FileSource;
 
+  bool get _hasKnownVideoOutputSize =>
+      width != null && height != null && width! > 1 && height! > 1;
+
   late final _audioNormalization = Pref.audioNormalization;
   late final enableAudioNormalization =
       Platform.isAndroid && _audioNormalization != '0';
@@ -718,6 +721,18 @@ class PlPlayerController with BlockConfigMixin {
       // _playbackSpeed.value = speed;
       // 初始化数据加载状态
       dataStatus.value = DataStatus.loading;
+      if (dataSource is FileSource) {
+        final missingMedia = dataSource.missingMedia(
+          audioOnly: onlyPlayAudio.value,
+        );
+        if (missingMedia != null) {
+          dataStatus.value = DataStatus.error;
+          SmartDialog.showToast(
+            '离线缓存缺少文件：${path.basename(missingMedia)}',
+          );
+          return;
+        }
+      }
       // 初始化全屏方向
       _isVertical = isVertical ?? false;
       _aid = aid;
@@ -892,7 +907,10 @@ class PlPlayerController with BlockConfigMixin {
     _videoController = await VideoController.create(
       player,
       configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: hwdec != null,
+        width: _hasKnownVideoOutputSize ? width : null,
+        height: _hasKnownVideoOutputSize ? height : null,
+        enableHardwareAcceleration:
+            hwdec != null && (!Platform.isWindows || _hasKnownVideoOutputSize),
         androidAttachSurfaceAfterVideoParameters: false,
         hwdec: hwdec,
       ),
@@ -932,6 +950,10 @@ class PlPlayerController with BlockConfigMixin {
       if (isAnim && superResolutionType.value != .disable) {
         await setShader();
       }
+    }
+
+    if (_hasKnownVideoOutputSize) {
+      await _videoController?.setSize(width: width, height: height);
     }
 
     final profile = playbackNetworkProfile ?? ConnectivityUtils.current;
@@ -1159,7 +1181,22 @@ class PlPlayerController with BlockConfigMixin {
         })),
       stream.error.listen((String event) {
         if (dataSource is FileSource &&
-            event.startsWith("Failed to open file")) {
+            (event.startsWith('Failed to open file') ||
+                event.startsWith('Failed to open .') ||
+                event.startsWith('Cannot open') ||
+                event.startsWith('Can not open') ||
+                event.startsWith('error running'))) {
+          dataStatus.value = DataStatus.error;
+          EasyThrottle.throttle(
+            'controllerStream.localFileError',
+            const Duration(seconds: 3),
+            () => SmartDialog.showToast(
+              '离线缓存打开失败：${event.length > 160 ? '${event.substring(0, 160)}…' : event}',
+            ),
+          );
+          if (!kDebugMode) {
+            Utils.reportError('$event\n${player.state.playlist}');
+          }
           return;
         }
         if (isLive) {

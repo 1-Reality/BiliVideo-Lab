@@ -9,6 +9,7 @@ import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/pages/video/introduction/local/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/decoder_lab.dart';
+import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/path_utils.dart';
@@ -69,7 +70,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
 
   Widget _buildDecoderLab(ThemeData theme) {
     final player = PlPlayerController.instance;
-    if (player == null || !player.isFileSource) {
+    if (player == null || player.dataStatus.none || !player.isFileSource) {
       return const SizedBox.shrink();
     }
     final modes = player.decoderLabModes;

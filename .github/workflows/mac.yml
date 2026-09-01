@@ -8,6 +8,11 @@ on:
         required: false
         default: ""
         type: string
+      build_number:
+        description: "Build number (0 = auto)"
+        required: false
+        default: "0"
+        type: string
   workflow_dispatch:
 
 jobs:
@@ -28,6 +33,9 @@ jobs:
 
       - name: Set and Extract version
         shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
         run: lib/scripts/build.ps1
 
       - name: Apply Patch
@@ -45,15 +53,6 @@ jobs:
 
       - name: Rename DMG
         run: mv PiliBro*.dmg PiliBro_macos_${{ env.version }}.dmg
-
-      - name: Release
-        if: ${{ github.event.inputs.tag != '' }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
-          files: |
-            PiliBro_macos_*.dmg
 
       - name: Upload macos release
         uses: actions/upload-artifact@v7
