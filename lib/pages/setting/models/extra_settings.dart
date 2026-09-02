@@ -781,9 +781,10 @@ void _showDynDialog(BuildContext context) {
         TextButton(
           onPressed: () {
             try {
-            final val = int.parse(dynamicPeriod) * 1000;
-            Get.back(); GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-            Get.find<MainController>().setDynamicPeriod(val);
+              final val = int.parse(dynamicPeriod) * 1000;
+              Get.back();
+              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
+              Get.find<MainController>().setDynamicPeriod(val);
             } catch (e) {
               SmartDialog.showToast(e.toString());
             }
