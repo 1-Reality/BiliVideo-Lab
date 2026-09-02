@@ -384,6 +384,12 @@ abstract final class GStorage {
     // while opening a bloated hot store on every launch is expensive.
     await initializePlaybackStats();
     await playbackStats.compact();
+
+    final updateIgnore = localCache.get(LocalCacheKey.updateIgnore);
+    if (updateIgnore is Map && updateIgnore['temporary'] == true) {
+      await localCache.delete(LocalCacheKey.updateIgnore);
+    }
+
     await localCache.put(
       _nextPlaybackStatsCompactAtMs,
       _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch,
