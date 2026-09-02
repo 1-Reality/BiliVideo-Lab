@@ -3,11 +3,11 @@ abstract final class DurationUtils {
     if (seconds == null || seconds == 0) {
       return '00:00';
     }
-    int h = seconds ~/ 3600;
-    seconds %= 3600;
-    int m = seconds ~/ 60;
-    seconds %= 60;
-    String sms = seconds is double
+    final h = seconds ~/ 3600;
+    seconds -= h * 3600;
+    final m = seconds ~/ 60;
+    seconds -= m * 60;
+    final sms = seconds is double
         ? seconds.toStringAsFixed(3).padLeft(6, '0')
         : seconds.toString().padLeft(2, '0');
     return h == 0
