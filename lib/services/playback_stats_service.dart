@@ -1086,11 +1086,14 @@ abstract final class PlaybackStatsService {
   }
 
   static void _recordCoverage(int rawStartUs, int rawEndUs) {
-    var start = max(0, min(rawStartUs, rawEndUs));
-    var end = max(0, max(rawStartUs, rawEndUs));
+    var start = rawStartUs;
+    var end = rawEndUs;
+    if (start > end) (start, end) = (end, start);
+    if (start < 0) start = 0;
+    if (end < 0) end = 0;
     if (_sourceDurationUs > 0) {
-      start = min(start, _sourceDurationUs);
-      end = min(end, _sourceDurationUs);
+      if (start > _sourceDurationUs) start = _sourceDurationUs;
+      if (end > _sourceDurationUs) end = _sourceDurationUs;
     }
     if (end <= start) return;
 
@@ -1572,15 +1575,17 @@ abstract final class PlaybackStatsService {
         _lastPositionUs,
         _lastPositionUs + mediaAdvanceUs,
       );
+      final normalPlaybackUs = wallUs - rewindPlaybackUs;
+      final normalMediaAdvanceUs = mediaAdvanceUs - rewindMediaAdvanceUs;
       _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
       _add('rewindPlaybackUs', rewindPlaybackUs);
       _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _add('normalPlaybackUs', wallUs - rewindPlaybackUs);
-      _add('normalMediaAdvanceUs', mediaAdvanceUs - rewindMediaAdvanceUs);
+      _add('normalPlaybackUs', normalPlaybackUs);
+      _add('normalMediaAdvanceUs', normalMediaAdvanceUs);
       _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
       _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _addVideoUp('normalPlaybackUs', wallUs - rewindPlaybackUs);
-      _addVideoUp('normalMediaAdvanceUs', mediaAdvanceUs - rewindMediaAdvanceUs);
+      _addVideoUp('normalPlaybackUs', normalPlaybackUs);
+      _addVideoUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
       _addDimensionPlayback(
         wallUs,
         mediaAdvanceUs,
@@ -1601,12 +1606,12 @@ abstract final class PlaybackStatsService {
       _addBucket(
         'normalSpeedActiveUs',
         speed,
-        wallUs - rewindPlaybackUs,
+        normalPlaybackUs,
       );
       _addBucket(
         'normalSpeedMediaAdvanceUs',
         speed,
-        mediaAdvanceUs - rewindMediaAdvanceUs,
+        normalMediaAdvanceUs,
       );
     } else {
       _sessionPausedUs += wallUs;
@@ -1615,8 +1620,8 @@ abstract final class PlaybackStatsService {
       _addDimension('pausedUs', wallUs);
       _trailingPauseUs += wallUs;
       final rewind = _rewind;
+      final speed = _rateKey;
       if (rewind == null) {
-        final speed = _rateKey;
         _add('normalPausedUs', wallUs);
         _addVideoUp('normalPausedUs', wallUs);
         _addBucket('normalSpeedPausedUs', speed, wallUs);
@@ -1628,7 +1633,6 @@ abstract final class PlaybackStatsService {
           ifAbsent: () => wallUs,
         );
       } else {
-        final speed = _rateKey;
         _add('rewindPausedUs', wallUs);
         _addVideoUp('rewindPausedUs', wallUs);
         _addBucket('rewindSpeedPausedUs', speed, wallUs);
@@ -1733,7 +1737,7 @@ abstract final class PlaybackStatsService {
     }
     final mediaAdvanceUs = max(0, toUs - fromUs);
     if (toUs >= rewind.checkpointUs && toUs > fromUs) {
-      final fraction = (rewind.checkpointUs - fromUs) / max(1, toUs - fromUs);
+      final fraction = (rewind.checkpointUs - fromUs) / mediaAdvanceUs;
       final playbackUs = (activeWallUs * fraction.clamp(0, 1)).round();
       final rewindMediaUs = rewind.checkpointUs - fromUs;
       rewind
