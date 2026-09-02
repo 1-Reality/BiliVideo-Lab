@@ -481,7 +481,7 @@ abstract final class PiliScheme {
     }
 
     final String path = uri.path;
-    late final queryParameters = uri.queryParameters;
+    final queryParameters = uri.queryParameters;
 
     if (host.contains(bilibili_t)) {
       if (_onPushDynDetail(uri, off)) {

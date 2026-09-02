@@ -61,9 +61,9 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel>
   @override
   void initState() {
     super.initState();
-    late final modules = widget.item?.modules;
-    late final moduleDynamic = modules?.moduleDynamic;
-    late final major = moduleDynamic?.major;
+    final modules = widget.item?.modules;
+    final moduleDynamic = modules?.moduleDynamic;
+    final major = moduleDynamic?.major;
 
     _pic =
         widget.pic ??

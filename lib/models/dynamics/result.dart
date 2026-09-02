@@ -57,7 +57,7 @@ class DynamicsDataModel {
     List? list = json['items'] as List?;
     if (list != null && list.isNotEmpty) {
       items = <DynamicItemModel>[];
-      late final filterBan =
+      final filterBan =
           type != DynamicsTabType.up && tempBannedList?.isNotEmpty == true;
       for (final e in list) {
         DynamicItemModel item = DynamicItemModel.fromJson(e);

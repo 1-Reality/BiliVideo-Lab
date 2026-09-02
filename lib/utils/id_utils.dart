@@ -60,7 +60,7 @@ abstract final class IdUtils {
     }
     final bvid = bvRegex.firstMatch(input)?.group(0);
 
-    late final aid = avRegex.firstMatch(input)?.group(1);
+    final aid = avRegex.firstMatch(input)?.group(1);
 
     if (bvid != null) {
       return (av: null, bv: bvid);

@@ -61,11 +61,11 @@ class ChatItem extends StatelessWidget {
     //   return const SizedBox.shrink();
     // }
 
-    late final ThemeData theme = Theme.of(context);
-    late final Color textColor = isOwner
+    final ThemeData theme = Theme.of(context);
+    final Color textColor = isOwner
         ? theme.colorScheme.onSecondaryContainer
         : theme.colorScheme.onSurface;
-    late final dynamic content = jsonDecode(item.content);
+    final dynamic content = jsonDecode(item.content);
 
     Widget child = messageContent(
       context: context,
@@ -667,7 +667,7 @@ class ChatItem extends StatelessWidget {
   }) {
     final style = TextStyle(color: textColor, letterSpacing: 0.6, height: 1.5);
     final List<InlineSpan> children = [];
-    late final Map<String, Map> emojiMap = {};
+    final Map<String, Map> emojiMap = {};
     final List<String> patterns = [Constants.urlRegex.pattern];
     if (eInfos != null) {
       for (final e in eInfos!) {

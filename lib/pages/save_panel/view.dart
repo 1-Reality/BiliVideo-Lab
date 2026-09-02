@@ -89,7 +89,7 @@ class _SavePanelState extends State<SavePanel> {
     if (_item case final ReplyInfo reply) {
       itemType = '评论';
       final currentRoute = Get.currentRoute;
-      late final hasRoot = reply.hasRoot();
+      final hasRoot = reply.hasRoot();
 
       if (currentRoute == '/videoV') {
         final rootId = hasRoot ? reply.root : reply.id;

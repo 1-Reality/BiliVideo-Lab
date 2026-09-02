@@ -40,7 +40,7 @@ abstract final class ThemeUtils {
         : FontWeight.values[appFontWeight];
     final font = Pref.appFont;
     final changeStyle = font == null && fontWeight == null;
-    late final textStyle = TextStyle(fontWeight: fontWeight, fontFamily: font);
+    final textStyle = TextStyle(fontWeight: fontWeight, fontFamily: font);
     ThemeData theme = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,

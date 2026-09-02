@@ -330,18 +330,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final currentPlayer = plPlayerController.videoPlayerController;
+    final isBackground = state == .paused || state == .detached;
     PlaybackStatsService.changePlaybackForm(
-      const <AppLifecycleState>[.paused, .detached].contains(state)
+      isBackground
           ? (plPlayerController.isPipMode ? 'pip' : 'background')
           : (plPlayerController.isFullScreen.value ? 'fullscreen' : 'window'),
       currentPlayer?.state.position ?? Duration.zero,
     );
-    if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
-      unawaited(PlaybackStatsService.flush());
-    }
+    if (isBackground) unawaited(PlaybackStatsService.flush());
     if (!plPlayerController.continuePlayInBackground.value) {
       final player = plPlayerController.videoPlayerController;
-      if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
+      if (isBackground) {
         if (player != null && player.state.playing) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           player.pause();
@@ -1381,8 +1380,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     _eighthWidth = maxWidth * 0.125;
     _sevenEighthWidth = maxWidth * 0.875;
     _eighthHeight = maxHeight * 0.125;
-    _inverseBrightnessLevel = 1 / (maxHeight * 3);
-    _inverseVolumeLevel = 2 / maxHeight;
+    final inverseMaxHeight = 1 / maxHeight;
+    _inverseBrightnessLevel = inverseMaxHeight / 3;
+    _inverseVolumeLevel = inverseMaxHeight * 2;
     final isFullScreen = this.isFullScreen;
     final primary = isFullScreen && colorScheme.isLight
         ? colorScheme.inversePrimary

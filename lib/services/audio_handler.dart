@@ -172,7 +172,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
     Uri getUri(String? cover) => Uri.parse(ImageUtils.safeThumbnailUrl(cover));
 
-    late final id = '$cid$herotag';
+    final id = '$cid$herotag';
     final MediaItem mediaItem;
     switch (data) {
       case VideoDetailData(:final pages):

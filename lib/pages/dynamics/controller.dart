@@ -23,12 +23,12 @@ class DynamicsController
   final Set<int> tempBannedList = <int>{};
 
   String? _offset;
-  late int _page = 1;
-  late bool _isEnd = false;
+  int _page = 1;
+  bool _isEnd = false;
   Set<UpItem>? _cacheUpList;
-  late int hostMid = -1, currentMid = -1;
-  late bool showLiveUp = Pref.expandDynLivePanel;
-  late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
+  int hostMid = -1, currentMid = -1;
+  bool showLiveUp = Pref.expandDynLivePanel;
+  final _showAllUp = Pref.dynamicsShowAllFollowedUp;
 
   final upPanelPosition = Pref.upPanelPosition;
 

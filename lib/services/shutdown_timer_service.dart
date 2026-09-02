@@ -73,7 +73,7 @@ class ShutdownTimerService {
   void _handleShutdown() {
     switch (_shutdownType) {
       case .pause:
-        late final player = PlPlayerController.instance;
+        final player = PlPlayerController.instance;
         final isPlaying =
             this.isPlaying?.call() ?? player?.playerStatus.isPlaying ?? false;
         if (isPlaying) {

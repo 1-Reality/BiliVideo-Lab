@@ -44,17 +44,17 @@ class MainController extends GetxController
   late DynamicBadgeMode dynamicBadgeMode;
   late bool checkDynamic = Pref.checkDynamic;
   late int dynamicPeriod = Pref.dynamicPeriod;
-  late int _lastCheckDynamicAt = 0;
-  late bool hasDyn = false;
+  int _lastCheckDynamicAt = 0;
+  bool hasDyn = false;
   late final dynamicController = Get.putOrFind(DynamicsController.new);
 
-  late bool hasHome = false;
+  bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
 
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
   late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
   late final RxString msgUnReadCount = ''.obs;
-  late int lastCheckUnreadAt = 0;
+  int lastCheckUnreadAt = 0;
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
@@ -66,7 +66,7 @@ class MainController extends GetxController
   late bool showTrayIcon = Pref.showTrayIcon;
   late bool minimizeOnExit = Pref.minimizeOnExit;
   late bool pauseOnMinimize = Pref.pauseOnMinimize;
-  late bool isPlaying = false;
+  bool isPlaying = false;
 
   static const _period = 300000;
   late int _lastSelectTime = 0;
@@ -287,7 +287,7 @@ class MainController extends GetxController
         setDynCount();
       }
     } else {
-      int now = DateTime.now().millisecondsSinceEpoch;
+      final now = DateTime.now().millisecondsSinceEpoch;
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
           'topOrRefresh',

@@ -51,8 +51,8 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
   }
 
   Widget _buildBody(LoadingState<List<LiveEmoteDatum>?> loadingState) {
-    late final theme = Theme.of(context);
-    late final color = ElevationOverlay.colorWithOverlay(
+    final theme = Theme.of(context);
+    final color = ElevationOverlay.colorWithOverlay(
       theme.colorScheme.surface,
       theme.hoverColor,
       2,

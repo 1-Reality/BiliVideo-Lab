@@ -239,7 +239,7 @@ class AudioController extends GetxController
     );
     if (res case Success(:final response)) {
       if (isInit) {
-        late final paginationReply = response.paginationReply;
+        final paginationReply = response.paginationReply;
         _prev = response.reachStart ? null : paginationReply.prev;
         _next = response.reachEnd ? null : paginationReply.next;
         final index = response.list.indexWhere((e) => e.item.oid == oid);

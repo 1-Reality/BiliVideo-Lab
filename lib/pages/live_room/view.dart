@@ -69,16 +69,16 @@ class LiveRoomPage extends StatefulWidget {
 
 class _LiveRoomPageState extends State<LiveRoomPage>
     with WidgetsBindingObserver, RouteAware, RouteAwareMixin {
-  late final fullScreenSCWidth = Pref.fullScreenSCWidth;
+  final fullScreenSCWidth = Pref.fullScreenSCWidth;
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
-  late final GlobalKey pageKey = GlobalKey();
-  late final GlobalKey chatKey = GlobalKey();
-  late final GlobalKey scKey = GlobalKey();
-  late final GlobalKey playerKey = GlobalKey();
+  final GlobalKey pageKey = GlobalKey();
+  final GlobalKey chatKey = GlobalKey();
+  final GlobalKey scKey = GlobalKey();
+  final GlobalKey playerKey = GlobalKey();
 
   @override
   void initState() {

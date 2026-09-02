@@ -107,7 +107,7 @@ class VideoDetailController extends GetxController
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
-  late bool _mediaDesc = false;
+  bool _mediaDesc = false;
   late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
   late String watchLaterTitle;
 
@@ -1459,7 +1459,7 @@ class VideoDetailController extends GetxController
     );
     if (res case Success(:final response)) {
       // interactive video
-      late final introCtr = Get.find<UgcIntroController>(tag: heroTag);
+      final introCtr = Get.find<UgcIntroController>(tag: heroTag);
       if (isUgc && graphVersion == null) {
         try {
           if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
