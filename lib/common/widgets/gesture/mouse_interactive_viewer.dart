@@ -91,6 +91,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   double? _scaleStart;
   double? _rotationStart = 0.0;
   double _currentRotation = 0.0;
+  late double _inverseScaleFactor;
   _GestureType? _gestureType;
 
   static final gestureSettings = DeviceGestureSettings(
@@ -567,7 +568,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     Offset global,
   ) {
     final double scaleChange = math.exp(
-      -event.scrollDelta.dy / widget.scaleFactor,
+      -event.scrollDelta.dy * _inverseScaleFactor,
     );
     final Offset focalPointScene = _transformer.toScene(local);
     _transformer.value = _matrixScale(_transformer.value, scaleChange);
@@ -657,12 +658,17 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     _scaleController = AnimationController(vsync: this);
 
     _transformer = widget.transformationController;
+    _inverseScaleFactor = 1 / widget.scaleFactor;
     _transformer.addListener(_handleTransformation);
   }
 
   @override
   void didUpdateWidget(MouseInteractiveViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.scaleFactor != oldWidget.scaleFactor) {
+      _inverseScaleFactor = 1 / widget.scaleFactor;
+    }
 
     final newController = widget.transformationController;
     if (newController == oldWidget.transformationController) {

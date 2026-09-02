@@ -389,18 +389,21 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
       height = settings.maxExtent;
 
       final double deltaExtent = settings.maxExtent - settings.minExtent;
+      final double inverseDeltaExtent = 1 / deltaExtent;
 
       // 0.0 -> Expanded
       // 1.0 -> Collapsed to toolbar
       final double t = clampDouble(
-        1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent,
+        1.0 -
+            (settings.currentExtent - settings.minExtent) *
+                inverseDeltaExtent,
         0.0,
         1.0,
       );
 
       final double fadeStart = math.max(
         0.0,
-        1.0 - kToolbarHeight / deltaExtent,
+        1.0 - kToolbarHeight * inverseDeltaExtent,
       );
       const fadeEnd = 1.0;
       assert(fadeStart <= fadeEnd);

@@ -71,15 +71,18 @@ class Viewer extends StatefulWidget {
 
 class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   static const double _scaleFactor = kDefaultMouseScrollToScaleFactor;
+  static const double _inverseScaleFactor = 1 / _scaleFactor;
 
   _GestureType? _gestureType;
 
   final Matrix4 _matrix = Matrix4.identity();
 
   late double __scale;
+  late double _inverseScale;
   double get _scale => __scale;
   set _scale(double value) {
     __scale = value;
+    _inverseScale = 1 / value;
     _matrix[0] = _matrix[5] = _matrix[10] = value;
   }
 
@@ -180,7 +183,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   Offset _toScene(Offset localFocalPoint) {
-    return (localFocalPoint - _position) / _scale;
+    return (localFocalPoint - _position) * _inverseScale;
   }
 
   Offset _clampPosition(Offset offset, double scale) {
@@ -248,7 +251,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       endScale = widget.minScale;
     }
     final position = _clampPosition(
-      Offset.lerp(_downPos!, _position, endScale / _scale)!,
+      Offset.lerp(_downPos!, _position, endScale * _inverseScale)!,
       endScale,
     );
 
@@ -528,7 +531,9 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         return;
       }
       _stopFling();
-      final double scaleChange = math.exp(-event.scrollDelta.dy / _scaleFactor);
+      final double scaleChange = math.exp(
+        -event.scrollDelta.dy * _inverseScaleFactor,
+      );
       final Offset local = event.localPosition;
       final Offset focalPointScene = _toScene(local);
       _scale = clampDouble(

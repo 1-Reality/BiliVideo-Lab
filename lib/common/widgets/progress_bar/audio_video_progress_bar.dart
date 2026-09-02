@@ -347,7 +347,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
        _thumbRadius = thumbRadius,
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
-       _hitTestSelf = onDragStart != null {
+       _hitTestSelf = onDragStart != null,
+       _inverseTotal = _total == 0 ? 0.0 : 1 / _total {
     if (onDragStart != null) {
       _drag = _EagerHorizontalDragGestureRecognizer()
         ..onStart = _onDragStart
@@ -373,6 +374,9 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   // This is a value between 0.0 and 1.0 used to indicate the position on
   // the bar.
   late double _thumbValue;
+  double _barStart = 0.0;
+  double _barWidth = 0.0;
+  double _inverseBarWidth = 0.0;
 
   // The thumb can move for two reasons. One is that the [progress] changed.
   // The other is that the user is dragging the thumb. This variable keeps
@@ -431,12 +435,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // The paint used to draw the bar line draws half of the cap before the
     // start of the line (and after the end of the line). The cap radius is
     // equal to half of the line width, which in this case is the bar height.
-    final barCapRadius = _barHeight * 0.5;
-    double barStart = barCapRadius;
-    double barEnd = size.width - barCapRadius;
-    final barWidth = barEnd - barStart;
-    final position = (dx - barStart).clamp(0.0, barWidth);
-    _thumbValue = position / barWidth;
+    final position = (dx - _barStart).clamp(0.0, _barWidth);
+    _thumbValue = position * _inverseBarWidth;
     _progress = _currentThumbDuration();
     markNeedsPaint();
   }
@@ -461,12 +461,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   /// The total time length of the media.
   int get total => _total;
   int _total;
+  double _inverseTotal;
   set total(int value) {
     final clamp = (value.isNegative) ? 0 : value;
     if (_total == clamp) {
       return;
     }
     _total = clamp;
+    _inverseTotal = clamp == 0 ? 0.0 : 1 / clamp;
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(progress);
     }
@@ -537,7 +539,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set barHeight(double value) {
     if (_barHeight == value) return;
     _barHeight = value;
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   /// The color of the progress bar before any playing or buffering.
@@ -644,6 +646,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   @override
   void performLayout() {
     size = computeDryLayout(constraints);
+    final barCapRadius = _barHeight * 0.5;
+    _barStart = barCapRadius;
+    _barWidth = size.width - _barHeight;
+    _inverseBarWidth = 1 / _barWidth;
   }
 
   @override
@@ -755,10 +761,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   }
 
   double _proportionOfTotal(int duration) {
-    if (total == 0) {
+    if (_total == 0) {
       return 0.0;
     }
-    return (duration / total).clamp(0.0, 1.0);
+    return (duration * _inverseTotal).clamp(0.0, 1.0);
   }
 
   @override

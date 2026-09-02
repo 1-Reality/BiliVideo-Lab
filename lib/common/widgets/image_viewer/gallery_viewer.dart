@@ -101,6 +101,7 @@ class _GalleryViewerState extends State<GalleryViewer>
   late final AnimationController _animateController;
   late final Animation<Color?> _opacityAnimation;
   double dx = 0, dy = 0;
+  late double _inverseContainerHeight;
 
   Offset _offset = Offset.zero;
   bool _dragging = false;
@@ -264,7 +265,7 @@ class _GalleryViewerState extends State<GalleryViewer>
     _updateMoveAnimation();
 
     if (!_animateController.isAnimating) {
-      _animateController.value = _offset.dy.abs() / _containerSize.height;
+      _animateController.value = _offset.dy.abs() * _inverseContainerHeight;
     }
   }
 
@@ -331,6 +332,7 @@ class _GalleryViewerState extends State<GalleryViewer>
           LayoutBuilder(
             builder: (context, constraints) {
               _containerSize = constraints.biggest;
+              _inverseContainerHeight = 1 / _containerSize.height;
               return MatrixTransition(
                 alignment: .topLeft,
                 animation: _animateController,
