@@ -229,7 +229,7 @@ class RenderM3ELoadingIndicator extends RenderBox {
   Size _preferredSize;
   set preferredSize(Size value) {
     if (_preferredSize == value) return;
-    _preferredSize = size;
+    _preferredSize = value;
     markNeedsLayout();
   }
 

@@ -92,6 +92,11 @@ class ReplyItemGrpc extends StatelessWidget {
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
+  static final _avBvRegExp = RegExp(r'^(av|bv)', caseSensitive: false);
+  static final _cvidRegExp = RegExp(
+    r'^cv(\d+)$|/read/cv(\d+)|note-app/view\?cvid=(\d+)',
+    caseSensitive: false,
+  );
   static bool enableWordRe = Pref.enableWordRe;
   static int? replyLengthLimit = Pref.replyLengthLimit;
 
@@ -728,7 +733,7 @@ class ReplyItemGrpc extends StatelessWidget {
       ...content.atNameToMid.keys.map((e) => '@$e'),
       ...urlKeys,
     ];
-    String patternStr = [
+    final patternStr = [
       ...specialTokens.map(RegExp.escape),
       r'(?:\d+[:：])?\d+[:：]\d+',
       r'\{vote:\d+?\}',
@@ -736,7 +741,7 @@ class ReplyItemGrpc extends StatelessWidget {
     ].join('|');
     final RegExp pattern = RegExp(patternStr);
 
-    late List<String> matchedUrls = [];
+    late final matchedUrls = <String>{};
 
     void addPlainTextSpan(str) {
       spanChildren.add(TextSpan(text: str));
@@ -770,17 +775,11 @@ class ReplyItemGrpc extends StatelessWidget {
           recognizer: NoDeadlineTapGestureRecognizer()
             ..onTap = () {
               if (url.appUrlSchema.isEmpty) {
-                if (RegExp(
-                  r'^(av|bv)',
-                  caseSensitive: false,
-                ).hasMatch(matchStr)) {
+                if (_avBvRegExp.hasMatch(matchStr)) {
                   UrlUtils.matchUrlPush(matchStr, '');
                 } else {
-                  RegExpMatch? match = RegExp(
-                    r'^cv(\d+)$|/read/cv(\d+)|note-app/view\?cvid=(\d+)',
-                    caseSensitive: false,
-                  ).firstMatch(matchStr);
-                  String? cvid =
+                  final match = _cvidRegExp.firstMatch(matchStr);
+                  final cvid =
                       match?.group(1) ?? match?.group(2) ?? match?.group(3);
                   if (cvid != null) {
                     Get.toNamed(

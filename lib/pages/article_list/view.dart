@@ -92,8 +92,8 @@ class _ArticleListPageState extends State<ArticleListPage> with GridMixin {
     if (item == null) {
       return const SliverToBoxAdapter();
     }
-    late final style = TextStyle(color: theme.colorScheme.onSurfaceVariant);
-    late final divider = TextSpan(
+    final style = TextStyle(color: theme.colorScheme.onSurfaceVariant);
+    final divider = TextSpan(
       text: '  |  ',
       style: TextStyle(color: theme.colorScheme.outline.withValues(alpha: 0.7)),
     );
