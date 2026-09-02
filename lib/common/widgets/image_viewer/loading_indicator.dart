@@ -92,7 +92,7 @@ class RenderLoadingIndicator extends RenderBox {
 
     final paint = Paint()..isAntiAlias = true;
     final size = this.size;
-    final radius = size.width / 2 - strokeWidth;
+    final radius = size.width * 0.5 - strokeWidth;
     final center = size.center(.zero);
 
     context.canvas

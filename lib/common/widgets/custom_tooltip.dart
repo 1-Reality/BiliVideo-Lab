@@ -243,7 +243,7 @@ class _RenderToolTip extends RenderBox
     offset = Offset(offset.dx, offset.dy - indicatorSize.height + 1);
     overlayParentData.offset = offset;
     indicatorParentData.offset = Offset(
-      target.dx - indicatorSize.width / 2,
+      target.dx - indicatorSize.width * 0.5,
       offset.dy + overlaySize.height - 1,
     );
   }
@@ -319,7 +319,7 @@ class RenderTriangle extends RenderBox {
     final path = Path()
       ..moveTo(offset.dx, offset.dy)
       ..lineTo(offset.dx + size.width, offset.dy)
-      ..lineTo(offset.dx + size.width / 2, size.height + offset.dy)
+      ..lineTo(offset.dx + size.width * 0.5, size.height + offset.dy)
       ..close();
 
     context.canvas.drawPath(path, paint);

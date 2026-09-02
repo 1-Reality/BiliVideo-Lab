@@ -59,7 +59,7 @@ class RenderIntroLayout extends RenderBox
       setOffset(
         playlist,
         Offset(
-          (constraints.maxWidth - playlistSize.width) / 2,
+          (constraints.maxWidth - playlistSize.width) * 0.5,
           constraints.maxHeight - playlistSize.height,
         ),
       );

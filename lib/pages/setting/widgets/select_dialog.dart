@@ -1821,11 +1821,10 @@ class _CdnMetrics {
         mean == 0 ? 0.0 : standardDeviation / mean;
     final relativeJitter = mean == 0 ? 0.0 : absoluteJitter / mean;
 
-    final latency = [
-      for (final probe in sample.probes) probe.firstByteUs,
-      if (sample.probes.isEmpty) sample.firstByteUs,
+    final latencyValues = [
+      for (final probe in sample.probes) probe.firstByteUs.toDouble(),
+      if (sample.probes.isEmpty) sample.firstByteUs.toDouble(),
     ];
-    final latencyValues = latency.map((e) => e.toDouble()).toList();
     final latencySorted = List<double>.of(latencyValues)..sort();
     final latencyMean = _mean(latencySorted);
     final latencyVariance = _variance(latencySorted, latencyMean);

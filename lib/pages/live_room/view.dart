@@ -1025,7 +1025,7 @@ class _RenderBorderIndicator extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final width = size.width / 2;
+    final width = size.width * 0.5;
 
     BoxBorder.paintNonUniformBorder(
       canvas,

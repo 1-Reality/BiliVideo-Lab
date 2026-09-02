@@ -246,9 +246,9 @@ abstract class MarqueeRender extends RenderBox
 
   void paintCenter(PaintingContext context, Offset offset) {
     if (_direction == Axis.horizontal) {
-      context.paintChild(child!, Offset(offset.dx - _distance / 2, offset.dy));
+      context.paintChild(child!, Offset(offset.dx - _distance * 0.5, offset.dy));
     } else {
-      context.paintChild(child!, Offset(offset.dx, offset.dy - _distance / 2));
+      context.paintChild(child!, Offset(offset.dx, offset.dy - _distance * 0.5));
     }
   }
 
@@ -282,7 +282,7 @@ class _BounceMarqueeRender extends MarqueeRender {
     if (child == null) return;
 
     if (_distance > 0) {
-      final delta = _spacing / 2.0 - _delta;
+      final delta = _spacing * 0.5 - _delta;
       void paintChild() {
         if (_direction == Axis.horizontal) {
           context.paintChild(child!, Offset(offset.dx + delta, offset.dy));

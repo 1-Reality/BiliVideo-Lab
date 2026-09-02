@@ -47,7 +47,7 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
       padding: const .only(
         left: 14,
         right: 14,
-        bottom: (kToolbarHeight - 30) / 2,
+        bottom: (kToolbarHeight - 30) * 0.5,
       ),
       child: Material(
         type: .transparency,

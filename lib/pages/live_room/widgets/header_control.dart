@@ -116,7 +116,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       padding: const .only(
         left: 14,
         right: 14,
-        top: (kToolbarHeight - btnHeight) / 2,
+        top: (kToolbarHeight - btnHeight) * 0.5,
       ),
       child: Row(
         children: [

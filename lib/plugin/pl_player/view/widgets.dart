@@ -88,13 +88,14 @@ Widget buildSeekPreviewWidget(
           child: Obx(
             () {
               final index = plPlayerController.previewIndex.value!;
-              int pageIndex = (index ~/ totalPerImage).clamp(
+              final page = index ~/ totalPerImage;
+              final align = index - page * totalPerImage;
+              final int pageIndex = page.clamp(
                 0,
                 data.image.length - 1,
               );
-              int align = index % totalPerImage;
-              int x = align % imgXLen;
-              int y = align ~/ imgYLen;
+              final x = align % imgXLen;
+              final y = align ~/ imgYLen;
               final url = data.image[pageIndex];
 
               return ClipRRect(

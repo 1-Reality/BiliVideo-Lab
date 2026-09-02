@@ -48,7 +48,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
   static const int _morphIntervalMs = 650;
   static const double _fullRotation = 2 * math.pi;
   static const int _globalRotationDurationMs = 4666;
-  static const double _quarterRotation = _fullRotation / 4;
+  static const double _quarterRotation = _fullRotation * 0.25;
 
   late final List<Morph> _morphs;
   late final AnimationController _controller;
@@ -74,8 +74,10 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
 
   void _startAnimation() {
     _morphIndex++;
-    _morphRotationTarget =
-        (_morphRotationTarget + _quarterRotation) % _fullRotation;
+    _morphRotationTarget += _quarterRotation;
+    if (_morphRotationTarget >= _fullRotation) {
+      _morphRotationTarget -= _fullRotation;
+    }
     _controller.animateWith(_morphAnimationSpec);
   }
 
@@ -244,7 +246,7 @@ class RenderM3ELoadingIndicator extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final width = size.width;
-    final value = size.width / 2;
+    final value = size.width * 0.5;
     final matrix =
         Matrix4.translationValues(offset.dx + value, offset.dy + value, 0.0)
           ..rotateZ(angle)

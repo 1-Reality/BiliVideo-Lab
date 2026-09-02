@@ -784,9 +784,9 @@ Quad _transformViewport(Matrix4 matrix, Rect viewport) {
 
 Quad _getAxisAlignedBoundingBoxWithRotation(Rect rect, double rotation) {
   final Matrix4 rotationMatrix = Matrix4.identity()
-    ..translateByDouble(rect.size.width / 2, rect.size.height / 2, 0, 1)
+    ..translateByDouble(rect.size.width * 0.5, rect.size.height * 0.5, 0, 1)
     ..rotateZ(rotation)
-    ..translateByDouble(-rect.size.width / 2, -rect.size.height / 2, 0, 1);
+    ..translateByDouble(-rect.size.width * 0.5, -rect.size.height * 0.5, 0, 1);
   final Quad boundariesRotated = Quad.points(
     rotationMatrix.transform3(Vector3(rect.left, rect.top, 0.0)),
     rotationMatrix.transform3(Vector3(rect.right, rect.top, 0.0)),

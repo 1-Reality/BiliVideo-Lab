@@ -187,15 +187,17 @@ class _RenderHotKeywordGrid extends RenderBox
       } else {
         child.layout(c);
       }
+      final row = index ~/ crossAxisCount;
+      final column = index - row * crossAxisCount;
       final parentData = child.parentData as MultiChildLayoutParentData
         ..offset = Offset(
-          (childWidth + mainAxisSpacing) * (index % crossAxisCount),
-          (childHeight + crossAxisSpacing) * (index ~/ crossAxisCount),
+          (childWidth + mainAxisSpacing) * column,
+          (childHeight + crossAxisSpacing) * row,
         );
       child = parentData.nextSibling;
       index++;
     }
-    final row = (index / crossAxisCount).ceil();
+    final row = (index + crossAxisCount - 1) ~/ crossAxisCount;
     size = constraints.constrainDimensions(
       constraints.maxWidth,
       row * childHeight! + crossAxisSpacing * (row - 1),

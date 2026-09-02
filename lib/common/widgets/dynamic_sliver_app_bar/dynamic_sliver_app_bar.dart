@@ -370,7 +370,7 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
         return 0.0;
       case CollapseMode.parallax:
         final double deltaExtent = settings.maxExtent - settings.minExtent;
-        return -Tween<double>(begin: 0.0, end: deltaExtent / 4.0).transform(t);
+        return -Tween<double>(begin: 0.0, end: deltaExtent * 0.25).transform(t);
     }
   }
 

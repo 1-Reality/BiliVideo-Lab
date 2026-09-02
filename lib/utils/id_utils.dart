@@ -31,8 +31,9 @@ abstract final class IdUtils {
     int bvIndex = bytes.length - 1;
     int tmp = (MAX_AID | aid) ^ XOR_CODE;
     while (tmp > 0) {
-      bytes[bvIndex--] = data[tmp % BASE];
-      tmp ~/= BASE;
+      final quotient = tmp ~/ BASE;
+      bytes[bvIndex--] = data[tmp - quotient * BASE];
+      tmp = quotient;
     }
 
     bytes

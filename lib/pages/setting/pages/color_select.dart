@@ -194,7 +194,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
             child: ExcludeFocus(
               child: IgnorePointer(
                 child: Container(
-                  height: size.height / 2,
+                  height: size.height * 0.5,
                   width: size.width,
                   color: theme.colorScheme.surface,
                   child: const HomePage(),

@@ -77,7 +77,7 @@ class _RenderMainLayout extends RenderBox
         setOffset(
           bottomNav,
           Offset(
-            (constraints.maxWidth - bottomNavSize.width) / 2,
+            (constraints.maxWidth - bottomNavSize.width) * 0.5,
             constraints.maxHeight - bottomNavSize.height,
           ),
         );

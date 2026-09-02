@@ -226,7 +226,7 @@ class _GalleryViewerState extends State<GalleryViewer>
     //   ..scaleByDouble(scale, scale, scale, 1)
     //   ..translateByDouble(-size.width / 2, -size.height / 2, 0, 1);
 
-    final tmp = (1.0 - scale) / 2.0;
+    final tmp = (1.0 - scale) * 0.5;
     return Matrix4.diagonal3Values(scale, scale, scale)..setTranslationRaw(
       _containerSize.width * (val * dx + tmp),
       _containerSize.height * (val * dy + tmp),

@@ -182,9 +182,11 @@ class RenderImageGrid extends RenderBox
       child.layout(childConstraints);
       final childParentData = child.parentData as MultiChildLayoutParentData;
       final index = childParentData.id as int;
+      final rowIndex = index ~/ column;
+      final columnIndex = index - rowIndex * column;
       childParentData.offset = Offset(
-        (space + width) * (index % column),
-        (space + height) * (index ~/ column),
+        (space + width) * columnIndex,
+        (space + height) * rowIndex,
       );
       child = childParentData.nextSibling;
     }
@@ -527,7 +529,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     }
 
     final int column = isFour ? 2 : 3;
-    final int row = isFour ? 2 : (length / 3).ceil();
+    final int row = isFour ? 2 : (length + 2) ~/ 3;
 
     return (
       row: row,

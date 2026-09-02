@@ -46,7 +46,7 @@ class VoteDecoration extends Decoration {
     assert((Offset.zero & size).contains(position));
     final Offset center = size.center(Offset.zero);
     final double distance = (position - center).distance;
-    return distance <= math.min(size.width, size.height) / 2.0;
+    return distance <= math.min(size.width, size.height) * 0.5;
   }
 
   @override

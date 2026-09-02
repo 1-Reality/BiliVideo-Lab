@@ -130,8 +130,9 @@ class ImageGridView extends StatelessWidget {
     final bool hasUp = index - col >= 0;
     final bool hasDown = index + col < length;
 
-    final bool isRowStart = index % col == 0;
-    final bool isRowEnd = index % col == col - 1 || index == length - 1;
+    final column = index % col;
+    final bool isRowStart = column == 0;
+    final bool isRowEnd = column == col - 1 || index == length - 1;
 
     return BorderRadius.only(
       topLeft: !hasUp && isRowStart ? r : Radius.zero,

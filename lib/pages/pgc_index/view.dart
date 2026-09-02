@@ -162,7 +162,7 @@ class _PgcIndexPageState extends State<PgcIndexPage>
         count > 5
             ? _ctr.isExpand.value
                   ? count
-                  : count ~/ 2
+                  : count >> 1
             : count,
         (index) {
           final isFirst = index == 0;

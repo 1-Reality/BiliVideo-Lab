@@ -95,7 +95,7 @@ class RenderArc extends RenderBox {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    final radius = size.width / 2;
+    final radius = size.width * 0.5;
     final rect = Rect.fromCircle(
       center: Offset(radius, radius),
       radius: radius,

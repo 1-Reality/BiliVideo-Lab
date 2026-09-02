@@ -133,8 +133,8 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       final containerHeight = widget.containerSize.height;
       final imageHeight = _imageSize.height * _scale;
       _position = Offset(
-        (1 - _scale) * containerWidth / 2,
-        (imageHeight - _scale * containerHeight) / 2,
+        (1 - _scale) * containerWidth * 0.5,
+        (imageHeight - _scale * containerHeight) * 0.5,
       );
     }
   }
@@ -188,10 +188,10 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     final imageWidth = _imageSize.width * scale;
     final imageHeight = _imageSize.height * scale;
 
-    final center = containerSize * (1 - scale) / 2;
+    final center = containerSize * (1 - scale) * 0.5;
 
-    final dxOffset = (imageWidth - containerSize.width) / 2;
-    final dyOffset = (imageHeight - containerSize.height) / 2;
+    final dxOffset = (imageWidth - containerSize.width) * 0.5;
+    final dyOffset = (imageHeight - containerSize.height) * 0.5;
 
     return Offset(
       imageWidth > containerSize.width
@@ -278,7 +278,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
           final bool drag;
           if (details.focalPoint.dy > _scalePos!.dy) {
             drag = _position.dy.equals(
-              (imageHeight - _scale * containerHeight) / 2,
+              (imageHeight - _scale * containerHeight) * 0.5,
               1e-6,
             );
           } else {
@@ -507,8 +507,8 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       _horizontalDragGestureRecognizer.setAtBothEdges();
       return true;
     }
-    final dx = (1 - _scale) * containerWidth / 2;
-    final dxOffset = (imageWidth - containerWidth) / 2;
+    final dx = (1 - _scale) * containerWidth * 0.5;
+    final dxOffset = (imageWidth - containerWidth) * 0.5;
     if (_position.dx.equals(dx + dxOffset, 1e-6)) {
       _horizontalDragGestureRecognizer.isAtLeftEdge = true;
       return true;

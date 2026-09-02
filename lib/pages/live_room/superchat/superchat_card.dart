@@ -278,7 +278,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
     if (faceFrame != null && faceFrame.isNotEmpty) {
       const ratio = 1.16;
       const pendantSize = size * ratio;
-      const offset = ((1 - ratio) * size) / 2;
+      const offset = (1 - ratio) * size * 0.5;
       return Stack(
         clipBehavior: .none,
         alignment: .center,

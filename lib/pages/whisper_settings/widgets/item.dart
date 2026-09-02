@@ -130,7 +130,7 @@ class ImSettingsItem extends StatelessWidget {
             if (index.isOdd) {
               return divider;
             }
-            final e = item.select.item[index ~/ 2];
+            final e = item.select.item[index >> 1];
             if (e.selected) {
               selected ??= e.text;
             }

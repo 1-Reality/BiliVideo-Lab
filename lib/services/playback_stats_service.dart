@@ -1128,31 +1128,33 @@ abstract final class PlaybackStatsService {
     _addDimension('repeatCoveredUs', _sessionRepeatCoveredUs);
 
     if (played) {
+      final activeScale = 1 / _sessionActiveUs;
       _addHistogram(
         'sessionActualSpeedHistogram',
-        _sessionMediaAdvanceUs / _sessionActiveUs,
+        _sessionMediaAdvanceUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
       _addHistogram(
         'sessionNominalSpeedHistogram',
-        _sessionNominalMediaUs / _sessionActiveUs,
+        _sessionNominalMediaUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
       _addHistogram(
         'sessionNominalLongPressSpeedHistogram',
-        _sessionNominalIncludingLongPressUs / _sessionActiveUs,
+        _sessionNominalIncludingLongPressUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
     }
     if (_sourceDurationUs > 0) {
+      final sourceDurationScale = 1 / _sourceDurationUs;
       _addHistogram(
         'sessionCoverageHistogram',
-        _sessionUniqueCoveredUs / _sourceDurationUs,
+        _sessionUniqueCoveredUs * sourceDurationScale,
         const [0.1, 0.25, 0.5, 0.75, 0.9, 0.99],
       );
       _addHistogram(
         'sessionExitPositionHistogram',
-        _sessionMaxPositionUs / _sourceDurationUs,
+        _sessionMaxPositionUs * sourceDurationScale,
         const [0.1, 0.25, 0.5, 0.75, 0.9, 0.99],
       );
     }

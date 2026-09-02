@@ -259,13 +259,13 @@ class RenderViewPointProgressBar
           final scale = segmentWidth / textWidth;
           canvas
             ..save()
-            ..translate(prevEnd, (_barHeight - textHeight * scale) / 2)
+            ..translate(prevEnd, (_barHeight - textHeight * scale) * 0.5)
             ..scale(scale);
           offset = Offset.zero;
         } else {
           offset = Offset(
-            (segmentWidth - textWidth) / 2 + prevEnd,
-            (_barHeight - textHeight) / 2,
+            (segmentWidth - textWidth) * 0.5 + prevEnd,
+            (_barHeight - textHeight) * 0.5,
           );
         }
         canvas.drawParagraph(paragraph, offset);

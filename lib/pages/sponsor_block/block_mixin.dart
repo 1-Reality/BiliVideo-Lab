@@ -178,10 +178,13 @@ mixin BlockMixin on GetxController {
         );
 
         // _segmentProgressList
+        final durationScale = 1 / duration;
         segmentProgressList.addAll(
           _segmentList.map((e) {
-            double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
-            double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
+            final double start =
+                (e.segment.$1 * durationScale).clamp(0.0, 1.0);
+            final double end =
+                (e.segment.$2 * durationScale).clamp(0.0, 1.0);
             return Segment(
               start: start,
               end: end,

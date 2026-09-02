@@ -849,7 +849,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           final double videoHeight = maxHeight - padding.vertical;
           final double width = videoHeight / Style.aspectRatio16x9;
           final videoWidth = isFullScreen ? maxWidth : width;
-          final introWidth = (maxWidth - padding.horizontal - width) / 2;
+          final introWidth = (maxWidth - padding.horizontal - width) * 0.5;
           final introHeight = maxHeight - padding.top;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1041,7 +1041,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledAlmostSquareInner(bool isFullScreen) {
     final shouldShowSeasonPanel = _shouldShowSeasonPanel;
-    final double height = maxHeight / 2.5;
+    final double height = maxHeight * 0.4;
     final videoHeight = isFullScreen
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : height;

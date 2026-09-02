@@ -471,7 +471,7 @@ Future<void> _showMaxVolumeDialog(
     title: const Text('最高音量'),
     value: Pref.maxVolume * 100,
     onChanged: (rawValue) {
-      final maxVolume = (rawValue / 100).toPrecision(2);
+      final maxVolume = (rawValue * 0.01).toPrecision(2);
       if (Pref.desktopVolume > maxVolume) {
         GStorage.setting.put(SettingBoxKey.desktopVolume, maxVolume);
       }

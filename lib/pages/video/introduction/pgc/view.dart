@@ -165,7 +165,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
       final maxWidth = widget.maxWidth - 24;
       double padding = max(0, maxWidth - 400);
       final imgWidth = maxWidth - padding;
-      padding = padding / 2;
+      padding *= 0.5;
       return SliverPadding(
         padding: .only(top: 10, left: padding, right: padding),
         sliver: SliverMainAxisGroup(

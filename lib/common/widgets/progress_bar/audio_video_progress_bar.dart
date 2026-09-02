@@ -431,7 +431,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // The paint used to draw the bar line draws half of the cap before the
     // start of the line (and after the end of the line). The cap radius is
     // equal to half of the line width, which in this case is the bar height.
-    final barCapRadius = _barHeight / 2;
+    final barCapRadius = _barHeight * 0.5;
     double barStart = barCapRadius;
     double barEnd = size.width - barCapRadius;
     final barWidth = barEnd - barStart;
@@ -729,10 +729,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       ..color = color
       ..strokeCap = StrokeCap.round
       ..strokeWidth = _barHeight;
-    final capRadius = _barHeight / 2;
+    final capRadius = _barHeight * 0.5;
     final adjustedWidth = availableSize.width - barHeight;
     final dx = widthProportion * adjustedWidth + capRadius;
-    final dy = availableSize.height / 2;
+    final dy = availableSize.height * 0.5;
     final startPoint = Offset(capRadius, dy);
     final endPoint = Offset(dx, dy);
     canvas.drawLine(startPoint, endPoint, baseBarPaint);
@@ -740,13 +740,13 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
 
   void _drawThumb(Canvas canvas, Size localSize) {
     final thumbPaint = Paint()..color = thumbColor;
-    final barCapRadius = _barHeight / 2;
+    final barCapRadius = _barHeight * 0.5;
     final availableWidth = localSize.width - _barHeight;
     var thumbDx = _thumbValue * availableWidth + barCapRadius;
     if (!_thumbCanPaintOutsideBar) {
       thumbDx = thumbDx.clamp(_thumbRadius, localSize.width - _thumbRadius);
     }
-    final center = Offset(thumbDx, localSize.height / 2);
+    final center = Offset(thumbDx, localSize.height * 0.5);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       final thumbGlowPaint = Paint()..color = thumbGlowColor;
       canvas.drawCircle(center, thumbGlowRadius, thumbGlowPaint);

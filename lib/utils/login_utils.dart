@@ -134,6 +134,7 @@ abstract final class LoginUtils {
 
   static int _dec2bcd(int dec) {
     assert(0 <= dec && dec < 100);
-    return ((dec ~/ 10) << 4) | (dec % 10);
+    final tens = dec ~/ 10;
+    return (tens << 4) | (dec - tens * 10);
   }
 }

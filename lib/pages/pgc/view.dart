@@ -67,7 +67,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
             SliverToBoxAdapter(
               child: SizedBox(
                 height:
-                    Grid.smallCardWidth / 2 / 0.75 +
+                    Grid.smallCardWidth * 0.5 / 0.75 +
                     MediaQuery.textScalerOf(context).scale(96),
                 child: Obx(
                   () => _buildTimeline(theme, controller.timelineState.value),
@@ -169,7 +169,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                               padding: EdgeInsets.zero,
                               itemBuilder: (context, index) {
                                 return Container(
-                                  width: Grid.smallCardWidth / 2,
+                                  width: Grid.smallCardWidth * 0.5,
                                   margin: EdgeInsets.only(
                                     left: Style.safeSpace,
                                     right: index == item.episodes!.length - 1
@@ -339,7 +339,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                 _buildFollowTitle(theme),
                 SizedBox(
                   height:
-                      Grid.smallCardWidth / 2 / 0.75 +
+                      Grid.smallCardWidth * 0.5 / 0.75 +
                       MediaQuery.textScalerOf(context).scale(50),
                   child: Obx(
                     () => _buildFollowBody(controller.followState.value),
@@ -410,7 +410,7 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                     controller.queryPgcFollow(false);
                   }
                   return Container(
-                    width: Grid.smallCardWidth / 2,
+                    width: Grid.smallCardWidth * 0.5,
                     margin: EdgeInsets.only(
                       left: Style.safeSpace,
                       right: index == response.length - 1 ? Style.safeSpace : 0,

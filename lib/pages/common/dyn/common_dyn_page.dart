@@ -285,7 +285,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
         alignment: Alignment.topRight,
         child: Container(
           margin: const EdgeInsets.only(top: 56, right: 16),
-          width: maxWidth / 4,
+          width: maxWidth * 0.25,
           height: 32,
           child: Builder(
             builder: (context) => Slider(

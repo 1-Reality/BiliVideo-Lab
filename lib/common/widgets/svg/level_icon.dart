@@ -127,7 +127,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _botYB = _botY + _rowH; // 415
 
   // 竖段拼接用的中心线
-  static const double _midMid = (_midY + _midYB) / 2; // 235
+  static const double _midMid = (_midY + _midYB) * 0.5; // 235
 
   static final _boltIcon =
       (ParagraphBuilder(

@@ -421,7 +421,7 @@ class _DynamicDetailPageState
   }
 
   Widget _buildHorizontal(double padding) {
-    padding = padding / 4;
+    padding *= 0.25;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
     final child = Row(

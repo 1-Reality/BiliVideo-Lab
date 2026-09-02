@@ -1490,8 +1490,9 @@ class VideoDetailController extends GetxController
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
+          final timeScale = 1000 / data.timeLength!;
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! * 1000 / data.timeLength!).clamp(0.0, 1.0);
+            final end = (item.to! * timeScale).clamp(0.0, 1.0);
             return ViewPointSegment(
               end: end,
               title: item.content,

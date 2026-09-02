@@ -12,7 +12,7 @@ const _kIndicatorHeight = _kNavigationHeight - 2 * _kIndicatorPaddingInt;
 const _kIndicatorWidth = 86.0;
 const _kIndicatorPaddingInt = 4.0;
 const _kIndicatorPadding = EdgeInsets.all(_kIndicatorPaddingInt);
-const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight / 2));
+const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight * 0.5));
 const _kNavigationShape = RoundedSuperellipseBorder(
   borderRadius: _kBorderRadius,
 );
@@ -523,8 +523,8 @@ class _NavigationDestinationLayoutDelegate extends MultiChildLayoutDelegate {
 
   @override
   void performLayout(Size size) {
-    double halfWidth(Size size) => size.width / 2;
-    double halfHeight(Size size) => size.height / 2;
+    double halfWidth(Size size) => size.width * 0.5;
+    double halfHeight(Size size) => size.height * 0.5;
 
     final Size iconSize = layoutChild(iconId, BoxConstraints.loose(size));
     final Size labelSize = layoutChild(labelId, BoxConstraints.loose(size));

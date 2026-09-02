@@ -398,7 +398,7 @@ class PlPlayerController with BlockConfigMixin {
 
   late final isRelative = Pref.useRelativeSlide;
   late final offset = isRelative
-      ? Pref.sliderDuration / 100
+      ? Pref.sliderDuration * 0.01
       : Pref.sliderDuration * 1000;
 
   num get sliderScale => isRelative ? durationInMilliseconds * offset : offset;
@@ -1361,13 +1361,11 @@ class PlPlayerController with BlockConfigMixin {
     _playbackSpeed.value = speed;
     if (danmakuController != null) {
       try {
-        DanmakuOption currentOption = danmakuController!.option;
-        double defaultDuration = currentOption.duration * lastPlaybackSpeed;
-        double defaultStaticDuration =
-            currentOption.staticDuration * lastPlaybackSpeed;
-        DanmakuOption updatedOption = currentOption.copyWith(
-          duration: defaultDuration / speed,
-          staticDuration: defaultStaticDuration / speed,
+        final currentOption = danmakuController!.option;
+        final speedScale = lastPlaybackSpeed / speed;
+        final updatedOption = currentOption.copyWith(
+          duration: currentOption.duration * speedScale,
+          staticDuration: currentOption.staticDuration * speedScale,
         );
         danmakuController!.updateOption(updatedOption);
       } catch (_) {}

@@ -208,7 +208,7 @@ class _WebviewPageState extends State<WebviewPage> {
               );
           },
           onProgressChanged: (controller, progress) {
-            this.progress.value = progress / 100;
+            this.progress.value = progress * 0.01;
           },
           onTitleChanged: (controller, title) {
             this.title.value = title ?? '';

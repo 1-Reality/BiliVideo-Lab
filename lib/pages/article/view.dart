@@ -101,7 +101,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       );
     }
 
-    padding = padding / 4;
+    padding *= 0.25;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
     return Row(

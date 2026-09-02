@@ -116,10 +116,10 @@ class RenderRefreshLayout extends RenderBox
     setOffset(
       indicator,
       Offset(
-        (constraints.maxWidth - scaleSize) / 2,
+        (constraints.maxWidth - scaleSize) * 0.5,
         (kIndicatorSize + displacement) * heightFactor -
             kIndicatorSize +
-            (kIndicatorSize - scaleSize) / 2,
+            (kIndicatorSize - scaleSize) * 0.5,
       ),
     );
   }

@@ -110,8 +110,8 @@ class RenderMaskedIcon extends RenderProxyBox {
     final exceedWidth = size.width > _iconSize;
     final exceedHeight = size.height > _iconSize;
     if (exceedWidth || exceedHeight) {
-      final dx = exceedWidth ? (size.width - _iconSize) / 2.0 : 0.0;
-      final dy = exceedHeight ? (size.height - _iconSize) / 2.0 : 0.0;
+      final dx = exceedWidth ? (size.width - _iconSize) * 0.5 : 0.0;
+      final dy = exceedHeight ? (size.height - _iconSize) * 0.5 : 0.0;
       size = Size.square(_iconSize);
       rectOffset += Offset(dx, dy);
     } else if (size.width < _iconSize && size.height < _iconSize) {
@@ -149,7 +149,7 @@ class RenderMaskedIcon extends RenderProxyBox {
       ..strokeWidth = strokeWidth
       ..strokeCap = strokeCap;
 
-    final strokeOffset = strokeWidth * sqrt1_2 / 2;
+    final strokeOffset = strokeWidth * sqrt1_2 * 0.5;
     rect = rect
         .translate(-strokeOffset, strokeOffset)
         .deflate(size.width * lineLengthScale);
