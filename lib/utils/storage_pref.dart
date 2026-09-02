@@ -142,7 +142,7 @@ abstract final class Pref {
     if (list == null || list.length != SegmentType.values.length) {
       return SegmentType.values
           .map(
-            (i) => Pair<SegmentType, SkipType>(
+            (i) => Pair(
               first: i,
               second: switch (i) {
                 .sponsor || .intro => .skipOnce,

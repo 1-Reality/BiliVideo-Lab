@@ -59,7 +59,7 @@ class MemberPage extends StatefulWidget {
 }
 
 class _MemberPageState extends State<MemberPage>
-    with RouteAware, RouteAwareMixin<MemberPage> {
+    with RouteAwareMixin<MemberPage> {
   static const _startupPreferredMid = 501430041;
 
   late final int _mid;
