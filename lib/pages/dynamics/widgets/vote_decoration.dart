@@ -59,6 +59,11 @@ class VoteDecoration extends Decoration {
 class _VoteDecorationPainter extends BoxPainter {
   _VoteDecorationPainter(this._decoration, super.onChanged) {
     _backgroundPaint.color = _decoration.color;
+    final border = _decoration.border as Border;
+    _leftInset = _calculateAdjustedSide(border.left) * 0.5;
+    _topInset = _calculateAdjustedSide(border.top) * 0.5;
+    _rightInset = _calculateAdjustedSide(border.right) * 0.5;
+    _bottomInset = _calculateAdjustedSide(border.bottom) * 0.5;
   }
 
   final VoteDecoration _decoration;
@@ -66,6 +71,10 @@ class _VoteDecorationPainter extends BoxPainter {
   late final _partialBorderRadius = BorderRadius.horizontal(
     left: _decoration.borderRadius.topLeft,
   );
+  late final double _leftInset;
+  late final double _topInset;
+  late final double _rightInset;
+  late final double _bottomInset;
 
   void _paintBox(
     Canvas canvas,
@@ -111,13 +120,11 @@ class _VoteDecorationPainter extends BoxPainter {
   }
 
   Rect _adjustedRectOnOutlinedBorder(Rect rect, TextDirection? textDirection) {
-    final border = _decoration.border as Border;
-
     return Rect.fromLTRB(
-      rect.left + _calculateAdjustedSide(border.left) * 0.5,
-      rect.top + _calculateAdjustedSide(border.top) * 0.5,
-      rect.right - _calculateAdjustedSide(border.right) * 0.5,
-      rect.bottom - _calculateAdjustedSide(border.bottom) * 0.5,
+      rect.left + _leftInset,
+      rect.top + _topInset,
+      rect.right - _rightInset,
+      rect.bottom - _bottomInset,
     );
   }
 

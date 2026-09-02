@@ -95,7 +95,7 @@ class CustomRenderFractionallySizedOverflowBox
       return null;
     }
     final Size childSize = child.getDryLayout(childConstraints);
-    final Size size = getDryLayout(constraints);
+    final Size size = constraints.constrain(childSize);
     return result +
         resolvedAlignment.alongOffset(size - childSize as Offset).dy;
   }

@@ -102,7 +102,7 @@ class RenderBottomBar extends RenderBox
         oldLayer: layer as TransformLayer?,
       );
     } else {
-      defaultPaint(context, offset);
+      _defaultPaintCallback(context, offset);
       layer = null;
     }
   }

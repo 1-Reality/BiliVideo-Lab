@@ -112,22 +112,22 @@ class RenderMaskedIcon extends RenderProxyBox {
 
     final canvas = context.canvas;
 
-    var rectOffset = offset;
     Size size = this.size;
+    Offset rectOffset = .zero;
     final exceedWidth = size.width > _iconSize;
     final exceedHeight = size.height > _iconSize;
     if (exceedWidth || exceedHeight) {
       final dx = exceedWidth ? (size.width - _iconSize) * 0.5 : 0.0;
       final dy = exceedHeight ? (size.height - _iconSize) * 0.5 : 0.0;
       size = Size.square(_iconSize);
-      rectOffset += Offset(dx, dy);
+      rectOffset = Offset(dx, dy);
     } else if (size.width < _iconSize && size.height < _iconSize) {
       size = Size.square(_iconSize);
     }
 
     final strokeWidth = size.width * _inverseStrokeScale;
 
-    var rect = rectOffset & size;
+    final rect = rectOffset & size;
 
     final sqrt2Width = strokeWidth * sqrt2; // rotate pi / 4
 
@@ -152,10 +152,9 @@ class RenderMaskedIcon extends RenderProxyBox {
 
     canvas
       ..save()
+      ..translate(offset.dx, offset.dy)
       ..clipPath(_maskPath!, doAntiAlias: false);
-    super.paint(context, offset);
-
-    canvas.restore();
+    super.paint(context, .zero);
 
     _linePaint
       ..color = color
@@ -163,13 +162,14 @@ class RenderMaskedIcon extends RenderProxyBox {
       ..strokeCap = strokeCap;
 
     final strokeOffset = strokeWidth * sqrt1_2 * 0.5;
-    rect = rect
+    final lineRect = rect
         .translate(-strokeOffset, strokeOffset)
         .deflate(size.width * lineLengthScale);
     canvas.drawLine(
-      rect.topLeft,
-      rect.bottomRight,
+      lineRect.topLeft,
+      lineRect.bottomRight,
       _linePaint,
     );
+    canvas.restore();
   }
 }

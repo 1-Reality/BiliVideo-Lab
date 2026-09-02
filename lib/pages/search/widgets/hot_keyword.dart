@@ -163,6 +163,8 @@ class _RenderHotKeywordGrid extends RenderBox
     markNeedsLayout();
   }
 
+  late final _defaultPaintCallback = defaultPaint;
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! MultiChildLayoutParentData) {
@@ -176,13 +178,16 @@ class _RenderHotKeywordGrid extends RenderBox
     final childWidth =
         (constraints.maxWidth - mainAxisSpacing * (crossAxisCount - 1)) /
         crossAxisCount;
+    final columnStride = childWidth + mainAxisSpacing;
     final c = BoxConstraints(maxWidth: childWidth);
     var child = firstChild;
     double? childHeight;
+    var rowStride = 0.0;
     int index = 0;
     while (child != null) {
       if (childHeight == null) {
         childHeight = (child..layout(c, parentUsesSize: true)).size.height;
+        rowStride = childHeight + crossAxisSpacing;
       } else {
         child.layout(c);
       }
@@ -190,8 +195,8 @@ class _RenderHotKeywordGrid extends RenderBox
       final column = index - row * crossAxisCount;
       final parentData = child.parentData as MultiChildLayoutParentData
         ..offset = Offset(
-          (childWidth + mainAxisSpacing) * column,
-          (childHeight + crossAxisSpacing) * row,
+          columnStride * column,
+          rowStride * row,
         );
       child = parentData.nextSibling;
       index++;
@@ -205,7 +210,7 @@ class _RenderHotKeywordGrid extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 
   @override
