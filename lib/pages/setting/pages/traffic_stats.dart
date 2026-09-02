@@ -68,13 +68,6 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
     }
   }
 
-  bool _inRange(String key) {
-    final time = DateTime.tryParse('$key:00:00');
-    return time != null &&
-        !time.isBefore(start) &&
-        time.isBefore(end.add(const Duration(days: 1)));
-  }
-
   Map<String, ({int received, int sent})> _aggregate(
     Iterable<MapEntry<String, dynamic>> entries,
   ) {
@@ -120,7 +113,15 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = data.entries.where((entry) => _inRange(entry.key)).toList()
+    final first = _date(start);
+    final after = _date(end.add(const Duration(days: 1)));
+    final entries = data.entries
+        .where(
+          (entry) =>
+              entry.key.compareTo(first) >= 0 &&
+              entry.key.compareTo(after) < 0,
+        )
+        .toList()
       ..sort((a, b) => b.key.compareTo(a.key));
     final totals = _aggregate(entries);
     final received = totals.values.fold(0, (sum, item) => sum + item.received);
