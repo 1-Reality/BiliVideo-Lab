@@ -129,9 +129,13 @@ class RenderProgressBar extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
-    final canvas = context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
+    final canvas = context.canvas;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
 
     if (_geometrySize != size || _geometryRadius != _radius) {
       _geometrySize = size;
@@ -150,6 +154,7 @@ class RenderProgressBar extends RenderBox {
       );
     }
 
+    final progress = _progress;
     if (progress <= 0) {
       canvas
         ..clipRect(_clipRect)
@@ -167,6 +172,6 @@ class RenderProgressBar extends RenderBox {
         ..drawRect(left, _progressPaint)
         ..drawRect(right, _backgroundPaint);
     }
-    canvas.restore();
+    if (hasOffset) canvas.restore();
   }
 }

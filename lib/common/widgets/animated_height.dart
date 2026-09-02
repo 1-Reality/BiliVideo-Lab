@@ -1,4 +1,3 @@
-import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:flutter/rendering.dart'
     show ClipRectLayer, LayerHandle, RenderAnimatedSize, RenderProxyBox;
 import 'package:material_ui/material_ui.dart';
@@ -283,8 +282,9 @@ class RenderAnimatedHeight extends RenderProxyBox {
   @override
   void performLayout() {
     final BoxConstraints constraints = this.constraints;
+    final controllerValue = _controller.value;
 
-    _lastValue = _controller.value;
+    _lastValue = controllerValue;
 
     final childSize = (child!..layout(constraints, parentUsesSize: true)).size;
 
@@ -297,7 +297,8 @@ class RenderAnimatedHeight extends RenderProxyBox {
       }
       animatedSize = Size(
         childSize.width,
-        curve.transform(_controller.value).lerp(_heights!.from, _heights!.to),
+        _heights!.from +
+            (_heights!.to - _heights!.from) * curve.transform(controllerValue),
       );
     } else {
       animatedSize = childSize;

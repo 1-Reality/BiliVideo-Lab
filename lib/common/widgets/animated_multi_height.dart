@@ -1,5 +1,4 @@
 import 'package:PiliBro/common/widgets/animated_height.dart' show Heights;
-import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:flutter/rendering.dart'
     show ClipRectLayer, LayerHandle, PipelineOwner, RenderProxyBox;
 import 'package:material_ui/material_ui.dart';
@@ -207,7 +206,8 @@ class RenderAnimatedMultiHeight extends RenderProxyBox {
 
   @override
   void performLayout() {
-    _lastValue = _controller.value;
+    final controllerValue = _controller.value;
+    _lastValue = controllerValue;
 
     final BoxConstraints constraints = this.constraints;
     final childSize = (child!..layout(constraints, parentUsesSize: true)).size;
@@ -220,7 +220,8 @@ class RenderAnimatedMultiHeight extends RenderProxyBox {
       }
       animatedSize = Size(
         childSize.width,
-        curve.transform(_controller.value).lerp(_heights!.from, _heights!.to),
+        _heights!.from +
+            (_heights!.to - _heights!.from) * curve.transform(controllerValue),
       );
     } else {
       animatedSize = childSize;

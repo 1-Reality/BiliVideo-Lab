@@ -377,13 +377,17 @@ class _RenderDanmakuTip extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final path = _getPath();
-
-    context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy)
+    final canvas = context.canvas;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
+    canvas
       ..drawPath(path, _fillPaint)
-      ..drawPath(path, _strokePaint)
-      ..restore();
+      ..drawPath(path, _strokePaint);
+    if (hasOffset) canvas.restore();
 
     super.paint(context, offset);
   }

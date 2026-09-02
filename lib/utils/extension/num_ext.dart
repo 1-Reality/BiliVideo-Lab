@@ -14,8 +14,8 @@ extension IntExt on int? {
 
 extension DoubleExt on double {
   double toPrecision(int fractionDigits) {
+    if (fractionDigits == 0) return roundToDouble();
     final mod = switch (fractionDigits) {
-      0 => 1.0,
       1 => 10.0,
       2 => 100.0,
       3 => 1000.0,
@@ -29,16 +29,4 @@ extension DoubleExt on double {
   bool equals(double other, [double epsilon = 1e-10]) =>
       (this - other).abs() < epsilon;
 
-  double lerp(double a, double b) {
-    assert(
-      a.isFinite,
-      'Cannot interpolate between finite and non-finite values',
-    );
-    assert(
-      b.isFinite,
-      'Cannot interpolate between finite and non-finite values',
-    );
-    assert(isFinite, 't must be finite when interpolating between values');
-    return a * (1.0 - this) + b * this;
-  }
 }

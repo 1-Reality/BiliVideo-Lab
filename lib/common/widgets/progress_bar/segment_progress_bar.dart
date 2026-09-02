@@ -245,8 +245,9 @@ class RenderViewPointProgressBar
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
+    final hasOffset = offset != .zero;
 
-    if (offset != .zero) {
+    if (hasOffset) {
       canvas
         ..save()
         ..translate(offset.dx, offset.dy);
@@ -300,7 +301,7 @@ class RenderViewPointProgressBar
       }
       prevEnd = segmentEnd + _dividerWidth;
     }
-    if (offset != .zero) canvas.restore();
+    if (hasOffset) canvas.restore();
   }
 
   ValueSetter<Duration>? _onSeek;

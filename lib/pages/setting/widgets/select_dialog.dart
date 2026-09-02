@@ -670,8 +670,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           received: chunk.length,
         );
         final now = watch.elapsedMicroseconds;
-        final total = downloaded + chunk.length;
-        downloaded = total > limits.max ? limits.max : total;
+        downloaded += chunk.length;
+        if (downloaded > limits.max) downloaded = limits.max;
         if (firstByteUs == null) {
           firstByteUs = now;
           tracker.reset(now, downloaded, windowStartBytes: 0);
@@ -1823,18 +1823,19 @@ class _CdnMetrics {
         mean == 0 ? 0.0 : standardDeviation / mean;
     final relativeJitter = mean == 0 ? 0.0 : absoluteJitter / mean;
 
-    final latencyValues = [
-      for (final probe in sample.probes) probe.firstByteUs.toDouble(),
-      if (sample.probes.isEmpty) sample.firstByteUs.toDouble(),
+    final latency = [
+      for (final probe in sample.probes) probe.firstByteUs,
+      if (sample.probes.isEmpty) sample.firstByteUs,
     ];
+    final latencyValues = [for (final value in latency) value.toDouble()];
     final latencySorted = List<double>.of(latencyValues)..sort();
     final latencyMean = _mean(latencySorted);
     final latencyVariance = _variance(latencySorted, latencyMean);
     final latencyStd = math.sqrt(latencyVariance);
     final latencyJitter = _meanAbsoluteDifference(latencyValues);
 
-    const rollingWindowCount = 1000000 ~/ windowUs;
-    final rollingScale = 1 / rollingWindowCount;
+    const rollingWindowCount = 4;
+    const rollingScale = 0.25;
     var rollingSum = 0.0;
     var rollingLow = double.infinity;
     var rollingHigh = double.negativeInfinity;
@@ -1880,7 +1881,7 @@ class _CdnMetrics {
         1 +
         relativeJitter * 2 +
         coefficientOfVariation +
-        latencyP95 / 500000 +
+        latencyP95 * 0.000002 +
         sample.maxGapUs * 0.000001;
     final stabilityScore = p05 / stabilityPenalty;
 

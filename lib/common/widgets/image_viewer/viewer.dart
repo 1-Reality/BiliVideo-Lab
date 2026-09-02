@@ -114,7 +114,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
   void _listener() {
     final t = Curves.easeOut.transform(_animationController.value);
-    _scale = t.lerp(_scaleFrom, _scaleTo);
+    _scale = _scaleFrom + (_scaleTo - _scaleFrom) * t;
     _position = Offset.lerp(_positionFrom, _positionTo, t)!;
     setState(() {});
   }
@@ -383,19 +383,21 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   void _handleFlingFrame(Duration timeStamp) {
-    if (_flingSimulation == null) return;
+    final simulation = _flingSimulation;
+    if (simulation == null) return;
 
     _flingStartTime ??= timeStamp;
     final double elapsedSeconds =
         (timeStamp - _flingStartTime!).inMicroseconds * 0.000001;
 
-    final double distance = _flingSimulation!.x(elapsedSeconds);
-    final double prevDistance = _flingSimulation!.x(_lastFlingElapsedSeconds);
+    final double distance = simulation.x(elapsedSeconds);
+    final double prevDistance = simulation.x(_lastFlingElapsedSeconds);
     final double delta = distance - prevDistance;
     _lastFlingElapsedSeconds = elapsedSeconds;
+    final done = simulation.isDone(elapsedSeconds);
 
     if ((prevDistance != 0.0 && delta.abs() < 0.1) ||
-        _flingSimulation!.isDone(elapsedSeconds)) {
+        done) {
       _stopFling();
       return;
     }
@@ -404,7 +406,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     _position = _clampPosition(_position + movement, _scale);
     setState(() {});
 
-    if (_flingSimulation!.isDone(elapsedSeconds)) {
+    if (done) {
       _stopFling();
     } else {
       _scheduleFlingFrame();

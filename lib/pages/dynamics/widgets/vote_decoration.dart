@@ -100,10 +100,7 @@ class _VoteDecorationPainter extends BoxPainter {
     Rect rect,
     TextDirection? textDirection,
   ) {
-    final Rect adjustedRect = _adjustedRectOnOutlinedBorder(
-      rect,
-      textDirection,
-    );
+    final Rect adjustedRect = _adjustedRectOnOutlinedBorder(rect);
     _paintBox(
       canvas,
       adjustedRect,
@@ -119,7 +116,7 @@ class _VoteDecorationPainter extends BoxPainter {
     return 0;
   }
 
-  Rect _adjustedRectOnOutlinedBorder(Rect rect, TextDirection? textDirection) {
+  Rect _adjustedRectOnOutlinedBorder(Rect rect) {
     return Rect.fromLTRB(
       rect.left + _leftInset,
       rect.top + _topInset,

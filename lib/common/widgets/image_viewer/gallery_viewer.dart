@@ -219,7 +219,7 @@ class _GalleryViewerState extends State<GalleryViewer>
   }
 
   Matrix4 _onTransform(double val) {
-    final scale = val.lerp(1.0, 0.25);
+    final scale = 1.0 - val * 0.75;
 
     // Matrix4.identity()
     //   ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
@@ -227,10 +227,10 @@ class _GalleryViewerState extends State<GalleryViewer>
     //   ..scaleByDouble(scale, scale, scale, 1)
     //   ..translateByDouble(-size.width / 2, -size.height / 2, 0, 1);
 
-    final tmp = (1.0 - scale) * 0.5;
+    final offset = val * 0.375;
     return Matrix4.diagonal3Values(scale, scale, scale)..setTranslationRaw(
-      _containerSize.width * (val * dx + tmp),
-      _containerSize.height * (val * dy + tmp),
+      _containerSize.width * (val * dx + offset),
+      _containerSize.height * (val * dy + offset),
       0,
     );
   }

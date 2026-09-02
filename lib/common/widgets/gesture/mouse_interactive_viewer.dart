@@ -137,6 +137,9 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       return matrix.clone();
     }
 
+    final boundary = _boundaryRect;
+    final viewport = _viewport;
+
     final Offset alignedTranslation;
 
     if (_currentAxis != null) {
@@ -153,14 +156,14 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     final Matrix4 nextMatrix = matrix.clone()
       ..translateByDouble(alignedTranslation.dx, alignedTranslation.dy, 0, 1);
 
-    final Quad nextViewport = _transformViewport(nextMatrix, _viewport);
+    final Quad nextViewport = _transformViewport(nextMatrix, viewport);
 
-    if (_boundaryRect.isInfinite) {
+    if (boundary.isInfinite) {
       return nextMatrix;
     }
 
     final Quad boundariesAabbQuad = _getAxisAlignedBoundingBoxWithRotation(
-      _boundaryRect,
+      boundary,
       _currentRotation,
     );
 
@@ -189,7 +192,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
 
     final Quad correctedViewport = _transformViewport(
       correctedMatrix,
-      _viewport,
+      viewport,
     );
     final Offset offendingCorrectedDistance = _exceedsBy(
       boundariesAabbQuad,
@@ -224,11 +227,13 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     assert(scale != 0.0);
 
     final double currentScale = _transformer.value.getMaxScaleOnAxis();
+    final boundary = _boundaryRect;
+    final viewport = _viewport;
     final double totalScale = math.max(
       currentScale * scale,
       math.max(
-        _viewport.width / _boundaryRect.width,
-        _viewport.height / _boundaryRect.height,
+        viewport.width / boundary.width,
+        viewport.height / boundary.height,
       ),
     );
     final double clampedTotalScale = clampDouble(
