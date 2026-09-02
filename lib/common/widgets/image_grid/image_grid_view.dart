@@ -207,7 +207,7 @@ class ImageGridView extends StatelessWidget {
         builder: (BuildContext context, ImageGridInfo info) {
           final width = info.size.width;
           final height = info.size.height;
-          late final placeHolder = Container(
+          final placeHolder = Container(
             width: width,
             height: height,
             decoration: BoxDecoration(

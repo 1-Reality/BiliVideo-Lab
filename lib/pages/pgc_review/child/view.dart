@@ -306,7 +306,7 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
                     visualDensity: VisualDensity.compact,
                   );
                   final isLike = item.stat?.liked == 1;
-                  late final isDislike = item.stat?.disliked == 1;
+                  final isDislike = item.stat?.disliked == 1;
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [

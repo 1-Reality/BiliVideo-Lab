@@ -14,7 +14,7 @@ class MemberComicItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    late final style = TextStyle(
+    final style = TextStyle(
       fontSize: 13,
       color: theme.colorScheme.onSurfaceVariant,
     );

@@ -26,7 +26,7 @@ TextSpan? richNode(
   required DynamicItemModel item,
 }) {
   try {
-    late final style = TextStyle(color: theme.colorScheme.primary);
+    final style = TextStyle(color: theme.colorScheme.primary);
     final List<InlineSpan> spanChildren = [];
 
     final moduleDynamic = item.modules.moduleDynamic;

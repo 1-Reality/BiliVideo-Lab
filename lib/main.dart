@@ -280,8 +280,8 @@ class MyApp extends StatelessWidget {
 
   static (ThemeData, ThemeData) getAllTheme() {
     final dynamicColor = _light != null && _dark != null && Pref.dynamicColor;
-    late final brandColor = colorThemeTypes[Pref.customColor].color;
-    late final variant = Pref.schemeVariant;
+    final brandColor = colorThemeTypes[Pref.customColor].color;
+    final variant = Pref.schemeVariant;
     return (
       ThemeUtils.lightTheme = ThemeUtils.getThemeData(
         colorScheme: dynamicColor

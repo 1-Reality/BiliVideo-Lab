@@ -36,7 +36,7 @@ class VideoCardV extends StatelessWidget {
         PageUtils.viewPgc(epId: videoItem.param!);
         break;
       case 'av':
-        var bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);
+        final bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);
         var cid = videoItem.cid;
         bool isVertical = false;
         Dimension? dimension;
@@ -102,8 +102,8 @@ class VideoCardV extends StatelessWidget {
                   aspectRatio: Style.aspectRatio,
                   child: LayoutBuilder(
                     builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
+                      final maxWidth = boxConstraints.maxWidth;
+                      final maxHeight = boxConstraints.maxHeight;
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [

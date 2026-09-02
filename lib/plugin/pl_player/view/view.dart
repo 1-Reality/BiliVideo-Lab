@@ -340,7 +340,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       unawaited(PlaybackStatsService.flush());
     }
     if (!plPlayerController.continuePlayInBackground.value) {
-      late final player = plPlayerController.videoPlayerController;
+      final player = plPlayerController.videoPlayerController;
       if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
         if (player != null && player.state.playing) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
@@ -951,6 +951,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double _twoThirdWidth;
   late double _quarterWidth;
   late double _threeQuarterWidth;
+  late double _eighthWidth;
+  late double _sevenEighthWidth;
+  late double _eighthHeight;
   late double _inverseBrightnessLevel;
   late double _inverseVolumeLevel;
 
@@ -1057,16 +1060,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return;
     }
 
-    Offset delta = details.focalPointDelta;
+    final delta = details.focalPointDelta;
 
     if (_gestureType == .horizontal) {
       // live模式下禁用
       if (plPlayerController.isLive) return;
 
-      final height = maxHeight * 0.125;
+      final height = _eighthHeight;
       if (details.localFocalPoint.dy <= height &&
-          (details.localFocalPoint.dx >= maxWidth * 0.875 ||
-              details.localFocalPoint.dx <= maxWidth * 0.125)) {
+          (details.localFocalPoint.dx >= _sevenEighthWidth ||
+              details.localFocalPoint.dx <= _eighthWidth)) {
         if (!plPlayerController.hasToasted) {
           plPlayerController
             ..seekToPos = null
@@ -1111,7 +1114,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     } else if (_gestureType == .center) {
       // 全屏
       const double threshold = 2.5; // 滑动阈值
-      double cumulativeDy = details.localFocalPoint.dy - _initialFocalPoint!.dy;
+      final cumulativeDy =
+          details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
       if (cumulativeDy > threshold) {
         _gestureType = .center_down;
@@ -1374,6 +1378,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     _twoThirdWidth = _thirdWidth * 2;
     _quarterWidth = maxWidth * 0.25;
     _threeQuarterWidth = _quarterWidth * 3;
+    _eighthWidth = maxWidth * 0.125;
+    _sevenEighthWidth = maxWidth * 0.875;
+    _eighthHeight = maxHeight * 0.125;
     _inverseBrightnessLevel = 1 / (maxHeight * 3);
     _inverseVolumeLevel = 2 / maxHeight;
     final isFullScreen = this.isFullScreen;

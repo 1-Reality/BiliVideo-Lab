@@ -86,7 +86,7 @@ class PBadge extends StatelessWidget {
         ? const .all(.circular(3))
         : const .all(.circular(4));
 
-    Widget content = Container(
+    final Widget content = Container(
       padding: padding ?? const .symmetric(vertical: 2, horizontal: 3),
       decoration: BoxDecoration(
         borderRadius: br,

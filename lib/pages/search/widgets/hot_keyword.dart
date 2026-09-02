@@ -22,7 +22,7 @@ class SliverHotKeyword extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    late final style = TextStyle(
+    final style = TextStyle(
       fontSize: 14,
       color: ColorScheme.of(context).outline,
     );

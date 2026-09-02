@@ -102,7 +102,7 @@ class _LivePageState extends State<LivePage>
                                 const SizedBox(width: 12),
                             itemBuilder: (context, index) {
                               final isFirst = index == 0;
-                              late final item = list[index - 1];
+                              final item = list[index - 1];
                               final isCurr = index == areaIndex;
                               return SearchText(
                                 fontSize: 14,
