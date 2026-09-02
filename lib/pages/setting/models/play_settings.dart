@@ -107,14 +107,14 @@ List<SettingsModel> get playSettings => [
     NormalModel(
       title: '播放器音量',
       leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${Pref.playerVolume.toStringAsFixed(0)}%」',
+      getSubtitle: () => '当前:「${Pref.playerVolume.round()}%」',
       onTap: showPlayerVolumeDialog,
     )
   else
     NormalModel(
       title: '最高音量',
       leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).toStringAsFixed(0)}%」',
+      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
       onTap: _showMaxVolumeDialog,
     ),
   getVideoFilterSelectModel(

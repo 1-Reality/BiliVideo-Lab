@@ -86,10 +86,7 @@ class RenderTranslucentColumn extends RenderFlex {
             if (hit) {
               return true;
             }
-            if (child is RenderNoTranslucentArea) {
-              return false;
-            }
-            return true;
+            return child is! RenderNoTranslucentArea;
           }
           return false;
         },

@@ -68,7 +68,7 @@ class MainController extends GetxController
   late bool pauseOnMinimize = Pref.pauseOnMinimize;
   late bool isPlaying = false;
 
-  static const _period = 5 * 60 * 1000;
+  static const _period = 300000;
   late int _lastSelectTime = 0;
 
   @override

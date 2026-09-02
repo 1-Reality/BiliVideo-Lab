@@ -33,9 +33,6 @@ class ComBtn extends StatelessWidget {
         child: icon,
       ),
     );
-    if (tooltip != null) {
-      return Tooltip(message: tooltip, child: child);
-    }
-    return child;
+    return tooltip == null ? child : Tooltip(message: tooltip!, child: child);
   }
 }

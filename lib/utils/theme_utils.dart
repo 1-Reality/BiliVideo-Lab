@@ -158,10 +158,7 @@ abstract final class ThemeUtils {
         },
       ),
     );
-    if (isDark && Pref.isPureBlackTheme) {
-      return darkenTheme(theme);
-    }
-    return theme;
+    return isDark && Pref.isPureBlackTheme ? darkenTheme(theme) : theme;
   }
 
   static ThemeData darkenTheme(ThemeData theme) {

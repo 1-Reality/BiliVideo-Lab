@@ -137,14 +137,11 @@ class PostPanel extends CommonSlidePage {
 
                 if (res != null) {
                   try {
-                    List<num> split = res
-                        .split(':')
-                        .reversed
-                        .map(num.parse)
-                        .toList();
                     double duration = 0;
-                    for (int i = 0; i < split.length; i++) {
-                      duration += split[i] * pow(60, i);
+                    int unit = 1;
+                    for (final part in res.split(':').reversed) {
+                      duration += num.parse(part) * unit;
+                      unit *= 60;
                     }
                     if (duration <= videoDuration) {
                       updateSegment(

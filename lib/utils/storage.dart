@@ -104,7 +104,7 @@ abstract final class GStorage {
     if (!cdnDiagnosticsFile.existsSync()) return const [];
     // A latest-result snapshot is intentionally tiny. Anything large is an
     // obsolete per-chunk history and must never be synchronously decoded.
-    if (cdnDiagnosticsFile.lengthSync() > 8 * 1024 * 1024) {
+    if (cdnDiagnosticsFile.lengthSync() > 1 << 23) {
       unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
       return const [];
     }

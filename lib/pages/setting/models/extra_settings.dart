@@ -1,1249 +1,12 @@
-import 'dart:io';
-import 'dart:math' show max;
-
-import 'package:PiliBro/common/widgets/custom_icon.dart';
-import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart'
-    show RefreshIndicator, displacement, refreshDragExtent;
-import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
-    show deviceTouchSlop, touchSlopH;
-import 'package:PiliBro/common/widgets/image_grid/image_grid_view.dart'
-    show ImageGridView, ImageModel;
-import 'package:PiliBro/common/widgets/pendant_avatar.dart';
-import 'package:PiliBro/grpc/reply.dart';
-import 'package:PiliBro/http/fav.dart';
-import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/models/common/audio_normalization.dart';
-import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
-import 'package:PiliBro/models/common/member/tab_type.dart';
-import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
-import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
-import 'package:PiliBro/models/common/super_resolution_type.dart';
-import 'package:PiliBro/models/dynamics/result.dart'
-    show DynamicsDataModel, ItemModulesModel;
-import 'package:PiliBro/pages/common/slide/common_slide_page.dart';
-import 'package:PiliBro/pages/home/controller.dart';
-import 'package:PiliBro/pages/main/controller.dart';
-import 'package:PiliBro/pages/setting/models/model.dart';
-import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:PiliBro/plugin/pl_player/controller.dart';
-import 'package:PiliBro/services/download/download_service.dart';
-import 'package:PiliBro/utils/accounts.dart';
-import 'package:PiliBro/utils/cache_manager.dart';
-import 'package:PiliBro/utils/extension/num_ext.dart';
-import 'package:PiliBro/utils/feed_back.dart';
-import 'package:PiliBro/utils/filtering_text.dart';
-import 'package:PiliBro/utils/global_data.dart';
-import 'package:PiliBro/utils/image_utils.dart';
-import 'package:PiliBro/utils/path_utils.dart';
-import 'package:PiliBro/utils/platform_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
-import 'package:PiliBro/utils/storage_pref.dart';
-import 'package:PiliBro/utils/update.dart';
-import 'package:PiliBro/utils/utils.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
-import 'package:flutter/services.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:get/get.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-
-List<SettingsModel> get extraSettings => [
-  if (PlatformUtils.isDesktop) ...[
-    SwitchModel(
-      title: 'é€€å‡ºæ—¶æœ€å°åŒ–',
-      leading: const Icon(Icons.exit_to_app),
-      setKey: SettingBoxKey.minimizeOnExit,
-      defaultVal: true,
-      onChanged: (value) {
-        try {
-          Get.find<MainController>().minimizeOnExit = value;
-        } catch (_) {}
-      },
-    ),
-    NormalModel(
-      title: 'ç¼“å­˜è·¯å¾„',
-      getSubtitle: () => downloadPath,
-      leading: const Icon(Icons.storage),
-      onTap: _showDownPathDialog,
-    ),
-  ],
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: 'ç©ºé™åŠ©æ‰‹',
-      subtitle: 'ç‚¹å‡»é…ç½®ï¼Œå»ºè®®ä¿ç•™æŒä¹…IDå¹¶å¤‡ä»½',
-      leading: Icon(CustomIcons.shield_play_arrow),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: true,
-      setKey: SettingBoxKey.enableSponsorBlock,
-      onTap: (context) => Get.toNamed('/sponsorBlock'),
-    ),
-  ),
-  PopupModel<SkipType>(
-    title: 'ç•ªå‰§å¤´å°¾è·³è¿‡ç±»å‹',
-    leading: const Icon(MdiIcons.debugStepOver),
-    value: () => Pref.pgcSkipType,
-    items: SkipType.values,
-    onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.pgcSkipType, value.index)
-        .whenComplete(setState),
-  ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: 'æ£€æŸ¥æœªè¯»åŠ¨æ€',
-      subtitle: 'ç‚¹å‡»è®¾ç½®æ£€æŸ¥å‘¨æœŸï¼ˆç§’ï¼‰',
-      leading: Icon(Icons.notifications_none),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: true,
-      setKey: SettingBoxKey.checkDynamic,
-      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-      onTap: _showDynDialog,
-    ),
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºè§†é¢‘åˆ†æ®µä¿¡æ¯',
-    leading: Icon(CustomIcons.view_headline_rotate_90),
-    setKey: SettingBoxKey.showViewPoints,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'è§†é¢‘é¡µæ˜¾ç¤ºç›¸å…³è§†é¢‘',
-    leading: Icon(MdiIcons.motionPlayOutline),
-    setKey: SettingBoxKey.showRelatedVideo,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºè§†é¢‘è¯„è®º',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showVideoReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºç•ªå‰§è¯„è®º',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showBangumiReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'é»˜è®¤å±•å¼€è§†é¢‘ç®€ä»‹',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ¨ªå±è‡ªåŠ¨å±•å¼€è§†é¢‘ç®€ä»‹',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: 'æ¨ªå±åˆ†P|åˆé›†åˆ—è¡¨æ˜¾ç¤ºåœ¨Tabæ ',
-    leading: const Icon(Icons.format_list_numbered_rtl_sharp),
-    setKey: SettingBoxKey.horizontalSeasonPanel,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: 'æ¨ªå±æ’­æ”¾é¡µåœ¨ä¾§æ æ‰“å¼€UPä¸»é¡µ',
-    leading: const Icon(Icons.account_circle_outlined),
-    setKey: SettingBoxKey.horizontalMemberPage,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: 'æ¨ªå±åœ¨ä¾§æ æ‰“å¼€å›¾ç‰‡é¢„è§ˆ',
-    leading: const Icon(Icons.photo_outlined),
-    setKey: SettingBoxKey.horizontalPreview,
-    defaultVal: false,
-    onChanged: (value) => ImageGridView.horizontalPreview = value,
-  ),
-  NormalModel(
-    title: 'è¯„è®ºæŠ˜å è¡Œæ•°',
-    subtitle: '0è¡Œä¸ºä¸æŠ˜å ',
-    leading: const Icon(Icons.compress),
-    getTrailing: (theme) => Text(
-      '${ReplyItemGrpc.replyLengthLimit}è¡Œ',
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showReplyLengthDialog,
-  ),
-  NormalModel(
-    title: 'å¼¹å¹•è¡Œé«˜',
-    subtitle: 'é»˜è®¤1.6',
-    leading: const Icon(CustomIcons.dm_settings),
-    getTrailing: (theme) => Text(
-      Pref.danmakuLineHeight.toString(),
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showDmHeightDialog,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºè§†é¢‘è­¦å‘Šäº‰è®®ä¿¡æ¯',
-    leading: Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showArgueMsg,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: 'æ˜¾ç¤ºåŠ¨æ€è­¦å‘Šäº‰è®®ä¿¡æ¯',
-    leading: const Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showDynDispute,
-    defaultVal: true,
-    onChanged: (val) => ItemModulesModel.showDynDispute = val,
-  ),
-  const SwitchModel(
-    title: 'åˆ†P/åˆé›†ï¼šå€’åºæ’­æ”¾ä»é¦–é›†å¼€å§‹æ’­æ”¾',
-    subtitle: 'å¼€å¯åˆ™è‡ªåŠ¨åˆ‡æ¢ä¸ºå€’åºé¦–é›†ï¼Œå¦åˆ™ä¿æŒå½“å‰é›†',
-    leading: Icon(MdiIcons.sort),
-    setKey: SettingBoxKey.reverseFromFirst,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'ç¦ç”¨ SSL è¯ä¹¦éªŒè¯',
-    subtitle: 'è°¨æ…å¼€å¯ï¼Œç¦ç”¨å¯èƒ½ä¼šå—åˆ° MitM æ”»å‡»',
-    leading: Icon(Icons.security),
-    needReboot: true,
-    setKey: SettingBoxKey.badCertificateCallback,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºç»§ç»­æ’­æ”¾åˆ†Pæç¤º',
-    leading: Icon(Icons.local_parking),
-    setKey: SettingBoxKey.continuePlayingPart,
-    defaultVal: true,
-  ),
-  getBanWordModel(
-    title: 'è¯„è®ºå…³é”®è¯è¿‡æ»¤',
-    key: SettingBoxKey.banWordForReply,
-    onChanged: (value) {
-      ReplyGrpc.replyRegExp = value;
-      ReplyGrpc.enableFilter = value.pattern.isNotEmpty;
-    },
-  ),
-  getBanWordModel(
-    title: 'åŠ¨æ€å…³é”®è¯è¿‡æ»¤',
-    key: SettingBoxKey.banWordForDyn,
-    onChanged: (value) {
-      DynamicsDataModel.banWordForDyn = value;
-      DynamicsDataModel.enableFilter = value.pattern.isNotEmpty;
-    },
-  ),
-  const SwitchModel(
-    title: 'ä½¿ç”¨å¤–éƒ¨æµè§ˆå™¨æ‰“å¼€é“¾æ¥',
-    leading: Icon(Icons.open_in_browser),
-    setKey: SettingBoxKey.openInBrowser,
-    defaultVal: false,
-  ),
-  NormalModel(
-    title: 'æ¨ªå‘æ»‘åŠ¨é˜ˆå€¼',
-    getSubtitle: () => 'å½“å‰:ã€Œ${Pref.touchSlopH}ã€ï¼Œç³»ç»Ÿé»˜è®¤å€¼: $deviceTouchSlop',
-    onTap: _showTouchSlopDialog,
-    leading: const Icon(Icons.pan_tool_alt_outlined),
-  ),
-  NormalModel(
-    title: 'åˆ·æ–°æŒ‡ç¤ºå™¨é«˜åº¦',
-    leading: const Icon(Icons.height),
-    getSubtitle: () =>
-        'å½“å‰æŒ‡ç¤ºå™¨é«˜åº¦: ${Pref.refreshDisplacement}, åˆ·æ–°æ»‘åŠ¨è·ç¦»: $refreshDragExtent',
-    onTap: _showRefreshDialog,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºä¼šå‘˜å½©è‰²å¼¹å¹•',
-    leading: Icon(MdiIcons.gradientHorizontal),
-    setKey: SettingBoxKey.showVipDanmaku,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'åˆå¹¶å¼¹å¹•',
-    subtitle: 'åˆå¹¶ä¸€æ®µæ—¶é—´å†…è·å–åˆ°çš„ç›¸åŒå¼¹å¹•',
-    leading: Icon(Icons.merge),
-    setKey: SettingBoxKey.mergeDanmaku,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºçƒ­é—¨æ¨è',
-    subtitle: 'çƒ­é—¨é¡µé¢æ˜¾ç¤ºæ¯å‘¨å¿…çœ‹ç­‰æ¨èå†…å®¹å…¥å£',
-    leading: Icon(Icons.local_fire_department_outlined),
-    setKey: SettingBoxKey.showHotRcmd,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: 'éŸ³é‡å‡è¡¡',
-      leading: const Icon(Icons.multitrack_audio),
-      getSubtitle: () {
-        final audioNormalization = AudioNormalization.getTitleFromConfig(
-          Pref.audioNormalization,
-        );
-        String fallback = Pref.fallbackNormalization;
-        if (fallback == '0') {
-          fallback = '';
-        } else {
-          fallback =
-              'ï¼Œæ— å‚æ•°æ—¶:ã€Œ${AudioNormalization.getTitleFromConfig(fallback)}ã€';
-        }
-        return 'å½“å‰:ã€Œ$audioNormalizationã€$fallback';
-      },
-      onTap: audioNormalization,
-    ),
-  NormalModel(
-    title: 'è¶…åˆ†è¾¨ç‡',
-    leading: const Icon(Icons.stay_current_landscape_outlined),
-    getSubtitle: () =>
-        'å½“å‰:ã€Œ${Pref.superResolutionType.label}ã€\né»˜è®¤è®¾ç½®å¯¹ç•ªå‰§ç”Ÿæ•ˆ, å…¶ä»–è§†é¢‘é»˜è®¤å…³é—­\nè¶…åˆ†è¾¨ç‡éœ€è¦å¯ç”¨ç¡¬ä»¶è§£ç , è‹¥å¯ç”¨ç¡¬ä»¶è§£ç åä»ç„¶ä¸ç”Ÿæ•ˆ, å°è¯•åˆ‡æ¢ç¡¬ä»¶è§£ç å™¨ä¸º auto-copy',
-    onTap: _showSuperResolutionDialog,
-  ),
-  const SwitchModel(
-    title: 'æå‰åˆå§‹åŒ–æ’­æ”¾å™¨',
-    subtitle: 'ç›¸å¯¹å‡å°‘æ‰‹åŠ¨æ’­æ”¾åŠ è½½æ—¶é—´',
-    leading: Icon(Icons.play_circle_outlined),
-    setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'é¦–é¡µåˆ‡æ¢é¡µé¢åŠ¨ç”»',
-    leading: Icon(Icons.home_outlined),
-    setKey: SettingBoxKey.mainTabBarView,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: 'æœç´¢å»ºè®®',
-    leading: Icon(Icons.search),
-    setKey: SettingBoxKey.searchSuggestion,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'è®°å½•æœç´¢å†å²',
-    leading: Icon(Icons.history),
-    setKey: SettingBoxKey.recordSearchHistory,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: 'å±•ç¤ºå¤´åƒã€è¯„è®ºã€åŠ¨æ€è£…é¥°',
-    leading: const Icon(MdiIcons.stickerCircleOutline),
-    setKey: SettingBoxKey.showDecorate,
-    defaultVal: true,
-    onChanged: (value) => PendantAvatar.showDecorate = value,
-  ),
-  SwitchModel(
-    title: 'æ˜¾ç¤ºç²‰ä¸å‹‹ç« ',
-    leading: const Icon(MdiIcons.medalOutline),
-    setKey: SettingBoxKey.showMedal,
-    defaultVal: true,
-    onChanged: (value) => GlobalData().showMedal = value,
-  ),
-  SwitchModel(
-    title: 'é¢„è§ˆ Live Photo',
-    subtitle: 'å¼€å¯åˆ™ä»¥è§†é¢‘å½¢å¼é¢„è§ˆ Live Photoï¼Œå¦åˆ™é¢„è§ˆé™æ€å›¾ç‰‡',
-    leading: const Icon(Icons.image_outlined),
-    setKey: SettingBoxKey.enableLivePhoto,
-    defaultVal: true,
-    onChanged: (value) => ImageModel.enableLivePhoto = value,
-  ),
-  const SwitchModel(
-    title: 'æ»‘åŠ¨è·³è½¬é¢„è§ˆè§†é¢‘ç¼©ç•¥å›¾',
-    leading: Icon(Icons.preview_outlined),
-    setKey: SettingBoxKey.showSeekPreview,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ˜¾ç¤ºé«˜èƒ½è¿›åº¦æ¡',
-    subtitle: 'é«˜èƒ½è¿›åº¦æ¡ååº”äº†åœ¨æ—¶åŸŸä¸Šï¼Œå•ä½æ—¶é—´å†…å¼¹å¹•å‘é€é‡çš„å˜åŒ–è¶‹åŠ¿',
-    leading: Icon(Icons.show_chart),
-    setKey: SettingBoxKey.showDmChart,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'è®°å½•è¯„è®º',
-    leading: Icon(Icons.message_outlined),
-    setKey: SettingBoxKey.saveReply,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: 'å‘è¯„åè¯ˆ',
-    subtitle: 'å‘é€è¯„è®ºåæ£€æŸ¥è¯„è®ºæ˜¯å¦å¯è§',
-    leading: Icon(CustomIcons.shield_reply),
-    setKey: SettingBoxKey.enableCommAntifraud,
-    defaultVal: true,
-  ),
-  if (Platform.isAndroid)
-    const SwitchModel(
-      title: 'ä½¿ç”¨ã€Œå“”å“©å‘è¯„åè¯ˆã€æ£€æŸ¥è¯„è®º',
-      subtitle: 'è‹¥æœªå®‰è£…è¯¥åº”ç”¨ï¼Œå¯èƒ½ä¼šå¯¼è‡´ä¸Šä¸€å¼€å…³å¤±æ•ˆï¼›ä½†å“¥å“¥ç§‘æŠ€ç‰ˆå·²ç»ç¼“è§£è¯¥é—®é¢˜ï¼',
-      leading: Icon(
-        FontAwesomeIcons.b,
-        size: 22,
-      ),
-      setKey: SettingBoxKey.biliSendCommAntifraud,
-      defaultVal: false,
-    ),
-  const SwitchModel(
-    title: 'å‘å¸ƒ/è½¬å‘åŠ¨æ€åè¯ˆ',
-    subtitle: 'å‘å¸ƒ/è½¬å‘åŠ¨æ€åæ£€æŸ¥åŠ¨æ€æ˜¯å¦å¯è§',
-    leading: Icon(CustomIcons.shield_published),
-    setKey: SettingBoxKey.enableCreateDynAntifraud,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: 'å±è”½å¸¦è´§åŠ¨æ€',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsDyn,
-    defaultVal: false,
-    onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
-  ),
-  SwitchModel(
-    title: 'å±è”½å¸¦è´§è¯„è®º',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsReply,
-    defaultVal: false,
-    onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
-  ),
-  SwitchModel(
-    title: 'ä¾§æ»‘å…³é—­äºŒçº§é¡µé¢',
-    leading: const Icon(CustomIcons.touch_app_rotate_270),
-    setKey: SettingBoxKey.slideDismissReplyPage,
-    defaultVal: Platform.isIOS,
-    onChanged: (value) => CommonSlideMixin.slideDismissReplyPage = value,
-  ),
-  const SwitchModel(
-    title: 'å¯ç”¨åŒæŒ‡ç¼©å°è§†é¢‘',
-    leading: Icon(Icons.pinch),
-    setKey: SettingBoxKey.enableShrinkVideoSize,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'åŠ¨æ€/ä¸“æ è¯¦æƒ…é¡µå±•ç¤ºåº•éƒ¨æ“ä½œæ ',
-    leading: Icon(Icons.more_horiz),
-    setKey: SettingBoxKey.showDynActionBar,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'å¯ç”¨æ‹–æ‹½å­—å¹•è°ƒæ•´åº•éƒ¨è¾¹è·',
-    leading: Icon(MdiIcons.dragVariant),
-    setKey: SettingBoxKey.enableDragSubtitle,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: 'å±•ç¤ºè¿½ç•ªæ—¶é—´è¡¨',
-    leading: Icon(MdiIcons.chartTimelineVariantShimmer),
-    setKey: SettingBoxKey.showPgcTimeline,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  SwitchModel(
-    title: 'é™é»˜ä¸‹è½½å›¾ç‰‡',
-    subtitle: 'ä¸æ˜¾ç¤ºä¸‹è½½ Loading å¼¹çª—',
-    leading: const Icon(Icons.download_for_offline_outlined),
-    setKey: SettingBoxKey.silentDownImg,
-    defaultVal: false,
-    onChanged: (value) => ImageUtils.silentDownImg = value,
-  ),
-  SwitchModel(
-    title: 'é•¿æŒ‰/å³é”®æ˜¾ç¤ºå›¾ç‰‡èœå•',
-    leading: const Icon(Icons.menu),
-    setKey: SettingBoxKey.enableImgMenu,
-    defaultVal: false,
-    onChanged: (value) => ImageGridView.enableImgMenu = value,
-  ),
-  SwitchModel(
-    setKey: SettingBoxKey.feedBackEnable,
-    onChanged: (value) {
-      enableFeedback = value;
-      feedBack();
-    },
-    leading: const Icon(Icons.vibration_outlined),
-    title: 'éœ‡åŠ¨åé¦ˆ',
-    subtitle: 'è¯·ç¡®å®šæ‰‹æœºè®¾ç½®ä¸­å·²å¼€å¯éœ‡åŠ¨åé¦ˆ',
-  ),
-  const SwitchModel(
-    title: 'å¤§å®¶éƒ½åœ¨æœ',
-    subtitle: 'æ˜¯å¦å±•ç¤ºã€Œå¤§å®¶éƒ½åœ¨æœã€',
-    leading: Icon(Icons.data_thresholding_outlined),
-    setKey: SettingBoxKey.enableHotKey,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æœç´¢å‘ç°',
-    subtitle: 'æ˜¯å¦å±•ç¤ºã€Œæœç´¢å‘ç°ã€',
-    leading: Icon(Icons.search_outlined),
-    setKey: SettingBoxKey.enableSearchRcmd,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: 'æœç´¢é»˜è®¤è¯',
-    subtitle: 'æ˜¯å¦å±•ç¤ºæœç´¢æ¡†é»˜è®¤è¯',
-    leading: const Icon(Icons.whatshot_outlined),
-    setKey: SettingBoxKey.enableSearchWord,
-    defaultVal: true,
-    onChanged: (val) {
-      try {
-        final controller = Get.find<HomeController>()..enableSearchWord = val;
-        if (val) {
-          controller.querySearchDefault();
-        } else {
-          controller.defaultSearch.value = '';
-        }
-      } catch (_) {}
-    },
-  ),
-  const SwitchModel(
-    title: 'å¿«é€Ÿæ”¶è—',
-    subtitle: 'ç‚¹å‡»è®¾ç½®é»˜è®¤æ”¶è—å¤¹\nç‚¹æŒ‰æ”¶è—è‡³é»˜è®¤ï¼Œé•¿æŒ‰é€‰æ‹©æ–‡ä»¶å¤¹',
-    leading: Icon(Icons.bookmark_add_outlined),
-    setKey: SettingBoxKey.enableQuickFav,
-    onTap: _showFavDialog,
-    defaultVal: false,
-  ),
-  SwitchModel(
-    title: 'è¯„è®ºåŒºæœç´¢å…³é”®è¯',
-    subtitle: 'å±•ç¤ºè¯„è®ºåŒºæœç´¢å…³é”®è¯',
-    leading: const Icon(Icons.search_outlined),
-    setKey: SettingBoxKey.enableWordRe,
-    defaultVal: true,
-    onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
-  ),
-  const SwitchModel(
-    title: 'å¯ç”¨AIæ€»ç»“',
-    subtitle: 'è§†é¢‘è¯¦æƒ…é¡µå¼€å¯AIæ€»ç»“',
-    leading: Icon(Icons.engineering_outlined),
-    setKey: SettingBoxKey.enableAi,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: 'æ¶ˆæ¯é¡µç¦ç”¨"æ”¶åˆ°çš„èµ"åŠŸèƒ½',
-    subtitle: 'ç¦æ­¢æ‰“å¼€å…¥å£ï¼Œå‡å°‘ä½ç†µé€šçŸ¥æé†’æ‰“æ‰°',
-    leading: Icon(Icons.beach_access_outlined),
-    setKey: SettingBoxKey.disableLikeMsg,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: 'é»˜è®¤å±•ç¤ºè¯„è®ºåŒº',
-    subtitle: 'åœ¨è§†é¢‘è¯¦æƒ…é¡µé»˜è®¤åˆ‡æ¢è‡³è¯„è®ºåŒºé¡µï¼ˆä»…Tabå‹å¸ƒå±€ï¼‰',
-    leading: Icon(Icons.mode_comment_outlined),
-    setKey: SettingBoxKey.defaultShowComment,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: 'å¯ç”¨HTTP/2',
-    leading: Icon(Icons.swap_horizontal_circle_outlined),
-    setKey: SettingBoxKey.enableHttp2,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const NormalModel(
-    title: 'è¿æ¥é‡è¯•æ¬¡æ•°',
-    subtitle: 'ä¸º0æ—¶ç¦ç”¨',
-    leading: Icon(Icons.repeat),
-    onTap: _showReplyCountDialog,
-  ),
-  const NormalModel(
-    title: 'è¿æ¥é‡è¯•é—´éš”',
-    subtitle: 'å®é™…é—´éš” = é—´éš” * ç¬¬xæ¬¡é‡è¯•',
-    leading: Icon(Icons.more_time_outlined),
-    onTap: _showReplyDelayDialog,
-  ),
-  NormalModel(
-    title: 'è¯„è®ºå±•ç¤º',
-    leading: const Icon(Icons.whatshot_outlined),
-    getSubtitle: () => 'å½“å‰ä¼˜å…ˆå±•ç¤ºã€Œ${Pref.replySortType.title}ã€',
-    onTap: _showReplySortDialog,
-  ),
-  NormalModel(
-    title: 'äºŒçº§è¯„è®ºå±•ç¤º',
-    leading: const Icon(Icons.subdirectory_arrow_right_outlined),
-    getSubtitle: () => 'å½“å‰ä¼˜å…ˆå±•ç¤ºã€Œ${Pref.reply2SortType.reply2Title}ã€',
-    onTap: _showReply2SortDialog,
-  ),
-  NormalModel(
-    title: 'åŠ¨æ€å±•ç¤º',
-    leading: const Icon(Icons.dynamic_feed_rounded),
-    getSubtitle: () => 'å½“å‰ä¼˜å…ˆå±•ç¤ºã€Œ${Pref.defaultDynamicType.label}ã€',
-    onTap: _showDefDynDialog,
-  ),
-  SwitchModel(
-    title: 'æ˜¾ç¤ºåŠ¨æ€äº’åŠ¨å†…å®¹',
-    subtitle: 'å¼€å¯ååˆ™åœ¨åŠ¨æ€å¡ç‰‡åº•éƒ¨æ˜¾ç¤ºäº’åŠ¨å†…å®¹ï¼ˆå¦‚å…³æ³¨çš„äººç‚¹èµã€çƒ­è¯„ç­‰ï¼‰',
-    leading: const Icon(Icons.quickreply_outlined),
-    setKey: SettingBoxKey.showDynInteraction,
-    defaultVal: true,
-    onChanged: (val) => ItemModulesModel.showDynInteraction = val,
-  ),
-  NormalModel(
-    title: 'ç”¨æˆ·é¡µé»˜è®¤å±•ç¤ºTAB',
-    leading: const Icon(Icons.tab),
-    getSubtitle: () => 'å½“å‰ä¼˜å…ˆå±•ç¤ºã€Œ${Pref.memberTab.title}ã€',
-    onTap: _showMemberTabDialog,
-  ),
-  SwitchModel(
-    title: 'æ˜¾ç¤ºUPä¸»é¡µå°åº—TAB',
-    leading: const Icon(Icons.shop_outlined),
-    setKey: SettingBoxKey.showMemberShop,
-    defaultVal: true,
-    onChanged: (value) => MemberTabType.showMemberShop = value,
-  ),
-  const SplitModel(
-    normalModel: NormalModel.split(
-      title: 'è®¾ç½®ä»£ç†',
-      subtitle: 'è®¾ç½®ä»£ç† host:port',
-      leading: Icon(Icons.airplane_ticket_outlined),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: false,
-      setKey: SettingBoxKey.enableSystemProxy,
-      onTap: _showProxyDialog,
-    ),
-  ),
-  NormalModel(
-    title: 'æœ€å¤§ç¼“å­˜å¤§å°',
-    getSubtitle: () =>
-        'å½“å‰æœ€å¤§ç¼“å­˜å¤§å°: ã€Œ${CacheManager.formatSize(Pref.maxCacheSize)}ã€',
-    leading: const Icon(Icons.delete_outlined),
-    onTap: _showCacheDialog,
-  ),
-  SwitchModel(
-    title: 'æ£€æŸ¥æ›´æ–°',
-    subtitle: 'æ¯æ¬¡å¯åŠ¨æ—¶æ£€æŸ¥æ˜¯å¦éœ€è¦æ›´æ–°',
-    leading: const Icon(Icons.system_update_alt),
-    setKey: SettingBoxKey.autoUpdate,
-    defaultVal: true,
-    onChanged: (val) {
-      if (val) {
-        Update.checkUpdate(false);
-      }
-    },
-  ),
-];
-
-Future<void> audioNormalization(
-  BuildContext context,
-  VoidCallback setState, {
-  bool fallback = false,
-}) async {
-  final key = fallback
-      ? SettingBoxKey.fallbackNormalization
-      : SettingBoxKey.audioNormalization;
-  final res = await showDialog<String>(
-    context: context,
-    builder: (context) {
-      String audioNormalization = fallback
-          ? Pref.fallbackNormalization
-          : Pref.audioNormalization;
-      Set<String> values = {
-        '0',
-        '1',
-        if (!fallback) '2',
-        audioNormalization,
-        '3',
-      };
-      return SelectDialog<String>(
-        title: fallback ? 'æœåŠ¡å™¨æ— loudnormé…ç½®æ—¶ä½¿ç”¨' : 'éŸ³é‡å‡è¡¡',
-        toggleable: true,
-        value: audioNormalization,
-        values: values
-            .map(
-              (e) => (
-                e,
-                switch (e) {
-                  '0' => AudioNormalization.disable.title,
-                  '1' => AudioNormalization.dynaudnorm.title,
-                  '2' => AudioNormalization.loudnorm.title,
-                  '3' => AudioNormalization.custom.title,
-                  _ => e,
-                },
-              ),
-            )
-            .toList(),
-      );
-    },
-  );
-  if (res != null && context.mounted) {
-    if (res == '3') {
-      String param = '';
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('è‡ªå®šä¹‰å‚æ•°'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 16,
-            children: [
-              const Text('ç­‰åŒäº --lavfi-complex="[aid1] å‚æ•° [ao]"'),
-              TextField(
-                autofocus: true,
-                onChanged: (value) => param = value,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: Get.back,
-              child: Text(
-                'å–æ¶ˆ',
-                style: TextStyle(color: ColorScheme.of(context).outline),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Get.back();
-                GStorage.setting.put(key, param);
-                if (!fallback &&
-                    PlPlayerController.loudnormRegExp.hasMatch(param)) {
-                  audioNormalization(context, setState, fallback: true);
-                }
-                setState();
-              },
-              child: const Text('ç¡®å®š'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      GStorage.setting.put(key, res);
-      if (res == '2') {
-        audioNormalization(context, setState, fallback: true);
-      }
-      setState();
-    }
-  }
-}
-
-void _showDownPathDialog(BuildContext context, VoidCallback setState) {
-  showDialog(
-    context: context,
-    builder: (context) => SimpleDialog(
-      clipBehavior: Clip.hardEdge,
-      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-      children: [
-        DialogOption(
-          onPressed: () {
-            Get.back();
-            Utils.copyText(downloadPath);
-          },
-          child: const Text('å¤åˆ¶', style: TextStyle(fontSize: 14)),
-        ),
-        DialogOption(
-          onPressed: () {
-            Get.back();
-            final defPath = defDownloadPath;
-            if (downloadPath == defPath) return;
-            downloadPath = defPath;
-            setState();
-            Get.find<DownloadService>().initDownloadList();
-            GStorage.setting.delete(SettingBoxKey.downloadPath);
-          },
-          child: const Text('é‡ç½®', style: TextStyle(fontSize: 14)),
-        ),
-        DialogOption(
-          onPressed: () async {
-            Get.back();
-            final path = await FilePicker.getDirectoryPath();
-            if (path == null || path == downloadPath) return;
-            downloadPath = path;
-            setState();
-            Get.find<DownloadService>().initDownloadList();
-            GStorage.setting.put(SettingBoxKey.downloadPath, path);
-          },
-          child: const Text('è®¾ç½®æ–°è·¯å¾„', style: TextStyle(fontSize: 14)),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = (Pref.dynamicPeriod ~/ 1000).toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('æ£€æŸ¥å‘¨æœŸ'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: dynamicPeriod,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => dynamicPeriod = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 's'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            try {
-              final val = int.parse(dynamicPeriod) * 1000;
-              Get.back();
-              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().setDynamicPeriod(val);
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('ç¡®å®š'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
-  String replyLengthLimit = ReplyItemGrpc.replyLengthLimit.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('è¯„è®ºæŠ˜å è¡Œæ•°'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: replyLengthLimit,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => replyLengthLimit = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'è¡Œ'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = int.parse(replyLengthLimit);
-              Get.back();
-              ReplyItemGrpc.replyLengthLimit = val == 0 ? null : val;
-              await GStorage.setting.put(SettingBoxKey.replyLengthLimit, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('ç¡®å®š'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
-  String danmakuLineHeight = Pref.danmakuLineHeight.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('å¼¹å¹•è¡Œé«˜'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: danmakuLineHeight,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (value) => danmakuLineHeight = value,
-        inputFormatters: FilteringText.decimal,
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = max(
-                1.0,
-                double.parse(danmakuLineHeight).toPrecision(1),
-              );
-              Get.back();
-              await GStorage.setting.put(SettingBoxKey.danmakuLineHeight, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('ç¡®å®š'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
-  String initialValue = Pref.touchSlopH.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('æ¨ªå‘æ»‘åŠ¨é˜ˆå€¼'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: initialValue,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (value) => initialValue = value,
-        inputFormatters: FilteringText.decimal,
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = double.parse(initialValue);
-              Get.back();
-              touchSlopH = val;
-              await GStorage.setting.put(SettingBoxKey.touchSlopH, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('ç¡®å®š'),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> _showRefreshDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('åˆ·æ–°æŒ‡ç¤ºå™¨é«˜åº¦'),
-      min: 10.0,
-      max: 100.0,
-      divisions: 9,
-      value: Pref.refreshDisplacement,
-    ),
-  );
-  if (res != null) {
-    displacement = res;
-    await GStorage.setting.put(SettingBoxKey.refreshDisplacement, res);
-    if (WidgetsBinding.instance.rootElement case final context?) {
-      context.visitChildElements(_visitor);
-    }
-    setState();
-  }
-}
-
-void _visitor(Element context) {
-  if (!context.mounted) return;
-  if (context.widget is RefreshIndicator) {
-    context.markNeedsBuild();
-  } else {
-    context.visitChildren(_visitor);
-  }
-}
-
-Future<void> _showSuperResolutionDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<SuperResolutionType>(
-    context: context,
-    builder: (context) => SelectDialog<SuperResolutionType>(
-      title: 'è¶…åˆ†è¾¨ç‡',
-      value: Pref.superResolutionType,
-      values: SuperResolutionType.values.map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.superResolutionType,
-      res.index,
-    );
-    setState();
-  }
-}
-
-Future<void> _showFavDialog(BuildContext context) async {
-  if (Accounts.main.isLogin) {
-    final res = await FavHttp.allFavFolders(Accounts.main.mid);
-    if (res case Success(:final response)) {
-      final list = response.list;
-      if (list == null || list.isEmpty) {
-        return;
-      }
-      final quickFavId = Pref.quickFavId;
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          clipBehavior: Clip.hardEdge,
-          title: const Text('é€‰æ‹©é»˜è®¤æ”¶è—å¤¹'),
-          contentPadding: const EdgeInsets.only(top: 5, bottom: 18),
-          content: SingleChildScrollView(
-            child: RadioGroup(
-              onChanged: (value) {
-                Get.back();
-                GStorage.setting.put(SettingBoxKey.quickFavId, value);
-                SmartDialog.showToast('è®¾ç½®æˆåŠŸ');
-              },
-              groupValue: quickFavId,
-              child: Column(
-                children: list
-                    .map(
-                      (item) => RadioListTile(
-                        toggleable: true,
-                        dense: true,
-                        title: Text(item.title),
-                        value: item.id,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      res.toast();
-    }
-  }
-}
-
-Future<void> _showReplyCountDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('è¿æ¥é‡è¯•æ¬¡æ•°'),
-      min: 0,
-      max: 8,
-      divisions: 8,
-      precise: 0,
-      value: Pref.retryCount.toDouble(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.retryCount, res.toInt());
-    setState();
-    SmartDialog.showToast('é‡å¯ç”Ÿæ•ˆ');
-  }
-}
-
-Future<void> _showReplyDelayDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('è¿æ¥é‡è¯•é—´éš”'),
-      min: 0,
-      max: 1000,
-      divisions: 10,
-      precise: 0,
-      value: Pref.retryDelay.toDouble(),
-      suffix: 'ms',
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt());
-    setState();
-    SmartDialog.showToast('é‡å¯ç”Ÿæ•ˆ');
-  }
-}
-
-Future<void> _showReplySortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: 'è¯„è®ºå±•ç¤º',
-      value: Pref.replySortType,
-      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
-    setState();
-  }
-}
-
-Future<void> _showReply2SortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: 'äºŒçº§è¯„è®ºå±•ç¤º',
-      value: Pref.reply2SortType,
-      values: ReplySortType.values
-          .take(2)
-          .map((e) => (e, e.reply2Title))
-          .toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.reply2SortType, res.index);
-    setState();
-  }
-}
-
-Future<void> _showDefDynDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<DynamicsTabType>(
-    context: context,
-    builder: (context) => SelectDialog<DynamicsTabType>(
-      title: 'åŠ¨æ€å±•ç¤º',
-      value: Pref.defaultDynamicType,
-      values: DynamicsTabType.values.take(4).map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.defaultDynamicType,
-      res.index,
-    );
-    setState();
-  }
-}
-
-Future<void> _showMemberTabDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<MemberTabType>(
-    context: context,
-    builder: (context) => SelectDialog<MemberTabType>(
-      title: 'ç”¨æˆ·é¡µé»˜è®¤å±•ç¤ºTAB',
-      value: Pref.memberTab,
-      values: MemberTabType.values.map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.memberTab, res.index);
-    setState();
-  }
-}
-
-void _showProxyDialog(BuildContext context) {
-  String systemProxyHost = Pref.systemProxyHost;
-  String systemProxyPort = Pref.systemProxyPort;
-
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('è®¾ç½®ä»£ç†'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 6),
-          TextFormField(
-            initialValue: systemProxyHost,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: 'è¯·è¾“å…¥Hostï¼Œä½¿ç”¨ . åˆ†å‰²',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(6)),
-              ),
-            ),
-            onChanged: (e) => systemProxyHost = e,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            initialValue: systemProxyPort,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: 'è¯·è¾“å…¥Port',
-              border: OutlineInputBorder(borderRadius: .all(.circular(6))),
-            ),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (e) => systemProxyPort = e,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            Get.back();
-            GStorage.setting.put(
-              SettingBoxKey.systemProxyHost,
-              systemProxyHost,
-            );
-            GStorage.setting.put(
-              SettingBoxKey.systemProxyPort,
-              systemProxyPort,
-            );
-          },
-          child: const Text('ç¡®è®¤'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showCacheDialog(BuildContext context, VoidCallback setState) {
-  String valueStr = '';
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('æœ€å¤§ç¼“å­˜å¤§å°'),
-      content: TextField(
-        autofocus: true,
-        onChanged: (value) => valueStr = value,
-        keyboardType: TextInputType.number,
-        inputFormatters: FilteringText.decimal,
-        decoration: const InputDecoration(suffixText: 'MB'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            'å–æ¶ˆ',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = num.parse(valueStr);
-              Get.back();
-              await GStorage.setting.put(
-                SettingBoxKey.maxCacheSize,
-                val * 1024 * 1024,
-              );
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('ç¡®å®š'),
-        ),
-      ],
-    ),
-  );
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×}=ñ:-jZ.¶›­–)Ş³V–×÷'BvF'C¦–òs°¦–×÷'BvF'C¦ÖF‚r6†÷rÖƒ° ¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2ö7W7FöÕö–6öâæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2öF–Æör÷6–×ÆUöF–Æöuö÷F–öâæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2öfÇWGFW"÷&Vg&W6…ö–æF–6F÷"æF'Bp¢6†÷r&Vg&W6„–æF–6F÷"ÂF—7Æ6VÖVçBÂ&Vg&W6„G&tW‡FVçC°¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2övW7GW&Rö†÷&—¦öçFÅöG&uövW7GW&U÷&V6övæ—¦W"æF'Bp¢6†÷rFWf–6UF÷V6…6Æ÷ÂF÷V6…6Æ÷ƒ°¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2ö–ÖvUöw&–Bö–ÖvUöw&–E÷f–WræF'Bp¢6†÷r–ÖvTw&–Ef–WrÂ–ÖvTÖöFVÃ°¦–×÷'Bw6¶vS¥–Æ”'&òö6öÖÖöâ÷v–FvWG2÷VæFçEöfF"æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöw'2÷&WÇ’æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òö‡GGöfbæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òö‡GGöÆöF–æu÷7FFRæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâöVF–õöæ÷&ÖÆ—¦F–öâæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâöG–æÖ–2öG–æÖ–75÷G—RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâöÖVÖ&W"÷F%÷G—RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâ÷&WÇ’÷&WÇ•÷6÷'E÷G—RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâ÷7öç6÷%ö&Æö6²÷6¶—÷G—RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2ö6öÖÖöâ÷7WW%÷&W6öÇWF–öå÷G—RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&òöÖöFVÇ2öG–æÖ–72÷&W7VÇBæF'Bp¢6†÷rG–æÖ–74FFÖöFVÂÂ—FVÔÖöGVÆW4ÖöFVÃ°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2ö6öÖÖöâ÷6Æ–FRö6öÖÖöå÷6Æ–FU÷vRæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2ö†öÖRö6öçG&öÆÆW"æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2öÖ–âö6öçG&öÆÆW"æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2÷6WGF–æröÖöFVÇ2öÖöFVÂæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2÷6WGF–ær÷v–FvWG2÷6VÆV7EöF–ÆöræF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2÷6WGF–ær÷v–FvWG2÷6Æ–FW%öF–ÆöræF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷vW2÷f–FVò÷&WÇ’÷v–FvWG2÷&WÇ•ö—FVÕöw'2æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷ÇVv–â÷Å÷Æ–W"ö6öçG&öÆÆW"æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷6W'f–6W2öF÷væÆöBöF÷væÆöE÷6W'f–6RæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2ö66÷VçG2æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2ö66†UöÖævW"æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2öW‡FVç6–öâöçVÕöW‡BæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2öfVVEö&6²æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2öf–ÇFW&–æu÷FW‡BæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2övÆö&ÅöFFæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2ö–ÖvU÷WF–Ç2æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷F…÷WF–Ç2æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷ÆFf÷&Õ÷WF–Ç2æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷7F÷&vRæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷7F÷&vUö¶W’æF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷7F÷&vU÷&VbæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷WFFRæF'Bs°¦–×÷'Bw6¶vS¥–Æ”'&ò÷WF–Ç2÷WF–Ç2æF'Bs°¦–×÷'Bw6¶vS¦f–ÆU÷–6¶W"öf–ÆU÷–6¶W"æF'Bs°¦–×÷'Bw6¶vS¦fÇWGFW"öf÷VæFF–öâæF'Br6†÷r´FV'VtÖöFS°¦–×÷'Bw6¶vS¦ÖFW&–Å÷V’öÖFW&–Å÷V’æF'Br†–FR&Vg&W6„–æF–6F÷#°¦–×÷'Bw6¶vS¦fÇWGFW"÷6W'f–6W2æF'Bs°¦–×÷'Bw6¶vS¦fÇWGFW%÷6Ö'EöF–ÆöröfÇWGFW%÷6Ö'EöF–ÆöræF'Bs°¦–×÷'Bw6¶vS¦föçEövW6öÖUöfÇWGFW"öföçEövW6öÖUöfÇWGFW"æF'Bs°¦–×÷'Bw6¶vS¦vWBövWBæF'Bs°¦–×÷'Bw6¶vS¦ÖFW&–ÅöFW6–våö–6öç5öfÇWGFW"öÖFW&–ÅöFW6–våö–6öç5öfÇWGFW"æF'Bs° ¤Æ—7CÅ6WGF–æw4ÖöFVÃâvWBW‡G&6WGF–æw2Óâ°¢–b…ÆFf÷&ÕWF–Ç2æ—4FW6·F÷’ââå°¢7v—F6„ÖöFVÂ€¢F—FÆS¢~˜X{®i{niÈ[şXÉbrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æW†—E÷Fõö’À¢6WD¶W“¢6WGF–æt&÷„¶W’æÖ–æ–Ö—¦TöäW†—BÀ¢FVfVÇEfÃ¢G'VRÀ¢öä6†ævVC¢‡fÇVR’°¢G'’°¢vWBæf–æCÄÖ–ä6öçG&öÆÆW#â‚’æÖ–æ–Ö—¦TöäW†—BÒfÇVS°¢Ò6F6‚…ò’·Ğ¢ÒÀ¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~{É>ZÙ‹zş[èBrÀ¢vWE7V'F—FÆS¢‚’ÓâF÷væÆöEF‚À¢ÆVF–æs¢6öç7B–6öâ„–6öç2ç7F÷&vR’À¢öåF¢÷6†÷tF÷våF„F–ÆörÀ¢’À¢ÒÀ¢7Æ—DÖöFVÂ€¢æ÷&ÖÄÖöFVÃ¢6öç7Bæ÷&ÖÄÖöFVÂç7Æ—B€¢F—FÆS¢~z›®™˜ŞXªh˜²rÀ¢7V'F—FÆS¢~x+X{¾˜XŞ{ÚîûÈÎ[»®ŠêîKùŞyYhÈK˜T”N[›nZH~K»ÒrÀ¢ÆVF–æs¢–6öâ„7W7FöÔ–6öç2ç6†–VÆE÷Æ•ö'&÷r’À¢’À¢7v—F6„ÖöFVÃ¢7v—F6„ÖöFVÂç7Æ—B€¢FVfVÇEfÃ¢G'VRÀ¢6WD¶W“¢6WGF–æt&÷„¶W’æVæ&ÆU7öç6÷$&Æö6²À¢öåF¢†6öçFW‡B’ÓâvWBçFôæÖVB‚r÷7öç6÷$&Æö6²r’À¢’À¢’À¢÷WÖöFVÃÅ6¶—G—Sâ€¢F—FÆS¢~yZ®Xš~ZKN[î‹{>‹ø~{¾Yè²rÀ¢ÆVF–æs¢6öç7B–6öâ„ÖF”–6öç2æFV'Vu7FW÷fW"’À¢fÇVS¢‚’Óâ&Vbçv56¶—G—RÀ¢—FV×3¢6¶—G—RçfÇVW2À¢öå6VÆV7FVC¢‡fÇVRÂ6WE7FFR’Óâu7F÷&vRç6WGF–æp¢çWB…6WGF–æt&÷„¶W’çv56¶—G—RÂfÇVRæ–æFW‚¢çv†Vä6ö×ÆWFR‡6WE7FFR’À¢’À¢7Æ—DÖöFVÂ€¢æ÷&ÖÄÖöFVÃ¢6öç7Bæ÷&ÖÄÖöFVÂç7Æ—B€¢F—FÆS¢~j8iú^iÊ®Šû¾XªhrÀ¢7V'F—FÆS¢~x+X{¾Šëî{Úîj8iú^YiÉşûÈzy.ûÈ’rÀ¢ÆVF–æs¢–6öâ„–6öç2ææ÷F–f–6F–öç5öæöæR’À¢’À¢7v—F6„ÖöFVÃ¢7v—F6„ÖöFVÂç7Æ—B€¢FVfVÇEfÃ¢G'VRÀ¢6WD¶W“¢6WGF–æt&÷„¶W’æ6†V6´G–æÖ–2À¢öä6†ævVC¢‡fÇVR’ÓâvWBæf–æCÄÖ–ä6öçG&öÆÆW#â‚’æ6†V6´G–æÖ–2ÒfÇVRÀ¢öåF¢÷6†÷tG–äF–ÆörÀ¢’À¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®Šxnš)Xˆnjë^KúhòrÀ¢ÆVF–æs¢–6öâ„7W7FöÔ–6öç2çf–Wuö†VFÆ–æU÷&÷FFUó“’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷uf–Wuö–çG2À¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Šxnš)š^i‹îzK®y»X[>Šxnš)rÀ¢ÆVF–æs¢–6öâ„ÖF”–6öç2æÖ÷F–öåÆ”÷WFÆ–æR’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷u&VÆFVEf–FVòÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®Šxnš)ŠøNŠë¢rÀ¢ÆVF–æs¢–6öâ„ÖF”–6öç2æ6öÖÖVçEFW‡D÷WFÆ–æR’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷uf–FVõ&WÇ’À¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®yZ®Xš~ŠøNŠë¢rÀ¢ÆVF–æs¢–6öâ„ÖF”–6öç2æ6öÖÖVçEFW‡D÷WFÆ–æR’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷t&æwVÖ•&WÇ’À¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~›¹ŠêN[^[ÈŠxnš)zèK¸²rÀ¢ÆVF–æs¢–6öâ„–6öç2æW‡æEöÖ÷&R’À¢6WD¶W“¢6WGF–æt&÷„¶W’æÇv—4W‡æD–çG&õæVÂÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~jŠ®[şˆz®Xª[^[ÈŠxnš)zèK¸²rÀ¢ÆVF–æs¢–6öâ„–6öç2æW‡æEöÖ÷&R’À¢6WD¶W“¢6WGF–æt&÷„¶W’æW‡æD–çG&õæVÄ‚À¢FVfVÇEfÃ¢G'VRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~jŠ®[şXˆeÎY™¸nX‰~Ši‹îzK®YÊ…F.jòrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æf÷&ÖEöÆ—7EöçVÖ&W&VE÷'FÅ÷6†'’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ†÷&—¦öçFÅ6V6öåæVÂÀ¢FVfVÇEfÃ¢&Vbæ†÷&—¦öçFÅ67&VVâÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~jŠ®[şi*ŞiKîš^YÊKê~jşh™>[ÈUK‹¾šRrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æ66÷VçEö6—&6ÆUö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ†÷&—¦öçFÄÖVÖ&W%vRÀ¢FVfVÇEfÃ¢&Vbæ†÷&—¦öçFÅ67&VVâÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~jŠ®[şYÊKê~jşh™>[ÈY»îx˜~š(NŠx‚rÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2ç†÷Fõö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ†÷&—¦öçFÅ&Wf–WrÀ¢FVfVÇEfÃ¢fÇ6RÀ¢öä6†ævVC¢‡fÇVR’Óâ–ÖvTw&–Ef–Wræ†÷&—¦öçFÅ&Wf–WrÒfÇVRÀ¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~ŠøNŠë®h©XúŠÎi[rÀ¢7V'F—FÆS¢sŠÎK‹®KˆŞh©XúrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æ6ö×&W72’À¢vWEG&–Æ–æs¢‡F†VÖR’ÓâFW‡B€¢rGµ&WÇ”—FVÔw'2ç&WÇ”ÆVæwF„Æ–Ö—GŞŠÂrÀ¢7G–ÆS¢F†VÖRçFW‡EF†VÖRçF—FÆU6ÖÆÂÀ¢’À¢öåF¢÷6†÷u&WÇ”ÆVæwF„F–ÆörÀ¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~[Ë[™^ŠÎš¹‚rÀ¢7V'F—FÆS¢~›¹ŠêCãbrÀ¢ÆVF–æs¢6öç7B–6öâ„7W7FöÔ–6öç2æFÕ÷6WGF–æw2’À¢vWEG&–Æ–æs¢‡F†VÖR’ÓâFW‡B€¢&VbæFæÖ·TÆ–æT†V–v‡BçFõ7G&–ær‚’À¢7G–ÆS¢F†VÖRçFW‡EF†VÖRçF—FÆU6ÖÆÂÀ¢’À¢öåF¢÷6†÷tFÔ†V–v‡DF–ÆörÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®Šxnš)ŠÚnY®K¨ŠêîKúhòrÀ¢ÆVF–æs¢–6öâ„–6öç2çv&æ–æuöÖ&W%÷&÷VæFVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷t&wVT×6rÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®XªhŠÚnY®K¨ŠêîKúhòrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2çv&æ–æuöÖ&W%÷&÷VæFVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷tG–äF—7WFRÀ¢FVfVÇEfÃ¢G'VRÀ¢öä6†ævVC¢‡fÂ’Óâ—FVÔÖöGVÆW4ÖöFVÂç6†÷tG–äF—7WFRÒfÂÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~XˆeşY™¸nûÉ®X	.[¨şi*ŞiKîK¸îšin™¸n[ÈZx¾i*ŞiKârÀ¢7V'F—FÆS¢~[ÈY
+şX‰ˆz®XªXˆ~hÚ.K‹®X	.[¨şšin™¸nûÈÎY
+nX‰KùŞhÈ[Ù>X˜Ş™¸brÀ¢ÆVF–æs¢–6öâ„ÖF”–6öç2ç6÷'B’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç&WfW'6Tg&öÔf—'7BÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~zhyJ‚54ÂŠøKšnš¨ÎŠørÀ¢7V'F—FÆS¢~‹
+hXî[ÈY
+şûÈÎzhyJXúşˆ;ŞKÉ®Xù~X‹Ö—DÒiK¾X{²rÀ¢ÆVF–æs¢–6öâ„–6öç2ç6V7W&—G’’À¢æVVE&V&ö÷C¢G'VRÀ¢6WD¶W“¢6WGF–æt&÷„¶W’æ&D6W'F–f–6FT6ÆÆ&6²À¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®{º~{ºŞi*ŞiKîXˆehùzK¢rÀ¢ÆVF–æs¢–6öâ„–6öç2æÆö6Å÷&¶–ær’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ6öçF–çVUÆ––æu'BÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢vWD&åv÷&DÖöFVÂ€¢F—FÆS¢~ŠøNŠë®X[>™JîŠøŞ‹ø~kºBrÀ¢¶W“¢6WGF–æt&÷„¶W’æ&åv÷&Df÷%&WÇ’À¢öä6†ævVC¢‡fÇVR’°¢&WÇ”w'2ç&WÇ•&VtW‡ÒfÇVS°¢&WÇ”w'2æVæ&ÆTf–ÇFW"ÒfÇVRçGFW&âæ—4æ÷DV×G“°¢ÒÀ¢’À¢vWD&åv÷&DÖöFVÂ€¢F—FÆS¢~XªhX[>™JîŠøŞ‹ø~kºBrÀ¢¶W“¢6WGF–æt&÷„¶W’æ&åv÷&Df÷$G–âÀ¢öä6†ævVC¢‡fÇVR’°¢G–æÖ–74FFÖöFVÂæ&åv÷&Df÷$G–âÒfÇVS°¢G–æÖ–74FFÖöFVÂæVæ&ÆTf–ÇFW"ÒfÇVRçGFW&âæ—4æ÷DV×G“°¢ÒÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~KÛşyJZIn˜:kXşŠxYšh™>[È™;îhêRrÀ¢ÆVF–æs¢–6öâ„–6öç2æ÷Våö–åö'&÷w6W"’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ÷Vä–ä'&÷w6W"À¢FVfVÇEfÃ¢fÇ6RÀ¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~jŠ®Y	k¹Xª™ˆXÂrÀ¢vWE7V'F—FÆS¢‚’Óâ~[Ù>X˜Ó®8ÂGµ&VbçF÷V6…6Æ÷‡Ş8ŞûÈÎ{;¾{¹ş›¹ŠêNXÃ¢FFWf–6UF÷V6…6Æ÷rÀ¢öåF¢÷6†÷uF÷V6…6Æ÷F–ÆörÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2çå÷FööÅöÇEö÷WFÆ–æVB’À¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~X‹~ikhÈ~zK®Yšš¹[ªbrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æ†V–v‡B’À¢vWE7V'F—FÆS¢‚’Óà¢~[Ù>X˜ŞhÈ~zK®Yšš¹[ªc¢Gµ&Vbç&Vg&W6„F—7Æ6VÖVçGÒÂX‹~ikk¹Xª‹yŞzk³¢G&Vg&W6„G&tW‡FVçBrÀ¢öåF¢÷6†÷u&Vg&W6„F–ÆörÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®KÉ®Y[Úˆ›.[Ë[™RrÀ¢ÆVF–æs¢–6öâ„ÖF”–6öç2æw&F–VçD†÷&—¦öçFÂ’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷uf—FæÖ·RÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Y[›n[Ë[™RrÀ¢7V'F—FÆS¢~Y[›nKˆjë^i{n™{NXh^ˆë~XùnX‹y¨Ny»YÎ[Ë[™RrÀ¢ÆVF–æs¢–6öâ„–6öç2æÖW&vR’À¢6WD¶W“¢6WGF–æt&÷„¶W’æÖW&vTFæÖ·RÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®x:Ş™zhêˆÙrÀ¢7V'F—FÆS¢~x:Ş™zš^™Ú.i‹îzK®jøşY[ø^yÈ¾zØhêˆÙXh^ZëXZ^Xú2rÀ¢ÆVF–æs¢–6öâ„–6öç2æÆö6Åöf—&UöFW'FÖVçEö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷t†÷E&6ÖBÀ¢FVfVÇEfÃ¢G'VRÀ¢æVVE&V&ö÷C¢G'VRÀ¢’À¢–b†´FV'VtÖöFRÇÂÆFf÷&Òæ—4æG&ö–B¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~™û>˜xşYØ~ŠrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æ×VÇF—G&6µöVF–ò’À¢vWE7V'F—FÆS¢‚’°¢f–æÂVF–ôæ÷&ÖÆ—¦F–öâÒVF–ôæ÷&ÖÆ—¦F–öâævWEF—FÆTg&öÔ6öæf–r€¢&VbæVF–ôæ÷&ÖÆ—¦F–öâÀ¢“°¢7G&–ærfÆÆ&6²Ò&VbæfÆÆ&6´æ÷&ÖÆ—¦F–öã°¢–b†fÆÆ&6²ÓÒsr’°¢fÆÆ&6²Òrs°¢ÒVÇ6R°¢fÆÆ&6²Ğ¢~ûÈÎizXø.i[i{c®8ÂG´VF–ôæ÷&ÖÆ—¦F–öâævWEF—FÆTg&öÔ6öæf–r†fÆÆ&6²—Ş8Òs°¢Ğ¢&WGW&â~[Ù>X˜Ó®8ÂFVF–ôæ÷&ÖÆ—¦F–öî8ÒFfÆÆ&6²s°¢ÒÀ¢öåF¢VF–ôæ÷&ÖÆ—¦F–öâÀ¢’À¢æ÷&ÖÄÖöFVÂ€¢F—FÆS¢~‹h^Xˆn‹êxèrrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2ç7F•ö7W'&VçEöÆæG66Uö÷WFÆ–æVB’À¢vWE7V'F—FÆS¢‚’Óà¢~[Ù>X˜Ó®8ÂGµ&Vbç7WW%&W6öÇWF–öåG—RæÆ&VÇŞ8ÕÆî›¹ŠêNŠëî{ÚîZûyZ®Xš~yIşiX‚ÂX[nK¹nŠxnš)›¹ŠêNX[>™zÕÆî‹h^Xˆn‹êxè~™ÈŠhY
+şyJzÎK»nŠz>zÂˆº^Y
+şyJzÎK»nŠz>zYîK¸ŞxKnKˆŞyIşiX‚Â[	ŞŠù^Xˆ~hÚ.zÎK»nŠz>zYšK‹¢WFòÖ6÷’rÀ¢öåF¢÷6†÷u7WW%&W6öÇWF–öäF–ÆörÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~hùX˜ŞX‰ŞZx¾XÉni*ŞiKîYš‚rÀ¢7V'F—FÆS¢~y»ZûXxş[	h˜¾Xªi*ŞiKîXª‹ÛŞi{n™{BrÀ¢ÆVF–æs¢–6öâ„–6öç2çÆ•ö6—&6ÆUö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç&T–æ—EÆ–W"À¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~šinš^Xˆ~hÚ.š^™Ú.XªyK²rÀ¢ÆVF–æs¢–6öâ„–6öç2æ†öÖUö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æÖ–åF$&%f–WrÀ¢FVfVÇEfÃ¢G'VRÀ¢æVVE&V&ö÷C¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i	Î{J.[»®ŠêârÀ¢ÆVF–æs¢–6öâ„–6öç2ç6V&6‚’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6V&6…7VvvW7F–öâÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Šë[Ù^i	Î{J.XènXû"rÀ¢ÆVF–æs¢–6öâ„–6öç2æ†—7F÷'’’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç&V6÷&E6V&6„†—7F÷'’À¢FVfVÇEfÃ¢G'VRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~[^zK®ZKNX8ş8ŠøNŠë®8XªhŠ8^š[rÀ¢ÆVF–æs¢6öç7B–6öâ„ÖF”–6öç2ç7F–6¶W$6—&6ÆT÷WFÆ–æR’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷tFV6÷&FRÀ¢FVfVÇEfÃ¢G'VRÀ¢öä6†ævVC¢‡fÇVR’ÓâVæFçDfF"ç6†÷tFV6÷&FRÒfÇVRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®{(K‰ŞX¸¾zºrÀ¢ÆVF–æs¢6öç7B–6öâ„ÖF”–6öç2æÖVFÄ÷WFÆ–æR’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷tÖVFÂÀ¢FVfVÇEfÃ¢G'VRÀ¢öä6†ævVC¢‡fÇVR’ÓâvÆö&ÄFF‚’ç6†÷tÖVFÂÒfÇVRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~š(NŠx‚Æ—fR†÷FòrÀ¢7V'F—FÆS¢~[ÈY
+şX‰Kº^Šxnš)[Ú.[Èşš(NŠx‚Æ—fR†÷FşûÈÎY
+nX‰š(NŠx™ÙhY»îx˜rrÀ¢ÆVF–æs¢6öç7B–6öâ„–6öç2æ–ÖvUö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æVæ&ÆTÆ—fU†÷FòÀ¢FVfVÇEfÃ¢G'VRÀ¢öä6†ævVC¢‡fÇVR’Óâ–ÖvTÖöFVÂæVæ&ÆTÆ—fU†÷FòÒfÇVRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~k¹Xª‹{>‹ÚÎš(NŠxŠxnš){ÊyZ^Y»ârÀ¢ÆVF–æs¢–6öâ„–6öç2ç&Wf–Wuö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷u6VVµ&Wf–WrÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~i‹îzK®š¹ˆ;Ş‹ù¾[ªniÚrÀ¢7V'F—FÆS¢~š¹ˆ;Ş‹ù¾[ªniÚXøŞ[©NK¨nYÊi{nYùşKˆ®ûÈÎXÙ^KØŞi{n™{NXh^[Ë[™^Xù˜˜xşy¨NXùXÉn‹h¾X«òrÀ¢ÆVF–æs¢–6öâ„–6öç2ç6†÷uö6†'B’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷tFÔ6†'BÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Šë[Ù^ŠøNŠë¢rÀ¢ÆVF–æs¢–6öâ„–6öç2æÖW76vUö÷WFÆ–æVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6fU&WÇ’À¢FVfVÇEfÃ¢G'VRÀ¢æVVE&V&ö÷C¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~XùŠøNXøŞŠø‚rÀ¢7V'F—FÆS¢~Xù˜ŠøNŠë®Yîj8iú^ŠøNŠë®iŠşY
+nXúşŠxrÀ¢ÆVF–æs¢–6öâ„7W7FöÔ–6öç2ç6†–VÆE÷&WÇ’’À¢6WD¶W“¢6WGF–æt&÷„¶W’æVæ&ÆT6öÖÔçF–g&VBÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢–b…ÆFf÷&Òæ—4æG&ö–B¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~KÛşyJ8ÎY9NY:XùŠøNXøŞŠø8Şj8iú^ŠøNŠë¢rÀ¢7V'F—FÆS¢~ˆº^iÊ®ZèŠ8^Šú^[©NyJûÈÎXúşˆ;ŞKÉ®ZûÎˆ{NKˆ®Kˆ[ÈX[>ZKiXûÉ¾KØnY:^Y:^zyh¨x˜[{.{¸ş{É>Šz>Šú^™zîš)ûÈrÀ¢ÆVF–æs¢–6öâ€¢föçDvW6öÖT–6öç2æ"À¢6—¦S¢#"À¢’À¢6WD¶W“¢6WGF–æt&÷„¶W’æ&–Æ•6VæD6öÖÔçF–g&VBÀ¢FVfVÇEfÃ¢fÇ6RÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Xù[ˆ2ş‹ÚÎXùXªhXøŞŠø‚rÀ¢7V'F—FÆS¢~Xù[ˆ2ş‹ÚÎXùXªhYîj8iú^XªhiŠşY
+nXúşŠxrÀ¢ÆVF–æs¢–6öâ„7W7FöÔ–6öç2ç6†–VÆE÷V&Æ—6†VB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æVæ&ÆT7&VFTG–äçF–g&VBÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~[ş‰KŞ[Šn‹J~XªhrÀ¢ÆVF–æs¢6öç7B–6öâ„7W7FöÔ–6öç2ç6†÷–æuö&uöæ÷Eö–çFW&W7FVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æçF”vööG4G–âÀ¢FVfVÇEfÃ¢fÇ6RÀ¢öä6†ævVC¢‡fÇVR’ÓâG–æÖ–74FFÖöFVÂæçF”vööG4G–âÒfÇVRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~[ş‰KŞ[Šn‹J~ŠøNŠë¢rÀ¢ÆVF–æs¢6öç7B–6öâ„7W7FöÔ–6öç2ç6†÷–æuö&uöæ÷Eö–çFW&W7FVB’À¢6WD¶W“¢6WGF–æt&÷„¶W’æçF”vööG5&WÇ’À¢FVfVÇEfÃ¢fÇ6RÀ¢öä6†ævVC¢‡fÇVR’Óâ&WÇ”w'2æçF”vööG5&WÇ’ÒfÇVRÀ¢’À¢7v—F6„ÖöFVÂ€¢F—FÆS¢~Kê~k¹X[>™zŞK¨Î{ª~š^™Ú"rÀ¢ÆVF–æs¢6öç7B–6öâ„7W7FöÔ–6öç2çF÷V6…ö÷&÷FFUó#s’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6Æ–FTF—6Ö—75&WÇ•vRÀ¢FVfVÇEfÃ¢ÆFf÷&Òæ—4”õ2À¢öä6†ævVC¢‡fÇVR’Óâ6öÖÖöå6Æ–FTÖ—†–âç6Æ–FTF—6Ö—75&WÇ•vRÒfÇVRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~Y
+şyJXøÎhÈ~{Ê[şŠxnš)rÀ¢ÆVF–æs¢–6öâ„–6öç2ç–æ6‚’À¢6WD¶W“¢6WGF–æt&÷„¶W’æVæ&ÆU6‡&–æµf–FVõ6—¦RÀ¢FVfVÇEfÃ¢G'VRÀ¢’À¢6öç7B7v—F6„ÖöFVÂ€¢F—FÆS¢~XªhşK‰>jşŠúnh8^š^[^zK®[©^˜:i8ŞKÙÎjòrÀ¢ÆVF–æs¢–6öâ„–6öç2æÖ÷&Uö†÷&—¢’À¢6WD¶W“¢6WGF–æt&÷„¶W’ç6†÷tG–ä7F–öä&"À¢FVfVÇEfÃ¢G'VRÀ¢’Íô÷Ëh‘éì¶»§q«^t¹‰…¬ ¤ì(€€€€€€€€€€€UÑ¥±Ì¹½ÁåQ•áĞ¡‘½İ¹±½…‘A…Ñ ¤ì(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ–’7–"Øœ°ÍÑå±”èQ•áÑMÑå±”¡™½¹ÑM¥é”è€ÄĞ¤¤°(€€€€€€€€¤°(€€€€€€€¥…±½=ÁÑ¥½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤ì(€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€™¥¹…°‘•™A…Ñ €ô‘•™½İ¹±½…‘A…Ñ ì(€€€€€€€€€€€¥˜€¡‘½İ¹±½…‘A…Ñ €ôô‘•™A…Ñ ¤É•ÑÕÉ¸ì(€€€€€€€€€€€‘½İ¹±½…‘A…Ñ €ô‘•™A…Ñ ì(€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€•Ğ¹™¥¹ñ½İ¹±½…‘M•ÉÙ¥”ø ¤¹¥¹¥Ñ½İ¹±½…‘1¥ÍĞ ¤ì(€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹‘•±•Ñ”¡M•ÑÑ¥¹	½á-•ä¹‘½İ¹±½…‘A…Ñ ¤ì(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ¦7ö¸œ°ÍÑå±”èQ•áÑMÑå±”¡™½¹ÑM¥é”è€ÄĞ¤¤°(€€€€€€€€¤°(€€€€€€€¥…±½=ÁÑ¥½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤…Íå¹Œì(€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€™¥¹…°Á…Ñ €ô…İ…¥Ğ¥±•A¥­•È¹•Ñ¥É•Ñ½ÉåA…Ñ  ¤ì(€€€€€€€€€€€¥˜€¡Á…Ñ €ôô¹Õ±°ñğÁ…Ñ €ôô‘½İ¹±½…‘A…Ñ ¤É•ÑÕÉ¸ì(€€€€€€€€€€€‘½İ¹±½…‘A…Ñ €ôÁ…Ñ ì(€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€•Ğ¹™¥¹ñ½İ¹±½…‘M•ÉÙ¥”ø ¤¹¥¹¥Ñ½İ¹±½…‘1¥ÍĞ ¤ì(€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹‘½İ¹±½…‘A…Ñ °Á…Ñ ¤ì(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ¢ºûö»šZÃ¢Ş¿–úœ°ÍÑå±”èQ•áÑMÑå±”¡™½¹ÑM¥é”è€ÄĞ¤¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()Ù½¥}Í¡½İå¹¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ¤ì(€MÑÉ¥¹œ‘å¹…µ¥A•É¥½€ô€¡AÉ•˜¹‘å¹…µ¥A•É¥½ø¼€ÄÀÀÀ¤¹Ñ½MÑÉ¥¹œ ¤ì(€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿšš~—–F£šr|œ¤°(€€€€€½¹Ñ•¹ĞèQ•áÑ½Éµ¥•± (€€€€€€€…ÕÑ½™½ÕÌèÑÉÕ”°(€€€€€€€¥¹¥Ñ¥…±Y…±Õ”è‘å¹…µ¥A•É¥½°(€€€€€€€­•å‰½…É‘QåÁ”èQ•áÑ%¹ÁÕÑQåÁ”¹¹Õµ‰•È°(€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤€ôø‘å¹…µ¥A•É¥½€ôÙ…±Õ”°(€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌèm¥±Ñ•É¥¹Q•áÑ%¹ÁÕÑ½Éµ…ÑÑ•È¹‘¥¥ÑÍ=¹±åt°(€€€€€€€‘•½É…Ñ¥½¸è½¹ÍĞ%¹ÁÕÑ•½É…Ñ¥½¸¡ÍÕ™™¥áQ•áĞè€Ìœ¤°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤ì(€€€€€€€€€€€ÑÉäì(€€€€€€€€€€€€€™¥¹…°Ù…°€ô¥¹Ğ¹Á…ÉÍ”¡‘å¹…µ¥A•É¥½¤€¨€ÄÀÀÀì(€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹‘å¹…µ¥A•É¥½°Ù…°¤ì(€€€€€€€€€€€€€•Ğ¹™¥¹ñ5…¥¹½¹ÑÉ½±±•Èø ¤¹Í•Ñå¹…µ¥A•É¥½¡Ù…°¤ì(€€€€€€€€€€€ô…Ñ €¡”¤ì(€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ¡”¹Ñ½MÑÉ¥¹œ ¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»–ºhœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()Ù½¥}Í¡½İI•Á±å1•¹Ñ¡¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”¤ì(€MÑÉ¥¹œÉ•Á±å1•¹Ñ¡1¥µ¥Ğ€ôI•Á±å%Ñ•µÉÁŒ¹É•Á±å1•¹Ñ¡1¥µ¥Ğ¹Ñ½MÑÉ¥¹œ ¤ì(€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ¢¾¢ºëš*c–>ƒ¢†3šVÀœ¤°(€€€€€½¹Ñ•¹ĞèQ•áÑ½Éµ¥•± (€€€€€€€…ÕÑ½™½ÕÌèÑÉÕ”°(€€€€€€€¥¹¥Ñ¥…±Y…±Õ”èÉ•Á±å1•¹Ñ¡1¥µ¥Ğ°(€€€€€€€­•å‰½…É‘QåÁ”èQ•áÑ%¹ÁÕÑQåÁ”¹¹Õµ‰•È°(€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤€ôøÉ•Á±å1•¹Ñ¡1¥µ¥Ğ€ôÙ…±Õ”°(€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌèm¥±Ñ•É¥¹Q•áÑ%¹ÁÕÑ½Éµ…ÑÑ•È¹‘¥¥ÑÍ=¹±åt°(€€€€€€€‘•½É…Ñ¥½¸è½¹ÍĞ%¹ÁÕÑ•½É…Ñ¥½¸¡ÍÕ™™¥áQ•áĞè€Ÿ¢†0œ¤°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤…Íå¹Œì(€€€€€€€€€€€ÑÉäì(€€€€€€€€€€€€€™¥¹…°Ù…°€ô¥¹Ğ¹Á…ÉÍ”¡É•Á±å1•¹Ñ¡1¥µ¥Ğ¤ì(€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€I•Á±å%Ñ•µÉÁŒ¹É•Á±å1•¹Ñ¡1¥µ¥Ğ€ôÙ…°€ôô€À€ü¹Õ±°€èÙ…°ì(€€€€€€€€€€€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•Á±å1•¹Ñ¡1¥µ¥Ğ°Ù…°¤ì(€€€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€ô…Ñ €¡”¤ì(€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ¡”¹Ñ½MÑÉ¥¹œ ¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»–ºhœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()Ù½¥}Í¡½İµ!•¥¡Ñ¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”¤ì(€MÑÉ¥¹œ‘…¹µ…­Õ1¥¹•!•¥¡Ğ€ôAÉ•˜¹‘…¹µ…­Õ1¥¹•!•¥¡Ğ¹Ñ½MÑÉ¥¹œ ¤ì(€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ–òç–æW¢†3¦®`œ¤°(€€€€€½¹Ñ•¹ĞèQ•áÑ½Éµ¥•± (€€€€€€€…ÕÑ½™½ÕÌèÑÉÕ”°(€€€€€€€¥¹¥Ñ¥…±Y…±Õ”è‘…¹µ…­Õ1¥¹•!•¥¡Ğ°(€€€€€€€­•å‰½…É‘QåÁ”è½¹ÍĞ€¹¹Õµ‰•É]¥Ñ¡=ÁÑ¥½¹Ì¡‘•¥µ…°èÑÉÕ”¤°(€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤€ôø‘…¹µ…­Õ1¥¹•!•¥¡Ğ€ôÙ…±Õ”°(€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌè¥±Ñ•É¥¹Q•áĞ¹‘•¥µ…°°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤…Íå¹Œì(€€€€€€€€€€€ÑÉäì(€€€€€€€€€€€€€™¥¹…°Ù…°€ôµ…à (€€€€€€€€€€€€€€€€Ä¸À°(€€€€€€€€€€€€€€€‘½Õ‰±”¹Á…ÉÍ”¡‘…¹µ…­Õ1¥¹•!•¥¡Ğ¤¹Ñ½AÉ•¥Í¥½¸ Ä¤°(€€€€€€€€€€€€€€¤ì(€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹‘…¹µ…­Õ1¥¹•!•¥¡Ğ°Ù…°¤ì(€€€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€ô…Ñ €¡”¤ì(€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ¡”¹Ñ½MÑÉ¥¹œ ¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»–ºhœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()Ù½¥}Í¡½İQ½Õ¡M±½Á¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”¤ì(€MÑÉ¥¹œ¥¹¥Ñ¥…±Y…±Õ”€ôAÉ•˜¹Ñ½Õ¡M±½Á ¹Ñ½MÑÉ¥¹œ ¤ì(€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿš¢«–BGšîG–*£¦b#–ğœ¤°(€€€€€½¹Ñ•¹ĞèQ•áÑ½Éµ¥•± (€€€€€€€…ÕÑ½™½ÕÌèÑÉÕ”°(€€€€€€€¥¹¥Ñ¥…±Y…±Õ”è¥¹¥Ñ¥…±Y…±Õ”°(€€€€€€€­•å‰½…É‘QåÁ”è½¹ÍĞ€¹¹Õµ‰•É]¥Ñ¡=ÁÑ¥½¹Ì¡‘•¥µ…°èÑÉÕ”¤°(€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤€ôø¥¹¥Ñ¥…±Y…±Õ”€ôÙ…±Õ”°(€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌè¥±Ñ•É¥¹Q•áĞ¹‘•¥µ…°°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤…Íå¹Œì(€€€€€€€€€€€ÑÉäì(€€€€€€€€€€€€€™¥¹…°Ù…°€ô‘½Õ‰±”¹Á…ÉÍ”¡¥¹¥Ñ¥…±Y…±Õ”¤ì(€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€Ñ½Õ¡M±½Á €ôÙ…°ì(€€€€€€€€€€€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹Ñ½Õ¡M±½Á °Ù…°¤ì(€€€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€ô…Ñ €¡”¤ì(€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ¡”¹Ñ½MÑÉ¥¹œ ¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»–ºhœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İI•™É•Í¡¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñ‘½Õ‰±”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM±¥‘•É¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ–"ßšZÃš2’ë–f£¦®c–ê˜œ¤°(€€€€€µ¥¸è€ÄÀ¸À°(€€€€€µ…àè€ÄÀÀ¸À°(€€€€€‘¥Ù¥Í¥½¹Ìè€ä°(€€€€€Ù…±Õ”èAÉ•˜¹É•™É•Í¡¥ÍÁ±…•µ•¹Ğ°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€‘¥ÍÁ±…•µ•¹Ğ€ôÉ•Ìì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•™É•Í¡¥ÍÁ±…•µ•¹Ğ°É•Ì¤ì(€€€¥˜€¡]¥‘•ÑÍ	¥¹‘¥¹œ¹¥¹ÍÑ…¹”¹É½½Ñ±•µ•¹Ğ…Í”™¥¹…°½¹Ñ•áĞü¤ì(€€€€€½¹Ñ•áĞ¹Ù¥Í¥Ñ¡¥±‘±•µ•¹ÑÌ¡}Ù¥Í¥Ñ½È¤ì(€€€ô(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()Ù½¥}Ù¥Í¥Ñ½È¡±•µ•¹Ğ½¹Ñ•áĞ¤ì(€¥˜€ …½¹Ñ•áĞ¹µ½Õ¹Ñ•¤É•ÑÕÉ¸ì(€¥˜€¡½¹Ñ•áĞ¹İ¥‘•Ğ¥ÌI•™É•Í¡%¹‘¥…Ñ½È¤ì(€€€½¹Ñ•áĞ¹µ…É­9••‘Í	Õ¥± ¤ì(€ô•±Í”ì(€€€½¹Ñ•áĞ¹Ù¥Í¥Ñ¡¥±‘É•¸¡}Ù¥Í¥Ñ½È¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İMÕÁ•ÉI•Í½±ÕÑ¥½¹¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñMÕÁ•ÉI•Í½±ÕÑ¥½¹QåÁ”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM•±•Ñ¥…±½œñMÕÁ•ÉI•Í½±ÕÑ¥½¹QåÁ”ø (€€€€€Ñ¥Ñ±”è€Ÿ¢Ú–"¢ú£:œ°(€€€€€Ù…±Õ”èAÉ•˜¹ÍÕÁ•ÉI•Í½±ÕÑ¥½¹QåÁ”°(€€€€€Ù…±Õ•ÌèMÕÁ•ÉI•Í½±ÕÑ¥½¹QåÁ”¹Ù…±Õ•Ì¹µ…À ¡”¤€ôø€¡”°”¹±…‰•°¤¤¹Ñ½1¥ÍĞ ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ (€€€€€M•ÑÑ¥¹	½á-•ä¹ÍÕÁ•ÉI•Í½±ÕÑ¥½¹QåÁ”°(€€€€€É•Ì¹¥¹‘•à°(€€€€¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İ…Ù¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ¤…Íå¹Œì(€¥˜€¡½Õ¹ÑÌ¹µ…¥¸¹¥Í1½¥¸¤ì(€€€™¥¹…°É•Ì€ô…İ…¥Ğ…Ù!ÑÑÀ¹…±±…Ù½±‘•ÉÌ¡½Õ¹ÑÌ¹µ…¥¸¹µ¥¤ì(€€€¥˜€¡É•Ì…Í”MÕ•ÍÌ é™¥¹…°É•ÍÁ½¹Í”¤¤ì(€€€€€™¥¹…°±¥ÍĞ€ôÉ•ÍÁ½¹Í”¹±¥ÍĞì(€€€€€¥˜€¡±¥ÍĞ€ôô¹Õ±°ñğ±¥ÍĞ¹¥ÍµÁÑä¤ì(€€€€€€€É•ÑÕÉ¸ì(€€€€€ô(€€€€€™¥¹…°ÅÕ¥­…Ù%€ôAÉ•˜¹ÅÕ¥­…Ù%ì(€€€€€¥˜€ …½¹Ñ•áĞ¹µ½Õ¹Ñ•¤É•ÑÕÉ¸ì(€€€€€Í¡½İ¥…±½œ (€€€€€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€€€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€€€€€±¥Á	•¡…Ù¥½Èè±¥À¹¡…É‘‘”°(€€€€€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ¦'š.§¦îc¢º“šRÛ¢^?–’äœ¤°(€€€€€€€€€½¹Ñ•¹ÑA…‘‘¥¹œè½¹ÍĞ‘•%¹Í•ÑÌ¹½¹±ä¡Ñ½Àè€Ô°‰½ÑÑ½´è€Äà¤°(€€€€€€€€€½¹Ñ•¹ĞèM¥¹±•¡¥±‘MÉ½±±Y¥•Ü (€€€€€€€€€€€¡¥±èI…‘¥½É½ÕÀ (€€€€€€€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤ì(€€€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹ÅÕ¥­…Ù%°Ù…±Õ”¤ì(€€€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ Ÿ¢ºûö»š"C–*|œ¤ì(€€€€€€€€€€€€€ô°(€€€€€€€€€€€€€É½ÕÁY…±Õ”èÅÕ¥­…Ù%°(€€€€€€€€€€€€€¡¥±è½±Õµ¸ (€€€€€€€€€€€€€€€¡¥±‘É•¸è±¥ÍĞ(€€€€€€€€€€€€€€€€€€€€¹µ…À (€€€€€€€€€€€€€€€€€€€€€€¡¥Ñ•´¤€ôøI…‘¥½1¥ÍÑQ¥±” (€€€€€€€€€€€€€€€€€€€€€€€Ñ½±•…‰±”èÑÉÕ”°(€€€€€€€€€€€€€€€€€€€€€€€‘•¹Í”èÑÉÕ”°(€€€€€€€€€€€€€€€€€€€€€€€Ñ¥Ñ±”èQ•áĞ¡¥Ñ•´¹Ñ¥Ñ±”¤°(€€€€€€€€€€€€€€€€€€€€€€€Ù…±Õ”è¥Ñ•´¹¥°(€€€€€€€€€€€€€€€€€€€€€€¤°(€€€€€€€€€€€€€€€€€€€€¤(€€€€€€€€€€€€€€€€€€€€¹Ñ½1¥ÍĞ ¤°(€€€€€€€€€€€€€€¤°(€€€€€€€€€€€€¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€¤ì(€€€ô•±Í”ì(€€€€€É•Ì¹Ñ½…ÍĞ ¤ì(€€€ô(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İI•Á±å½Õ¹Ñ¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñ‘½Õ‰±”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM±¥‘•É¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ¢ş{š:—¦7¢¾Wš²‡šVÀœ¤°(€€€€€µ¥¸è€À°(€€€€€µ…àè€à°(€€€€€‘¥Ù¥Í¥½¹Ìè€à°(€€€€€ÁÉ•¥Í”è€À°(€€€€€Ù…±Õ”èAÉ•˜¹É•ÑÉå½Õ¹Ğ¹Ñ½½Õ‰±” ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•ÑÉå½Õ¹Ğ°É•Ì¹Ñ½%¹Ğ ¤¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ Ÿ¦7–B¿RšV œ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İI•Á±å•±…å¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñ‘½Õ‰±”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM±¥‘•É¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ¢ş{š:—¦7¢¾W¦^Ó¦jPœ¤°(€€€€€µ¥¸è€À°(€€€€€µ…àè€ÄÀÀÀ°(€€€€€‘¥Ù¥Í¥½¹Ìè€ÄÀ°(€€€€€ÁÉ•¥Í”è€À°(€€€€€Ù…±Õ”èAÉ•˜¹É•ÑÉå•±…ä¹Ñ½½Õ‰±” ¤°(€€€€€ÍÕ™™¥àè€µÌœ°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•ÑÉå•±…ä°É•Ì¹Ñ½%¹Ğ ¤¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ Ÿ¦7–B¿RšV œ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İI•Á±åM½ÉÑ¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñI•Á±åM½ÉÑQåÁ”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM•±•Ñ¥…±½œñI•Á±åM½ÉÑQåÁ”ø (€€€€€Ñ¥Ñ±”è€Ÿ¢¾¢ºë–ÆW’èœ°(€€€€€Ù…±Õ”èAÉ•˜¹É•Á±åM½ÉÑQåÁ”°(€€€€€Ù…±Õ•ÌèI•Á±åM½ÉÑQåÁ”¹Ù…±Õ•Ì¹Ñ…­” È¤¹µ…À ¡”¤€ôø€¡”°”¹Ñ¥Ñ±”¤¤¹Ñ½1¥ÍĞ ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•Á±åM½ÉÑQåÁ”°É•Ì¹¥¹‘•à¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İI•Á±äÉM½ÉÑ¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñI•Á±åM½ÉÑQåÁ”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM•±•Ñ¥…±½œñI•Á±åM½ÉÑQåÁ”ø (€€€€€Ñ¥Ñ±”è€Ÿ’ê3êŸ¢¾¢ºë–ÆW’èœ°(€€€€€Ù…±Õ”èAÉ•˜¹É•Á±äÉM½ÉÑQåÁ”°(€€€€€Ù…±Õ•ÌèI•Á±åM½ÉÑQåÁ”¹Ù…±Õ•Ì(€€€€€€€€€€¹Ñ…­” È¤(€€€€€€€€€€¹µ…À ¡”¤€ôø€¡”°”¹É•Á±äÉQ¥Ñ±”¤¤(€€€€€€€€€€¹Ñ½1¥ÍĞ ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹É•Á±äÉM½ÉÑQåÁ”°É•Ì¹¥¹‘•à¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İ•™å¹¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñå¹…µ¥ÍQ…‰QåÁ”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM•±•Ñ¥…±½œñå¹…µ¥ÍQ…‰QåÁ”ø (€€€€€Ñ¥Ñ±”è€Ÿ–*£š–ÆW’èœ°(€€€€€Ù…±Õ”èAÉ•˜¹‘•™…Õ±Ñå¹…µ¥QåÁ”°(€€€€€Ù…±Õ•Ìèå¹…µ¥ÍQ…‰QåÁ”¹Ù…±Õ•Ì¹Ñ…­” Ğ¤¹µ…À ¡”¤€ôø€¡”°”¹±…‰•°¤¤¹Ñ½1¥ÍĞ ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ (€€€€€M•ÑÑ¥¹	½á-•ä¹‘•™…Õ±Ñå¹…µ¥QåÁ”°(€€€€€É•Ì¹¥¹‘•à°(€€€€¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()ÕÑÕÉ”ñÙ½¥ø}Í¡½İ5•µ‰•ÉQ…‰¥…±½œ (€	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°(€Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”°(¤…Íå¹Œì(€™¥¹…°É•Ì€ô…İ…¥ĞÍ¡½İ¥…±½œñ5•µ‰•ÉQ…‰QåÁ”ø (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôøM•±•Ñ¥…±½œñ5•µ‰•ÉQ…‰QåÁ”ø (€€€€€Ñ¥Ñ±”è€ŸR£š"ß¦†×¦îc¢º“–ÆW’éQœ°(€€€€€Ù…±Õ”èAÉ•˜¹µ•µ‰•ÉQ…ˆ°(€€€€€Ù…±Õ•Ìè5•µ‰•ÉQ…‰QåÁ”¹Ù…±Õ•Ì¹µ…À ¡”¤€ôø€¡”°”¹Ñ¥Ñ±”¤¤¹Ñ½1¥ÍĞ ¤°(€€€€¤°(€€¤ì(€¥˜€¡É•Ì€„ô¹Õ±°¤ì(€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ¡M•ÑÑ¥¹	½á-•ä¹µ•µ‰•ÉQ…ˆ°É•Ì¹¥¹‘•à¤ì(€€€Í•ÑMÑ…Ñ” ¤ì(€ô)ô()Ù½¥}Í¡½İAÉ½áå¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ¤ì(€MÑÉ¥¹œÍåÍÑ•µAÉ½áå!½ÍĞ€ôAÉ•˜¹ÍåÍÑ•µAÉ½áå!½ÍĞì(€MÑÉ¥¹œÍåÍÑ•µAÉ½áåA½ÉĞ€ôAÉ•˜¹ÍåÍÑ•µAÉ½áåA½ÉĞì((€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿ¢ºûö»’îBœ¤°(€€€€€½¹Ñ•¹Ğè½±Õµ¸ (€€€€€€€µ…¥¹á¥ÍM¥é”è5…¥¹á¥ÍM¥é”¹µ¥¸°(€€€€€€€¡¥±‘É•¸èl(€€€€€€€€€½¹ÍĞM¥é•‘	½à¡¡•¥¡Ğè€Ø¤°(€€€€€€€€€Q•áÑ½Éµ¥•± (€€€€€€€€€€€¥¹¥Ñ¥…±Y…±Õ”èÍåÍÑ•µAÉ½áå!½ÍĞ°(€€€€€€€€€€€‘•½É…Ñ¥½¸è½¹ÍĞ%¹ÁÕÑ•½É…Ñ¥½¸ (€€€€€€€€€€€€€¥Í•¹Í”èÑÉÕ”°(€€€€€€€€€€€€€±…‰•±Q•áĞè€Ÿ¢¾ß¢úO–•!½ÍÓ¾ò3’öÿR €¸ƒ–"–&Èœ°(€€€€€€€€€€€€€‰½É‘•Èè=ÕÑ±¥¹•%¹ÁÕÑ	½É‘•È (€€€€€€€€€€€€€€€‰½É‘•ÉI…‘¥ÕÌè	½É‘•ÉI…‘¥ÕÌ¹…±°¡I…‘¥ÕÌ¹¥ÉÕ±…È Ø¤¤°(€€€€€€€€€€€€€€¤°(€€€€€€€€€€€€¤°(€€€€€€€€€€€½¹¡…¹•è€¡”¤€ôøÍåÍÑ•µAÉ½áå!½ÍĞ€ô”°(€€€€€€€€€€¤°(€€€€€€€€€½¹ÍĞM¥é•‘	½à¡¡•¥¡Ğè€ÄÀ¤°(€€€€€€€€€Q•áÑ½Éµ¥•± (€€€€€€€€€€€¥¹¥Ñ¥…±Y…±Õ”èÍåÍÑ•µAÉ½áåA½ÉĞ°(€€€€€€€€€€€­•å‰½…É‘QåÁ”èQ•áÑ%¹ÁÕÑQåÁ”¹¹Õµ‰•È°(€€€€€€€€€€€‘•½É…Ñ¥½¸è½¹ÍĞ%¹ÁÕÑ•½É…Ñ¥½¸ (€€€€€€€€€€€€€¥Í•¹Í”èÑÉÕ”°(€€€€€€€€€€€€€±…‰•±Q•áĞè€Ÿ¢¾ß¢úO–•A½ÉĞœ°(€€€€€€€€€€€€€‰½É‘•Èè=ÕÑ±¥¹•%¹ÁÕÑ	½É‘•È¡‰½É‘•ÉI…‘¥ÕÌè€¹…±° ¹¥ÉÕ±…È Ø¤¤¤°(€€€€€€€€€€€€¤°(€€€€€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌèm¥±Ñ•É¥¹Q•áÑ%¹ÁÕÑ½Éµ…ÑÑ•È¹‘¥¥ÑÍ=¹±åt°(€€€€€€€€€€€½¹¡…¹•è€¡”¤€ôøÍåÍÑ•µAÉ½áåA½ÉĞ€ô”°(€€€€€€€€€€¤°(€€€€€€€t°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤ì(€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ (€€€€€€€€€€€€€M•ÑÑ¥¹	½á-•ä¹ÍåÍÑ•µAÉ½áå!½ÍĞ°(€€€€€€€€€€€€€ÍåÍÑ•µAÉ½áå!½ÍĞ°(€€€€€€€€€€€€¤ì(€€€€€€€€€€€MÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ (€€€€€€€€€€€€€M•ÑÑ¥¹	½á-•ä¹ÍåÍÑ•µAÉ½áåA½ÉĞ°(€€€€€€€€€€€€€ÍåÍÑ•µAÉ½áåA½ÉĞ°(€€€€€€€€€€€€¤ì(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»¢ºœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô()Ù½¥}Í¡½İ…¡•¥…±½œ¡	Õ¥±‘½¹Ñ•áĞ½¹Ñ•áĞ°Y½¥‘…±±‰…¬Í•ÑMÑ…Ñ”¤ì(€MÑÉ¥¹œÙ…±Õ•MÑÈ€ô€œœì(€Í¡½İ¥…±½œ (€€€½¹Ñ•áĞè½¹Ñ•áĞ°(€€€‰Õ¥±‘•Èè€¡½¹Ñ•áĞ¤€ôø±•ÉÑ¥…±½œ (€€€€€Ñ¥Ñ±”è½¹ÍĞQ•áĞ Ÿšr–’ŸòO–¶c–’Ÿ–Â<œ¤°(€€€€€½¹Ñ•¹ĞèQ•áÑ¥•± (€€€€€€€…ÕÑ½™½ÕÌèÑÉÕ”°(€€€€€€€½¹¡…¹•è€¡Ù…±Õ”¤€ôøÙ…±Õ•MÑÈ€ôÙ…±Õ”°(€€€€€€€­•å‰½…É‘QåÁ”èQ•áÑ%¹ÁÕÑQåÁ”¹¹Õµ‰•È°(€€€€€€€¥¹ÁÕÑ½Éµ…ÑÑ•ÉÌè¥±Ñ•É¥¹Q•áĞ¹‘•¥µ…°°(€€€€€€€‘•½É…Ñ¥½¸è½¹ÍĞ%¹ÁÕÑ•½É…Ñ¥½¸¡ÍÕ™™¥áQ•áĞè€5œ¤°(€€€€€€¤°(€€€€€…Ñ¥½¹Ìèl(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è•Ğ¹‰…¬°(€€€€€€€€€¡¥±èQ•áĞ (€€€€€€€€€€€€Ÿ–>[šÚ œ°(€€€€€€€€€€€ÍÑå±”èQ•áÑMÑå±”¡½±½Èè½±½ÉM¡•µ”¹½˜¡½¹Ñ•áĞ¤¹½ÕÑ±¥¹”¤°(€€€€€€€€€€¤°(€€€€€€€€¤°(€€€€€€€Q•áÑ	ÕÑÑ½¸ (€€€€€€€€€½¹AÉ•ÍÍ•è€ ¤…Íå¹Œì(€€€€€€€€€€€ÑÉäì(€€€€€€€€€€€€€™¥¹…°Ù…°€ô¹Õ´¹Á…ÉÍ”¡Ù…±Õ•MÑÈ¤ì(€€€€€€€€€€€€€•Ğ¹‰…¬ ¤ì(€€€€€€€€€€€€€…İ…¥ĞMÑ½É…”¹Í•ÑÑ¥¹œ¹ÁÕĞ (€€€€€€€€€€€€€€€M•ÑÑ¥¹	½á-•ä¹µ…á…¡•M¥é”°(€€€€€€€€€€€€€€€Ù…°€¨€ Ä€ğğ€ÈÀ¤°(€€€€€€€€€€€€€€¤ì(€€€€€€€€€€€€€Í•ÑMÑ…Ñ” ¤ì(€€€€€€€€€€€ô…Ñ €¡”¤ì(€€€€€€€€€€€€€Mµ…ÉÑ¥…±½œ¹Í¡½İQ½…ÍĞ¡”¹Ñ½MÑÉ¥¹œ ¤¤ì(€€€€€€€€€€€ô(€€€€€€€€€ô°(€€€€€€€€€¡¥±è½¹ÍĞQ•áĞ Ÿ†»–ºhœ¤°(€€€€€€€€¤°(€€€€€t°(€€€€¤°(€€¤ì)ô(

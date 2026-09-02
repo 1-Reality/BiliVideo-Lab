@@ -91,22 +91,14 @@ class _PayCoinsPageState extends State<PayCoinsPage>
 
   final num? _coins = GlobalData().coins;
 
-  bool _canPay(int index) {
-    if (index == 1 && widget.hasCoin) {
-      return false;
-    }
-    if (_coins == null || _coins >= 1 + index) {
-      return true;
-    }
-    return false;
-  }
+  bool _canPay(int index) =>
+      (index != 1 || !widget.hasCoin) &&
+      (_coins == null || _coins >= index + 1);
 
-  String _getPayImage(int index, bool canPay) {
-    if (!canPay) {
-      return Assets.notEnough;
-    }
-    return index == 0 ? Assets.mario : Assets.gunSister;
-  }
+  String _getPayImage(int index, bool canPay) =>
+      canPay
+          ? (index == 0 ? Assets.mario : Assets.gunSister)
+          : Assets.notEnough;
 
   Color _getPayFilter(int index) =>
       _canPay(index) ? Colors.transparent : const Color(0x66000000);

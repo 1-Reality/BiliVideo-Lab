@@ -70,8 +70,9 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
 
   bool _inRange(String key) {
     final time = DateTime.tryParse('$key:00:00');
-    if (time == null) return false;
-    return !time.isBefore(start) && time.isBefore(end.add(const Duration(days: 1)));
+    return time != null &&
+        !time.isBefore(start) &&
+        time.isBefore(end.add(const Duration(days: 1)));
   }
 
   Map<String, ({int received, int sent})> _aggregate(

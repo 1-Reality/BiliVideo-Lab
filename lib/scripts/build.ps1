@@ -67,8 +67,7 @@ try {
         }
         $chinaNow = [DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8))
         $datePrefix = '{0:D2}{1:D3}' -f ($chinaNow.Year % 100), $chinaNow.DayOfYear
-        $artifactStamp = "$datePrefix$($chinaNow.ToString('HHmm'))"
-        $artifactVersion = "$versionName+$artifactStamp"
+        $artifactVersion = "$versionName+$datePrefix$($chinaNow.ToString('HHmm'))"
     }
 
     if ([string]::IsNullOrWhiteSpace($buildNumberOverride) -or $buildNumberOverride -eq '0') {
