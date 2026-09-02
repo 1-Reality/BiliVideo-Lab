@@ -228,7 +228,7 @@ SettingsModel getBanWordModel({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('使用中文逗号隔开，如：尝试，测试；含 | 时按原格式处理'),
+              const Text('使用中文逗号隔开，如：尝试，测试；含 | 时「，」按不转义处理'),
               TextFormField(
                 autofocus: true,
                 initialValue: editValue,
