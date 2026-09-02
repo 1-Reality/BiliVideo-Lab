@@ -15,11 +15,8 @@ try {
         throw 'version not found in pubspec.yaml'
     }
 
-    # workflow_dispatch keeps its inputs in the GitHub event payload, including
-    # when this script runs inside a reusable workflow. A real tag ref is also
-    # supported so the same script can be reused if tag-push builds are added later.
-    $releaseTag = ''
-    if ($env:GITHUB_EVENT_PATH -and (Test-Path $env:GITHUB_EVENT_PATH)) {
+    $releaseTag = [string]$env:RELEASE_TAG_OVERRIDE
+    if ([string]::IsNullOrWhiteSpace($releaseTag) -and $env:GITHUB_EVENT_PATH -and (Test-Path $env:GITHUB_EVENT_PATH)) {
         try {
             $eventPayload = Get-Content -Raw -Path $env:GITHUB_EVENT_PATH -Encoding UTF8 | ConvertFrom-Json
             if ($null -ne $eventPayload.inputs -and $null -ne $eventPayload.inputs.tag) {
@@ -27,7 +24,6 @@ try {
             }
         }
         catch {
-            # A malformed/missing event payload should not break local or PR builds.
             $releaseTag = ''
         }
     }
@@ -46,8 +42,36 @@ try {
         }
     }
 
-    $versionCode = [int](git rev-list --count HEAD).Trim()
+    $buildNumberOverride = [string]$env:BUILD_NUMBER_OVERRIDE
+    if ([string]::IsNullOrWhiteSpace($buildNumberOverride) -and $env:GITHUB_EVENT_PATH -and (Test-Path $env:GITHUB_EVENT_PATH)) {
+        try {
+            $eventPayloadForBuild = Get-Content -Raw -Path $env:GITHUB_EVENT_PATH -Encoding UTF8 | ConvertFrom-Json
+            if ($null -ne $eventPayloadForBuild.inputs -and $null -ne $eventPayloadForBuild.inputs.build_number) {
+                $buildNumberOverride = [string]$eventPayloadForBuild.inputs.build_number
+            }
+        }
+        catch {
+            $buildNumberOverride = ''
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($buildNumberOverride) -or $buildNumberOverride -eq '0') {
+        $versionCode = [int](git rev-list --count HEAD).Trim()
+        $buildNumberSource = 'auto'
+    }
+    elseif ($buildNumberOverride -match '^[1-9][0-9]*$') {
+        $versionCode = [int]$buildNumberOverride
+        $buildNumberSource = 'manual'
+    }
+    else {
+        throw "build number '$buildNumberOverride' must be 0 or a positive integer"
+    }
+
     $commitHash = (git rev-parse HEAD).Trim()
+
+    Write-Host "Version name: $versionName"
+    Write-Host "Build number: $versionCode ($buildNumberSource)"
+    Write-Host "Full version: $versionName+$versionCode"
 
     $updatedContent = foreach ($line in (Get-Content -Path 'pubspec.yaml' -Encoding UTF8)) {
         if ($line -match '^\s*version:\s*[\d\.]+(?:\+\d+)?') {
@@ -70,7 +94,9 @@ try {
 
     $data | ConvertTo-Json -Compress | Out-File 'pili_release.json' -Encoding UTF8
 
-    Add-Content -Path $env:GITHUB_ENV -Value "version=$versionName+$versionCode"
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
+        Add-Content -Path $env:GITHUB_ENV -Value "version=$versionName+$versionCode"
+    }
 }
 catch {
     Write-Error "Prebuild Error: $($_.Exception.Message)"
