@@ -140,7 +140,7 @@ jobs:
               run: |
                   for file in build/app/outputs/flutter-apk/app-*-release.apk; do
                     abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
-                    mv "$file" "PiliBro_android_${{ env.version }}_${abi}.apk"
+                    mv "$file" "PiliBro_android_${{ env.artifact_version }}_${abi}.apk"
                   done
               shell: bash
 
