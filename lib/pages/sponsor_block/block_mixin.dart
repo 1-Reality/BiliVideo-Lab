@@ -411,7 +411,7 @@ mixin BlockMixin on GetxController {
                 ),
                 contentPadding: const EdgeInsets.only(left: 16, right: 8),
                 subtitle: Text(
-                  '${DurationUtils.formatDuration(item.segment.$1 / 1000)} 至 ${DurationUtils.formatDuration(item.segment.$2 / 1000)}',
+                  '${DurationUtils.formatDuration(item.segment.$1 * 0.001)} 至 ${DurationUtils.formatDuration(item.segment.$2 * 0.001)}',
                   style: const TextStyle(fontSize: 13),
                 ),
                 trailing: Row(

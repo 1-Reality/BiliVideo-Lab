@@ -198,8 +198,8 @@ class _VideoShotImageState extends State<VideoShotImage> {
   void _initSize() {
     if (widget.imgXSize == 0) {
       if (_image != null) {
-        final imgXSize = _image!.width / 10;
-        final imgYSize = _image!.height / 10;
+        final imgXSize = _image!.width * 0.1;
+        final imgYSize = _image!.height * 0.1;
         final height = widget.height;
         final width = height * imgXSize / imgYSize;
         _setRect(width, height);
@@ -330,10 +330,10 @@ class _RenderDanmakuTip extends RenderProxyBox {
       ..color = const Color(0xB3000000)
       ..style = .fill;
 
-    final radius = size.height / 2;
+    final radius = size.height * 0.5;
     const triangleBase = _triangleHeight * 2 / 3;
 
-    final triangleCenterX = (size.width / 2 + _offset).clamp(
+    final triangleCenterX = (size.width * 0.5 + _offset).clamp(
       radius + triangleBase,
       size.width - radius - triangleBase,
     );

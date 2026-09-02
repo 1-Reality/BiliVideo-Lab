@@ -180,9 +180,9 @@ class _PostPanelState extends State<PostPanel>
   late final PlPlayerController plPlayerController = widget.plPlayerController;
   late final List<PostSegmentModel> list = videoDetailController.postList;
 
-  double get videoDuration => plPlayerController.durationInMilliseconds / 1000;
+  double get videoDuration => plPlayerController.durationInMilliseconds * 0.001;
 
-  double currentPos() => plPlayerController.positionInMilliseconds / 1000;
+  double currentPos() => plPlayerController.positionInMilliseconds * 0.001;
 
   late double bottom;
 
