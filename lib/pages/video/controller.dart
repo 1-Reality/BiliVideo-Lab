@@ -263,14 +263,14 @@ class VideoDetailController extends GetxController
       plPlayerController.cachePreferCodecs ?? Pref.preferCodecs;
   bool _pendingNetworkRefresh = false;
 
-  bool get showReply => isFileSource
-      ? false
-      : isUgc
-      ? plPlayerController.showVideoReply
-      : plPlayerController.showBangumiReply;
+  bool get showReply =>
+      !isFileSource &&
+      (isUgc
+          ? plPlayerController.showVideoReply
+          : plPlayerController.showBangumiReply);
 
   bool get showRelatedVideo =>
-      isFileSource ? false : plPlayerController.showRelatedVideo;
+      !isFileSource && plPlayerController.showRelatedVideo;
 
   int? get videoUpUid {
     try {
@@ -581,7 +581,7 @@ class VideoDetailController extends GetxController
       type: args['mediaType'] ?? sourceType.mediaType,
       bizId: args['mediaId'] ?? -1,
       ps: 20,
-      direction: isLoadPrevious ? true : false,
+      direction: isLoadPrevious,
       oid: isReverse
           ? null
           : mediaList.isEmpty
@@ -600,9 +600,7 @@ class VideoDetailController extends GetxController
           : mediaList.last.type,
       desc: _mediaDesc,
       sortField: args['sortField'] ?? 1,
-      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
-          ? true
-          : false,
+      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true,
     );
     if (res case Success(:final response)) {
       if (response.mediaList.isNotEmpty) {

@@ -19,7 +19,7 @@ extension ContextExtensions on BuildContext {
   ThemeData get theme => Theme.of(this);
 
   /// Check if dark mode theme is enable
-  bool get isDarkMode => (Theme.brightnessOf(this) == Brightness.dark);
+  bool get isDarkMode => Theme.brightnessOf(this) == Brightness.dark;
 
   /// give access to Theme.of(context).iconTheme.color
   Color? get iconColor => IconTheme.of(this).color;
@@ -58,17 +58,17 @@ extension ContextExtensions on BuildContext {
   double get mediaQueryShortestSide => mediaQuerySize.shortestSide;
 
   /// True if width be larger than 800
-  bool get showNavbar => (width > 800);
+  bool get showNavbar => width > 800;
 
   /// True if the shortestSide is smaller than 600p
-  bool get isPhone => (mediaQueryShortestSide < 600);
+  bool get isPhone => mediaQueryShortestSide < 600;
 
   /// True if the shortestSide is largest than 600p
-  bool get isSmallTablet => (mediaQueryShortestSide >= 600);
+  bool get isSmallTablet => mediaQueryShortestSide >= 600;
 
   /// True if the shortestSide is largest than 720p
-  bool get isLargeTablet => (mediaQueryShortestSide >= 720);
+  bool get isLargeTablet => mediaQueryShortestSide >= 720;
 
   /// True if the current device is Tablet
-  bool get isTablet => isSmallTablet || isLargeTablet;
+  bool get isTablet => isSmallTablet;
 }

@@ -28,7 +28,7 @@ abstract final class RecommendFilter {
   }
 
   static bool filterTitle(String title) {
-    return (enableFilter && rcmdRegExp.hasMatch(title));
+    return enableFilter && rcmdRegExp.hasMatch(title);
   }
 
   static bool filterAll(BaseVideoItemModel videoItem) {

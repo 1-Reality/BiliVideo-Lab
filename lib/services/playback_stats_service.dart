@@ -1444,33 +1444,35 @@ abstract final class PlaybackStatsService {
         rewind.bufferingUs += wallUs;
       }
     } else if (_playing) {
+      final speed = _speedKey(_rate);
+      final nominalMediaUs = wallUs * _nominalRate;
+      final rateMediaUs = wallUs * _rate;
       _add('activePlaybackUs', wallUs);
       _addVideoUp('activePlaybackUs', wallUs);
-      _add('nominalMediaUs', wallUs * _nominalRate);
-      _add('nominalMediaIncludingLongPressUs', wallUs * _rate);
-      _addVideoUp('nominalMediaUs', wallUs * _nominalRate);
-      _addVideoUp('nominalMediaIncludingLongPressUs', wallUs * _rate);
-      _addBucket('speedActiveUs', _speedKey(_rate), wallUs);
-      _addVideoUpBucket('speedActiveUs', _speedKey(_rate), wallUs);
+      _add('nominalMediaUs', nominalMediaUs);
+      _add('nominalMediaIncludingLongPressUs', rateMediaUs);
+      _addVideoUp('nominalMediaUs', nominalMediaUs);
+      _addVideoUp('nominalMediaIncludingLongPressUs', rateMediaUs);
+      _addBucket('speedActiveUs', speed, wallUs);
+      _addVideoUpBucket('speedActiveUs', speed, wallUs);
       if (_temporaryRate) {
         _add('longPressActiveUs', wallUs);
-        _addBucket('longPressSpeedActiveUs', _speedKey(_rate), wallUs);
+        _addBucket('longPressSpeedActiveUs', speed, wallUs);
         _addVideoUp('longPressActiveUs', wallUs);
-        _addVideoUpBucket('longPressSpeedActiveUs', _speedKey(_rate), wallUs);
+        _addVideoUpBucket('longPressSpeedActiveUs', speed, wallUs);
       }
 
-      final expectedUs = wallUs * _rate;
-      final toleranceUs = max(2000000, expectedUs * 2).round();
+      final toleranceUs = max(2000000, rateMediaUs * 2).round();
       final discontinuity =
           mediaDeltaUs < -_seekThresholdUs ||
-          mediaDeltaUs > expectedUs + toleranceUs;
+          mediaDeltaUs > rateMediaUs + toleranceUs;
       int mediaAdvanceUs;
       var rewindPlaybackUs = 0;
       var rewindMediaAdvanceUs = 0;
       if (discontinuity) {
         mediaAdvanceUs = now < _suppressDiscontinuityUntilUs
             ? 0
-            : min(max(0, mediaDeltaUs), expectedUs.round());
+            : min(max(0, mediaDeltaUs), rateMediaUs.round());
         final rewindPart = _advanceRewind(
           _lastPositionUs,
           _lastPositionUs + mediaAdvanceUs,
@@ -1498,14 +1500,14 @@ abstract final class PlaybackStatsService {
       _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
       _sessionActiveUs += wallUs;
       _sessionMediaAdvanceUs += mediaAdvanceUs;
-      _sessionNominalMediaUs += wallUs * _nominalRate;
-      _sessionNominalIncludingLongPressUs += wallUs * _rate;
+      _sessionNominalMediaUs += nominalMediaUs;
+      _sessionNominalIncludingLongPressUs += rateMediaUs;
       _sessionMaxPositionUs = max(_sessionMaxPositionUs, positionUs);
       _recordCoverage(
         _lastPositionUs,
         _lastPositionUs + mediaAdvanceUs,
       );
-      _addBucket('speedMediaAdvanceUs', _speedKey(_rate), mediaAdvanceUs);
+      _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
       _add('rewindPlaybackUs', rewindPlaybackUs);
       _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
       _add('normalPlaybackUs', wallUs - rewindPlaybackUs);
@@ -1517,28 +1519,28 @@ abstract final class PlaybackStatsService {
       _addDimensionPlayback(
         wallUs,
         mediaAdvanceUs,
-        wallUs * _nominalRate,
-        wallUs * _rate,
-        _speedKey(_rate),
+        nominalMediaUs,
+        rateMediaUs,
+        speed,
       );
       _addBucket(
         'rewindSpeedActiveUs',
-        _speedKey(_rate),
+        speed,
         rewindPlaybackUs,
       );
       _addBucket(
         'rewindSpeedMediaAdvanceUs',
-        _speedKey(_rate),
+        speed,
         rewindMediaAdvanceUs,
       );
       _addBucket(
         'normalSpeedActiveUs',
-        _speedKey(_rate),
+        speed,
         wallUs - rewindPlaybackUs,
       );
       _addBucket(
         'normalSpeedMediaAdvanceUs',
-        _speedKey(_rate),
+        speed,
         mediaAdvanceUs - rewindMediaAdvanceUs,
       );
     } else {
@@ -1772,6 +1774,11 @@ abstract final class PlaybackStatsService {
 
     final active = _number(raw['activePlaybackUs']);
     final media = _number(raw['mediaAdvanceUs']);
+    final paused = _number(raw['pausedUs']);
+    final buffering = _number(raw['bufferingUs']);
+    final observed = active + paused + buffering;
+    final uniqueCovered = _number(raw['uniqueCoveredUs']);
+    final sourceDuration = _number(raw['openedSourceDurationUs']);
     final nominal = _number(raw['nominalMediaUs']);
     final nominalIncludingLongPress = _number(
       raw['nominalMediaIncludingLongPressUs'],
@@ -1807,21 +1814,10 @@ abstract final class PlaybackStatsService {
                   0) >
               0,
       'actualAverageSpeed': active == 0 ? 0 : media / active,
-      'newContentEquivalentSpeed': active == 0
-          ? 0
-          : _number(raw['uniqueCoveredUs']) / active,
-      'observedEquivalentSpeed':
-          active + _number(raw['pausedUs']) + _number(raw['bufferingUs']) == 0
-          ? 0
-          : media /
-                (active +
-                    _number(raw['pausedUs']) +
-                    _number(raw['bufferingUs'])),
+      'newContentEquivalentSpeed': active == 0 ? 0 : uniqueCovered / active,
+      'observedEquivalentSpeed': observed == 0 ? 0 : media / observed,
       'repeatRatio': media == 0 ? 0 : _number(raw['repeatCoveredUs']) / media,
-      'coverageRatio': _number(raw['openedSourceDurationUs']) == 0
-          ? 0
-          : _number(raw['uniqueCoveredUs']) /
-                _number(raw['openedSourceDurationUs']),
+      'coverageRatio': sourceDuration == 0 ? 0 : uniqueCovered / sourceDuration,
       'videoCompletionRate': playedSessions == 0
           ? 0
           : completedSessions / playedSessions,
@@ -1848,8 +1844,7 @@ abstract final class PlaybackStatsService {
           _number(raw['normalPausedUs']) +
           _number(raw['normalBufferingUs']),
       'rewindObservedUs': rewindObserved,
-      'playerObservedUs':
-          active + _number(raw['pausedUs']) + _number(raw['bufferingUs']),
+      'playerObservedUs': observed,
       'speedSelectionCounts': selections,
     };
     return raw;

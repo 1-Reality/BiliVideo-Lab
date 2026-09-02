@@ -246,34 +246,31 @@ class MainController extends GetxController
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {
-    if (hasHome && homeController.enableSearchWord) {
-      if (shouldCheck &&
-          navigationBars[selectedIndex.value] != NavigationBarType.home) {
-        return;
-      }
-      int now = DateTime.now().millisecondsSinceEpoch;
-      if (now - homeController.lateCheckSearchAt >= _period) {
-        homeController
-          ..lateCheckSearchAt = now
-          ..querySearchDefault();
-      }
+    if (!hasHome ||
+        !homeController.enableSearchWord ||
+        shouldCheck &&
+            navigationBars[selectedIndex.value] != NavigationBarType.home) {
+      return;
     }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - homeController.lateCheckSearchAt < _period) return;
+    homeController
+      ..lateCheckSearchAt = now
+      ..querySearchDefault();
   }
 
   void checkUnread([bool shouldCheck = false]) {
-    if (accountService.isLogin.value &&
-        hasHome &&
-        msgBadgeMode != DynamicBadgeMode.hidden) {
-      if (shouldCheck &&
-          navigationBars[selectedIndex.value] != NavigationBarType.home) {
-        return;
-      }
-      int now = DateTime.now().millisecondsSinceEpoch;
-      if (now - lastCheckUnreadAt >= _period) {
-        lastCheckUnreadAt = now;
-        queryUnreadMsg();
-      }
+    if (!accountService.isLogin.value ||
+        !hasHome ||
+        msgBadgeMode == DynamicBadgeMode.hidden ||
+        shouldCheck &&
+            navigationBars[selectedIndex.value] != NavigationBarType.home) {
+      return;
     }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - lastCheckUnreadAt < _period) return;
+    lastCheckUnreadAt = now;
+    queryUnreadMsg();
   }
 
   int? _mineIndex;
@@ -342,13 +339,13 @@ class MainController extends GetxController
   }
 
   bool refreshRecommendations() {
-    if (navigationBars[selectedIndex.value] == NavigationBarType.home &&
-        homeController.tabs[homeController.tabController.index] ==
+    if (navigationBars[selectedIndex.value] != NavigationBarType.home ||
+        homeController.tabs[homeController.tabController.index] !=
             HomeTabType.rcmd) {
-      homeController.onRefresh();
-      return true;
+      return false;
     }
-    return false;
+    homeController.onRefresh();
+    return true;
   }
 
   @override

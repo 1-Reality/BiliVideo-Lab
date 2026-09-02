@@ -511,7 +511,7 @@ class _PayCoinsPageState extends State<PayCoinsPage>
       _slide22Controller.reverse().whenComplete(() {
         if (_pageIndex.value == 1) {
           _thunderIndex.value += 1;
-          _timer ??= Timer.periodic(const Duration(milliseconds: 50 ~/ 3), (_) {
+          _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
             final index = _thunderIndex.value;
             if (index == _thunderImages.length) {
               _cancelTimer();
