@@ -59,7 +59,19 @@ class RenderLoadingIndicator extends RenderBox {
     required this._progress,
   });
 
-  final _paint = Paint()..isAntiAlias = true;
+  final _backgroundPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .fill
+    ..color = const Color(0x80000000);
+  final _ringPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .stroke
+    ..strokeWidth = 1.4
+    ..color = Colors.white;
+  final _progressPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .fill
+    ..color = Colors.white;
 
   double _preferredSize;
   double get preferredSize => _preferredSize;
@@ -100,24 +112,19 @@ class RenderLoadingIndicator extends RenderBox {
       ..drawCircle(
         center,
         radius,
-        _paint
-          ..style = .fill
-          ..color = const Color(0x80000000),
+        _backgroundPaint,
       )
       ..drawCircle(
         center,
         radius,
-        _paint
-          ..style = .stroke
-          ..strokeWidth = strokeWidth
-          ..color = Colors.white,
+        _ringPaint,
       )
       ..drawArc(
         Rect.fromCircle(center: center, radius: radius - padding),
         startAngle,
         progress * 2 * pi,
         true,
-        _paint..style = .fill,
+        _progressPaint,
       );
   }
 
