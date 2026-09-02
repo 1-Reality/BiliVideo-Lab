@@ -1,184 +1,685 @@
-name: Build
+name: 构建与发布
 
 on:
-    pull_request:
-        types:
-            - opened
-            - synchronize
-            - reopened
-            - ready_for_review
-        paths-ignore:
-            - "**.md"
-    workflow_dispatch:
-        inputs:
-            build_android:
-                description: "Build Android"
-                required: false
-                default: true
-                type: boolean
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: "Build Android"
+        required: false
+        default: true
+        type: boolean
+      build_ios:
+        description: "Build iOS"
+        required: false
+        default: false
+        type: boolean
+      build_mac:
+        description: "Build macOS"
+        required: false
+        default: false
+        type: boolean
+      build_linux_x64:
+        description: "Build Linux x64"
+        required: false
+        default: false
+        type: boolean
+      build_win_x64:
+        description: "Build Windows x64"
+        required: false
+        default: true
+        type: boolean
+      tag:
+        description: "Release tag；留空则只构建，不发布"
+        required: false
+        default: ""
+        type: string
+      build_number:
+        description: "Build number；0 = 自动"
+        required: false
+        default: "0"
+        type: string
+      release_notes:
+        description: "Release notes"
+        required: false
+        default: ""
+        type: string
 
-            build_ios:
-                description: "Build iOS"
-                required: false
-                default: false
-                type: boolean
-
-            build_mac:
-                description: "Build Mac"
-                required: false
-                default: false
-                type: boolean
-
-            build_win_x64:
-                description: "Build Win-x64"
-                required: false
-                default: true
-                type: boolean
-
-            build_linux_x64:
-                description: "Build Linux-x64"
-                required: false
-                default: false
-                type: boolean
-
-            tag:
-                description: "tag"
-                required: false
-                default: ""
-                type: string
+permissions:
+  contents: read
 
 jobs:
-    android:
-        if: ${{ (github.event_name == 'pull_request' && github.repository == 'ucxn/Bili.Libre.Speed') || github.event.inputs.build_android == 'true' }}
-        name: Release Android
-        runs-on: ubuntu-latest
-        permissions: write-all
-
-        steps:
-            - name: 代码迁出
-              uses: actions/checkout@v7
-              with:
-                  fetch-depth: 0
-
-            - name: 构建Java环境
-              uses: actions/setup-java@v5
-              with:
-                  distribution: "zulu"
-                  java-version: "17"
-                  cache: "gradle"
-                  cache-dependency-path: |
-                      android/*.gradle*
-                      android/**/gradle-wrapper.properties
-
-            - name: 安装Flutter
-              uses: subosito/flutter-action@v2
-              id: flutter-action
-              with:
-                  channel: stable
-                  flutter-version-file: pubspec.yaml
-                  cache: true
-
-            - name: Apply Patch
-              shell: pwsh
-              run: lib/scripts/patch.ps1 android
-
-            - name: Apply media_kit Android decoder lab hook
-              shell: pwsh
-              run: lib/scripts/patch_media_kit_android_decoder_lab.ps1
-
-            - name: Write fixed Android signing key
-              env:
-                  SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
-                  KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-                  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-                  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-              run: |
-                  test -n "$SIGN_KEYSTORE_BASE64" || { echo "Missing SIGN_KEYSTORE_BASE64"; exit 1; }
-                  test -n "$KEYSTORE_PASSWORD" || { echo "Missing KEYSTORE_PASSWORD"; exit 1; }
-                  test -n "$KEY_ALIAS" || { echo "Missing KEY_ALIAS"; exit 1; }
-                  test -n "$KEY_PASSWORD" || { echo "Missing KEY_PASSWORD"; exit 1; }
-                  echo "$SIGN_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
-                  {
-                    echo storeFile='key.jks'
-                    echo storePassword="$KEYSTORE_PASSWORD"
-                    echo keyAlias="$KEY_ALIAS"
-                    echo keyPassword="$KEY_PASSWORD"
-                  } > android/key.properties
-
-            - name: Set and Extract version
-              shell: pwsh
-              run: lib/scripts/build.ps1 android
-
-            - name: Flutter Build Release Apk
-              if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
-
-            - name: Flutter Build Dev Apk
-              if: ${{ github.event_name == 'pull_request' }}
-              run: |
-                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --dart-define-from-file=pili_release.json --no-pub
-
-            - name: Rename
-              run: |
-                  for file in build/app/outputs/flutter-apk/app-*-release.apk; do
-                    abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
-                    mv "$file" "PiliPlus_android_${{ env.version }}_${abi}.apk"
-                  done
-              shell: bash
-
-            - name: Release
-              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
-              uses: softprops/action-gh-release@v3
-              with:
-                  tag_name: ${{ github.event.inputs.tag }}
-                  name: ${{ github.event.inputs.tag }}
-                  files: PiliPlus_android_*.apk
-
-            - name: 上传
-              uses: actions/upload-artifact@v7
-              with:
-                  archive: false
-                  name: Android_arm64-v8a
-                  path: PiliPlus_android_*_arm64-v8a.apk
-
-            - name: 上传
-              uses: actions/upload-artifact@v7
-              with:
-                  archive: false
-                  name: Android_armeabi-v7a
-                  path: PiliPlus_android_*_armeabi-v7a.apk
-
-            - name: 上传
-              uses: actions/upload-artifact@v7
-              with:
-                  archive: false
-                  name: Android_x86_64
-                  path: PiliPlus_android_*_x86_64.apk
-
-    ios:
-        if: ${{ (github.event_name == 'pull_request' && github.repository == 'ucxn/Bili.Libre.Speed') || github.event.inputs.build_ios == 'true' }}
-        uses: ./.github/workflows/ios.yml
-        permissions: write-all
+  validate:
+    name: 检查发布条件
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          fetch-depth: 0
 
-    mac:
-        if: ${{ github.event.inputs.build_mac == 'true' }}
-        uses: ./.github/workflows/mac.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+      - name: Validate
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          BUILD_ANDROID: ${{ inputs.build_android }}
+          BUILD_IOS: ${{ inputs.build_ios }}
+          BUILD_MAC: ${{ inputs.build_mac }}
+          BUILD_LINUX: ${{ inputs.build_linux_x64 }}
+          BUILD_WINDOWS: ${{ inputs.build_win_x64 }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "${BUILD_NUMBER}" =~ ^(0|[1-9][0-9]*)$ ]]; then
+            echo "Build number 必须是 0 或正整数。"
+            exit 1
+          fi
 
-    win_x64:
-        if: ${{ (github.event_name == 'pull_request' && github.repository == 'ucxn/Bili.Libre.Speed') || github.event.inputs.build_win_x64 == 'true' }}
-        uses: ./.github/workflows/win_x64.yml
-        permissions: write-all
-        with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          if [[ -n "${TAG}" ]]; then
+            if [[ "${BUILD_ANDROID}" != "true" || "${BUILD_WINDOWS}" != "true" ]]; then
+              echo "正式 Release 至少必须包含 Android 和 Windows。"
+              exit 1
+            fi
 
-    linux_x64:
-        if: ${{ github.event.inputs.build_linux_x64 == 'true' }}
-        uses: ./.github/workflows/linux_x64.yml
-        permissions: write-all
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              echo "Release ${TAG} 已存在。"
+              exit 1
+            fi
+
+            if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+              echo "Tag ${TAG} 已存在。"
+              exit 1
+            fi
+
+            if [[ ! -f ".vscode/laptop.svg" ]]; then
+              echo ".vscode/laptop.svg 不存在，无法生成稳定的 Release 图标链接。"
+              exit 1
+            fi
+          fi
+
+  android:
+    name: Android
+    needs: validate
+    if: ${{ inputs.build_android }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-            tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+          cache-dependency-path: |
+            android/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 android
+
+      - name: Apply media_kit Android decoder lab hook
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_android_decoder_lab.ps1
+
+      - name: Write fixed Android signing key
+        env:
+          SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          test -n "$SIGN_KEYSTORE_BASE64" || { echo "Missing SIGN_KEYSTORE_BASE64"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing KEY_PASSWORD"; exit 1; }
+          echo "$SIGN_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+          {
+            echo storeFile='key.jks'
+            echo storePassword="$KEYSTORE_PASSWORD"
+            echo keyAlias="$KEY_ALIAS"
+            echo keyPassword="$KEY_PASSWORD"
+          } > android/key.properties
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1 android
+
+      - name: Build Android
+        shell: bash
+        run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
+
+      - name: Rename
+        shell: bash
+        run: |
+          for file in build/app/outputs/flutter-apk/app-*-release.apk; do
+            abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
+            mv "$file" "PiliBro_android_${{ env.version }}_${abi}.apk"
+          done
+
+      - name: Upload Android
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: PiliBro_android_*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  ios:
+    name: iOS
+    needs: validate
+    if: ${{ inputs.build_ios }}
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 iOS
+
+      - name: Build iOS
+        shell: bash
+        run: |
+          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json --no-pub
+          ln -sf ./build/ios/iphoneos Payload
+          find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;
+          zip -r9 "PiliBro_ios_${{ env.version }}.ipa" Payload/Runner.app
+
+      - name: Upload iOS
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-ios
+          path: PiliBro_ios_*.ipa
+          if-no-files-found: error
+          retention-days: 7
+
+  mac:
+    name: macOS
+    needs: validate
+    if: ${{ inputs.build_mac }}
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 macOS
+
+      - name: Build macOS
+        shell: bash
+        run: flutter build macos --release --dart-define-from-file=pili_release.json --no-pub
+
+      - name: Prepare DMG
+        shell: bash
+        run: |
+          npm install --global create-dmg
+          create-dmg build/macos/Build/Products/Release/PiliBro.app || true
+          mv PiliBro*.dmg "PiliBro_macos_${{ env.version }}.dmg"
+
+      - name: Upload macOS
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos
+          path: PiliBro_macos_*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  linux_x64:
+    name: Linux x64
+    needs: validate
+    if: ${{ inputs.build_linux_x64 }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libayatana-appindicator3-dev webkit2gtk-4.1 libasound2-dev libmpv-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 Linux
+
+      - name: Build Linux
+        shell: bash
+        run: flutter build linux --release --dart-define-from-file=pili_release.json --no-pub
+
+      - name: Package tar.gz
+        shell: bash
+        run: tar -zcvf "PiliBro_linux_${{ env.version }}_amd64.tar.gz" -C build/linux/x64/release/bundle .
+
+      - name: Package deb
+        shell: bash
+        run: |
+          mkdir "PiliBro_linux_${{ env.version }}_amd64"
+          pushd "PiliBro_linux_${{ env.version }}_amd64"
+          mkdir -p opt/PiliBro usr/share/applications usr/share/icons/hicolor/512x512/apps
+          cp -r ../build/linux/x64/release/bundle/* opt/PiliBro
+          cp -r ../assets/linux/DEBIAN .
+          cp ../assets/linux/com.example.pilibro.desktop usr/share/applications
+          cp ../assets/images/logo/logo.png usr/share/icons/hicolor/512x512/apps/pilibro.png
+          sed -i "2s/version_need_change/${{ env.version }}/g" DEBIAN/control
+          SIZE_KB=$(du -s -b --apparent-size . | awk '{print int($1)}')
+          SIZE_KB=$(($SIZE_KB - $(du -s -b --apparent-size DEBIAN | awk '{print int($1)}')))
+          SIZE_KB=$(echo $SIZE_KB | awk '{print int($1/1024 + 0.999)}')
+          sed -i "9s/size_need_change/${SIZE_KB}/g" DEBIAN/control
+          md5sum opt/PiliBro/pilibro >> DEBIAN/md5sums
+          md5sum opt/PiliBro/lib/* >> DEBIAN/md5sums
+          md5sum opt/PiliBro/data/icudtl.dat >> DEBIAN/md5sums
+          chmod 0644 DEBIAN/control DEBIAN/md5sums
+          chmod 0755 DEBIAN/postinst DEBIAN/postrm DEBIAN/prerm
+          popd
+          dpkg-deb --build --verbose --root-owner-group "PiliBro_linux_${{ env.version }}_amd64"
+
+      - name: Package rpm
+        shell: bash
+        run: |
+          RPM_BUILD_ROOT="$PWD/rpm_build"
+          mkdir -p "$RPM_BUILD_ROOT/BUILD" "$RPM_BUILD_ROOT/RPMS" "$RPM_BUILD_ROOT/SOURCES" "$RPM_BUILD_ROOT/SPECS" "$RPM_BUILD_ROOT/SRPMS"
+          DATE="$(date '+%a %b %d %Y')"
+          SRC_DIR="$PWD/pilibro-${{ env.version }}"
+          mkdir -p "$SRC_DIR/bundle" "$SRC_DIR/assets"
+          cp -r build/linux/x64/release/bundle/* "$SRC_DIR/bundle/"
+          cp assets/linux/com.example.pilibro.desktop "$SRC_DIR/assets/com.example.pilibro.desktop"
+          cp assets/images/logo/logo.png "$SRC_DIR/assets/pilibro.png"
+          tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilibro-${{ env.version }}.tar.gz" -C "$PWD" "pilibro-${{ env.version }}"
+          cat > "$RPM_BUILD_ROOT/SPECS/pilibro.spec" <<SPEC_EOF
+          Name:           pilibro
+          Version:        ${{ env.version }}
+          Release:        1%{?dist}
+          Summary:        PiliBro Linux Version
+          License:        GPL-3.0
+          Source0:        pilibro-${{ env.version }}.tar.gz
+          Requires:       desktop-file-utils, hicolor-icon-theme
+
+          %description
+          使用 Flutter 开发的B站第三方客户端
+
+          %prep
+          %setup -q -n pilibro-${{ env.version }}
+
+          %build
+
+          %install
+          mkdir -p %{buildroot}/opt/PiliBro
+          cp -r bundle/* %{buildroot}/opt/PiliBro/
+          chmod 755 %{buildroot}/opt/PiliBro/pilibro
+          mkdir -p %{buildroot}/usr/bin
+          ln -sf /opt/PiliBro/pilibro %{buildroot}/usr/bin/pilibro
+          mkdir -p %{buildroot}/usr/share/applications
+          install -m 644 assets/com.example.pilibro.desktop %{buildroot}/usr/share/applications/com.example.pilibro.desktop
+          mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
+          install -m 644 assets/pilibro.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/pilibro.png
+
+          %post
+          update-desktop-database -q || true
+          gtk-update-icon-cache -q -t -f %{_datadir}/icons/hicolor || true
+
+          %postun
+          update-desktop-database -q || true
+          gtk-update-icon-cache -q -t -f %{_datadir}/icons/hicolor || true
+
+          %files
+          /opt/PiliBro
+          /usr/bin/pilibro
+          /usr/share/applications/com.example.pilibro.desktop
+          /usr/share/icons/hicolor/512x512/apps/pilibro.png
+
+          %changelog
+          * DATE - ${{ env.version }}-1
+          - Initial RPM release
+          SPEC_EOF
+          sed -i "s/DATE/${DATE}/g" "$RPM_BUILD_ROOT/SPECS/pilibro.spec"
+          rpmbuild --define "_topdir $RPM_BUILD_ROOT" -bb "$RPM_BUILD_ROOT/SPECS/pilibro.spec"
+          find "$RPM_BUILD_ROOT/RPMS" -name "*.rpm" -exec mv {} "PiliBro_linux_${{ env.version }}_amd64.rpm" \;
+
+      - name: Package AppImage
+        shell: bash
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          APPDIR="PiliBro.AppDir"
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/512x512/apps"
+          cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
+          cp assets/linux/com.example.pilibro.desktop "$APPDIR/com.example.pilibro.desktop"
+          cp assets/linux/com.example.pilibro.desktop "$APPDIR/usr/share/applications/com.example.pilibro.desktop"
+          cp assets/images/logo/logo.png "$APPDIR/pilibro.png"
+          cp assets/images/logo/logo.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/pilibro.png"
+          cat > "$APPDIR/AppRun" <<'APPRUN_EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/pilibro" "$@"
+          APPRUN_EOF
+          chmod +x "$APPDIR/AppRun"
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage "$APPDIR" "PiliBro_linux_${{ env.version }}_amd64.AppImage"
+
+      - name: Upload Linux
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: |
+            PiliBro_linux_*.tar.gz
+            PiliBro_linux_*.deb
+            PiliBro_linux_*.rpm
+            PiliBro_linux_*.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  win_x64:
+    name: Windows x64
+    needs: validate
+    if: ${{ inputs.build_win_x64 }}
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Add fastforge and Inno Setup
+        shell: pwsh
+        run: |
+          dart pub global activate fastforge
+          choco install innosetup
+
+      - name: Add Chinese language file for Inno Setup
+        shell: pwsh
+        run: |
+          Copy-Item "windows/packaging/exe/ChineseSimplified.isl" "C:\Program Files (x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
+
+      - name: Build Windows
+        shell: pwsh
+        run: fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
+
+      - name: Prepare Upload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "Release/PiliBro-Win" | Out-Null
+          New-Item -ItemType Directory -Force -Path "PiliBro-Win-Setup" | Out-Null
+          Move-Item "build/windows/x64/runner/Release/*" "Release/PiliBro-Win/"
+          Get-ChildItem "dist" -Recurse -Filter *.exe | ForEach-Object {
+            Move-Item $_.FullName "PiliBro-Win-Setup/PiliBro_windows_${{ env.version }}_x64_setup.exe"
+          }
+
+      - name: Compress portable ZIP
+        if: ${{ inputs.tag != '' }}
+        shell: pwsh
+        run: Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{ env.version }}_x64_portable.zip"
+
+      - name: Upload Windows setup
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows-setup
+          path: PiliBro-Win-Setup/PiliBro_windows_*_x64_setup.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload Windows portable
+        if: ${{ inputs.tag != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows-portable
+          path: PiliBro_windows_*_x64_portable.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: 发布 Release
+    needs: [validate, android, ios, mac, linux_x64, win_x64]
+    if: >-
+      ${{
+        always() &&
+        inputs.tag != '' &&
+        needs.validate.result == 'success' &&
+        needs.android.result == 'success' &&
+        needs.win_x64.result == 'success' &&
+        (needs.ios.result == 'success' || needs.ios.result == 'skipped') &&
+        (needs.mac.result == 'success' || needs.mac.result == 'skipped') &&
+        (needs.linux_x64.result == 'success' || needs.linux_x64.result == 'skipped')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download release assets
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: 生成 Release 正文
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote
+          import os
+
+          root = Path("release-assets")
+          tag = os.environ["TAG"]
+          repo = "1-Reality/BiliVideo-Lab"
+
+          def one(pattern):
+              matches = [p for p in root.rglob(pattern) if p.is_file()]
+              if len(matches) != 1:
+                  raise SystemExit(f"{pattern}: expected exactly one asset, found {len(matches)}")
+              return matches[0]
+
+          def maybe_one(pattern):
+              matches = [p for p in root.rglob(pattern) if p.is_file()]
+              if len(matches) > 1:
+                  raise SystemExit(f"{pattern}: expected at most one asset, found {len(matches)}")
+              return matches[0] if matches else None
+
+          files = {
+              "android_arm64": one("PiliBro_android_*_arm64-v8a.apk"),
+              "android_armv7": one("PiliBro_android_*_armeabi-v7a.apk"),
+              "android_x86": one("PiliBro_android_*_x86_64.apk"),
+              "windows_setup": one("PiliBro_windows_*_x64_setup.exe"),
+              "windows_portable": one("PiliBro_windows_*_x64_portable.zip"),
+              "ios": maybe_one("PiliBro_ios_*.ipa"),
+              "mac": maybe_one("PiliBro_macos_*.dmg"),
+              "linux_targz": maybe_one("PiliBro_linux_*_amd64.tar.gz"),
+              "linux_appimage": maybe_one("PiliBro_linux_*_amd64.AppImage"),
+              "linux_deb": maybe_one("PiliBro_linux_*_amd64.deb"),
+              "linux_rpm": maybe_one("PiliBro_linux_*_amd64.rpm"),
+          }
+
+          tag_url = quote(tag, safe="")
+          base = f"https://github.com/{repo}/releases/download/{tag_url}/"
+
+          def asset_url(key):
+              file = files.get(key)
+              return base + quote(file.name, safe="") if file else ""
+
+          parts = []
+          notes = os.environ.get("RELEASE_NOTES", "").strip()
+          if notes:
+              parts.append(notes)
+
+          parts.append('''<div align="center">
+
+          <img alt="Xiaomi" src="https://img.shields.io/badge/小米-FF6900?style=for-the-badge&logo=xiaomi&logoColor=white" />
+          <img alt="OPPO" src="https://img.shields.io/badge/OPPO-2D9C3C?style=for-the-badge&logoColor=white" />
+          <img alt="vivo" src="https://img.shields.io/badge/vivo-415FFF?style=for-the-badge&logoColor=white" />
+          <img alt="HUAWEI" src="https://img.shields.io/badge/HUAWEI-C7000B?style=for-the-badge&logo=huawei&logoColor=white" />
+          <img alt="HONOR" src="https://img.shields.io/badge/HONOR-111111?style=for-the-badge&logoColor=white" />
+          <img alt="Samsung" src="https://img.shields.io/badge/Samsung-1428A0?style=for-the-badge&logo=samsung&logoColor=white" />
+          <img alt="Google Pixel" src="https://img.shields.io/badge/Pixel-4285F4?style=for-the-badge&logo=google&logoColor=white" />
+          <img alt="nubia / REDMAGIC" height="18" src="https://upload.wikimedia.org/wikipedia/commons/f/f6/Nubia_logo.svg" />
+
+          </div>''')
+
+          a64 = asset_url("android_arm64")
+          a7 = asset_url("android_armv7")
+          ax86 = asset_url("android_x86")
+          parts.append(f'''[安卓版下载]({a64})（适用于 Arm V8 的绝大多数安卓手机）
+
+          [![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)]({a64}) [![立即下载](https://img.shields.io/badge/立即下载-推荐版本-FF4D4F?style=for-the-badge&logoColor=white)]({a64})
+
+          Arm V7 老安卓[手机版下载]({a7})
+
+          [![Android](https://img.shields.io/badge/安卓-3DDC84?style=for-the-badge&logo=android&logoColor=white)]({a7}) [![ARMv7](https://img.shields.io/badge/ARMv7-0A84FF?style=for-the-badge&logo=arm&logoColor=white)]({a7}) [![下载](https://img.shields.io/badge/下载-旧设备适用-666666?style=for-the-badge&logoColor=white)]({a7})
+
+          安卓 x86 [版本下载]({ax86})
+
+          [![Intel icon](https://img.shields.io/badge/%20-0071C5?style=for-the-badge&logo=intel&logoColor=white)]({ax86}) [![Android x86](https://img.shields.io/badge/Android-x86版本-3DDC84?style=for-the-badge&logo=android&logoColor=white)]({ax86})''')
+
+          if files["ios"]:
+              ios = asset_url("ios")
+              parts.append(f'''iOS [版本下载]({ios})
+
+          [![Apple](https://img.shields.io/badge/Apple-000000?style=for-the-badge&logo=apple&logoColor=white)]({ios}) [![iPadOS](https://img.shields.io/badge/iPadOS-5E5CE6?style=for-the-badge&logo=apple&logoColor=white)]({ios})''')
+
+          if files["mac"]:
+              mac = asset_url("mac")
+              parts.append(f'''macOS [版本下载]({mac})
+
+          [![macOS](https://img.shields.io/badge/macOS-桌面版本-555555?style=for-the-badge&logo=apple&logoColor=white)]({mac})''')
+
+          if files["linux_targz"]:
+              targz = asset_url("linux_targz")
+              appimage = asset_url("linux_appimage")
+              deb = asset_url("linux_deb")
+              rpm = asset_url("linux_rpm")
+              parts.append(f'''Linux [下载]({targz})
+
+          [![Linux](https://img.shields.io/badge/Linux-333333?style=for-the-badge&logo=linux&logoColor=white)]({appimage}) [![AppImage](https://img.shields.io/badge/AppImage-通用版-00A98F?style=for-the-badge&logoColor=white)]({appimage})
+
+          [![Debian 系](https://img.shields.io/badge/Debian系-A80030?style=for-the-badge&logo=debian&logoColor=white)]({deb}) [![Ubuntu / Mint](https://img.shields.io/badge/Ubuntu%20%2F%20Mint-适用-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)]({deb})
+
+          [![RPM 系](https://img.shields.io/badge/RPM系-5B3FD0?style=for-the-badge&logoColor=white)]({rpm}) [![Fedora / openSUSE](https://img.shields.io/badge/Fedora%20%2F%20openSUSE-适用-3B82F6?style=for-the-badge&logo=fedora&logoColor=white)]({rpm})''')
+
+          win_setup = asset_url("windows_setup")
+          win_portable = asset_url("windows_portable")
+          laptop = f"https://raw.githubusercontent.com/{repo}/{tag_url}/.vscode/laptop.svg"
+          parts.append(f'''Windows x86_64 [下载]({win_setup})
+
+          <a href="{win_setup}"><img alt="Windows" height="28" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Unofficial_Windows_logo_variant_-_2002%E2%80%932012_%28Multicolored%29.svg" /></a> [![AMD](https://img.shields.io/badge/%20-ED1C24?style=for-the-badge&logo=amd&logoColor=white&logoSize=auto)]({win_portable}) <a href="{win_setup}"><img alt="Gaming laptop" height="42" src="{laptop}" /></a>''')
+
+          body = "\n\n".join(part.strip() for part in parts if part.strip()) + "\n"
+          Path("release_body.md").write_text(body, encoding="utf-8")
+          PY
+
+      - name: 创建并发布 Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          mapfile -d '' ASSETS < <(find release-assets -type f -print0)
+          if [[ ${#ASSETS[@]} -lt 5 ]]; then
+            echo "Expected at least Android + Windows release assets, found ${#ASSETS[@]}"
+            printf '%s\n' "${ASSETS[@]}"
+            exit 1
+          fi
+
+          gh release create "${TAG}" \
+            --repo "1-Reality/BiliVideo-Lab" \
+            --target "${GITHUB_SHA}" \
+            --title "${TAG}" \
+            --notes-file release_body.md \
+            --draft \
+            "${ASSETS[@]}"
+
+          gh release edit "${TAG}" \
+            --repo "1-Reality/BiliVideo-Lab" \
+            --draft=false
