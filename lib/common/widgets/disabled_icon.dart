@@ -49,6 +49,8 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 }
 
 class RenderMaskedIcon extends RenderProxyBox {
+  static const _inverseStrokeScale = 1 / 12;
+
   RenderMaskedIcon({
     required this._disable,
     required this._iconSize,
@@ -123,7 +125,7 @@ class RenderMaskedIcon extends RenderProxyBox {
       size = Size.square(_iconSize);
     }
 
-    final strokeWidth = size.width / 12;
+    final strokeWidth = size.width * _inverseStrokeScale;
 
     var rect = rectOffset & size;
 

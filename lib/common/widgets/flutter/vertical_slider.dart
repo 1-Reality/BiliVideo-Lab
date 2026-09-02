@@ -1309,15 +1309,20 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   Offset _valueIndicatorThumbCenter = .zero;
   late final PaintValueIndicator _paintValueIndicatorCallback =
       _paintValueIndicator;
+  double _inverseTrackHeight = 0.0;
 
   // This rect is used in gesture calculations, where the gesture coordinates
   // are relative to the sliders origin. Therefore, the offset is passed as
   // (0,0).
-  Rect get _trackRect => _sliderTheme.trackShape!.getPreferredRect(
-    parentBox: this,
-    sliderTheme: _sliderTheme,
-    isDiscrete: false,
-  );
+  Rect get _trackRect {
+    final rect = _sliderTheme.trackShape!.getPreferredRect(
+      parentBox: this,
+      sliderTheme: _sliderTheme,
+      isDiscrete: false,
+    );
+    _inverseTrackHeight = 1 / rect.height;
+    return rect;
+  }
 
   bool get isInteractive => onChanged != null;
 
@@ -1653,6 +1658,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       return;
     }
     if (!_active && isInteractive) {
+      _inverseTrackHeight = 1 / _trackRect.height;
       switch (allowedInteraction) {
         case SliderInteraction.tapAndSlide:
         case SliderInteraction.tapOnly:
@@ -1723,7 +1729,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       case SliderInteraction.slideOnly:
       case SliderInteraction.slideThumb:
         if (_active && isInteractive) {
-          final double valueDelta = details.primaryDelta! / _trackRect.height;
+          final double valueDelta = details.primaryDelta! * _inverseTrackHeight;
           _currentDragValue -= valueDelta;
           onChanged!(_discretize(_currentDragValue));
         }
@@ -1824,6 +1830,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       sliderTheme: _sliderTheme,
       isDiscrete: isDiscrete,
     );
+    _inverseTrackHeight = 1 / trackRect.height;
 
     final Offset thumbCenter = _calcThumbCenter(
       trackRect: trackRect,
@@ -1914,11 +1921,12 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
           .width;
       final double discreteTrackPadding = trackRect.height;
       final double adjustedTrackWidth = trackRect.width - discreteTrackPadding;
+      final double inverseDivisions = 1 / divisions!;
       // If the tick marks would be too dense, don't bother painting them.
-      if (adjustedTrackWidth / divisions! >= 3.0 * tickMarkWidth) {
+      if (adjustedTrackWidth * inverseDivisions >= 3.0 * tickMarkWidth) {
         final double dy = trackRect.center.dy;
         for (var i = 0; i <= divisions!; i++) {
-          final double value = i / divisions!;
+          final double value = i * inverseDivisions;
           // The ticks are mapped to be within the track, so the tick mark width
           // must be subtracted from the track width.
           final double dx =

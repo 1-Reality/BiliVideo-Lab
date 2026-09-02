@@ -50,6 +50,7 @@ class RenderBottomBar extends RenderBox
   }
 
   Matrix4? _transform;
+  late final _defaultPaintCallback = defaultPaint;
 
   @override
   void performLayout() {
@@ -97,7 +98,7 @@ class RenderBottomBar extends RenderBox
         needsCompositing,
         offset,
         _transform!,
-        defaultPaint,
+        _defaultPaintCallback,
         oldLayer: layer as TransformLayer?,
       );
     } else {

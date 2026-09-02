@@ -131,6 +131,12 @@ class RenderAnimatedMultiHeight extends RenderProxyBox {
 
   double? _lastValue;
   Heights? _heights;
+  late Rect _clipRect;
+  late final _paintChildCallback = _paintChild;
+
+  void _paintChild(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+  }
 
   Duration get duration => _controller.duration!;
   set duration(Duration value) {
@@ -222,6 +228,7 @@ class RenderAnimatedMultiHeight extends RenderProxyBox {
     }
 
     size = constraints.constrain(animatedSize);
+    _clipRect = Offset.zero & size;
   }
 
   void _animationStatusListener(AnimationStatus status) {
@@ -233,12 +240,11 @@ class RenderAnimatedMultiHeight extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     if (isAnimating && clipBehavior != .none) {
-      final Rect rect = Offset.zero & size;
       _clipRectLayer.layer = context.pushClipRect(
         needsCompositing,
         offset,
-        rect,
-        super.paint,
+        _clipRect,
+        _paintChildCallback,
         clipBehavior: clipBehavior,
         oldLayer: _clipRectLayer.layer,
       );

@@ -338,13 +338,14 @@ class MyApp extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
     final textScaler = TextScaler.linear(Pref.defaultTextScale);
     if (uiScale != 1.0) {
+      final inverseUiScale = 1 / uiScale;
       child = MediaQuery(
         data: mediaQuery.copyWith(
           textScaler: textScaler,
-          size: mediaQuery.size / uiScale,
-          padding: tmpPadding ?? mediaQuery.padding / uiScale,
-          viewInsets: mediaQuery.viewInsets / uiScale,
-          viewPadding: tmpPadding ?? mediaQuery.viewPadding / uiScale,
+          size: mediaQuery.size * inverseUiScale,
+          padding: tmpPadding ?? mediaQuery.padding * inverseUiScale,
+          viewInsets: mediaQuery.viewInsets * inverseUiScale,
+          viewPadding: tmpPadding ?? mediaQuery.viewPadding * inverseUiScale,
           devicePixelRatio: mediaQuery.devicePixelRatio * uiScale,
         ),
         child: child!,

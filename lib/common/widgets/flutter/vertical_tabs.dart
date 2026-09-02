@@ -466,8 +466,8 @@ class _IndicatorPainter extends CustomPainter {
     assert(_currentTabOffsets!.isNotEmpty);
     assert(tabIndex >= 0);
     assert(tabIndex <= maxTabIndex);
-    return (_currentTabOffsets![tabIndex] + _currentTabOffsets![tabIndex + 1]) /
-        2.0;
+    return (_currentTabOffsets![tabIndex] + _currentTabOffsets![tabIndex + 1]) *
+        0.5;
   }
 
   Rect indicatorRect(Size tabBarSize, int tabIndex) {

@@ -85,6 +85,17 @@ class RenderRefreshLayout extends RenderBox
     heightFactor = position.value;
   }
 
+  late Rect _clipRect;
+  Offset _indicatorOffset = .zero;
+  late final _paintIndicatorCallback = _paintIndicator;
+
+  void _paintIndicator(PaintingContext context, Offset offset) {
+    final indicator = this.indicator;
+    if (indicator != null) {
+      context.paintChild(indicator, _indicatorOffset + offset);
+    }
+  }
+
   @override
   void dispose() {
     scale.removeListener(_scaleListener);
@@ -99,6 +110,7 @@ class RenderRefreshLayout extends RenderBox
   void performLayout() {
     final constraints = this.constraints;
     size = constraints.biggest;
+    _clipRect = Offset.zero & size;
 
     final body = this.body..layout(constraints);
     setOffset(body, .zero);
@@ -134,13 +146,12 @@ class RenderRefreshLayout extends RenderBox
         context.paintChild(indicator, indicatorOffset + offset);
         layer = null;
       } else {
+        _indicatorOffset = indicatorOffset;
         layer = context.pushClipRect(
           needsCompositing,
           offset,
-          Offset.zero & size,
-          (context, offset) {
-            context.paintChild(indicator, indicatorOffset + offset);
-          },
+          _clipRect,
+          _paintIndicatorCallback,
           clipBehavior: .hardEdge,
           oldLayer: layer as ClipRectLayer?,
         );

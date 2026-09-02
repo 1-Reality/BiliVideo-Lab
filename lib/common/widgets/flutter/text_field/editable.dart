@@ -2590,6 +2590,7 @@ class RenderEditable extends RenderBox
     };
 
     size = Size(width, constraints.constrainHeight(preferredHeight));
+    _clipRect = Offset.zero & size;
     final contentSize = Size(
       _textPainter.width + _caretMargin,
       _textPainter.height,
@@ -2872,7 +2873,11 @@ class RenderEditable extends RenderBox
       link: startHandleLayerLink,
       offset: startPoint + offset,
     );
-    context.pushLayer(_leaderLayerHandler.layer!, super.paint, Offset.zero);
+    context.pushLayer(
+      _leaderLayerHandler.layer!,
+      _paintLayerChildCallback,
+      Offset.zero,
+    );
     if (endpoints.length == 2) {
       Offset endPoint = endpoints[1].point;
       endPoint = Offset(
@@ -2881,13 +2886,13 @@ class RenderEditable extends RenderBox
       );
       context.pushLayer(
         LeaderLayer(link: endHandleLayerLink, offset: endPoint + offset),
-        super.paint,
+        _paintLayerChildCallback,
         Offset.zero,
       );
     } else if (selection!.isCollapsed) {
       context.pushLayer(
         LeaderLayer(link: endHandleLayerLink, offset: startPoint + offset),
-        super.paint,
+        _paintLayerChildCallback,
         Offset.zero,
       );
     }
@@ -2908,7 +2913,7 @@ class RenderEditable extends RenderBox
       _clipRectLayer.layer = context.pushClipRect(
         needsCompositing,
         offset,
-        Offset.zero & size,
+        _clipRect,
         _paintContents,
         clipBehavior: clipBehavior,
         oldLayer: _clipRectLayer.layer,
@@ -2925,6 +2930,12 @@ class RenderEditable extends RenderBox
 
   final LayerHandle<ClipRectLayer> _clipRectLayer =
       LayerHandle<ClipRectLayer>();
+  late Rect _clipRect;
+  late final _paintLayerChildCallback = _paintLayerChild;
+
+  void _paintLayerChild(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+  }
 
   @override
   Rect? describeApproximatePaintClip(RenderObject child) {
@@ -2934,7 +2945,7 @@ class RenderEditable extends RenderBox
       case Clip.hardEdge:
       case Clip.antiAlias:
       case Clip.antiAliasWithSaveLayer:
-        return _hasVisualOverflow ? Offset.zero & size : null;
+        return _hasVisualOverflow ? _clipRect : null;
     }
   }
 
