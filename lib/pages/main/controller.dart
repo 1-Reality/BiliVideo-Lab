@@ -43,7 +43,7 @@ class MainController extends GetxController
   final RxInt dynCount = 0.obs;
   late DynamicBadgeMode dynamicBadgeMode;
   late bool checkDynamic = Pref.checkDynamic;
-  late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
+  late int dynamicPeriod = Pref.dynamicPeriod;
   late int _lastCheckDynamicAt = 0;
   late bool hasDyn = false;
   late final dynamicController = Get.putOrFind(DynamicsController.new);
@@ -105,7 +105,7 @@ class MainController extends GetxController
     if (dynamicBadgeMode != DynamicBadgeMode.hidden) {
       if (hasDyn && navigationBars[selectedIndex.value] != .dynamics) {
         if (checkDynamic) {
-          _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
+          _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch + dynamicPeriod;
         }
         getUnreadDynamic();
       }
@@ -207,7 +207,10 @@ class MainController extends GetxController
     if (!hasDyn) return;
     dynCount.value = count;
   }
-
+  void setDynamicPeriod(int val) {
+  dynamicPeriod = val;
+  _lastCheckDynamicAt =
+      DateTime.now().millisecondsSinceEpoch + val;}
   void checkUnreadDynamic() {
     if (!hasDyn ||
         !accountService.isLogin.value ||
@@ -215,12 +218,10 @@ class MainController extends GetxController
         !checkDynamic) {
       return;
     }
-    int now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastCheckDynamicAt >= dynamicPeriod) {
-      _lastCheckDynamicAt = now;
-      getUnreadDynamic();
-    }
-  }
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (now > _lastCheckDynamicAt) {
+    _lastCheckDynamicAt = now + dynamicPeriod; getUnreadDynamic();}
 
   void setNavBarConfig() {
     List<int>? navBarSort =

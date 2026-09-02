@@ -512,7 +512,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
 
   static int get dynamicPeriod =>
-      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 6);
+      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
 
   static FlexSchemeVariant get schemeVariant =>
       FlexSchemeVariant.values[_setting.get(
@@ -766,7 +766,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? 512 * 1024 * 1024;
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 29;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
