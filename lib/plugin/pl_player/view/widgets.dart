@@ -428,12 +428,16 @@ class _RenderVideoTime extends RenderBox {
 
   String _position;
   set position(String value) {
+    if (_position == value) return;
     _position = value;
+    _positionCache?.dispose();
+    _positionCache = _buildParagraph(Colors.white, value);
     markNeedsPaint();
     markNeedsSemanticsUpdate();
   }
 
   ui.Paragraph? _cache;
+  ui.Paragraph? _positionCache;
 
   static ui.Paragraph _buildParagraph(Color color, String time) {
     final builder =
@@ -482,7 +486,7 @@ class _RenderVideoTime extends RenderBox {
 
   @override
   void paint(PaintingContext context, ui.Offset offset) {
-    final para = _buildParagraph(Colors.white, _position);
+    final para = _positionCache ??= _buildParagraph(Colors.white, _position);
     context.canvas
       ..drawParagraph(
         para,
@@ -492,13 +496,14 @@ class _RenderVideoTime extends RenderBox {
         ),
       )
       ..drawParagraph(_cache!, Offset(offset.dx, offset.dy + para.height));
-    para.dispose();
   }
 
   @override
   void dispose() {
     _cache?.dispose();
     _cache = null;
+    _positionCache?.dispose();
+    _positionCache = null;
     super.dispose();
   }
 

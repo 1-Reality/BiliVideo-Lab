@@ -191,6 +191,17 @@ class RenderViewPointProgressBar
   final _paint = Paint()..style = PaintingStyle.fill;
   static final _segmentBackground = Colors.grey[600]!.withValues(alpha: 0.45);
   static final _segmentDivider = Colors.black.withValues(alpha: 0.5);
+  final _paragraphs = <String, ui.Paragraph>{};
+
+  @override
+  set segments(List<ViewPointSegment> value) {
+    if (listEquals(segments, value)) return;
+    for (final paragraph in _paragraphs.values) {
+      paragraph.dispose();
+    }
+    _paragraphs.clear();
+    super.segments = value;
+  }
 
   @override
   void performLayout() {
@@ -253,7 +264,7 @@ class RenderViewPointProgressBar
       final title = segment.title;
       if (title != null && title.isNotEmpty) {
         final segmentWidth = segmentEnd - prevEnd;
-        final paragraph = _getParagraph(title, 10);
+        final paragraph = _paragraphs[title] ??= _getParagraph(title, 10);
         final textWidth = paragraph.maxIntrinsicWidth;
         final textHeight = paragraph.height;
 
@@ -273,7 +284,6 @@ class RenderViewPointProgressBar
           );
         }
         canvas.drawParagraph(paragraph, offset);
-        paragraph.dispose();
         if (isOverflow) {
           canvas.restore();
         }
@@ -295,6 +305,10 @@ class RenderViewPointProgressBar
 
   @override
   void dispose() {
+    for (final paragraph in _paragraphs.values) {
+      paragraph.dispose();
+    }
+    _paragraphs.clear();
     _onSeek = null;
     _tapGestureRecognizer
       ?..onTapUp = null

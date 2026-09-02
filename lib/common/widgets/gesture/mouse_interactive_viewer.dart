@@ -469,7 +469,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
         final FrictionSimulation frictionSimulation = FrictionSimulation(
           widget.interactionEndFrictionCoefficient * widget.scaleFactor,
           scale,
-          details.scaleVelocity / 10,
+          details.scaleVelocity * 0.1,
         );
         final double tFinal = _getFinalTime(
           details.scaleVelocity.abs(),
@@ -759,7 +759,7 @@ double _getFinalTime(
   double drag, {
   double effectivelyMotionless = 10,
 }) {
-  return math.log(effectivelyMotionless / velocity) / math.log(drag / 100);
+  return math.log(effectivelyMotionless / velocity) / math.log(drag * 0.01);
 }
 
 Offset _getMatrixTranslation(Matrix4 matrix) {

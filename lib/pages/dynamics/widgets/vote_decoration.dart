@@ -57,19 +57,12 @@ class VoteDecoration extends Decoration {
 }
 
 class _VoteDecorationPainter extends BoxPainter {
-  _VoteDecorationPainter(this._decoration, super.onChanged);
+  _VoteDecorationPainter(this._decoration, super.onChanged) {
+    _backgroundPaint.color = _decoration.color;
+  }
 
   final VoteDecoration _decoration;
-
-  Paint? _cachedBackgroundPaint;
-  Paint _getBackgroundPaint(Rect rect, TextDirection? textDirection) {
-    if (_cachedBackgroundPaint == null) {
-      final paint = Paint()..color = _decoration.color;
-      _cachedBackgroundPaint = paint;
-    }
-
-    return _cachedBackgroundPaint!;
-  }
+  final _backgroundPaint = Paint();
 
   void _paintBox(
     Canvas canvas,
@@ -105,7 +98,7 @@ class _VoteDecorationPainter extends BoxPainter {
     _paintBox(
       canvas,
       adjustedRect,
-      _getBackgroundPaint(rect, textDirection),
+      _backgroundPaint,
       textDirection,
     );
   }
@@ -120,40 +113,24 @@ class _VoteDecorationPainter extends BoxPainter {
   Rect _adjustedRectOnOutlinedBorder(Rect rect, TextDirection? textDirection) {
     final border = _decoration.border as Border;
 
-    final EdgeInsets insets =
-        EdgeInsets.fromLTRB(
-          _calculateAdjustedSide(border.left),
-          _calculateAdjustedSide(border.top),
-          _calculateAdjustedSide(border.right),
-          _calculateAdjustedSide(border.bottom),
-        ) /
-        2;
-
     return Rect.fromLTRB(
-      rect.left + insets.left,
-      rect.top + insets.top,
-      rect.right - insets.right,
-      rect.bottom - insets.bottom,
+      rect.left + _calculateAdjustedSide(border.left) * 0.5,
+      rect.top + _calculateAdjustedSide(border.top) * 0.5,
+      rect.right - _calculateAdjustedSide(border.right) * 0.5,
+      rect.bottom - _calculateAdjustedSide(border.bottom) * 0.5,
     );
   }
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     assert(configuration.size != null);
-    final Rect rect = offset & configuration.size!;
+    final size = configuration.size!;
+    final Rect rect = offset & size;
     final TextDirection? textDirection = configuration.textDirection;
     if (_decoration.percentage > 0) {
-      final Rect bgRect;
-      if (_decoration.percentage == 1.0) {
-        bgRect = rect;
-      } else {
-        bgRect =
-            offset &
-            Size(
-              configuration.size!.width * (_decoration.percentage),
-              configuration.size!.height,
-            );
-      }
+      final bgRect = _decoration.percentage == 1.0
+          ? rect
+          : offset & Size(size.width * _decoration.percentage, size.height);
       _paintBackgroundColor(canvas, bgRect, textDirection);
     }
     _decoration.border.paint(

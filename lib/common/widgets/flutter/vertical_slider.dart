@@ -2545,7 +2545,7 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
     }
 
     final double trackLeft =
-        offset.dx + (parentBox.size.width - trackWidth) / 2;
+        offset.dx + (parentBox.size.width - trackWidth) * 0.5;
     final double trackTop = offset.dy + 10;
     // padding
     // (sliderTheme.padding == null
@@ -2615,13 +2615,14 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
       isEnabled: isEnabled,
       isDiscrete: isDiscrete,
     );
-    final trackRadius = Radius.circular(trackRect.height / 2);
+    final halfTrackHeight = sliderTheme.trackHeight! * 0.5;
+    final trackRadius = Radius.circular(trackRect.height * 0.5);
     final activeTrackRadius = Radius.circular(
-      (trackRect.height + additionalActiveTrackHeight) / 2,
+      (trackRect.height + additionalActiveTrackHeight) * 0.5,
     );
 
     final bool drawInactiveTrack =
-        thumbCenter.dy > (trackRect.top - (sliderTheme.trackHeight! / 2));
+        thumbCenter.dy > trackRect.top - halfTrackHeight;
     if (drawInactiveTrack) {
       // Draw the inactive track segment.
       context.canvas.drawRRect(
@@ -2629,20 +2630,20 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
           trackRect.left,
           trackRect.top,
           trackRect.right,
-          thumbCenter.dy - (sliderTheme.trackHeight! / 2),
+          thumbCenter.dy - halfTrackHeight,
           trackRadius,
         ),
         rightTrackPaint,
       );
     }
     final bool drawActiveTrack =
-        thumbCenter.dy < (trackRect.bottom - (sliderTheme.trackHeight! / 2));
+        thumbCenter.dy < trackRect.bottom - halfTrackHeight;
     if (drawActiveTrack) {
       // Draw the active track segment.
       context.canvas.drawRRect(
         RRect.fromLTRBR(
           trackRect.left,
-          thumbCenter.dy + (sliderTheme.trackHeight! / 2),
+          thumbCenter.dy + halfTrackHeight,
           trackRect.right,
           trackRect.bottom,
           activeTrackRadius,

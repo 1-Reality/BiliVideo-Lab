@@ -152,19 +152,12 @@ class _ImageDecoration extends Decoration {
 }
 
 class _ImageDecorationPainter extends BoxPainter {
-  _ImageDecorationPainter(this._decoration, super.onChanged);
+  _ImageDecorationPainter(this._decoration, super.onChanged) {
+    _paint.color = _decoration.color;
+  }
 
   final _ImageDecoration _decoration;
-
-  Paint? _cachedBackgroundPaint;
-  Paint _getBackgroundPaint(Rect rect) {
-    if (_cachedBackgroundPaint == null) {
-      final paint = Paint()..color = _decoration.color;
-      _cachedBackgroundPaint = paint;
-    }
-
-    return _cachedBackgroundPaint!;
-  }
+  final _paint = Paint();
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
@@ -172,7 +165,7 @@ class _ImageDecorationPainter extends BoxPainter {
     final Rect rect = offset & configuration.size!;
     canvas.drawRRect(
       _decoration.borderRadius.toRRect(rect),
-      _getBackgroundPaint(rect),
+      _paint,
     );
   }
 
