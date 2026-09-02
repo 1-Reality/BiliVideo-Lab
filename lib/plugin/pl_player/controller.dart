@@ -283,10 +283,7 @@ class PlPlayerController with BlockConfigMixin {
 
   static bool get _isCurrVideoPage {
     final routing = Get.routing;
-    if (routing.route is! GetPageRoute) {
-      return false;
-    }
-    return _isVideoPage(routing.current);
+    return routing.route is GetPageRoute && _isVideoPage(routing.current);
   }
 
   static bool _isVideoPage(String routeName) {
@@ -1983,7 +1980,7 @@ class PlPlayerController with BlockConfigMixin {
   Future<void> takeScreenshot() async {
     SmartDialog.showToast('截图中');
     final time = DurationUtils.formatDuration(
-      positionInMilliseconds / 1000,
+      positionInMilliseconds * 0.001,
     ).replaceAll(':', '-');
     final image = await videoPlayerController?.screenshot();
     if (image != null) {

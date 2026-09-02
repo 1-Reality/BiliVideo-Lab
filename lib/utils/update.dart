@@ -148,7 +148,7 @@ abstract final class Update {
           for (Map<String, dynamic> i in data['assets']) {
             final String name = i['name'];
             if (name.contains(plat) &&
-                (ext == null || ext.isEmpty ? true : name.endsWith(ext))) {
+                (ext == null || ext.isEmpty || name.endsWith(ext))) {
               PageUtils.launchURL(i['browser_download_url']);
               return;
             }

@@ -126,7 +126,7 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
   void _syncWarmupFromTotal() {
     final total = double.tryParse(totalController.text);
     if (total == null || !total.isFinite || total <= 0) return;
-    final value = total / 8;
+    final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
@@ -182,11 +182,11 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
 
     final effectiveTotal = !k && total > 512 ? 512.0 : total;
     final effectiveWarmup = warmup.clamp(0.0, effectiveTotal * 0.999);
-    final totalBytes = (effectiveTotal * 1048576).round();
+    final totalBytes = (effectiveTotal * (1 << 20)).round();
     if (!mounted) return;
     Navigator.of(context).pop((
       totalBytes: totalBytes,
-      warmupBytes: (effectiveWarmup * 1048576).round(),
+      warmupBytes: (effectiveWarmup * (1 << 20)).round(),
       cooldown: Duration(microseconds: (cooldown * 1000000).round()),
       mode: mode,
     ));
@@ -387,7 +387,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       try {
         if ((Platform.isAndroid || Platform.isWindows) && !Accounts.x) {
           final usage = await TrafficStatsService.instance.currentPeriodUsage();
-          const gib = 1024 * 1024 * 1024;
+          const gib = 1 << 30;
           final projected = config.totalBytes * CDNService.values.length;
           if (usage.day + projected > 50 * gib ||
               usage.week + projected > 200 * gib ||
@@ -569,7 +569,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int totalBytes,
   ) async {
     final probes = <_CdnLatencyProbe>[];
-    final suggestedProbeBytes = totalBytes ~/ 256;
+    final suggestedProbeBytes = totalBytes >> 8;
     final probeBytes = suggestedProbeBytes < 1024
         ? 1024
         : suggestedProbeBytes > 16384
@@ -1044,12 +1044,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '${(bytesPerSecond / sample.divisor).toStringAsPrecision(3)} ${sample.unit}';
 
   String _ms(num microseconds) =>
-      '${(microseconds / 1000).toStringAsPrecision(3)} ms';
+      '${(microseconds * 0.001).toStringAsPrecision(3)} ms';
 
   String _duration(int microseconds) {
     if (microseconds < 1000) return '$microseconds μs';
     if (microseconds < 1000000) return _ms(microseconds);
-    return '${(microseconds / 1000000).toStringAsPrecision(3)} s';
+    return '${(microseconds * 0.000001).toStringAsPrecision(3)} s';
   }
 
   void _sortByDiagnostics() {
@@ -1080,7 +1080,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final metrics = sample.metrics;
     final rows = [
       '测试模式：${sample.type.name}；源主机：${sample.sourceHost.isEmpty ? "未知" : sample.sourceHost}',
-      '总接收：${(sample.downloaded / 1048576).toStringAsPrecision(4)} MiB；有效测量区间：${_duration(sample.elapsedUs)}',
+      '总接收：${(sample.downloaded / (1 << 20)).toStringAsPrecision(4)} MiB；有效测量区间：${_duration(sample.elapsedUs)}',
       '固定窗口：${_CdnMetrics.windowUs ~/ 1000} ms；窗口样本：${metrics.segmentRates.length}',
       '平均带宽（计时不含前置 DNS）：${_rate(sample, sample.averageRate)}',
       '固定窗口最低／最高：${_rate(sample, metrics.minRate)} ／ ${_rate(sample, metrics.maxRate)}',
@@ -1102,7 +1102,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '首包 P95／P98：${_ms(metrics.latencyP95Us)} ／ ${_ms(metrics.latencyP98Us)}',
       '去极端 5%（P95−P05）延迟极差：${_ms(metrics.latencyP95Us - metrics.latencyP05Us)}',
       '去极端 2%（P98−P02）延迟极差：${_ms(metrics.latencyP98Us - metrics.latencyP02Us)}',
-      '首包平均：${_ms(metrics.latencyMeanUs)}；标准差：${_ms(metrics.latencyStdUs)}；方差 ${(metrics.latencyVariance / 1000000).toStringAsPrecision(5)} ms²',
+      '首包平均：${_ms(metrics.latencyMeanUs)}；标准差：${_ms(metrics.latencyStdUs)}；方差 ${(metrics.latencyVariance * 0.000001).toStringAsPrecision(5)} ms²',
       '首包抖动：${_ms(metrics.latencyJitterUs)}；公式同样为相邻样本绝对差的平均值',
       '综合稳定分（仅用于本次相对排序，越高越好）：${(metrics.stabilityScore / sample.divisor).toStringAsPrecision(4)}',
       '综合排序以 P05 低谷带宽为主，同时惩罚带宽抖动、CV、P95 首包延迟与最大传输空窗；不会自动改写播放优先级。',
@@ -1209,9 +1209,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final selected = <int>{};
 
     String ms(num microseconds) =>
-        '${(microseconds / 1000).toStringAsPrecision(3)} ms';
+        '${(microseconds * 0.001).toStringAsPrecision(3)} ms';
     String rate(num bytesPerSecond) =>
-        '${(bytesPerSecond / 1048576).toStringAsPrecision(3)} MiB/s';
+        '${(bytesPerSecond / (1 << 20)).toStringAsPrecision(3)} MiB/s';
 
     String timestamp(int us) => us == 0
         ? '时间未知'
@@ -1641,18 +1641,17 @@ final class _CdnStreamTracker {
     if (gapUs >= 250000) gap250ms++;
     if (gapUs >= 500000) gap500ms++;
     if (gapUs >= 1000000) gap1000ms++;
-    while (_nextWindowUs <= elapsedUs) {
-      final endBytes = _previousBytes +
-          (bytes - _previousBytes) *
-              (_nextWindowUs - _previousUs) /
-              gapUs;
-      rates.add(
-        (endBytes > _windowBytes ? endBytes - _windowBytes : 0.0) *
-            Duration.microsecondsPerSecond /
-            _CdnMetrics.windowUs,
-      );
-      _windowBytes = endBytes;
-      _nextWindowUs += _CdnMetrics.windowUs;
+    if (_nextWindowUs <= elapsedUs) {
+      final bytesPerUs = (bytes - _previousBytes) / gapUs;
+      while (_nextWindowUs <= elapsedUs) {
+        final endBytes =
+            _previousBytes + (_nextWindowUs - _previousUs) * bytesPerUs;
+        rates.add(
+          (endBytes > _windowBytes ? endBytes - _windowBytes : 0.0) * 4,
+        );
+        _windowBytes = endBytes;
+        _nextWindowUs += _CdnMetrics.windowUs;
+      }
     }
     _previousUs = elapsedUs;
     _previousBytes = bytes;
@@ -1826,27 +1825,27 @@ class _CdnMetrics {
       for (final probe in sample.probes) probe.firstByteUs,
       if (sample.probes.isEmpty) sample.firstByteUs,
     ];
-    final latencySorted = latency.map((e) => e.toDouble()).toList()..sort();
+    final latencyValues = latency.map((e) => e.toDouble()).toList();
+    final latencySorted = List<double>.of(latencyValues)..sort();
     final latencyMean = _mean(latencySorted);
     final latencyVariance = _variance(latencySorted, latencyMean);
     final latencyStd = math.sqrt(latencyVariance);
-    final latencyJitter = _meanAbsoluteDifference(
-      latency.map((e) => e.toDouble()).toList(),
-    );
+    final latencyJitter = _meanAbsoluteDifference(latencyValues);
 
     const rollingWindowCount = 1000000 ~/ windowUs;
+    final rollingScale = 1 / rollingWindowCount;
     var rollingSum = 0.0;
     var rollingLow = double.infinity;
     var rollingHigh = double.negativeInfinity;
     var earlySum = 0.0;
     var lateSum = 0.0;
-    final split = rates.length ~/ 2 == 0 ? 1 : rates.length ~/ 2;
+    final split = math.max(1, rates.length >> 1);
     for (var index = 0; index < rates.length; index++) {
       final value = rates[index];
       rollingSum += value;
       if (index >= rollingWindowCount) rollingSum -= rates[index - rollingWindowCount];
       if (index + 1 >= rollingWindowCount) {
-        final rolling = rollingSum / rollingWindowCount;
+        final rolling = rollingSum * rollingScale;
         if (rolling < rollingLow) rollingLow = rolling;
         if (rolling > rollingHigh) rollingHigh = rolling;
       }
@@ -1881,7 +1880,7 @@ class _CdnMetrics {
         relativeJitter * 2 +
         coefficientOfVariation +
         latencyP95 / 500000 +
-        sample.maxGapUs / 1000000;
+        sample.maxGapUs * 0.000001;
     final stabilityScore = p05 / stabilityPenalty;
 
     return _CdnMetrics._(
@@ -1924,14 +1923,14 @@ class _CdnMetrics {
   static double _mean(List<double> values) =>
       values.reduce((a, b) => a + b) / values.length;
 
-  static double _variance(List<double> values, double mean) =>
-      values
-          .map((value) {
-            final delta = value - mean;
-            return delta * delta;
-          })
-          .reduce((a, b) => a + b) /
-      values.length;
+  static double _variance(List<double> values, double mean) {
+    var sum = 0.0;
+    for (final value in values) {
+      final delta = value - mean;
+      sum += delta * delta;
+    }
+    return sum / values.length;
+  }
 
   static double _meanAbsoluteDifference(List<double> values) {
     if (values.length < 2) return 0;

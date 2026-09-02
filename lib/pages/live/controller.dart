@@ -75,17 +75,14 @@ class LiveController extends CommonListController with AccountMixin {
   }
 
   @override
-  Future<LoadingState> customGetData() {
-    if (areaIndex.value != 0) {
-      return LiveHttp.liveSecondList(
+  Future<LoadingState> customGetData() => areaIndex.value != 0
+      ? LiveHttp.liveSecondList(
         pn: page,
         areaId: areaId,
         parentAreaId: parentAreaId,
         sortType: sortType,
-      );
-    }
-    return LiveHttp.liveFeedIndex(pn: page);
-  }
+      )
+      : LiveHttp.liveFeedIndex(pn: page);
 
   @override
   Future<void> onRefresh() {

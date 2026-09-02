@@ -202,7 +202,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
         title: const Text('功能详细说明'),
         content: const SingleChildScrollView(
           child: Text(
-            '电脑连接的是有线还是 Wi-Fi，只能说明接入方式，未必能说明这条网络现在是否适合高码率播放。这里可以根据链路协商速率和 Wi-Fi 状态，把当前连接判断为“等效宽带”或“等效移网”，并使用对应的画质、音质和编码偏好。\n\n'
+            '电脑连接的是有线还是 Wi-Fi，未必能说明这条网络现在是否适合高码率播放。此功能可根据链路协商速率和 Wi-Fi 状态，把当前连接判断为“等效宽带”或“等效移网”，并使用对应的画质、音质和编码偏好。\n\n'
             '这看起来相似，却可能差很多：千兆有线通常比较稳定，降到百兆时可能意味着链路协商出现了变化，也可能只是身处校园网或其他共享网络；Wi-Fi 的信号强度和协商速率，则更能说明这一刻的无线连接是否适合高码率播放。USB 网络共享、手机热点等连接，也可能披着“电脑网络”的外观出现。这项功能用于让电脑在网络条件可能变差时，临时沿用蜂窝网络下的画质、音质和编码偏好。\n\n'
             '这项功能把最终判断归纳为“等效宽带”和“等效移网”。等效宽带使用普通网络下的画质、音质和编码偏好，等效移网使用移动网络下的对应配置。用户可以自行决定哪些有线或 Wi-Fi 状态需要切换，不必受设备类型限制。\n\n'
             '判断只读取当前连接类型、链路协商速率和 Wi-Fi 信号强度，不保存网络名称、IP 地址等无关信息。检测只发生在启动应用、进入播放器等关键节点，不会在播放过程中反复扫描，也不会因为信号的轻微波动频繁切换。所有门限均由用户自行设置，PiliBro 只负责按照这些规则选择对应的播放配置。\n\n'
@@ -540,7 +540,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             ListTile(
               leading: const Icon(Icons.schedule_outlined),
               title: const Text('网络高峰期'),
-              subtitle: const Text('按时段临时覆盖编码偏好；支持增加、删除和单独停用条目'),
+              subtitle: const Text('按时段临时覆盖编码偏好；支持增加、删除和单独停用条目。记住：物理BRAS好，4134好，云化池化vBRAS、固移融合、AS 137266不如传统网！汉口独立城域网、武汉核心网万岁！不要全省大锅饭🍲！'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => showDialog<void>(
                 context: context,
@@ -569,14 +569,17 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
     await ConnectivityUtils.notifySettingsChanged();
   }
 
-  String _time(int minute) =>
-      '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
+  String _time(int minute) {
+    final hour = minute ~/ 60;
+    return '${hour.toString().padLeft(2, '0')}:${(minute - hour * 60).toString().padLeft(2, '0')}';
+  }
 
   Future<void> _setTime(int index, String key) async {
     final value = periods[index][key] as int;
+    final hour = value ~/ 60;
     final time = await pili.showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: value ~/ 60, minute: value % 60),
+      initialTime: TimeOfDay(hour: hour, minute: value - hour * 60),
     );
     if (time != null) {
       periods[index][key] = time.hour * 60 + time.minute;

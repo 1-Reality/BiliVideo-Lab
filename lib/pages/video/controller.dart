@@ -138,18 +138,18 @@ class VideoDetailController extends GetxController
       final bytes = exactBytes != null && exactBytes > 0
           ? exactBytes
           : bitrate > 0 && durationMs > 0
-          ? (bitrate * durationMs / 8000).round()
+          ? (bitrate * durationMs * 0.000125).round()
           : 0;
       if (bitrate <= 0 && bytes > 0 && durationMs > 0) {
         bitrate = (bytes * 8000 / durationMs).round();
       }
       if (bytes <= 0 && bitrate <= 0) return null;
-      final size = bytes >= 1073741824
-          ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
-          : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+      final size = bytes >= 1 << 30
+          ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+          : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
       final rate = bitrate >= 1000000
-          ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
-          : '${(bitrate / 1000).toStringAsFixed(0)} kb/s';
+          ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+          : '${(bitrate * 0.001).round()} kb/s';
       return '${exactBytes == null ? '约 ' : ''}$size · $rate';
     } catch (_) {
       return null;
@@ -191,7 +191,7 @@ class VideoDetailController extends GetxController
         if (metrics == null || metrics.bytes <= 0) continue;
         final relative = metrics.bytes * 100 / current.bytes;
         rows.add(
-          '${_codecDisplayName(format)}: ${metrics.text} (${relative.toStringAsFixed(0)}%)',
+          '${_codecDisplayName(format)}: ${metrics.text} (${relative.round()}%)',
         );
       }
       return rows.take(2).toList(growable: false);
@@ -207,13 +207,13 @@ class VideoDetailController extends GetxController
   ) {
     final bitrate = (video.bandWidth ?? 0) + (audio?.bandWidth ?? 0);
     if (bitrate <= 0 || durationMs <= 0) return null;
-    final bytes = (bitrate * durationMs / 8000).round();
-    final size = bytes >= 1073741824
-        ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
-        : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+    final bytes = (bitrate * durationMs * 0.000125).round();
+    final size = bytes >= 1 << 30
+        ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+        : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
     final rate = bitrate >= 1000000
-        ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
-        : '${(bitrate / 1000).toStringAsFixed(0)} kb/s';
+        ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+        : '${(bitrate * 0.001).round()} kb/s';
     return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
   }
 
@@ -248,7 +248,7 @@ class VideoDetailController extends GetxController
   Duration? playedTime;
   String get playedTimePos {
     final pos = playedTime?.inMilliseconds;
-    return pos == null || pos == 0 ? '' : '?t=${pos / 1000}';
+    return pos == null || pos == 0 ? '' : '?t=${pos * 0.001}';
   }
 
   // 亮度
@@ -263,14 +263,14 @@ class VideoDetailController extends GetxController
       plPlayerController.cachePreferCodecs ?? Pref.preferCodecs;
   bool _pendingNetworkRefresh = false;
 
-  bool get showReply => isFileSource
-      ? false
-      : isUgc
-      ? plPlayerController.showVideoReply
-      : plPlayerController.showBangumiReply;
+  bool get showReply =>
+      !isFileSource &&
+      (isUgc
+          ? plPlayerController.showVideoReply
+          : plPlayerController.showBangumiReply);
 
   bool get showRelatedVideo =>
-      isFileSource ? false : plPlayerController.showRelatedVideo;
+      !isFileSource && plPlayerController.showRelatedVideo;
 
   int? get videoUpUid {
     try {
@@ -581,7 +581,7 @@ class VideoDetailController extends GetxController
       type: args['mediaType'] ?? sourceType.mediaType,
       bizId: args['mediaId'] ?? -1,
       ps: 20,
-      direction: isLoadPrevious ? true : false,
+      direction: isLoadPrevious,
       oid: isReverse
           ? null
           : mediaList.isEmpty
@@ -600,9 +600,7 @@ class VideoDetailController extends GetxController
           : mediaList.last.type,
       desc: _mediaDesc,
       sortField: args['sortField'] ?? 1,
-      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
-          ? true
-          : false,
+      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true,
     );
     if (res case Success(:final response)) {
       if (response.mediaList.isNotEmpty) {
@@ -988,9 +986,7 @@ class VideoDetailController extends GetxController
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
-            (isFileSource
-                ? true
-                : videoPlayerKey.currentState?.mounted == true)) {
+            (isFileSource || videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
       );
@@ -1195,7 +1191,7 @@ class VideoDetailController extends GetxController
       for (final item in durl) {
         final video = _getCdnUrl(item.playUrls);
         buffer.write(
-          '%${video.length}%$video,length=${item.length! / 1000};',
+          '%${video.length}%$video,length=${item.length! * 0.001};',
         );
       }
       videoUrl = buffer.toString();
@@ -1334,7 +1330,7 @@ class VideoDetailController extends GetxController
         PostSegmentModel(
           segment: Pair(
             first: 0,
-            second: plPlayerController.positionInMilliseconds / 1000,
+            second: plPlayerController.positionInMilliseconds * 0.001,
           ),
           category: SegmentType.sponsor,
           actionType: ActionType.skip,
@@ -1495,7 +1491,7 @@ class VideoDetailController extends GetxController
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
+            final end = (item.to! * 1000 / data.timeLength!).clamp(0.0, 1.0);
             return ViewPointSegment(
               end: end,
               title: item.content,

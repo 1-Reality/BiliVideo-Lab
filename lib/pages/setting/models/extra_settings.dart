@@ -76,7 +76,7 @@ List<SettingsModel> get extraSettings => [
   SplitModel(
     normalModel: const NormalModel.split(
       title: '空降助手',
-      subtitle: '点击配置',
+      subtitle: '点击配置，建议保留持久ID并备份',
       leading: Icon(CustomIcons.shield_play_arrow),
     ),
     switchModel: SwitchModel.split(
@@ -86,7 +86,7 @@ List<SettingsModel> get extraSettings => [
     ),
   ),
   PopupModel<SkipType>(
-    title: '番剧片头/片尾跳过类型',
+    title: '番剧头尾跳过类型',
     leading: const Icon(MdiIcons.debugStepOver),
     value: () => Pref.pgcSkipType,
     items: SkipType.values,
@@ -97,7 +97,7 @@ List<SettingsModel> get extraSettings => [
   SplitModel(
     normalModel: const NormalModel.split(
       title: '检查未读动态',
-      subtitle: '点击设置检查周期(min)',
+      subtitle: '点击设置检查周期（秒）',
       leading: Icon(Icons.notifications_none),
     ),
     switchModel: SwitchModel.split(
@@ -144,7 +144,7 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
   ),
   SwitchModel(
-    title: '横屏分P/合集列表显示在Tab栏',
+    title: '横屏分P|合集列表显示在Tab栏',
     leading: const Icon(Icons.format_list_numbered_rtl_sharp),
     setKey: SettingBoxKey.horizontalSeasonPanel,
     defaultVal: Pref.horizontalScreen,
@@ -183,13 +183,13 @@ List<SettingsModel> get extraSettings => [
     onTap: _showDmHeightDialog,
   ),
   const SwitchModel(
-    title: '显示视频警告/争议信息',
+    title: '显示视频警告争议信息',
     leading: Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showArgueMsg,
     defaultVal: true,
   ),
   SwitchModel(
-    title: '显示动态警告/争议信息',
+    title: '显示动态警告争议信息',
     leading: const Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showDynDispute,
     defaultVal: true,
@@ -204,7 +204,7 @@ List<SettingsModel> get extraSettings => [
   ),
   const SwitchModel(
     title: '禁用 SSL 证书验证',
-    subtitle: '谨慎开启，禁用容易受到中间人攻击',
+    subtitle: '谨慎开启，禁用可能会受到 MitM 攻击',
     leading: Icon(Icons.security),
     needReboot: true,
     setKey: SettingBoxKey.badCertificateCallback,
@@ -324,7 +324,7 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
   ),
   SwitchModel(
-    title: '展示头像/评论/动态装饰',
+    title: '展示头像、评论、动态装饰',
     leading: const Icon(MdiIcons.stickerCircleOutline),
     setKey: SettingBoxKey.showDecorate,
     defaultVal: true,
@@ -375,6 +375,7 @@ List<SettingsModel> get extraSettings => [
   if (Platform.isAndroid)
     const SwitchModel(
       title: '使用「哔哩发评反诈」检查评论',
+      subtitle: '若未安装该应用，可能会导致上一开关失效；但哥哥科技版已经缓解该问题！',
       leading: Icon(
         FontAwesomeIcons.b,
         size: 22,
@@ -516,7 +517,7 @@ List<SettingsModel> get extraSettings => [
   ),
   const SwitchModel(
     title: '消息页禁用"收到的赞"功能',
-    subtitle: '禁止打开入口，降低网络社交依赖',
+    subtitle: '禁止打开入口，减少低熵通知提醒打扰',
     leading: Icon(Icons.beach_access_outlined),
     setKey: SettingBoxKey.disableLikeMsg,
     defaultVal: false,
@@ -756,7 +757,7 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
 }
 
 void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = Pref.dynamicPeriod.toString();
+  String dynamicPeriod = (Pref.dynamicPeriod ~/ 1000).toString();
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -767,7 +768,7 @@ void _showDynDialog(BuildContext context) {
         keyboardType: TextInputType.number,
         onChanged: (value) => dynamicPeriod = value,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'min'),
+        decoration: const InputDecoration(suffixText: 's'),
       ),
       actions: [
         TextButton(
@@ -780,10 +781,10 @@ void _showDynDialog(BuildContext context) {
         TextButton(
           onPressed: () {
             try {
-              final val = int.parse(dynamicPeriod);
+              final val = int.parse(dynamicPeriod) * 1000;
               Get.back();
               GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().dynamicPeriod = val * 60 * 1000;
+              Get.find<MainController>().setDynamicPeriod(val);
             } catch (e) {
               SmartDialog.showToast(e.toString());
             }
@@ -1233,7 +1234,7 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
               Get.back();
               await GStorage.setting.put(
                 SettingBoxKey.maxCacheSize,
-                val * 1024 * 1024,
+                val * (1 << 20),
               );
               setState();
             } catch (e) {

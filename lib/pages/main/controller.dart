@@ -43,7 +43,7 @@ class MainController extends GetxController
   final RxInt dynCount = 0.obs;
   late DynamicBadgeMode dynamicBadgeMode;
   late bool checkDynamic = Pref.checkDynamic;
-  late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
+  late int dynamicPeriod = Pref.dynamicPeriod;
   late int _lastCheckDynamicAt = 0;
   late bool hasDyn = false;
   late final dynamicController = Get.putOrFind(DynamicsController.new);
@@ -68,7 +68,7 @@ class MainController extends GetxController
   late bool pauseOnMinimize = Pref.pauseOnMinimize;
   late bool isPlaying = false;
 
-  static const _period = 5 * 60 * 1000;
+  static const _period = 300000;
   late int _lastSelectTime = 0;
 
   @override
@@ -105,7 +105,8 @@ class MainController extends GetxController
     if (dynamicBadgeMode != DynamicBadgeMode.hidden) {
       if (hasDyn && navigationBars[selectedIndex.value] != .dynamics) {
         if (checkDynamic) {
-          _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
+          _lastCheckDynamicAt =
+              DateTime.now().millisecondsSinceEpoch + dynamicPeriod;
         }
         getUnreadDynamic();
       }
@@ -208,6 +209,11 @@ class MainController extends GetxController
     dynCount.value = count;
   }
 
+  void setDynamicPeriod(int val) {
+    dynamicPeriod = val;
+    _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch + val;
+  }
+
   void checkUnreadDynamic() {
     if (!hasDyn ||
         !accountService.isLogin.value ||
@@ -215,9 +221,10 @@ class MainController extends GetxController
         !checkDynamic) {
       return;
     }
-    int now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastCheckDynamicAt >= dynamicPeriod) {
-      _lastCheckDynamicAt = now;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (now >= _lastCheckDynamicAt) {
+      _lastCheckDynamicAt = now + dynamicPeriod;
       getUnreadDynamic();
     }
   }
@@ -239,34 +246,31 @@ class MainController extends GetxController
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {
-    if (hasHome && homeController.enableSearchWord) {
-      if (shouldCheck &&
-          navigationBars[selectedIndex.value] != NavigationBarType.home) {
-        return;
-      }
-      int now = DateTime.now().millisecondsSinceEpoch;
-      if (now - homeController.lateCheckSearchAt >= _period) {
-        homeController
-          ..lateCheckSearchAt = now
-          ..querySearchDefault();
-      }
+    if (!hasHome ||
+        !homeController.enableSearchWord ||
+        shouldCheck &&
+            navigationBars[selectedIndex.value] != NavigationBarType.home) {
+      return;
     }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - homeController.lateCheckSearchAt < _period) return;
+    homeController
+      ..lateCheckSearchAt = now
+      ..querySearchDefault();
   }
 
   void checkUnread([bool shouldCheck = false]) {
-    if (accountService.isLogin.value &&
-        hasHome &&
-        msgBadgeMode != DynamicBadgeMode.hidden) {
-      if (shouldCheck &&
-          navigationBars[selectedIndex.value] != NavigationBarType.home) {
-        return;
-      }
-      int now = DateTime.now().millisecondsSinceEpoch;
-      if (now - lastCheckUnreadAt >= _period) {
-        lastCheckUnreadAt = now;
-        queryUnreadMsg();
-      }
+    if (!accountService.isLogin.value ||
+        !hasHome ||
+        msgBadgeMode == DynamicBadgeMode.hidden ||
+        shouldCheck &&
+            navigationBars[selectedIndex.value] != NavigationBarType.home) {
+      return;
     }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - lastCheckUnreadAt < _period) return;
+    lastCheckUnreadAt = now;
+    queryUnreadMsg();
   }
 
   int? _mineIndex;
@@ -335,13 +339,13 @@ class MainController extends GetxController
   }
 
   bool refreshRecommendations() {
-    if (navigationBars[selectedIndex.value] == NavigationBarType.home &&
-        homeController.tabs[homeController.tabController.index] ==
+    if (navigationBars[selectedIndex.value] != NavigationBarType.home ||
+        homeController.tabs[homeController.tabController.index] !=
             HomeTabType.rcmd) {
-      homeController.onRefresh();
-      return true;
+      return false;
     }
-    return false;
+    homeController.onRefresh();
+    return true;
   }
 
   @override

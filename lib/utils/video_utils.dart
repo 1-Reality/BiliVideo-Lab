@@ -85,17 +85,18 @@ abstract final class VideoUtils {
       }
     }
 
-    return mcdnUpgcxcode == null
-        ? mcdnTf == null
-              ? last
-              : Uri(
-                  scheme: 'https',
-                  host: _proxyTf,
-                  queryParameters: {'url': mcdnTf},
-                ).toString()
-        : Uri.parse(mcdnUpgcxcode)
-              .replace(host: defaultCDNService.host ?? CDNService.ali.host)
-              .toString();
+    if (mcdnUpgcxcode case final url?) {
+      return Uri.parse(url)
+          .replace(host: defaultCDNService.host ?? CDNService.ali.host)
+          .toString();
+    }
+    return mcdnTf == null
+        ? last
+        : Uri(
+            scheme: 'https',
+            host: _proxyTf,
+            queryParameters: {'url': mcdnTf},
+          ).toString();
   }
 
   static String getLiveCdnUrl(CodecItem e, {int index = 0}) {

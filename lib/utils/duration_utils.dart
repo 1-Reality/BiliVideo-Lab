@@ -1,15 +1,13 @@
-import 'dart:math' show pow;
-
 abstract final class DurationUtils {
   static String formatDuration(num? seconds) {
     if (seconds == null || seconds == 0) {
       return '00:00';
     }
-    int h = seconds ~/ 3600;
-    seconds %= 3600;
-    int m = seconds ~/ 60;
-    seconds %= 60;
-    String sms = seconds is double
+    final h = seconds ~/ 3600;
+    seconds -= h * 3600;
+    final m = seconds ~/ 60;
+    seconds -= m * 60;
+    final sms = seconds is double
         ? seconds.toStringAsFixed(3).padLeft(6, '0')
         : seconds.toString().padLeft(2, '0');
     return h == 0
@@ -22,10 +20,11 @@ abstract final class DurationUtils {
     if (data == null || data.isEmpty) {
       return 0;
     }
-    List<int> split = data.split(_splitRegex).reversed.map(int.parse).toList();
     int duration = 0;
-    for (int i = 0; i < split.length; i++) {
-      duration += split[i] * pow(60, i).toInt();
+    int unit = 1;
+    for (final part in data.split(_splitRegex).reversed) {
+      duration += int.parse(part) * unit;
+      unit *= 60;
     }
     return duration;
   }
@@ -35,12 +34,13 @@ abstract final class DurationUtils {
 
   static String formatTimeDuration(Duration duration) {
     final inDays = duration.inDays;
-    final daysLeft = inDays % 365;
     final years = inDays ~/ 365;
+    final daysLeft = inDays - years * 365;
     final months = daysLeft ~/ 30;
-    final days = daysLeft % 30;
-    final hours = duration.inHours % 24;
-    final minutes = duration.inMinutes % 60;
+    final days = daysLeft - months * 30;
+    final inHours = duration.inHours;
+    final hours = inHours - inDays * 24;
+    final minutes = duration.inMinutes - inHours * 60;
 
     final format = StringBuffer();
 

@@ -8,7 +8,6 @@ extension NullableStringExt on String? {
 
 extension StringExt on String {
   String subLength(int length) {
-    if (this.length < length) return this;
-    return substring(0, length);
+    return this.length < length ? this : substring(0, length);
   }
 }

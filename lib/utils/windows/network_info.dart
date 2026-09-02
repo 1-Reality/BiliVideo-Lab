@@ -140,10 +140,10 @@ abstract final class WindowsNetworkInfoReader {
           if (metric == null || itemMetric < metric) {
             final receive = item.ReceiveLinkSpeed <= 0
                 ? null
-                : (item.ReceiveLinkSpeed / 1000000).round();
+                : (item.ReceiveLinkSpeed * 0.000001).round();
             final transmit = item.TransmitLinkSpeed <= 0
                 ? null
-                : (item.TransmitLinkSpeed / 1000000).round();
+                : (item.TransmitLinkSpeed * 0.000001).round();
             resultInfo = WindowsLinkInfo(
               name: item.FriendlyName == nullptr
                   ? null

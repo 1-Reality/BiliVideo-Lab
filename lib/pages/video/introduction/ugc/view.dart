@@ -692,7 +692,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                                   bvid: bvid,
                                   cid: cid,
                                   ytbId: ytbId,
-                                  videoDuration: (duration / 1000).round(),
+                                  videoDuration: (duration * 0.001).round(),
                                 );
                                 SmartDialog.showToast(
                                   '提交搬运视频${res.isSuccess ? "成功" : "失败: $res"}',

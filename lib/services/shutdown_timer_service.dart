@@ -126,8 +126,10 @@ class ShutdownTimerService {
     exit(0);
   }
 
-  static (int hour, int minute) _parseMinutes(int minutes) =>
-      (minutes ~/ 60, minutes % 60);
+  static (int hour, int minute) _parseMinutes(int minutes) {
+    final hour = minutes ~/ 60;
+    return (hour, minutes - hour * 60);
+  }
 
   static String _format(int minutes) {
     if (minutes == 60) return '60分钟';

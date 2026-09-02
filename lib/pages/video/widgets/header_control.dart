@@ -489,7 +489,7 @@ class HeaderControlState extends State<HeaderControl>
                         leading: const Icon(Icons.volume_up, size: 20),
                         title: const Text('播放器音量'),
                         subtitle: Text(
-                          '当前: ${Pref.playerVolume.toStringAsFixed(0)}%',
+                          '当前: ${Pref.playerVolume.round()}%',
                         ),
                         onTap: () => showPlayerVolumeDialog(
                           context,

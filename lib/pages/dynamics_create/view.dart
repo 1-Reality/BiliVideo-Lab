@@ -387,8 +387,8 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
       itemBuilder: (context) => List.generate(
         2,
         (index) => PopupMenuItem<bool>(
-          enabled: _publishTime.value != null && index == 1 ? false : true,
-          value: index == 0 ? false : true,
+          enabled: !(_publishTime.value != null && index == 1),
+          value: index != 0,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -82,8 +82,8 @@ class DynamicsTabController
     try {
       final list = loadingState.value.data!;
       final ids = item.modules.moduleFold!.ids!;
-      final flag = index + ids.length + 1;
-      for (int i = index + 1; i < flag; i++) {
+      final end = index + ids.length + 1;
+      for (var i = index + 1; i < end; i++) {
         list[i].visible = true;
       }
       item.modules.moduleFold = null;

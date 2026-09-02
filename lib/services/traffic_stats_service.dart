@@ -215,15 +215,16 @@ final class TrafficStatsService with WidgetsBindingObserver {
         );
       }
       if (elapsedUs > 0) {
+        final invElapsedUs = 1000000 / elapsedUs;
         windowsLive.value = (
           appReceived: app.received,
           appSent: app.sent,
           interfaceReceived: _windowsInterfaceSessionReceived,
           interfaceSent: _windowsInterfaceSessionSent,
-          appReceiveRate: appDelta.received * 1000000 / elapsedUs,
-          appSendRate: appDelta.sent * 1000000 / elapsedUs,
-          interfaceReceiveRate: interfaceDelta.received * 1000000 / elapsedUs,
-          interfaceSendRate: interfaceDelta.sent * 1000000 / elapsedUs,
+          appReceiveRate: appDelta.received * invElapsedUs,
+          appSendRate: appDelta.sent * invElapsedUs,
+          interfaceReceiveRate: interfaceDelta.received * invElapsedUs,
+          interfaceSendRate: interfaceDelta.sent * invElapsedUs,
         );
       }
       _lastWindowsApp = app;
@@ -419,17 +420,19 @@ final class TrafficStatsService with WidgetsBindingObserver {
     final dayStart = DateTime(now.year, now.month, now.day);
     final weekStart = dayStart.subtract(Duration(days: dayStart.weekday - 1));
     final monthStart = DateTime(now.year, now.month);
+    final dayKey = _hourKey(dayStart);
+    final weekKey = _hourKey(weekStart);
+    final monthKey = _hourKey(monthStart);
+    final appObservedOnly = Platform.isWindows;
     var day = 0;
     var week = 0;
     var month = 0;
     for (final entry in _data.entries) {
-      final time = DateTime.tryParse('${entry.key}:00:00');
-      if (time == null) continue;
+      if (entry.key.compareTo(monthKey) < 0) continue;
       var total = 0;
       final hourly = entry.value as Map;
       for (final item in hourly.entries) {
-        if (Platform.isWindows &&
-            !item.key.toString().startsWith('appObserved.')) {
+        if (appObservedOnly && !item.key.toString().startsWith('appObserved.')) {
           continue;
         }
         final category = item.value;
@@ -437,9 +440,9 @@ final class TrafficStatsService with WidgetsBindingObserver {
         total += (category['received'] as num? ?? 0).toInt();
         total += (category['sent'] as num? ?? 0).toInt();
       }
-      if (!time.isBefore(monthStart)) month += total;
-      if (!time.isBefore(weekStart)) week += total;
-      if (!time.isBefore(dayStart)) day += total;
+      month += total;
+      if (entry.key.compareTo(weekKey) >= 0) week += total;
+      if (entry.key.compareTo(dayKey) >= 0) day += total;
     }
     return (day: day, week: week, month: month);
   }

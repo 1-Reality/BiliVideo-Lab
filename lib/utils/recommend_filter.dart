@@ -15,24 +15,20 @@ abstract final class RecommendFilter {
 
   static bool filter(BaseVideoItemModel videoItem) {
     //由于相关视频中没有已关注标签，只能视为非关注视频
-    if (videoItem.isFollowed && exemptFilterForFollowed) {
-      return false;
-    }
-    return filterAll(videoItem);
+    return !(videoItem.isFollowed && exemptFilterForFollowed) &&
+        filterAll(videoItem);
   }
 
   static bool filterLikeRatio(int? like, int? view) {
-    if (view != null) {
-      return (view > -1 && view < minPlayForRcmd) ||
-          (like != null &&
-              like > -1 &&
-              like * 100 < minLikeRatioForRecommend * view);
-    }
-    return false;
+    return view != null &&
+        ((view > -1 && view < minPlayForRcmd) ||
+            (like != null &&
+                like > -1 &&
+                like * 100 < minLikeRatioForRecommend * view));
   }
 
   static bool filterTitle(String title) {
-    return (enableFilter && rcmdRegExp.hasMatch(title));
+    return enableFilter && rcmdRegExp.hasMatch(title);
   }
 
   static bool filterAll(BaseVideoItemModel videoItem) {

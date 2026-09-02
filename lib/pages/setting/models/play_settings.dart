@@ -43,14 +43,14 @@ List<SettingsModel> get playSettings => [
     onTap: (context, setState) => Get.toNamed('/playSpeedSet'),
     leading: const Icon(Icons.speed_outlined),
     title: '倍速设置',
-    subtitle: '设置视频播放速度',
+    subtitle: '设置视频播放速度，高熵信息生活，节约时间就是延长生命！',
   ),
   if (Platform.isAndroid)
     NormalModel(
       onTap: _showAngleDegreesDialog,
       leading: const Icon(MdiIcons.angleAcute),
       title: '倾斜角度阈值',
-      getSubtitle: () => '当前:「${Pref.angleDegrees}°」',
+      getSubtitle: () => '当前:角度制「${Pref.angleDegrees}°」',
     ),
   const SwitchModel(
     title: '自动播放',
@@ -107,14 +107,14 @@ List<SettingsModel> get playSettings => [
     NormalModel(
       title: '播放器音量',
       leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${Pref.playerVolume.toStringAsFixed(0)}%」',
+      getSubtitle: () => '当前:「${Pref.playerVolume.round()}%」',
       onTap: showPlayerVolumeDialog,
     )
   else
     NormalModel(
       title: '最高音量',
       leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).toStringAsFixed(0)}%」',
+      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
       onTap: _showMaxVolumeDialog,
     ),
   getVideoFilterSelectModel(
@@ -147,7 +147,7 @@ List<SettingsModel> get playSettings => [
     onTap: _showSubtitleDialog,
   ),
   NormalModel(
-    title: 'AI 字幕粉丝数阈值',
+    title: 'AI 字幕粉丝数限值',
     leading: const Icon(Icons.people_outline),
     getSubtitle: () => Pref.subtitleFollowerThreshold == 0
         ? '当前关闭；仅用于“静音时自动启用”偏好'
@@ -330,7 +330,7 @@ Future<void> _showSubtitleFollowerThresholdDialog(
   await showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('AI 字幕粉丝数阈值'),
+      title: const Text('AI 字幕粉丝数粗判阈值'),
       content: TextFormField(
         autofocus: true,
         initialValue: value,
@@ -348,7 +348,7 @@ Future<void> _showSubtitleFollowerThresholdDialog(
           onPressed: () async {
             final threshold = int.tryParse(value);
             if (threshold == null) {
-              SmartDialog.showToast('请输入有效的粉丝数');
+              SmartDialog.showToast('输入域无效');
               return;
             }
             Get.back();

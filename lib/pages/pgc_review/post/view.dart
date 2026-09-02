@@ -241,7 +241,7 @@ class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
       mediaId: widget.mediaId,
       score: _score.value * 2,
       content: _controller.text,
-      shareFeed: _isMod ? false : _shareFeed.value,
+      shareFeed: !_isMod && _shareFeed.value,
     );
     if (res.isSuccess) {
       Get.back();

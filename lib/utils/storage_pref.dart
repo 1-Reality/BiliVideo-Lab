@@ -53,6 +53,9 @@ abstract final class Pref {
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
 
+  static String parseBanWord(String value) =>
+      value.contains('|') ? value : value.replaceAll('，', '|');
+
   static UserInfoData? get userInfoCache =>
       GStorage.userInfo.get('userInfoCache');
 
@@ -139,12 +142,12 @@ abstract final class Pref {
     if (list == null || list.length != SegmentType.values.length) {
       return SegmentType.values
           .map(
-            (i) => Pair(
+            (i) => Pair<SegmentType, SkipType>(
               first: i,
               second: switch (i) {
-                SegmentType.sponsor || SegmentType.intro => SkipType.skipOnce,
-                SegmentType.filler => SkipType.showOnly,
-                _ => SkipType.skipManually,
+                .sponsor || .intro => .skipOnce,
+                .filler => .showOnly,
+                _ => .skipManually,
               },
             ),
           )
@@ -449,14 +452,17 @@ abstract final class Pref {
     ];
   }
 
-  static String get banWordForRecommend =>
-      _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
+  static String get banWordForRecommend => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: ''),
+  );
 
-  static String get banWordForReply =>
-      _setting.get(SettingBoxKey.banWordForReply, defaultValue: '');
+  static String get banWordForReply => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForReply, defaultValue: ''),
+  );
 
-  static String get banWordForZone =>
-      _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
+  static String get banWordForZone => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForZone, defaultValue: ''),
+  );
 
   static bool get appRcmd =>
       _setting.get(SettingBoxKey.appRcmd, defaultValue: false);
@@ -512,7 +518,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
 
   static int get dynamicPeriod =>
-      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 6);
+      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
 
   static FlexSchemeVariant get schemeVariant =>
       FlexSchemeVariant.values[_setting.get(
@@ -766,7 +772,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? 512 * 1024 * 1024;
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 29;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
@@ -781,8 +787,9 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
-  static String get banWordForDyn =>
-      _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
+  static String get banWordForDyn => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForDyn, defaultValue: ''),
+  );
 
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);
@@ -1006,7 +1013,7 @@ abstract final class Pref {
       _ => (bufferSize, bufferSec),
     };
     final bufSec = seconds * playbackSpeed;
-    final bufSiz = (sizeMiB * 0x100000).toStringAsFixed(0);
+    final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
       'cache-secs': bufSec.toStringAsFixed(3),
@@ -1024,7 +1031,7 @@ abstract final class Pref {
     };
     return {
       'cache': 'yes',
-      'demuxer-max-bytes': (sizeMiB * 0x200000).toStringAsFixed(0),
+      'demuxer-max-bytes': (sizeMiB * 0x200000).round().toString(),
       'demuxer-max-back-bytes': '0',
     };
   }

@@ -22,13 +22,13 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
 
   String _duration(num microseconds) {
     final negative = microseconds < 0;
-    var seconds = (microseconds.abs() / 1000000).round();
+    var seconds = (microseconds.abs() * 0.000001).round();
     final days = seconds ~/ 86400;
-    seconds %= 86400;
+    seconds -= days * 86400;
     final hours = seconds ~/ 3600;
-    seconds %= 3600;
+    seconds -= hours * 3600;
     final minutes = seconds ~/ 60;
-    seconds %= 60;
+    seconds -= minutes * 60;
     final parts = [
       if (days > 0) '$days天',
       if (hours > 0) '$hours小时',

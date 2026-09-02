@@ -1154,7 +1154,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return;
     }
     final double tapPosition = details.localPosition.dx;
-    final double sectionWidth = maxWidth / 4;
+    final double sectionWidth = maxWidth * 0.25;
     DoubleTapType type;
     if (tapPosition < sectionWidth) {
       type = DoubleTapType.left;
@@ -2104,8 +2104,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
     final ctr = plPlayerController;
     final theme = Theme.of(context);
-    final currentPos = ctr.positionInMilliseconds / 1000.0;
-    final duration = ctr.durationInMilliseconds / 1000.0;
+    final currentPos = ctr.positionInMilliseconds * 0.001;
+    final duration = ctr.durationInMilliseconds * 0.001;
     final segment = Pair(first: currentPos, second: currentPos);
     final model = PostSegmentModel(
       segment: segment,
@@ -2298,7 +2298,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
     final top = dy + item.height + _triangleHeight + 2;
 
-    final realLeft = dx + overlayWidth / 2;
+    final realLeft = dx + overlayWidth * 0.5;
 
     final left = realLeft.clamp(
       _overlaySpacing + overlayWidth,

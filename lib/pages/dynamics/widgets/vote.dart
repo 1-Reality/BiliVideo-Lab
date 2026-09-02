@@ -394,7 +394,7 @@ class _VotePanelState extends State<VotePanel> {
                           vertical: 1,
                         ),
                         text:
-                            '${(_percentage[index] * 100).toStringAsFixed(0)}%',
+                            '${(_percentage[index] * 100).round()}%',
                       ),
                     ],
                   ],
@@ -519,7 +519,7 @@ class PercentageChip extends StatelessWidget {
                   ),
                 ),
                 if (percentage != null)
-                  Text('${(percentage! * 100).toStringAsFixed(0)}%'),
+                  Text('${(percentage! * 100).round()}%'),
               ],
             ),
           ),

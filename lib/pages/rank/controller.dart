@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 
 class RankController extends GetxController
     with GetSingleTickerProviderStateMixin, ScrollOrRefreshMixin {
-  RxInt tabIndex = 0.obs;
+  final RxInt tabIndex = 0.obs;
   late TabController tabController;
 
   ZoneController get controller {

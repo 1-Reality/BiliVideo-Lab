@@ -5,6 +5,7 @@ import 'package:PiliBro/pages/setting/widgets/popup_item.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart' hide PopupMenuItemSelected;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -227,7 +228,7 @@ SettingsModel getBanWordModel({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('使用|隔开，如：尝试|测试'),
+              const Text('使用中文逗号隔开，如：尝试，测试；含 | 时「，」按不转义处理'),
               TextFormField(
                 autofocus: true,
                 initialValue: editValue,
@@ -252,7 +253,9 @@ SettingsModel getBanWordModel({
                 Get.back();
                 banWord = editValue;
                 setState();
-                onChanged(RegExp(banWord, caseSensitive: false));
+                onChanged(
+                  RegExp(Pref.parseBanWord(banWord), caseSensitive: false),
+                );
                 SmartDialog.showToast('已保存');
                 GStorage.setting.put(key, banWord);
               },
