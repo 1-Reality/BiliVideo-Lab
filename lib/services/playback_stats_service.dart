@@ -345,21 +345,25 @@ abstract final class PlaybackStatsService {
     final stamp = now.year * 12 + now.month;
     if (stamp != _monthStamp) {
       _monthStamp = stamp;
-      _cachedMonthKey = '${now.year.toString().padLeft(4, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}';
+      _cachedMonthKey = _monthKeyFor(now);
     }
     return _cachedMonthKey;
   }
 
+  static String _monthKeyFor(DateTime now) =>
+      '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}';
+
   static void _addMonthValue(String key, num value) {
     if (value == 0 || key == 'months') return;
     final months = _map('months');
-    final month = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final month = _mutableMap(months[monthKey]);
     final current = month[key] as num? ?? 0;
     month[key] = value is double || current is double
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
-    months[_monthKey] = month;
+    months[monthKey] = month;
     _markMonthDirty(key);
   }
 
@@ -494,11 +498,12 @@ abstract final class PlaybackStatsService {
         : current.toInt() + value.toInt();
     _markDirty(key);
     final months = _map('months');
-    final month = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final month = _mutableMap(months[monthKey]);
     final monthBuckets = _mutableMap(month[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
     month[key] = monthBuckets;
-    months[_monthKey] = month;
+    months[monthKey] = month;
     _markMonthDirty(key);
   }
 
@@ -512,12 +517,13 @@ abstract final class PlaybackStatsService {
     }
     item[key] = (item[key] as num? ?? 0) + value;
     final months = _mutableMap(item['months']);
-    final monthItem = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final monthItem = _mutableMap(months[monthKey]);
     monthItem[key] = (monthItem[key] as num? ?? 0) + value;
     if (_videoUpName case final name? when name.isNotEmpty) {
       monthItem['name'] = name;
     }
-    months[_monthKey] = monthItem;
+    months[monthKey] = monthItem;
     item['months'] = months;
     byUid[uid] = item;
     _markVideoUpDirty(uid);
@@ -532,11 +538,12 @@ abstract final class PlaybackStatsService {
     buckets[bucket] = (buckets[bucket] as num? ?? 0) + value;
     item[key] = buckets;
     final months = _mutableMap(item['months']);
-    final monthItem = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final monthItem = _mutableMap(months[monthKey]);
     final monthBuckets = _mutableMap(monthItem[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
     monthItem[key] = monthBuckets;
-    months[_monthKey] = monthItem;
+    months[monthKey] = monthItem;
     item['months'] = months;
     byUid[uid] = item;
     _markVideoUpDirty(uid);
@@ -586,10 +593,11 @@ abstract final class PlaybackStatsService {
 
   static void _addLiveMonth(Map<String, dynamic> item, String key, num value) {
     final months = _mutableMap(item['months']);
-    final month = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final month = _mutableMap(months[monthKey]);
     month[key] = (month[key] as num? ?? 0) + value;
     if (_liveName case final name? when name.isNotEmpty) month['name'] = name;
-    months[_monthKey] = month;
+    months[monthKey] = month;
     item['months'] = months;
   }
 
@@ -599,16 +607,18 @@ abstract final class PlaybackStatsService {
     String? speed,
   }) {
     if (value == 0) return;
-    final axes = _dimensionAxes(DateTime.now());
+    final now = DateTime.now();
+    final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
+    final monthKey = _monthKeyFor(now);
     for (final axis in axes.entries) {
       final values = _mutableMap(dimensions[axis.key]);
       final item = _mutableMap(values[axis.value]);
       item[primitive] = (item[primitive] as num? ?? 0) + value;
       final months = _mutableMap(item['months']);
-      final month = _mutableMap(months[_monthKey]);
+      final month = _mutableMap(months[monthKey]);
       month[primitive] = (month[primitive] as num? ?? 0) + value;
-      months[_monthKey] = month;
+      months[monthKey] = month;
       item['months'] = months;
       values[axis.value] = item;
       dimensions[axis.key] = values;
@@ -677,8 +687,7 @@ abstract final class PlaybackStatsService {
     String speed,
   ) {
     final now = DateTime.now();
-    final month = '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}';
+    final month = _monthKeyFor(now);
     final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
     for (final axis in axes.entries) {
@@ -770,8 +779,7 @@ abstract final class PlaybackStatsService {
   static void _addStaticSessionDimensions(Map<String, num> primitives) {
     if (primitives.isEmpty) return;
     final now = DateTime.now();
-    final month = '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}';
+    final month = _monthKeyFor(now);
     final axes = <String, String>{
       'orientation': _orientation,
       'content': _contentType,
@@ -1873,6 +1881,7 @@ abstract final class PlaybackStatsService {
     final playedSessions = _number(raw['sessionPlayedCount']);
     final completedSessions = _number(raw['sessionCompletedCount']);
     final coverageSessions = _number(raw['sessionCoverageEligibleCount']);
+    final activeScale = active == 0 ? 0 : 1 / active;
     raw['derived'] = {
       'favoriteSpeed': favorite,
       'favoriteSpeeds': [for (final item in rankedSpeeds.take(5)) item.speed],
@@ -1883,8 +1892,8 @@ abstract final class PlaybackStatsService {
                   )[_speedKey(favorite)] ??
                   0) >
               0,
-      'actualAverageSpeed': active == 0 ? 0 : media / active,
-      'newContentEquivalentSpeed': active == 0 ? 0 : uniqueCovered / active,
+      'actualAverageSpeed': media * activeScale,
+      'newContentEquivalentSpeed': uniqueCovered * activeScale,
       'observedEquivalentSpeed': observed == 0 ? 0 : media / observed,
       'repeatRatio': media == 0 ? 0 : _number(raw['repeatCoveredUs']) / media,
       'coverageRatio': sourceDuration == 0 ? 0 : uniqueCovered / sourceDuration,
@@ -1897,10 +1906,9 @@ abstract final class PlaybackStatsService {
       'averageSessionCoverageRatio': coverageSessions == 0
           ? 0
           : _number(raw['sessionCoverageRatioSum']) / coverageSessions,
-      'nominalAverageSpeed': active == 0 ? 0 : nominal / active,
-      'nominalAverageSpeedIncludingLongPress': active == 0
-          ? 0
-          : nominalIncludingLongPress / active,
+      'nominalAverageSpeed': nominal * activeScale,
+      'nominalAverageSpeedIncludingLongPress':
+          nominalIncludingLongPress * activeScale,
       'savedTimeUs': media - active,
       'normalSavedTimeUs': normalMedia - normalWall,
       'rewindSavedTimeUs': allRewindMedia - allRewindWall,

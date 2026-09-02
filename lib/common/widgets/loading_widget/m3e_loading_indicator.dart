@@ -48,12 +48,15 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
   static const int _morphIntervalMs = 650;
   static const double _fullRotation = 2 * math.pi;
   static const int _globalRotationDurationMs = 4666;
+  static const double _globalRotationScale =
+      _fullRotation / _globalRotationDurationMs;
   static const double _quarterRotation = _fullRotation * 0.25;
 
   late final List<Morph> _morphs;
   late final AnimationController _controller;
 
   int _morphIndex = 1;
+  int _morphSlot = 1;
 
   double _morphRotationTarget = _quarterRotation;
 
@@ -74,6 +77,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
 
   void _startAnimation() {
     _morphIndex++;
+    if (++_morphSlot == _morphs.length) _morphSlot = 0;
     _morphRotationTarget += _quarterRotation;
     if (_morphRotationTarget >= _fullRotation) {
       _morphRotationTarget -= _fullRotation;
@@ -85,6 +89,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
   void initState() {
     super.initState();
     _morphs = widget.morphs ?? Morphs.loadingMorphs;
+    _morphSlot = _morphs.length > 1 ? 1 : 0;
     _controller =
         AnimationController(
             vsync: this,
@@ -106,10 +111,11 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
     final elapsedInMs =
         _morphIntervalMs * (_morphIndex - 1) +
         (_controller.lastElapsedDuration?.inMilliseconds ?? 0);
-    final globalRotation =
-        (elapsedInMs % _globalRotationDurationMs) /
-        _globalRotationDurationMs *
-        _fullRotation;
+    final globalElapsed =
+        elapsedInMs -
+        (elapsedInMs ~/ _globalRotationDurationMs) *
+            _globalRotationDurationMs;
+    final globalRotation = globalElapsed * _globalRotationScale;
 
     return progress * _quarterRotation + _morphRotationTarget + globalRotation;
   }
@@ -123,7 +129,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
         final progress = _controller.value;
         return RawM3ELoadingIndicator(
           // key: widget.childKey,
-          morph: _morphs[_morphIndex % _morphs.length],
+          morph: _morphs[_morphSlot],
           progress: progress,
           angle: _calcAngle(progress),
           color: color,
