@@ -998,13 +998,21 @@ class _RenderBorderIndicator extends RenderBox {
   _RenderBorderIndicator({
     required this._radius,
     required this._isLeft,
-  });
+  }) : _borderRadius = _makeBorderRadius(_radius, _isLeft);
+
+  static BorderRadius _makeBorderRadius(Radius radius, bool isLeft) =>
+      BorderRadius.only(
+        topLeft: isLeft ? radius : .zero,
+        topRight: isLeft ? .zero : radius,
+      );
 
   Radius _radius;
+  BorderRadius _borderRadius;
   Radius get radius => _radius;
   set radius(Radius value) {
     if (_radius == value) return;
     _radius = value;
+    _borderRadius = _makeBorderRadius(value, _isLeft);
     markNeedsLayout();
   }
 
@@ -1013,6 +1021,7 @@ class _RenderBorderIndicator extends RenderBox {
   set isLeft(bool value) {
     if (_isLeft == value) return;
     _isLeft = value;
+    _borderRadius = _makeBorderRadius(_radius, value);
     markNeedsPaint();
   }
 
@@ -1035,10 +1044,7 @@ class _RenderBorderIndicator extends RenderBox {
         width,
         size.height,
       ),
-      borderRadius: BorderRadius.only(
-        topLeft: _isLeft ? _radius : .zero,
-        topRight: _isLeft ? .zero : _radius,
-      ),
+      borderRadius: _borderRadius,
       textDirection: null,
       top: const BorderSide(),
       color: Colors.white38,

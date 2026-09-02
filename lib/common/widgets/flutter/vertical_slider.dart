@@ -1310,6 +1310,39 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   late final PaintValueIndicator _paintValueIndicatorCallback =
       _paintValueIndicator;
   double _inverseTrackHeight = 0.0;
+  SliderThemeData? _trackThemeCache;
+  SliderThemeData? _thumbThemeCache;
+  SliderThemeData? _trackThemeSource;
+  SliderThemeData? _thumbThemeSource;
+  double? _trackThemeGap;
+  double? _thumbThemeWidth;
+  double? _thumbThemeHeight;
+
+  SliderThemeData _trackTheme(double? gap) {
+    if (gap == _sliderTheme.trackGap) return _sliderTheme;
+    if (identical(_trackThemeSource, _sliderTheme) && _trackThemeGap == gap) {
+      return _trackThemeCache!;
+    }
+    _trackThemeSource = _sliderTheme;
+    _trackThemeGap = gap;
+    return _trackThemeCache = _sliderTheme.copyWith(trackGap: gap);
+  }
+
+  SliderThemeData _thumbTheme(double? width, double? height) {
+    if (!_active || width == null || height == null) return _sliderTheme;
+    if (identical(_thumbThemeSource, _sliderTheme) &&
+        _thumbThemeWidth == width &&
+        _thumbThemeHeight == height) {
+      return _thumbThemeCache!;
+    }
+    _thumbThemeSource = _sliderTheme;
+    _thumbThemeWidth = width;
+    _thumbThemeHeight = height;
+    final size = Size(width, height);
+    return _thumbThemeCache = _sliderTheme.copyWith(
+      thumbSize: WidgetStatePropertyAll<Size?>(size),
+    );
+  }
 
   // This rect is used in gesture calculations, where the gesture coordinates
   // are relative to the sliders origin. Therefore, the offset is passed as
@@ -1857,14 +1890,14 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     // If [Slider.year2023] is false, the thumb uses handle thumb shape and gapped track shape.
     // The handle width and track gap are adjusted when the thumb is pressed.
     double? thumbWidth = _sliderTheme.thumbSize
-        ?.resolve(<WidgetState>{})
+        ?.resolve(const <WidgetState>{})
         ?.width;
     final double? thumbHeight = _sliderTheme.thumbSize
-        ?.resolve(<WidgetState>{})
+        ?.resolve(const <WidgetState>{})
         ?.height;
     double? trackGap = _sliderTheme.trackGap;
     final double? pressedThumbWidth = _sliderTheme.thumbSize?.resolve(
-      <WidgetState>{
+      const <WidgetState>{
         WidgetState.pressed,
       },
     )?.width;
@@ -1882,9 +1915,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       }
     }
 
-    final trackTheme = trackGap == _sliderTheme.trackGap
-        ? _sliderTheme
-        : _sliderTheme.copyWith(trackGap: trackGap);
+    final trackTheme = _trackTheme(trackGap);
     trackTheme.trackShape!.paint(
       context,
       offset,
@@ -1959,6 +1990,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       _state.paintValueIndicator = null;
     }
 
+    final thumbTheme = _thumbTheme(thumbWidth, thumbHeight);
     _sliderTheme.thumbShape!.paint(
       context,
       thumbCenter,
@@ -1967,13 +1999,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       isDiscrete: isDiscrete,
       labelPainter: _labelPainter,
       parentBox: this,
-      sliderTheme: _active && thumbWidth != null && thumbHeight != null
-          ? _sliderTheme.copyWith(
-              thumbSize: WidgetStatePropertyAll<Size?>(
-                Size(thumbWidth, thumbHeight),
-              ),
-            )
-          : _sliderTheme,
+      sliderTheme: thumbTheme,
       textDirection: _textDirection,
       value: _value,
       textScaleFactor: textScaleFactor,
