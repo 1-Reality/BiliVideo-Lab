@@ -395,6 +395,12 @@ abstract final class Pref {
     defaultValue: false,
   );
 
+  static int get webviewUaType =>
+      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
+
+  static String get webviewUaCustom =>
+      _setting.get(SettingBoxKey.webviewUaCustom, defaultValue: '');
+
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
