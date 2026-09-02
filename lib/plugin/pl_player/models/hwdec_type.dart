@@ -42,4 +42,18 @@ enum HwDecType {
     HwDecType.mediacodec.hwdec,
     HwDecType.autoSafe.hwdec,
   ].join(',');
+
+  static final String windowsDefault = [
+    HwDecType.d3d12va.hwdec,
+    HwDecType.d3d11va.hwdec,
+    HwDecType.nvdec.hwdec,
+    HwDecType.cuda.hwdec,
+    HwDecType.qsv.hwdec,
+    HwDecType.amf.hwdec,
+    HwDecType.nvdecCopy.hwdec,
+    HwDecType.dxva2.hwdec,
+    HwDecType.qsvCopy.hwdec,
+    HwDecType.d3d12vaCopy.hwdec,
+    HwDecType.auto.hwdec,
+  ].join(',');
 }

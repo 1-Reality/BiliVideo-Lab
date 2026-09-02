@@ -57,7 +57,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '进入详情页自动播放',
     leading: Icon(Icons.motion_photos_auto_outlined),
     setKey: SettingBoxKey.autoPlayEnable,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '全屏显示锁定按钮',
@@ -238,7 +238,7 @@ List<SettingsModel> get playSettings => [
       subtitle: '当弹幕开关开启时，小窗屏蔽弹幕以获得较好的体验',
       leading: Icon(CustomIcons.dm_off),
       setKey: SettingBoxKey.pipNoDanmaku,
-      defaultVal: false,
+      defaultVal: true,
     ),
   ],
   const SwitchModel(
@@ -259,7 +259,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '展示同时在看人数',
     leading: Icon(Icons.people_outlined),
     setKey: SettingBoxKey.enableOnlineTotal,
-    defaultVal: false,
+    defaultVal: true,
   ),
   NormalModel(
     title: '默认全屏方向',
@@ -297,7 +297,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '弹幕、字幕及部分设置中没有的设置除外',
     leading: Icon(Icons.video_settings_outlined),
     setKey: SettingBoxKey.tempPlayerConf,
-    defaultVal: false,
+    defaultVal: true,
   ),
 ];
 
