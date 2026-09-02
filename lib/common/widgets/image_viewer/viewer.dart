@@ -434,29 +434,6 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         }
 
       case _GestureType.scale:
-        // if (details.scaleVelocity.abs() < 0.1) {
-        //   return;
-        // }
-        // final double scale = _scale;
-        // final FrictionSimulation frictionSimulation = FrictionSimulation(
-        //   _interactionEndFrictionCoefficient * _scaleFactor,
-        //   scale,
-        //   details.scaleVelocity / 10,
-        // );
-        // final double tFinal = _getFinalTime(
-        //   details.scaleVelocity.abs(),
-        //   _interactionEndFrictionCoefficient,
-        //   effectivelyMotionless: 0.1,
-        // );
-        // _scaleAnimation = _scaleController.drive(
-        //   Tween<double>(
-        //     begin: scale,
-        //     end: frictionSimulation.x(tFinal),
-        //   ).chain(CurveTween(curve: Curves.decelerate)),
-        // )..addListener(_handleScaleAnimation);
-        // _animationController
-        //   ..duration = Duration(milliseconds: (tFinal * 1000).round())
-        //   ..forward(from: 0);
         break;
       case _GestureType.drag:
         widget.onDragEnd?.call(details);

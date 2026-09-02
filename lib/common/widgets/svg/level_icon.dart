@@ -150,7 +150,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
 
   void _draw1(Paint paint) {
     drawRRect(const .fromLTRBXY(673, _botY, 833, _botYB, 20, 20), paint);
-    drawRRect(.fromLTRBAndCorners(673, _topY, 787, _topYB, topLeft: _r, bottomLeft: _r, topRight: _r), paint);
+    drawRRect(const .fromLTRBAndCorners(673, _topY, 787, _topYB, topLeft: _r, bottomLeft: _r, topRight: _r), paint);
     drawRect(const .fromLTRB(719, _topYB, 787, _botY), paint);
   }
 
@@ -283,19 +283,44 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _extendR = 1250;
   static const double _totalB = 466;
   static const double _inverseTotalB = 1 / _totalB;
+  static const _normalBack = RRect.fromLTRBAndCorners(
+    0,
+    48,
+    _totalR,
+    _totalB,
+    topLeft: Radius.circular(27),
+    bottomLeft: Radius.circular(27),
+    bottomRight: Radius.circular(27),
+  );
+  static const _boltBack = RRect.fromLTRBAndCorners(
+    0,
+    48,
+    _extendR,
+    _totalB,
+    topLeft: Radius.circular(27),
+    bottomLeft: Radius.circular(27),
+    bottomRight: Radius.circular(27),
+  );
+  static const _normalTop = RRect.fromLTRBAndCorners(
+    576,
+    0,
+    _totalR,
+    49,
+    topLeft: Radius.circular(27),
+    topRight: Radius.circular(27),
+  );
+  static const _boltTop = RRect.fromLTRBAndCorners(
+    576,
+    0,
+    _extendR,
+    49,
+    topLeft: Radius.circular(27),
+    topRight: Radius.circular(27),
+  );
 
   void drawLevelBack(Paint paint, {bool bolt = false}) {
-    const radius = Radius.circular(27);
-    final double right = bolt ? _extendR : _totalR;
-    const double blockTop = 48;
-    drawRRect(
-      RRect.fromLTRBAndCorners(0, blockTop, right, _totalB, topLeft: radius, bottomLeft: radius, bottomRight: radius),
-      paint,
-    );
-    drawRRect(
-      RRect.fromLTRBAndCorners(576, 0, right, blockTop + 1, topLeft: radius, topRight: radius),
-      paint,
-    );
+    drawRRect(bolt ? _boltBack : _normalBack, paint);
+    drawRRect(bolt ? _boltTop : _normalTop, paint);
 
     if (bolt) drawBolt();
   }

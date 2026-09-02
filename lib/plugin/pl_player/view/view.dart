@@ -1110,22 +1110,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       const double threshold = 2.5; // 滑动阈值
       double cumulativeDy = details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
-      void fullScreenTrigger(bool status) {
-        plPlayerController.triggerFullScreen(status: status);
-      }
-
       if (cumulativeDy > threshold) {
         _gestureType = .center_down;
         if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            plPlayerController.fullScreenGestureReverse,
+          plPlayerController.triggerFullScreen(
+            status: plPlayerController.fullScreenGestureReverse,
           );
         }
       } else if (cumulativeDy < -threshold) {
         _gestureType = .center_up;
         if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            !plPlayerController.fullScreenGestureReverse,
+          plPlayerController.triggerFullScreen(
+            status: !plPlayerController.fullScreenGestureReverse,
           );
         }
       }

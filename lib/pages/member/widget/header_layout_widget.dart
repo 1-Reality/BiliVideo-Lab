@@ -115,12 +115,9 @@ class RenderHeaderWidget extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox child) {
-      context.paintChild(child, getOffset(child) + offset);
-    }
-
-    doPaint(header);
-    doPaint(avatar);
-    doPaint(actions);
+    context
+      ..paintChild(header, getOffset(header) + offset)
+      ..paintChild(avatar, getOffset(avatar) + offset)
+      ..paintChild(actions, getOffset(actions) + offset);
   }
 }

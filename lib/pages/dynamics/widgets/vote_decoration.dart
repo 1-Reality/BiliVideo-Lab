@@ -63,6 +63,9 @@ class _VoteDecorationPainter extends BoxPainter {
 
   final VoteDecoration _decoration;
   final _backgroundPaint = Paint();
+  late final _partialBorderRadius = BorderRadius.horizontal(
+    left: _decoration.borderRadius.topLeft,
+  );
 
   void _paintBox(
     Canvas canvas,
@@ -76,11 +79,8 @@ class _VoteDecorationPainter extends BoxPainter {
         paint,
       );
     } else {
-      final borderRadius = BorderRadius.horizontal(
-        left: _decoration.borderRadius.topLeft,
-      );
       canvas.drawRRect(
-        borderRadius.resolve(textDirection).toRRect(rect),
+        _partialBorderRadius.resolve(textDirection).toRRect(rect),
         paint,
       );
     }

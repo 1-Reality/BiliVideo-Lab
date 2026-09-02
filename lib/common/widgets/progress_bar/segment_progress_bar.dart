@@ -188,9 +188,14 @@ class RenderViewPointProgressBar
     }
   }
 
-  final _paint = Paint()..style = PaintingStyle.fill;
   static final _segmentBackground = Colors.grey[600]!.withValues(alpha: 0.45);
   static final _segmentDivider = Colors.black.withValues(alpha: 0.5);
+  final _backgroundPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..color = _segmentBackground;
+  final _dividerPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..color = _segmentDivider;
   final _paragraphs = <String, ui.Paragraph>{};
 
   @override
@@ -244,10 +249,8 @@ class RenderViewPointProgressBar
 
     canvas.drawRect(
       Rect.fromLTRB(0, 0, size.width, _barHeight),
-      _paint..color = _segmentBackground,
+      _backgroundPaint,
     );
-
-    _paint.color = _segmentDivider;
 
     double prevEnd = 0.0;
     for (final segment in segments) {
@@ -259,7 +262,7 @@ class RenderViewPointProgressBar
           segmentEnd + _dividerWidth,
           _barHeight + height,
         ),
-        _paint,
+        _dividerPaint,
       );
       final title = segment.title;
       if (title != null && title.isNotEmpty) {

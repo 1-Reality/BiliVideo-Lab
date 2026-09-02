@@ -2519,6 +2519,9 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
   /// Create a slider track that draws two rectangles with rounded outer edges.
   const RoundedRectSliderTrackShape();
 
+  static final _activePaint = Paint();
+  static final _inactivePaint = Paint();
+
   @override
   Rect getPreferredRect({
     required RenderBox parentBox,
@@ -2591,22 +2594,19 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
 
     // Assign the track segment paints, which are leading: active and
     // trailing: inactive.
-    final activeTrackColorTween = ColorTween(
-      begin: sliderTheme.disabledActiveTrackColor,
-      end: sliderTheme.activeTrackColor,
-    );
-    final inactiveTrackColorTween = ColorTween(
-      begin: sliderTheme.disabledInactiveTrackColor,
-      end: sliderTheme.inactiveTrackColor,
-    );
-    final activePaint = Paint()
-      ..color = activeTrackColorTween.evaluate(enableAnimation)!;
-    final inactivePaint = Paint()
-      ..color = inactiveTrackColorTween.evaluate(enableAnimation)!;
-    final (Paint leftTrackPaint, Paint rightTrackPaint) = (
-      activePaint,
-      inactivePaint,
-    );
+    final animationValue = enableAnimation.value;
+    final activePaint = _activePaint
+      ..color = Color.lerp(
+        sliderTheme.disabledActiveTrackColor,
+        sliderTheme.activeTrackColor,
+        animationValue,
+      )!;
+    final inactivePaint = _inactivePaint
+      ..color = Color.lerp(
+        sliderTheme.disabledInactiveTrackColor,
+        sliderTheme.inactiveTrackColor,
+        animationValue,
+      )!;
 
     final Rect trackRect = getPreferredRect(
       parentBox: parentBox,
@@ -2633,7 +2633,7 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
           thumbCenter.dy - halfTrackHeight,
           trackRadius,
         ),
-        rightTrackPaint,
+        inactivePaint,
       );
     }
     final bool drawActiveTrack =
@@ -2648,33 +2648,9 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
           trackRect.bottom,
           activeTrackRadius,
         ),
-        leftTrackPaint,
+        activePaint,
       );
     }
-
-    // final bool showSecondaryTrack =
-    //     (secondaryOffset != null) && (secondaryOffset.dx > thumbCenter.dx);
-
-    // if (showSecondaryTrack) {
-    //   final secondaryTrackColorTween = ColorTween(
-    //     begin: sliderTheme.disabledSecondaryActiveTrackColor,
-    //     end: sliderTheme.secondaryActiveTrackColor,
-    //   );
-    //   final secondaryTrackPaint = Paint()
-    //     ..color = secondaryTrackColorTween.evaluate(enableAnimation)!;
-
-    //   context.canvas.drawRRect(
-    //     RRect.fromLTRBAndCorners(
-    //       thumbCenter.dx,
-    //       trackRect.top,
-    //       secondaryOffset.dx,
-    //       trackRect.bottom,
-    //       topRight: trackRadius,
-    //       bottomRight: trackRadius,
-    //     ),
-    //     secondaryTrackPaint,
-    //   );
-    // }
   }
 
   @override

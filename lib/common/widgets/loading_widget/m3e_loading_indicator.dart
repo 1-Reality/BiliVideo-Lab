@@ -194,6 +194,8 @@ class RenderM3ELoadingIndicator extends RenderBox {
          ..style = PaintingStyle.fill
          ..color = color;
 
+  final _matrix = Matrix4.identity();
+
   Morph _morph;
   Morph get morph => _morph;
   set morph(Morph value) {
@@ -253,11 +255,12 @@ class RenderM3ELoadingIndicator extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final width = size.width;
     final value = size.width * 0.5;
-    final matrix =
-        Matrix4.translationValues(offset.dx + value, offset.dy + value, 0.0)
-          ..rotateZ(angle)
-          ..translateByDouble(-value, -value, 0.0, 1.0)
-          ..scaleByDouble(width, width, width, 1.0);
+    final matrix = _matrix
+      ..setIdentity()
+      ..translateByDouble(offset.dx + value, offset.dy + value, 0.0, 1.0)
+      ..rotateZ(angle)
+      ..translateByDouble(-value, -value, 0.0, 1.0)
+      ..scaleByDouble(width, width, width, 1.0);
     final path = morph.toPath(progress: progress).transform(matrix.storage);
 
     context.canvas.drawPath(path, _paint);

@@ -56,11 +56,8 @@ class _RenderPgcLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox child) {
-      context.paintChild(child, getOffset(child) + offset);
-    }
-
-    doPaint(body);
-    doPaint(toolbar);
+    context
+      ..paintChild(body, getOffset(body) + offset)
+      ..paintChild(toolbar, getOffset(toolbar) + offset);
   }
 }

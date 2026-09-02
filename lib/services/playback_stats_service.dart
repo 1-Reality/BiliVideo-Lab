@@ -1509,7 +1509,7 @@ abstract final class PlaybackStatsService {
         rewind.bufferingUs += wallUs;
       }
     } else if (_playing) {
-      final speed = _speedKey(_rate);
+      final speed = _rateKey;
       final nominalMediaUs = wallUs * _nominalRate;
       final rateMediaUs = wallUs * _rate;
       _add('activePlaybackUs', wallUs);
