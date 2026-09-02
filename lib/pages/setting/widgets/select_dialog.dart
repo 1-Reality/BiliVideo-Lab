@@ -21,6 +21,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _trailingZerosRegExp = RegExp(r'0+$');
+
 class SelectDialog<T> extends StatelessWidget {
   final T? value;
   final String title;
@@ -129,7 +131,7 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
     final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
         ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+        : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
   }
 
   @override

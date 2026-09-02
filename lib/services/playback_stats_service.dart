@@ -50,6 +50,8 @@ abstract final class PlaybackStatsService {
 
   static final NavigatorObserver pageRouteObserver =
       PlaybackPageRouteObserver();
+  static final _trailingZeros = RegExp(r'0+$');
+  static final _trailingDot = RegExp(r'\.$');
 
   static bool _active = false;
   static bool _live = false;
@@ -577,8 +579,8 @@ abstract final class PlaybackStatsService {
   static String _speedKey(double speed) {
     final text = speed.toStringAsFixed(2);
     return text
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
+        .replaceFirst(_trailingZeros, '')
+        .replaceFirst(_trailingDot, '');
   }
 
   static void _recordSourceSpeed(double speed, double defaultSpeed) {
@@ -847,10 +849,10 @@ abstract final class PlaybackStatsService {
 
   static String _durationBand(int us) => switch (us) {
     <= 0 => 'unknown',
-    < 60 * 1000000 => '<1m',
-    < 5 * 60 * 1000000 => '1-5m',
-    < 20 * 60 * 1000000 => '5-20m',
-    < 60 * 60 * 1000000 => '20-60m',
+    < 60_000_000 => '<1m',
+    < 300_000_000 => '1-5m',
+    < 1_200_000_000 => '5-20m',
+    < 3_600_000_000 => '20-60m',
     _ => '>=60m',
   };
 

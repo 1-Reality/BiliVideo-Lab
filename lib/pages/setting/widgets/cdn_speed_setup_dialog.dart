@@ -11,6 +11,8 @@ import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _trailingZerosRegExp = RegExp(r'0+$');
+
 typedef CdnSpeedSetup = ({CdnSpeedConfig? config, BaseItem? sample});
 
 enum _CdnTestSource { skip, fixed, lastVideo }
@@ -170,7 +172,7 @@ class _LastVideoSpeedConfigDialogState
 
   String _number(double value) => value == value.roundToDouble()
       ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+      : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
 
   void _syncWarmupFromTotal() {
     final total = double.tryParse(totalController.text);
