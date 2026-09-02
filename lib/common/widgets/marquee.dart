@@ -254,7 +254,7 @@ abstract class MarqueeRender extends RenderBox
 
   void _onTick(Duration elapsed) {
     delta = _simulation!.x(
-      elapsed.inMicroseconds.toDouble() / Duration.microsecondsPerSecond,
+      elapsed.inMicroseconds.toDouble() * 0.000001,
     );
   }
 

@@ -384,7 +384,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
     _flingStartTime ??= timeStamp;
     final double elapsedSeconds =
-        (timeStamp - _flingStartTime!).inMicroseconds / 1e6;
+        (timeStamp - _flingStartTime!).inMicroseconds * 0.000001;
 
     final double distance = _flingSimulation!.x(elapsedSeconds);
     final double prevDistance = _flingSimulation!.x(_lastFlingElapsedSeconds);
