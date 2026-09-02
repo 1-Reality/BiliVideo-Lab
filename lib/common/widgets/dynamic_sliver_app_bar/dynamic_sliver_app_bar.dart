@@ -28,6 +28,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverPersistentHeader, SliverPersistentHeaderDelegate;
 
+const _inverseToolbarHeight = 1 / kToolbarHeight;
+
 /// ref [SliverAppBar]
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate({
@@ -370,7 +372,7 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
         return 0.0;
       case CollapseMode.parallax:
         final double deltaExtent = settings.maxExtent - settings.minExtent;
-        return -Tween<double>(begin: 0.0, end: deltaExtent * 0.25).transform(t);
+        return -deltaExtent * 0.25 * t;
     }
   }
 
@@ -401,17 +403,16 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
         1.0,
       );
 
-      final double fadeStart = math.max(
-        0.0,
-        1.0 - kToolbarHeight * inverseDeltaExtent,
-      );
-      const fadeEnd = 1.0;
-      assert(fadeStart <= fadeEnd);
       // If the min and max extent are the same, the app bar cannot collapse
       // and the content should be visible, so opacity = 1.
       opacity = settings.maxExtent == settings.minExtent
           ? 1.0
-          : 1.0 - Interval(fadeStart, fadeEnd).transform(t);
+          : clampDouble(
+              (1.0 - t) *
+                  math.max(1.0, deltaExtent * _inverseToolbarHeight),
+              0.0,
+              1.0,
+            );
 
       topPadding = _getCollapsePadding(collapseMode, t, settings);
     }

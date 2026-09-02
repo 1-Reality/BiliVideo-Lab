@@ -1232,7 +1232,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         })
         ..onLongPressMoveUpdate = ((details) {
           if (!plPlayerController.enableLongPressSlideSpeed) return;
-          final step = (-details.offsetFromOrigin.dy / 24).truncate();
+          final step = (details.offsetFromOrigin.dy * _inverseLongPressStep)
+              .truncate();
           if (step == _longPressSpeedStep) return;
           plPlayerController.adjustLongPressSpeed(step - _longPressSpeedStep);
           _longPressSpeedStep = step;
@@ -1251,6 +1252,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   StreamSubscription<bool>? _danmakuListener;
 
+  static const _inverseLongPressStep = -1 / 24;
   static const _kOffsetThreshold = 25.0;
   bool _isPositionAllowed(Offset offset) {
     if (offset.dx < _kOffsetThreshold ||

@@ -24,7 +24,7 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    late final iconTheme = IconTheme.of(context);
+    final iconTheme = IconTheme.of(context);
     final icon = _icon;
     return RenderMaskedIcon(
       disable: disable,
@@ -37,7 +37,7 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 
   @override
   void updateRenderObject(BuildContext context, RenderMaskedIcon renderObject) {
-    late final iconTheme = IconTheme.of(context);
+    final iconTheme = IconTheme.of(context);
     final icon = _icon;
     renderObject
       ..disable = disable
@@ -97,6 +97,8 @@ class RenderMaskedIcon extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  final _linePaint = Paint();
+
   @override
   void paint(PaintingContext context, Offset offset) {
     if (!disable) {
@@ -144,7 +146,7 @@ class RenderMaskedIcon extends RenderProxyBox {
 
     canvas.restore();
 
-    final linePaint = Paint()
+    _linePaint
       ..color = color
       ..strokeWidth = strokeWidth
       ..strokeCap = strokeCap;
@@ -156,7 +158,7 @@ class RenderMaskedIcon extends RenderProxyBox {
     canvas.drawLine(
       rect.topLeft,
       rect.bottomRight,
-      linePaint,
+      _linePaint,
     );
   }
 }

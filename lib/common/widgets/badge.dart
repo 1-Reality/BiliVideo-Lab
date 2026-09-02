@@ -42,7 +42,7 @@ class PBadge extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    ColorScheme theme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context).colorScheme;
 
     Color bgColor;
     Color color;
@@ -82,13 +82,12 @@ class PBadge extends StatelessWidget {
         color = theme.onSurfaceVariant;
     }
 
-    late EdgeInsets paddingStyle = const .symmetric(vertical: 2, horizontal: 3);
     final BorderRadius br = size == .small
         ? const .all(.circular(3))
         : const .all(.circular(4));
 
     Widget content = Container(
-      padding: padding ?? paddingStyle,
+      padding: padding ?? const .symmetric(vertical: 2, horizontal: 3),
       decoration: BoxDecoration(
         borderRadius: br,
         color: bgColor,

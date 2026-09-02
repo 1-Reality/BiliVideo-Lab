@@ -548,14 +548,13 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handlePointerScrollEvent(PointerScrollEvent event) {
     if (_gestureIsSupported(_GestureType.scale)) {
       final Offset local = event.localPosition;
-      final Offset global = event.position;
       if (HardwareKeyboard.instance.isControlPressed) {
-        _handleMouseWheelScale(event, local, global);
+        _handleMouseWheelScale(event, local);
         return;
       }
       final shift = HardwareKeyboard.instance.isShiftPressed;
       if (shift || HardwareKeyboard.instance.isAltPressed) {
-        _handleMouseWheelPanAsScale(event, local, global, shift);
+        _handleMouseWheelPanAsScale(event, local, shift);
         return;
       }
       widget.pointerSignalFallback(event);
@@ -565,7 +564,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handleMouseWheelScale(
     PointerScrollEvent event,
     Offset local,
-    Offset global,
   ) {
     final double scaleChange = math.exp(
       -event.scrollDelta.dy * _inverseScaleFactor,
@@ -583,7 +581,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handleMouseWheelPanAsScale(
     PointerScrollEvent event,
     Offset local,
-    Offset global,
     bool flip,
   ) {
     if (_transformer.value[0] == 1.0) return;
@@ -804,14 +801,14 @@ Quad _getAxisAlignedBoundingBoxWithRotation(Rect rect, double rotation) {
 }
 
 Offset _exceedsBy(Quad boundary, Quad viewport) {
-  final List<Vector3> viewportPoints = <Vector3>[
-    viewport.point0,
-    viewport.point1,
-    viewport.point2,
-    viewport.point3,
-  ];
   Offset largestExcess = Offset.zero;
-  for (final Vector3 point in viewportPoints) {
+  for (var i = 0; i < 4; i++) {
+    final point = switch (i) {
+      0 => viewport.point0,
+      1 => viewport.point1,
+      2 => viewport.point2,
+      _ => viewport.point3,
+    };
     // ignore: invalid_use_of_visible_for_testing_member
     final Vector3 pointInside = InteractiveViewer.getNearestPointInside(
       point,

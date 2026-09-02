@@ -84,7 +84,7 @@ class RenderBottomBar extends RenderBox
         ..translateByDouble(0.0, height * (1 - scale) * 0.5, 0.0, 1.0)
         ..scaleByDouble(scale, scale, scale, 1.0);
       lastParentData.offset = Offset(
-        (maxWidth - lastWidth * scale) / scale,
+        totalWidth - lastWidth,
         (height - lastSize.height) * 0.5,
       );
     }

@@ -1622,9 +1622,10 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   }
 
   double _getValueFromGlobalPosition(Offset globalPosition) {
+    final trackRect = _trackRect;
     final double visualPosition =
-        (_trackRect.bottom - globalToLocal(globalPosition).dy) /
-        _trackRect.height;
+        (trackRect.bottom - globalToLocal(globalPosition).dy) /
+        trackRect.height;
     return _getValueFromVisualPosition(visualPosition);
   }
 

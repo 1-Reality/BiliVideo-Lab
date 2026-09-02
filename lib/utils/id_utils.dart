@@ -58,9 +58,9 @@ abstract final class IdUtils {
     if (input == null || input.isEmpty) {
       return const (av: null, bv: null);
     }
-    String? bvid = bvRegex.firstMatch(input)?.group(0);
+    final bvid = bvRegex.firstMatch(input)?.group(0);
 
-    late String? aid = avRegex.firstMatch(input)?.group(1);
+    late final aid = avRegex.firstMatch(input)?.group(1);
 
     if (bvid != null) {
       return (av: null, bv: bvid);
@@ -86,9 +86,7 @@ abstract final class IdUtils {
       midByte[i] ^= key.codeUnitAt(i % key.length);
     }
 
-    String base64Encoded = base64.encode(midByte).replaceAll('=', '');
-
-    return base64Encoded;
+    return base64.encode(midByte).replaceAll('=', '');
   }
 
   // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/grpc_api/readme.md#x-bili-trace-id-生成算法
@@ -101,7 +99,8 @@ abstract final class IdUtils {
       ..write((ts & 0xFFFFFF).toRadixString(16).padLeft(6, '0'))
       ..write(Utils.generateRandomString(2));
 
-    return '${randomTraceId.toString()}:${randomTraceId.toString().substring(16, 32)}:0:0';
+    final traceId = randomTraceId.toString();
+    return '$traceId:${traceId.substring(16, 32)}:0:0';
   }
 }
 

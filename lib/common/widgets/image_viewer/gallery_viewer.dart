@@ -263,10 +263,7 @@ class _GalleryViewerState extends State<GalleryViewer>
 
     _offset += details.focalPointDelta;
     _updateMoveAnimation();
-
-    if (!_animateController.isAnimating) {
-      _animateController.value = _offset.dy.abs() * _inverseContainerHeight;
-    }
+    _animateController.value = _offset.dy.abs() * _inverseContainerHeight;
   }
 
   void _onDragEnd(ScaleEndDetails details) {

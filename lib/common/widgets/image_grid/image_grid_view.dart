@@ -44,13 +44,11 @@ class ImageModel {
     required num? height,
     required this.url,
     this.liveUrl,
-  }) {
-    this.width = width == null || width == 0 ? 1 : width;
-    this.height = height == null || height == 0 ? 1 : height;
-  }
+  }) : width = width == null || width == 0 ? 1 : width,
+       height = height == null || height == 0 ? 1 : height;
 
-  late num width;
-  late num height;
+  final num width;
+  final num height;
   String url;
   String? liveUrl;
   bool? _isLongPic;

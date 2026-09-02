@@ -134,13 +134,11 @@ class ShutdownTimerService {
   static String _format(int minutes) {
     if (minutes == 60) return '60分钟';
     final (int hour, int minute) = _parseMinutes(minutes);
-    if (hour > 0 && minute > 0) {
-      return '$hour小时$minute分钟';
-    } else if (hour > 0) {
-      return '$hour小时';
-    } else {
-      return '$minute分钟';
-    }
+    return switch ((hour, minute)) {
+      (>0, >0) => '$hour小时$minute分钟',
+      (>0, _) => '$hour小时',
+      _ => '$minute分钟',
+    };
   }
 
   Widget _pickerBuider(
