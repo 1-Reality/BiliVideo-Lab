@@ -3,12 +3,8 @@ import 'dart:math' show pow;
 import 'package:flutter/widgets.dart' show BuildContext, MediaQuery;
 
 extension ImageExtension on num {
-  int? cacheSize(BuildContext context) {
-    if (this == 0) {
-      return null;
-    }
-    return (this * MediaQuery.devicePixelRatioOf(context)).round();
-  }
+  int? cacheSize(BuildContext context) =>
+      this == 0 ? null : (this * MediaQuery.devicePixelRatioOf(context)).round();
 }
 
 extension IntExt on int? {

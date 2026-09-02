@@ -138,15 +138,15 @@ class VideoDetailController extends GetxController
       final bytes = exactBytes != null && exactBytes > 0
           ? exactBytes
           : bitrate > 0 && durationMs > 0
-          ? (bitrate * durationMs / 8000).round()
+          ? (bitrate * durationMs * 0.000125).round()
           : 0;
       if (bitrate <= 0 && bytes > 0 && durationMs > 0) {
         bitrate = (bytes * 8000 / durationMs).round();
       }
       if (bytes <= 0 && bitrate <= 0) return null;
-      final size = bytes >= 1073741824
-          ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
-          : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+      final size = bytes >= 1 << 30
+          ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+          : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
       final rate = bitrate >= 1000000
           ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
           : '${(bitrate / 1000).round()} kb/s';
@@ -207,10 +207,10 @@ class VideoDetailController extends GetxController
   ) {
     final bitrate = (video.bandWidth ?? 0) + (audio?.bandWidth ?? 0);
     if (bitrate <= 0 || durationMs <= 0) return null;
-    final bytes = (bitrate * durationMs / 8000).round();
-    final size = bytes >= 1073741824
-        ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
-        : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+    final bytes = (bitrate * durationMs * 0.000125).round();
+    final size = bytes >= 1 << 30
+        ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+        : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
     final rate = bitrate >= 1000000
         ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
         : '${(bitrate / 1000).round()} kb/s';
@@ -986,9 +986,7 @@ class VideoDetailController extends GetxController
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
-            (isFileSource
-                ? true
-                : videoPlayerKey.currentState?.mounted == true)) {
+            (isFileSource || videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
       );
@@ -1493,7 +1491,7 @@ class VideoDetailController extends GetxController
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
+            final end = (item.to! * 1000 / data.timeLength!).clamp(0.0, 1.0);
             return ViewPointSegment(
               end: end,
               title: item.content,

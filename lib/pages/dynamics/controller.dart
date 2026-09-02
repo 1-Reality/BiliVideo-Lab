@@ -141,27 +141,20 @@ class DynamicsController
   void onChangeAccount(bool isLogin) => onReload();
 
   @override
-  Future<LoadingState<FollowUpModel>> customGetData() {
-    if (_offset == null) {
-      return DynamicsHttp.followUp();
-    }
-    if (_showAllUp) {
-      return DynamicsHttp.followings(
+  Future<LoadingState<FollowUpModel>> customGetData() => _offset == null
+      ? DynamicsHttp.followUp()
+      : _showAllUp
+      ? DynamicsHttp.followings(
         vmid: Accounts.main.mid,
         pn: _page,
         orderType: 'attention',
         ps: 50,
-      );
-    } else {
-      return DynamicsHttp.dynUpList(_offset);
-    }
-  }
+      )
+      : DynamicsHttp.dynUpList(_offset);
 
   @override
-  Future<void> queryData([bool isRefresh = true]) {
-    if (!isRefresh && _isEnd) return Future.value();
-    return super.queryData(isRefresh);
-  }
+  Future<void> queryData([bool isRefresh = true]) =>
+      !isRefresh && _isEnd ? Future.value() : super.queryData(isRefresh);
 
   @override
   bool customHandleResponse(bool isRefresh, Success<FollowUpModel> response) {
