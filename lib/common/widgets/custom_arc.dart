@@ -45,13 +45,19 @@ class RenderArc extends RenderBox {
     required this._color,
     required this._progress,
     required this._strokeWidth,
-  });
+  }) : _paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = _color
+      ..strokeWidth = _strokeWidth;
+
+  final Paint _paint;
 
   Color _color;
   Color get color => _color;
   set color(Color value) {
     if (_color == value) return;
     _color = value;
+    _paint.color = value;
     markNeedsPaint();
   }
 
@@ -68,6 +74,7 @@ class RenderArc extends RenderBox {
   set strokeWidth(double value) {
     if (_strokeWidth == value) return;
     _strokeWidth = value;
+    _paint.strokeWidth = value;
     markNeedsPaint();
   }
 
@@ -90,11 +97,6 @@ class RenderArc extends RenderBox {
       return;
     }
 
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
     final radius = size.width * 0.5;
     final rect = Rect.fromCircle(
       center: Offset(radius, radius),
@@ -102,7 +104,7 @@ class RenderArc extends RenderBox {
     );
 
     const startAngle = -pi / 2;
-    context.canvas.drawArc(rect, startAngle, progress * 2 * pi, false, paint);
+    context.canvas.drawArc(rect, startAngle, progress * 2 * pi, false, _paint);
   }
 
   @override

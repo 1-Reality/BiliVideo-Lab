@@ -59,6 +59,8 @@ class RenderLoadingIndicator extends RenderBox {
     required this._progress,
   });
 
+  final _paint = Paint()..isAntiAlias = true;
+
   double _preferredSize;
   double get preferredSize => _preferredSize;
   set preferredSize(double value) {
@@ -90,7 +92,6 @@ class RenderLoadingIndicator extends RenderBox {
     const strokeWidth = 1.4;
     const startAngle = -pi / 2;
 
-    final paint = Paint()..isAntiAlias = true;
     final size = this.size;
     final radius = size.width * 0.5 - strokeWidth;
     final center = size.center(.zero);
@@ -99,14 +100,14 @@ class RenderLoadingIndicator extends RenderBox {
       ..drawCircle(
         center,
         radius,
-        paint
+        _paint
           ..style = .fill
           ..color = const Color(0x80000000),
       )
       ..drawCircle(
         center,
         radius,
-        paint
+        _paint
           ..style = .stroke
           ..strokeWidth = strokeWidth
           ..color = Colors.white,
@@ -116,7 +117,7 @@ class RenderLoadingIndicator extends RenderBox {
         startAngle,
         progress * 2 * pi,
         true,
-        paint..style = .fill,
+        _paint..style = .fill,
       );
   }
 

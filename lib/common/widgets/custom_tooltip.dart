@@ -287,13 +287,18 @@ class RenderTriangle extends RenderBox {
   RenderTriangle({
     required this._color,
     required this._preferredSize,
-  });
+  }) : _paint = Paint()
+      ..color = _color
+      ..style = PaintingStyle.fill;
+
+  final Paint _paint;
 
   Color _color;
   Color get color => _color;
   set color(Color value) {
     if (_color == value) return;
     _color = value;
+    _paint.color = value;
     markNeedsPaint();
   }
 
@@ -312,9 +317,6 @@ class RenderTriangle extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
 
     final path = Path()
       ..moveTo(offset.dx, offset.dy)
@@ -322,6 +324,6 @@ class RenderTriangle extends RenderBox {
       ..lineTo(offset.dx + size.width * 0.5, size.height + offset.dy)
       ..close();
 
-    context.canvas.drawPath(path, paint);
+    context.canvas.drawPath(path, _paint);
   }
 }

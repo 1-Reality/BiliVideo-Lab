@@ -34,7 +34,11 @@ class UserLevel extends LeafRenderObjectWidget {
 }
 
 class RenderLevel extends RenderBox {
-  RenderLevel(this._height, this._level, this._flash);
+  RenderLevel(this._height, this._level, this._flash) {
+    _paint.color = lookupBackgroundColor(_level);
+  }
+
+  final _paint = Paint();
 
   double _height;
   set height(double value) {
@@ -47,6 +51,7 @@ class RenderLevel extends RenderBox {
   set level(int value) {
     if (_level == value) return;
     _level = value;
+    _paint.color = lookupBackgroundColor(value);
     markNeedsPaint();
     markNeedsSemanticsUpdate();
   }
@@ -62,7 +67,8 @@ class RenderLevel extends RenderBox {
   Size computeDryLayout(covariant BoxConstraints constraints) {
     return constraints.constrainSizeAndAttemptToPreserveAspectRatio(
       Size(
-        (_flash ? LevelCanvas._extendR : LevelCanvas._totalR) * _height / LevelCanvas._totalB,
+        (_flash ? LevelCanvas._extendR : LevelCanvas._totalR) *
+            _height * LevelCanvas._inverseTotalB,
         _height,
       ),
     );
@@ -75,14 +81,14 @@ class RenderLevel extends RenderBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()..color = lookupBackgroundColor(_level);
+    _paint.color = lookupBackgroundColor(_level);
     LevelCanvas(context.canvas)
       ..save()
       ..translate(offset.dx, offset.dy)
-      ..scale(size.height / LevelCanvas._totalB)
-      ..drawLevelBack(paint, bolt: _flash)
+      ..scale(size.height * LevelCanvas._inverseTotalB)
+      ..drawLevelBack(_paint, bolt: _flash)
       ..drawLevelLv()
-      ..drawLEDigit(_level, paint..color = Colors.white)
+      ..drawLEDigit(_level, _paint..color = Colors.white)
       ..restore();
   }
 
@@ -276,6 +282,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _totalR = 930;
   static const double _extendR = 1250;
   static const double _totalB = 466;
+  static const double _inverseTotalB = 1 / _totalB;
 
   void drawLevelBack(Paint paint, {bool bolt = false}) {
     const radius = Radius.circular(27);

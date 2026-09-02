@@ -75,10 +75,10 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                           final first = emote.first;
                           final widthFac = first.width == null
                               ? 1.0
-                              : max(1.0, first.width! / 80);
+                              : max(1.0, first.width! * 0.0125);
                           final heightFac = first.height == null
                               ? 1.0
-                              : max(1.0, first.height! / 80);
+                              : max(1.0, first.height! * 0.0125);
                           final width = widthFac * 38;
                           final height = heightFac * 38;
                           return GridView.builder(

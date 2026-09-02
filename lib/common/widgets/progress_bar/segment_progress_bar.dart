@@ -115,14 +115,15 @@ class RenderProgressBar extends BaseRenderProgressBar<Segment> {
     required super.segments,
   });
 
+  final _paint = Paint()..style = PaintingStyle.fill;
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final paint = Paint()..style = PaintingStyle.fill;
 
     for (final segment in segments) {
-      paint.color = segment.color;
+      _paint.color = segment.color;
       final segmentStart = offset.dx + segment.start * size.width;
       final segmentEnd = offset.dx + segment.end * size.width;
 
@@ -135,7 +136,7 @@ class RenderProgressBar extends BaseRenderProgressBar<Segment> {
             segmentEnd == segmentStart ? segmentStart + 2 : segmentEnd,
             size.height + offset.dy,
           ),
-          paint,
+          _paint,
         );
       }
     }
@@ -187,6 +188,10 @@ class RenderViewPointProgressBar
     }
   }
 
+  final _paint = Paint()..style = PaintingStyle.fill;
+  static final _segmentBackground = Colors.grey[600]!.withValues(alpha: 0.45);
+  static final _segmentDivider = Colors.black.withValues(alpha: 0.5);
+
   @override
   void performLayout() {
     size = constraints.constrainDimensions(constraints.maxWidth, _barHeight);
@@ -217,7 +222,6 @@ class RenderViewPointProgressBar
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final paint = Paint()..style = PaintingStyle.fill;
 
     if (offset != .zero) {
       canvas
@@ -229,10 +233,10 @@ class RenderViewPointProgressBar
 
     canvas.drawRect(
       Rect.fromLTRB(0, 0, size.width, _barHeight),
-      paint..color = Colors.grey[600]!.withValues(alpha: 0.45),
+      _paint..color = _segmentBackground,
     );
 
-    paint.color = Colors.black.withValues(alpha: 0.5);
+    _paint.color = _segmentDivider;
 
     double prevEnd = 0.0;
     for (final segment in segments) {
@@ -244,7 +248,7 @@ class RenderViewPointProgressBar
           segmentEnd + _dividerWidth,
           _barHeight + height,
         ),
-        paint,
+        _paint,
       );
       final title = segment.title;
       if (title != null && title.isNotEmpty) {

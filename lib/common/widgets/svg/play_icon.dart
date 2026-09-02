@@ -22,6 +22,8 @@ class PlayIcon extends LeafRenderObjectWidget {
 class RenderPlay extends RenderBox {
   RenderPlay(this._imgSize);
 
+  static const _inversePictureSize = 1 / 60;
+
   double _imgSize;
   set imgSize(double value) {
     if (_imgSize == value) return;
@@ -47,7 +49,7 @@ class RenderPlay extends RenderBox {
       canvas.save();
       if (offset != .zero) canvas.translate(offset.dx, offset.dy);
       if (size != 60) {
-        canvas.scale(size / 60);
+        canvas.scale(size * _inversePictureSize);
       }
     }
     canvas.drawPicture(_picture);

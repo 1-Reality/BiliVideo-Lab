@@ -317,6 +317,10 @@ class _RenderDanmakuTip extends RenderProxyBox {
     required this._offset,
   });
 
+  final _paint = Paint()
+    ..color = const Color(0xB3000000)
+    ..style = .fill;
+
   double _offset;
   double get offset => _offset;
   set offset(double value) {
@@ -327,7 +331,7 @@ class _RenderDanmakuTip extends RenderProxyBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()
+    _paint
       ..color = const Color(0xB3000000)
       ..style = .fill;
 
@@ -362,10 +366,10 @@ class _RenderDanmakuTip extends RenderProxyBox {
     context.canvas
       ..save()
       ..translate(offset.dx, offset.dy)
-      ..drawPath(path, paint)
+      ..drawPath(path, _paint)
       ..drawPath(
         path,
-        paint
+        _paint
           ..color = const Color(0x7EFFFFFF)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.25,
