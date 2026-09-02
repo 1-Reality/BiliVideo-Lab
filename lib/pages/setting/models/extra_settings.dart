@@ -80,7 +80,7 @@ List<SettingsModel> get extraSettings => [
       leading: Icon(CustomIcons.shield_play_arrow),
     ),
     switchModel: SwitchModel.split(
-      defaultVal: false,
+      defaultVal: true,
       setKey: SettingBoxKey.enableSponsorBlock,
       onTap: (context) => Get.toNamed('/sponsorBlock'),
     ),
@@ -135,13 +135,13 @@ List<SettingsModel> get extraSettings => [
     title: '默认展开视频简介',
     leading: Icon(Icons.expand_more),
     setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '横屏自动展开视频简介',
     leading: Icon(Icons.expand_more),
     setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: false,
+    defaultVal: true,
   ),
   SwitchModel(
     title: '横屏分P/合集列表显示在Tab栏',
@@ -192,7 +192,7 @@ List<SettingsModel> get extraSettings => [
     title: '显示动态警告/争议信息',
     leading: const Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showDynDispute,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (val) => ItemModulesModel.showDynDispute = val,
   ),
   const SwitchModel(
@@ -261,14 +261,14 @@ List<SettingsModel> get extraSettings => [
     subtitle: '合并一段时间内获取到的相同弹幕',
     leading: Icon(Icons.merge),
     setKey: SettingBoxKey.mergeDanmaku,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '显示热门推荐',
     subtitle: '热门页面显示每周必看等推荐内容入口',
     leading: Icon(Icons.local_fire_department_outlined),
     setKey: SettingBoxKey.showHotRcmd,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   if (kDebugMode || Platform.isAndroid)
@@ -302,13 +302,13 @@ List<SettingsModel> get extraSettings => [
     subtitle: '相对减少手动播放加载时间',
     leading: Icon(Icons.play_circle_outlined),
     setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '首页切换页面动画',
     leading: Icon(Icons.home_outlined),
     setKey: SettingBoxKey.mainTabBarView,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   const SwitchModel(
@@ -356,7 +356,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
     leading: Icon(Icons.show_chart),
     setKey: SettingBoxKey.showDmChart,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '记录评论',
@@ -370,7 +370,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '发送评论后检查评论是否可见',
     leading: Icon(CustomIcons.shield_reply),
     setKey: SettingBoxKey.enableCommAntifraud,
-    defaultVal: false,
+    defaultVal: true,
   ),
   if (Platform.isAndroid)
     const SwitchModel(
@@ -387,7 +387,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '发布/转发动态后检查动态是否可见',
     leading: Icon(CustomIcons.shield_published),
     setKey: SettingBoxKey.enableCreateDynAntifraud,
-    defaultVal: false,
+    defaultVal: true,
   ),
   SwitchModel(
     title: '屏蔽带货动态',
@@ -479,7 +479,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '是否展示搜索框默认词',
     leading: const Icon(Icons.whatshot_outlined),
     setKey: SettingBoxKey.enableSearchWord,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (val) {
       try {
         final controller = Get.find<HomeController>()..enableSearchWord = val;
@@ -504,7 +504,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '展示评论区搜索关键词',
     leading: const Icon(Icons.search_outlined),
     setKey: SettingBoxKey.enableWordRe,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
   ),
   const SwitchModel(
@@ -512,14 +512,14 @@ List<SettingsModel> get extraSettings => [
     subtitle: '视频详情页开启AI总结',
     leading: Icon(Icons.engineering_outlined),
     setKey: SettingBoxKey.enableAi,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '消息页禁用"收到的赞"功能',
     subtitle: '禁止打开入口，降低网络社交依赖',
     leading: Icon(Icons.beach_access_outlined),
     setKey: SettingBoxKey.disableLikeMsg,
-    defaultVal: true,
+    defaultVal: false,
   ),
   const SwitchModel(
     title: '默认展示评论区',
@@ -532,7 +532,7 @@ List<SettingsModel> get extraSettings => [
     title: '启用HTTP/2',
     leading: Icon(Icons.swap_horizontal_circle_outlined),
     setKey: SettingBoxKey.enableHttp2,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   const NormalModel(
@@ -583,7 +583,7 @@ List<SettingsModel> get extraSettings => [
     title: '显示UP主页小店TAB',
     leading: const Icon(Icons.shop_outlined),
     setKey: SettingBoxKey.showMemberShop,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (value) => MemberTabType.showMemberShop = value,
   ),
   const SplitModel(

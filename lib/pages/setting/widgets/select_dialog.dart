@@ -377,7 +377,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   Future<void> _startSpeedTest() async {
     try {
-      await CdnDiagnosticsService.clearLatest();
       final config = widget.speedConfig!;
       final limits = (warmup: config.warmupBytes, max: config.totalBytes);
       final videoItem = widget.sample ?? await _getSampleUrl();
@@ -416,7 +415,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     } catch (e) {
       if (kDebugMode) debugPrint('CDN speed test failed: $e');
     } finally {
-      await CdnDiagnosticsService.flushLatest();
+      await CdnDiagnosticsService.flushRun();
     }
   }
 
@@ -972,9 +971,42 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     };
   }
 
+  Map<String, dynamic> _latestDiagnosticRecord(
+    Map<String, dynamic> historyRecord,
+    _CdnSpeedSample sample,
+  ) {
+    final latest = <String, dynamic>{...historyRecord};
+    final sampleRecord = historyRecord['sample'] is Map
+        ? Map<String, dynamic>.from(historyRecord['sample'] as Map)
+        : <String, dynamic>{};
+    sampleRecord['latencyProbes'] = [
+      for (final probe in sample.probes)
+        {
+          'headersUs': probe.headersUs,
+          'firstByteUs': probe.firstByteUs,
+          'bytes': probe.bytes,
+        },
+    ];
+    latest['sample'] = sampleRecord;
+
+    if (!sample.hasError && historyRecord['derived'] is Map) {
+      final metrics = sample.metrics;
+      latest['derived'] = <String, dynamic>{
+        ...Map<String, dynamic>.from(historyRecord['derived'] as Map),
+        'fixedWindowRatesBytesPerSecond': metrics.segmentRates,
+        'latencySamplesUs': metrics.latencySamples,
+      };
+    }
+    return latest;
+  }
+
   void _updateSpeedResult(int index, _CdnSpeedSample sample) {
     _cdnResList[index].value = sample;
-    CdnDiagnosticsService.append(_diagnosticRecord(index, sample));
+    final historyRecord = _diagnosticRecord(index, sample);
+    CdnDiagnosticsService.append(
+      historyRecord: historyRecord,
+      latestRecord: _latestDiagnosticRecord(historyRecord, sample),
+    );
   }
 
   void _handleSpeedTestError(dynamic error, int index) {
@@ -1171,7 +1203,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   void _showDiagnosticHistory(BuildContext context) {
     final encoder = const JsonEncoder.withIndent('  ');
-    var groups = CdnDiagnosticsService.groupedSnapshot();
+    var latestGroups = CdnDiagnosticsService.groupedLatestSnapshot();
+    var historyGroups = CdnDiagnosticsService.groupedHistorySnapshot();
     var editing = false;
     final selected = <int>{};
 
@@ -1194,92 +1227,113 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           builder: (dialogContext, setDialogState) => Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: const Text('CDN 最新诊断'),
+                title: Text('CDN 诊断 · ${historyGroups.length} 次历史'),
                 actions: [
-                  if (editing && groups.isNotEmpty)
+                  if (editing && historyGroups.isNotEmpty)
                     IconButton(
-                      tooltip: selected.length == groups.length ? '取消全选' : '全选',
+                      tooltip: selected.length == historyGroups.length
+                          ? '取消全选'
+                          : '全选历史',
                       onPressed: () => setDialogState(() {
-                        if (selected.length == groups.length) {
+                        if (selected.length == historyGroups.length) {
                           selected.clear();
                         } else {
                           selected
                             ..clear()
-                            ..addAll(groups.map((group) => group.runStartedAtUs));
+                            ..addAll(
+                              historyGroups.map(
+                                (group) => group.runStartedAtUs,
+                              ),
+                            );
                         }
                       }),
                       icon: Icon(
-                        selected.length == groups.length
+                        selected.length == historyGroups.length
                             ? Icons.deselect
                             : Icons.select_all,
                       ),
                     ),
                   if (editing && selected.isNotEmpty)
                     IconButton(
-                      tooltip: '删除选中的测试组',
+                      tooltip: '删除选中的历史测试',
                       onPressed: () async {
                         final confirmed = await showDialog<bool>(
                           context: dialogContext,
                           builder: (context) => AlertDialog(
-                            title: const Text('删除 CDN 测试记录'),
-                            content: Text('确定删除已选择的 ${selected.length} 次完整测试吗？'),
+                            title: const Text('删除 CDN 历史记录'),
+                            content: Text('确定删除已选择的 ${selected.length} 次历史测试吗？'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
                                 child: const Text('取消'),
                               ),
                               FilledButton(
-                                onPressed: () => Navigator.of(context).pop(true),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
                                 child: const Text('删除'),
                               ),
                             ],
                           ),
                         );
                         if (confirmed != true) return;
-                        await CdnDiagnosticsService.deleteRuns(Set.of(selected));
-                        groups = CdnDiagnosticsService.groupedSnapshot();
+                        await CdnDiagnosticsService.deleteHistoryRuns(
+                          Set.of(selected),
+                        );
+                        historyGroups =
+                            CdnDiagnosticsService.groupedHistorySnapshot();
                         selected.clear();
                         if (dialogContext.mounted) {
                           setDialogState(() {
-                            if (groups.isEmpty) editing = false;
+                            if (historyGroups.isEmpty) editing = false;
                           });
                         }
                       },
                       icon: const Icon(Icons.delete_outline),
                     ),
-                  if (!editing && groups.isNotEmpty)
+                  if (!editing &&
+                      (latestGroups.isNotEmpty || historyGroups.isNotEmpty))
                     IconButton(
-                      tooltip: '复制全部原始记录',
+                      tooltip: '复制全部诊断记录',
                       onPressed: () async {
                         await Clipboard.setData(
                           ClipboardData(
-                            text: encoder.convert(CdnDiagnosticsService.snapshot()),
+                            text: encoder.convert({
+                              'latest':
+                                  CdnDiagnosticsService.latestSnapshot(),
+                              'history':
+                                  CdnDiagnosticsService.historySnapshot(),
+                            }),
                           ),
                         );
                         if (dialogContext.mounted) {
                           ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              const SnackBar(content: Text('已复制最新诊断记录')),
+                            const SnackBar(content: Text('已复制全部诊断记录')),
                           );
                         }
                       },
                       icon: const Icon(Icons.copy_all_outlined),
                     ),
-                  IconButton(
-                    tooltip: editing ? '完成编辑' : '编辑',
-                    onPressed: () => setDialogState(() {
-                      editing = !editing;
-                      if (!editing) selected.clear();
-                    }),
-                    icon: Icon(editing ? Icons.done : Icons.edit_outlined),
-                  ),
+                  if (historyGroups.isNotEmpty)
+                    IconButton(
+                      tooltip: editing ? '完成编辑' : '编辑历史',
+                      onPressed: () => setDialogState(() {
+                        editing = !editing;
+                        if (!editing) selected.clear();
+                      }),
+                      icon: Icon(editing ? Icons.done : Icons.edit_outlined),
+                    ),
                 ],
               ),
-              body: groups.isEmpty
+              body: latestGroups.isEmpty && historyGroups.isEmpty
                   ? const Center(child: Text('还没有 CDN 诊断记录'))
                   : ListView.builder(
-                      itemCount: groups.length,
+                      itemCount: latestGroups.length + historyGroups.length,
                       itemBuilder: (context, index) {
-                        final group = groups[index];
+                        final isLatest = index < latestGroups.length;
+                        final group = isLatest
+                            ? latestGroups[index]
+                            : historyGroups[index - latestGroups.length];
                         final first = group.records.first;
                         final network = first['network'] is Map
                             ? first['network'] as Map
@@ -1288,18 +1342,24 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             ? first['config'] as Map
                             : const {};
                         return ListTile(
-                          leading: editing
+                          leading: editing && !isLatest
                               ? Checkbox(
-                                  value: selected.contains(group.runStartedAtUs),
+                                  value:
+                                      selected.contains(group.runStartedAtUs),
                                   onChanged: (_) => setDialogState(() {
                                     if (!selected.add(group.runStartedAtUs)) {
                                       selected.remove(group.runStartedAtUs);
                                     }
                                   }),
                                 )
-                              : const Icon(Icons.science_outlined),
+                              : Icon(
+                                  isLatest
+                                      ? Icons.bolt_outlined
+                                      : Icons.science_outlined,
+                                ),
                           title: Text(
-                            '最新测试 · ${timestamp(group.runStartedAtUs)}',
+                            '${isLatest ? '最新详细测试' : '历史测试'} · '
+                            '${timestamp(group.runStartedAtUs)}',
                           ),
                           subtitle: Text(
                             '${group.records.length} 个 CDN · '
@@ -1307,9 +1367,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             '${network['useCellularPreferences'] == true ? '等效移网' : '等效宽带'} · '
                             '${config['mode'] ?? 'legacy'}',
                           ),
-                          trailing: editing ? null : const Icon(Icons.chevron_right),
+                          trailing:
+                              editing ? null : const Icon(Icons.chevron_right),
                           onTap: () {
                             if (editing) {
+                              if (isLatest) return;
                               setDialogState(() {
                                 if (!selected.add(group.runStartedAtUs)) {
                                   selected.remove(group.runStartedAtUs);
@@ -1321,46 +1383,59 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                               context: dialogContext,
                               builder: (detailContext) => MediaQuery(
                                 data: MediaQuery.of(detailContext).copyWith(
-                                  textScaler: const TextScaler.linear(0.85),
+                                  textScaler:
+                                      const TextScaler.linear(0.85),
                                 ),
                                 child: Dialog.fullscreen(
                                   child: Scaffold(
                                     appBar: AppBar(
                                       title: Text(
-                                        'CDN 测试组 · ${timestamp(group.runStartedAtUs)}',
+                                        '${isLatest ? '最新详细测试' : '历史测试'} · '
+                                        '${timestamp(group.runStartedAtUs)}',
                                       ),
                                       actions: [
                                         IconButton(
                                           tooltip: '复制本组原始记录',
                                           onPressed: () => Clipboard.setData(
                                             ClipboardData(
-                                              text: encoder.convert(group.records),
+                                              text: encoder.convert(
+                                                group.records,
+                                              ),
                                             ),
                                           ),
-                                          icon: const Icon(Icons.copy_all_outlined),
+                                          icon: const Icon(
+                                            Icons.copy_all_outlined,
+                                          ),
                                         ),
                                       ],
                                     ),
                                     body: ListView.builder(
                                       itemCount: group.records.length,
                                       itemBuilder: (context, itemIndex) {
-                                        final record = group.records[itemIndex];
+                                        final record =
+                                            group.records[itemIndex];
                                         final cdn = record['cdn'] is Map
                                             ? record['cdn'] as Map
                                             : const {};
-                                        final sample = record['sample'] is Map
+                                        final sample =
+                                            record['sample'] is Map
                                             ? record['sample'] as Map
                                             : const {};
                                         final error = sample['error'];
-                                        final derived = record['derived'] is Map
+                                        final derived =
+                                            record['derived'] is Map
                                             ? record['derived'] as Map
                                             : const {};
                                         final bandwidth =
-                                            (derived['averageRateBytesPerSecond'] as num?) ?? 0;
+                                            (derived['averageRateBytesPerSecond']
+                                                    as num?) ??
+                                                0;
                                         final firstByteUs =
-                                            (sample['firstByteUs'] as num?) ?? 0;
+                                            (sample['firstByteUs'] as num?) ??
+                                                0;
                                         final dnsUs =
-                                            (sample['dnsLookupUs'] as num?) ?? 0;
+                                            (sample['dnsLookupUs'] as num?) ??
+                                                0;
                                         return ListTile(
                                           title: Text(
                                             cdn['description']?.toString() ??
@@ -1369,33 +1444,46 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                                           ),
                                           subtitle: Text(
                                             error == null
-                                                ? '带宽 ${rate(bandwidth)} · 首包 ${ms(firstByteUs)} · DNS ${ms(dnsUs)}'
+                                                ? '带宽 ${rate(bandwidth)} · '
+                                                    '首包 ${ms(firstByteUs)} · '
+                                                    'DNS ${ms(dnsUs)}'
                                                 : error.toString(),
                                           ),
-                                          trailing: const Icon(Icons.chevron_right),
+                                          trailing: const Icon(
+                                            Icons.chevron_right,
+                                          ),
                                           onTap: () => showDialog<void>(
                                             context: detailContext,
-                                            builder: (rawContext) => Dialog.fullscreen(
+                                            builder: (rawContext) =>
+                                                Dialog.fullscreen(
                                               child: Scaffold(
                                                 appBar: AppBar(
                                                   title: Text(
-                                                    cdn['description']?.toString() ??
+                                                    cdn['description']
+                                                            ?.toString() ??
                                                         'CDN 诊断原语',
                                                   ),
                                                   actions: [
                                                     IconButton(
                                                       tooltip: '复制本条记录',
-                                                      onPressed: () => Clipboard.setData(
+                                                      onPressed: () =>
+                                                          Clipboard.setData(
                                                         ClipboardData(
-                                                          text: encoder.convert(record),
+                                                          text:
+                                                              encoder.convert(
+                                                            record,
+                                                          ),
                                                         ),
                                                       ),
-                                                      icon: const Icon(Icons.copy_outlined),
+                                                      icon: const Icon(
+                                                        Icons.copy_outlined,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
                                                 body: SingleChildScrollView(
-                                                  padding: const EdgeInsets.all(16),
+                                                  padding:
+                                                      const EdgeInsets.all(16),
                                                   child: SelectableText(
                                                     encoder.convert(record),
                                                   ),
@@ -1433,7 +1521,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           title: const Text('CDN 优先级与网络诊断'),
           actions: [
             IconButton(
-              tooltip: '最新诊断',
+              tooltip: '诊断记录',
               onPressed: () => _showDiagnosticHistory(context),
               icon: const Icon(Icons.history),
             ),

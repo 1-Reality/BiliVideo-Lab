@@ -37,6 +37,14 @@ abstract final class Update {
       final data = res.data[0];
       final int latest =
           DateTime.parse(data['created_at']).millisecondsSinceEpoch ~/ 1000;
+      final version = data['tag_name']?.toString() ?? data['created_at'].toString();
+      final updateIgnore = GStorage.localCache.get(LocalCacheKey.updateIgnore);
+      if (isAuto && updateIgnore is Map) {
+        final ignoredVersion = updateIgnore['version']?.toString();
+        if (updateIgnore['temporary'] == true || ignoredVersion == version) {
+          return;
+        }
+      }
       if (BuildConfig.buildTime >= latest) {
         if (!isAuto) {
           SmartDialog.showToast('已是最新版本');
@@ -78,24 +86,40 @@ abstract final class Update {
                 ),
               ),
               actions: [
-                if (isAuto)
+                if (isAuto) ...[
                   TextButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      await GStorage.localCache.put(
+                        LocalCacheKey.updateIgnore,
+                        {
+                          'version': version,
+                          'temporary': false,
+                        },
+                      );
                       SmartDialog.dismiss();
-                      GStorage.setting.put(SettingBoxKey.autoUpdate, false);
                     },
                     child: Text(
-                      '不再提醒',
+                      '忽略本版',
                       style: TextStyle(color: colorScheme.outline),
                     ),
                   ),
-                TextButton(
-                  onPressed: SmartDialog.dismiss,
-                  child: Text(
-                    '取消',
-                    style: TextStyle(color: colorScheme.outline),
+                  TextButton(
+                    onPressed: () async {
+                      await GStorage.localCache.put(
+                        LocalCacheKey.updateIgnore,
+                        {
+                          'version': version,
+                          'temporary': true,
+                        },
+                      );
+                      SmartDialog.dismiss();
+                    },
+                    child: Text(
+                      '忽略几天',
+                      style: TextStyle(color: colorScheme.outline),
+                    ),
                   ),
-                ),
+                ],
                 if (Platform.isWindows) ...[
                   downloadBtn('zip', ext: 'zip'),
                   downloadBtn('exe', ext: 'exe'),
@@ -104,7 +128,7 @@ abstract final class Update {
                   downloadBtn('deb', ext: 'deb'),
                   downloadBtn('targz', ext: 'tar.gz'),
                 ] else
-                  downloadBtn('Github'),
+                  downloadBtn('更新'),
               ],
             );
           },

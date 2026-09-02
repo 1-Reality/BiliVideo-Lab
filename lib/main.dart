@@ -93,6 +93,16 @@ Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 
+void _showStartupBrandProfileAfterFirstFrame() {
+  final mid = GStorage.startupBrandProfileMid;
+  if (mid == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (Get.currentRoute == '/') {
+      Get.toNamed('/member?mid=$mid&startup_brand=1');
+    }
+  });
+}
+
 void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(Future<void>(() async {
@@ -208,6 +218,7 @@ void main() async {
     await MyApp.initPlatformState();
   }
 
+  _showStartupBrandProfileAfterFirstFrame();
   _deferNonCriticalServicesUntilAfterFirstFrame();
 
   if (Pref.enableLog) {
@@ -300,7 +311,7 @@ class MyApp extends StatelessWidget {
       locale: const Locale("zh", "CN"),
       fallbackLocale: const Locale("zh", "CN"),
       supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
-      initialRoute: GStorage.startupRoute,
+      initialRoute: '/',
       getPages: Routes.getPages,
       defaultTransition: Pref.pageTransition,
       builder: FlutterSmartDialog.init(

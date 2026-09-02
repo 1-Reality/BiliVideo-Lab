@@ -13,19 +13,33 @@ diff --git a/media_kit_video/windows/video_output.cc b/media_kit_video/windows/v
              {MPV_RENDER_PARAM_INVALID, nullptr},
          };
          // Create render context.
-@@ -147,8 +149,13 @@ void VideoOutput::NotifyRender() {
+@@ -147,8 +149,17 @@ void VideoOutput::NotifyRender() {
    if (destroyed_) {
      return;
    }
 -  thread_pool_ref_->Post(std::bind(&VideoOutput::CheckAndResize, this));
 -  thread_pool_ref_->Post(std::bind(&VideoOutput::Render, this));
++  if (surface_manager_ == nullptr || pixel_buffer_ != nullptr) {
++    thread_pool_ref_->Post(std::bind(&VideoOutput::CheckAndResize, this));
++    thread_pool_ref_->Post(std::bind(&VideoOutput::Render, this));
++    return;
++  }
 +  thread_pool_ref_->Post([this]() {
 +    if (destroyed_) return;
 +    const uint64_t flags = mpv_render_context_update(render_context_);
 +    if (!(flags & MPV_RENDER_UPDATE_FRAME)) return;
-+    CheckAndResize();
 +    Render();
 +  });
  }
  
  void VideoOutput::Render() {
+@@ -234,5 +245,9 @@ void VideoOutput::SetSize(std::optional<int64_t> width,
+     } else {
+       height_ = std::nullopt;
+     }
++    if (surface_manager_ != nullptr && pixel_buffer_ == nullptr &&
++        width_.has_value() && height_.has_value()) {
++      CheckAndResize();
++    }
+   });
+ }

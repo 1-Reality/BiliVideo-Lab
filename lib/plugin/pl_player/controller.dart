@@ -907,10 +907,17 @@ class PlPlayerController with BlockConfigMixin {
     _videoController = await VideoController.create(
       player,
       configuration: VideoControllerConfiguration(
-        width: _hasKnownVideoOutputSize ? width : null,
-        height: _hasKnownVideoOutputSize ? height : null,
-        enableHardwareAcceleration:
-            hwdec != null && (!Platform.isWindows || _hasKnownVideoOutputSize),
+        width: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? width : null))
+            : null,
+        height: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? height : null))
+            : null,
+        enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
         hwdec: hwdec,
       ),
@@ -952,7 +959,7 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    if (_hasKnownVideoOutputSize) {
+    if (Platform.isWindows && _hasKnownVideoOutputSize) {
       await _videoController?.setSize(width: width, height: height);
     }
 
@@ -1074,6 +1081,19 @@ class PlPlayerController with BlockConfigMixin {
     assert(_subscriptions == null);
     final stream = player.stream;
     _subscriptions = [
+      if (Platform.isWindows && hwdec != null)
+        stream.videoParams.listen((params) {
+          final dw = params.dw;
+          final dh = params.dh;
+          if (dw == null || dh == null || dw < 1 || dh < 1) return;
+          final rotate = params.rotate ?? 0;
+          if (rotate == 0 || rotate == 180) {
+            _videoController?.setSize(width: dw, height: dh);
+          } else {
+            _videoController?.setSize(width: dh, height: dw);
+          }
+        }),
+
       /// playing
       stream.playing.listen((bool playing) {
         PlaybackStatsService.updatePlaying(playing, player.state.position);

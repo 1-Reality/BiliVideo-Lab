@@ -1037,7 +1037,7 @@ class VideoDetailController extends GetxController
       partitionId: videoPartitionId,
       partitionName: videoPartitionName,
       copyright: videoCopyright,
-      codec: currentDecodeFormats.name,
+      codec: isFileSource ? null : currentDecodeFormats.name,
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;

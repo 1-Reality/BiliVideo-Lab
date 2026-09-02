@@ -7,7 +7,7 @@ Future<CDNService?> showPlaybackCdnDialog(
   required CDNService current,
   required bool locked,
 }) {
-  final groups = CdnDiagnosticsService.groupedSnapshot();
+  final groups = CdnDiagnosticsService.groupedLatestSnapshot();
   final latest = groups.isEmpty ? null : groups.first;
   final byName = <String, Map>{};
   if (latest != null) {

@@ -113,7 +113,24 @@ abstract final class Pref {
   static List<double> get speedList => List<double>.from(
     _video.get(
       VideoBoxKey.speedsList,
-      defaultValue: const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0],
+      defaultValue: const [
+        0.5,
+        0.75,
+        1.0,
+        1.5,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        10.0,
+        12.0,
+      ],
     ),
   );
 
@@ -121,7 +138,16 @@ abstract final class Pref {
     final list = _setting.get(SettingBoxKey.blockSettings) as List?;
     if (list == null || list.length != SegmentType.values.length) {
       return SegmentType.values
-          .map((i) => Pair(first: i, second: SkipType.skipOnce))
+          .map(
+            (i) => Pair(
+              first: i,
+              second: switch (i) {
+                SegmentType.sponsor || SegmentType.intro => SkipType.skipOnce,
+                SegmentType.filler => SkipType.showOnly,
+                _ => SkipType.skipManually,
+              },
+            ),
+          )
           .toList();
     }
     return SegmentType.values
@@ -216,12 +242,12 @@ abstract final class Pref {
   static SubtitlePrefType get subtitlePreferenceV2 =>
       SubtitlePrefType.values[_setting.get(
         SettingBoxKey.subtitlePreferenceV2,
-        defaultValue: SubtitlePrefType.off.index,
+        defaultValue: SubtitlePrefType.auto.index,
       )];
 
   static int get subtitleFollowerThreshold => _setting.get(
     SettingBoxKey.subtitleFollowerThreshold,
-    defaultValue: 0,
+    defaultValue: 1000,
   );
 
   static bool get useRelativeSlide =>
@@ -370,6 +396,8 @@ abstract final class Pref {
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
         ? HwDecType.androidDefault
+        : Platform.isWindows
+        ? HwDecType.windowsDefault
         : HwDecType.auto.hwdec,
   );
 
@@ -431,7 +459,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
 
   static bool get appRcmd =>
-      _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
+      _setting.get(SettingBoxKey.appRcmd, defaultValue: false);
 
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
@@ -484,7 +512,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
 
   static int get dynamicPeriod =>
-      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 5);
+      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 6);
 
   static FlexSchemeVariant get schemeVariant =>
       FlexSchemeVariant.values[_setting.get(
@@ -525,10 +553,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showBangumiReply, defaultValue: true);
 
   static bool get alwaysExpandIntroPanel =>
-      _setting.get(SettingBoxKey.alwaysExpandIntroPanel, defaultValue: false);
+      _setting.get(SettingBoxKey.alwaysExpandIntroPanel, defaultValue: true);
 
   static bool get expandIntroPanelH =>
-      _setting.get(SettingBoxKey.expandIntroPanelH, defaultValue: false);
+      _setting.get(SettingBoxKey.expandIntroPanelH, defaultValue: true);
 
   static bool get horizontalSeasonPanel => _setting.get(
     SettingBoxKey.horizontalSeasonPanel,
@@ -600,13 +628,13 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showVipDanmaku, defaultValue: true);
 
   static bool get mergeDanmaku =>
-      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: false);
+      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: true);
 
   static bool get showHotRcmd =>
-      _setting.get(SettingBoxKey.showHotRcmd, defaultValue: false);
+      _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
 
   static String get audioNormalization =>
-      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '0');
+      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '2');
 
   static String get fallbackNormalization =>
       _setting.get(SettingBoxKey.fallbackNormalization, defaultValue: '0');
@@ -621,10 +649,10 @@ abstract final class Pref {
   }
 
   static bool get preInitPlayer =>
-      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: false);
+      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: true);
 
   static bool get mainTabBarView =>
-      _setting.get(SettingBoxKey.mainTabBarView, defaultValue: false);
+      _setting.get(SettingBoxKey.mainTabBarView, defaultValue: true);
 
   static bool get searchSuggestion =>
       _setting.get(SettingBoxKey.searchSuggestion, defaultValue: true);
@@ -642,17 +670,17 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showSeekPreview, defaultValue: true);
 
   static bool get showDmChart =>
-      _setting.get(SettingBoxKey.showDmChart, defaultValue: false);
+      _setting.get(SettingBoxKey.showDmChart, defaultValue: true);
 
   static bool get enableCommAntifraud =>
-      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: true);
 
   static bool get biliSendCommAntifraud =>
       Platform.isAndroid &&
       _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: false);
 
   static bool get enableCreateDynAntifraud =>
-      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: true);
 
   static bool get coinWithLike =>
       _setting.get(SettingBoxKey.coinWithLike, defaultValue: false);
@@ -707,7 +735,7 @@ abstract final class Pref {
 
   static int get liveQualityCellular => _setting.get(
     SettingBoxKey.liveQualityCellular,
-    defaultValue: LiveQuality.superHD.code,
+    defaultValue: LiveQuality.smooth.code,
   );
 
   static int get appFontWeight =>
@@ -738,7 +766,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 512 * 1024 * 1024;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
@@ -783,19 +811,19 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
 
   static bool get disableLikeMsg =>
-      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: true);
+      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: false);
 
   static bool get enableWordRe =>
-      _setting.get(SettingBoxKey.enableWordRe, defaultValue: false);
+      _setting.get(SettingBoxKey.enableWordRe, defaultValue: true);
 
   static bool get autoExitFullscreen =>
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get pipNoDanmaku =>
-      _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
+      _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);
 
   static bool get enableVerticalExpand =>
       _setting.get(SettingBoxKey.enableVerticalExpand, defaultValue: false);
@@ -828,7 +856,7 @@ abstract final class Pref {
       )];
 
   static bool get enableSearchWord =>
-      _setting.get(SettingBoxKey.enableSearchWord, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSearchWord, defaultValue: true);
 
   static bool get useSideBar =>
       _setting.get(SettingBoxKey.useSideBar, defaultValue: false);
@@ -861,7 +889,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
   static bool get enableHttp2 =>
-      _setting.get(SettingBoxKey.enableHttp2, defaultValue: false);
+      _setting.get(SettingBoxKey.enableHttp2, defaultValue: true);
 
   static ReplySortType get replySortType =>
       ReplySortType.values[_setting.get(
@@ -900,7 +928,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -1007,23 +1035,23 @@ abstract final class Pref {
   );
 
   static bool get enableAi =>
-      _setting.get(SettingBoxKey.enableAi, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAi, defaultValue: true);
 
   static bool get enableOnlineTotal =>
-      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
+      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
 
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
 
   static bool get enableAutoLongPressSpeed =>
-      _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: true);
 
   static double get longPressSpeedFactor =>
       _setting.get(SettingBoxKey.longPressSpeedFactor, defaultValue: 2.0);
 
   static bool get enableLongPressSlideSpeed => _setting.get(
     SettingBoxKey.enableLongPressSlideSpeed,
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static double get playSpeedDefault =>
@@ -1068,7 +1096,7 @@ abstract final class Pref {
   static int? get quickFavId => _setting.get(SettingBoxKey.quickFavId);
 
   static bool get tempPlayerConf =>
-      _setting.get(SettingBoxKey.tempPlayerConf, defaultValue: false);
+      _setting.get(SettingBoxKey.tempPlayerConf, defaultValue: true);
 
   static Color? get reduceLuxColor {
     final int? color = _setting.get(SettingBoxKey.reduceLuxColor);
@@ -1097,7 +1125,7 @@ abstract final class Pref {
   }
 
   static bool get showMemberShop =>
-      _setting.get(SettingBoxKey.showMemberShop, defaultValue: false);
+      _setting.get(SettingBoxKey.showMemberShop, defaultValue: true);
 
   static SuperChatType get superChatType =>
       SuperChatType.values[_setting.get(
@@ -1176,7 +1204,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableImgMenu, defaultValue: false);
 
   static bool get showDynDispute =>
-      _setting.get(SettingBoxKey.showDynDispute, defaultValue: false);
+      _setting.get(SettingBoxKey.showDynDispute, defaultValue: true);
 
   static double get touchSlopH => _setting.get(
     SettingBoxKey.touchSlopH,
@@ -1199,7 +1227,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.playerVolume, defaultValue: 100.0);
 
   static double get maxVolume => // desktop
-      _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
+      _setting.get(SettingBoxKey.maxVolume, defaultValue: 1.0);
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
 

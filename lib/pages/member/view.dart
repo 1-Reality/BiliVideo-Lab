@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
@@ -7,6 +8,7 @@ import 'package:PiliBro/common/widgets/dialog/report_member.dart';
 import 'package:PiliBro/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
 import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliBro/common/widgets/route_aware_mixin.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:PiliBro/common/widgets/scroll_physics.dart' show tabBarView;
@@ -56,10 +58,18 @@ class MemberPage extends StatefulWidget {
   State<MemberPage> createState() => _MemberPageState();
 }
 
-class _MemberPageState extends State<MemberPage> {
+class _MemberPageState extends State<MemberPage>
+    with RouteAwareMixin<MemberPage> {
+  static const _startupPreferredMid = 501430041;
+
   late final int _mid;
   late final String _heroTag;
   late final MemberController _userController;
+  late final bool _startupBrandProfile;
+  Worker? _startupRelationWorker;
+  Timer? _startupReturnTimer;
+  var _startupRouteCovered = false;
+  var _startupReturnScheduled = false;
   PageController? _headerController;
   PageController getHeaderController() =>
       _headerController ??= PageController();
@@ -68,15 +78,62 @@ class _MemberPageState extends State<MemberPage> {
   void initState() {
     super.initState();
     _mid = int.tryParse(Get.parameters['mid']!) ?? -1;
+    _startupBrandProfile = Get.parameters['startup_brand'] == '1';
     _heroTag = Utils.makeHeroTag(_mid);
     _userController = Get.put(
       MemberController(mid: _mid),
       tag: _heroTag,
     );
+    if (_startupBrandProfile) {
+      _startupRelationWorker = ever<int>(_userController.relation, (_) {
+        if (_userController.isFollow) _scheduleStartupReturn();
+      });
+      if (_userController.isFollow) _scheduleStartupReturn();
+      if (_mid != _startupPreferredMid) {
+        unawaited(_checkPreferredStartupFollow());
+      }
+    }
+  }
+
+  Future<void> _checkPreferredStartupFollow() async {
+    final res = await UserHttp.userRelation(_startupPreferredMid);
+    if (!mounted || _startupRouteCovered) return;
+    if (res case Success(:final response)) {
+      final attribute = response.attribute ?? 0;
+      if (attribute != 0 && attribute != 128 && attribute != -1) {
+        _scheduleStartupReturn();
+      }
+    }
+  }
+
+  void _scheduleStartupReturn() {
+    if (!mounted ||
+        !_startupBrandProfile ||
+        _startupRouteCovered ||
+        _startupReturnScheduled) {
+      return;
+    }
+    _startupReturnScheduled = true;
+    _startupReturnTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted || _startupRouteCovered) return;
+      final route = ModalRoute.of(context);
+      final navigator = Navigator.of(context);
+      if (route?.isCurrent == true && navigator.canPop()) {
+        navigator.pop();
+      }
+    });
+  }
+
+  @override
+  void didPushNext() {
+    _startupRouteCovered = true;
+    _startupReturnTimer?.cancel();
   }
 
   @override
   void dispose() {
+    _startupRelationWorker?.dispose();
+    _startupReturnTimer?.cancel();
     _headerController?.dispose();
     _headerController = null;
     _cacheFollowTime = null;
