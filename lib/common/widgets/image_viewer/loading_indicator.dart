@@ -73,6 +73,10 @@ class RenderLoadingIndicator extends RenderBox {
     ..style = .fill
     ..color = Colors.white;
 
+  late Offset _center;
+  late double _radius;
+  late Rect _progressRect;
+
   double _preferredSize;
   double get preferredSize => _preferredSize;
   set preferredSize(double value) {
@@ -93,6 +97,9 @@ class RenderLoadingIndicator extends RenderBox {
   @override
   void performLayout() {
     size = constraints.constrainDimensions(_preferredSize, _preferredSize);
+    _radius = size.width * 0.5 - 1.4;
+    _center = size.center(.zero);
+    _progressRect = Rect.fromCircle(center: _center, radius: _radius - 8.0);
   }
 
   @override
@@ -100,27 +107,21 @@ class RenderLoadingIndicator extends RenderBox {
     if (_progress == 0) {
       return;
     }
-    const padding = 8.0;
-    const strokeWidth = 1.4;
     const startAngle = -pi * 0.5;
-
-    final size = this.size;
-    final radius = size.width * 0.5 - strokeWidth;
-    final center = size.center(.zero);
 
     context.canvas
       ..drawCircle(
-        center,
-        radius,
+        _center,
+        _radius,
         _backgroundPaint,
       )
       ..drawCircle(
-        center,
-        radius,
+        _center,
+        _radius,
         _ringPaint,
       )
       ..drawArc(
-        Rect.fromCircle(center: center, radius: radius - padding),
+        _progressRect,
         startAngle,
         progress * 2 * pi,
         true,

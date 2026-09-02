@@ -368,7 +368,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     );
 
     _flingDirection = velocityMagnitude > 0
-        ? velocity.pixelsPerSecond / velocityMagnitude
+        ? velocity.pixelsPerSecond * (1 / velocityMagnitude)
         : Offset.zero;
 
     _flingStartTime = null;

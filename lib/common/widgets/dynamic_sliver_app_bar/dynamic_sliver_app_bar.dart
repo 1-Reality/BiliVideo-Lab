@@ -387,6 +387,10 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
     if (settings.maxExtent == .infinity) {
       opacity = 1.0;
       topPadding = 0.0;
+    } else if (settings.maxExtent == settings.minExtent) {
+      height = settings.maxExtent;
+      opacity = 1.0;
+      topPadding = 0.0;
     } else {
       height = settings.maxExtent;
 
@@ -403,16 +407,11 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
         1.0,
       );
 
-      // If the min and max extent are the same, the app bar cannot collapse
-      // and the content should be visible, so opacity = 1.
-      opacity = settings.maxExtent == settings.minExtent
-          ? 1.0
-          : clampDouble(
-              (1.0 - t) *
-                  math.max(1.0, deltaExtent * _inverseToolbarHeight),
-              0.0,
-              1.0,
-            );
+      opacity = clampDouble(
+        (1.0 - t) * math.max(1.0, deltaExtent * _inverseToolbarHeight),
+        0.0,
+        1.0,
+      );
 
       topPadding = _getCollapsePadding(collapseMode, t, settings);
     }
@@ -477,14 +476,15 @@ class _RenderFlexibleSpaceHeaderOpacity extends RenderOpacity {
     if (child == null) {
       return;
     }
-    if ((opacity * 255).roundToDouble() <= 0) {
+    final alpha = (opacity * 255).round();
+    if (alpha <= 0) {
       layer = null;
       return;
     }
     assert(needsCompositing);
     layer = context.pushOpacity(
       offset,
-      (opacity * 255).round(),
+      alpha,
       super.paint,
       oldLayer: layer as OpacityLayer?,
     );

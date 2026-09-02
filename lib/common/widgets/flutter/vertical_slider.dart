@@ -1262,29 +1262,37 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   // Compute the largest width and height needed to paint the slider shapes,
   // other than the track shape. It is assumed that these shapes are vertically
   // centered on the track.
-  double get _maxSliderPartWidth =>
-      _sliderPartSizes.map((Size size) => size.width).reduce(math.max);
-  double get _maxSliderPartHeight =>
-      _sliderPartSizes.map((Size size) => size.height).reduce(math.max);
+  double get _maxSliderPartWidth => math.max(
+    _sliderTheme.overlayShape!
+        .getPreferredSize(isInteractive, isDiscrete)
+        .width,
+    math.max(
+      _sliderTheme.thumbShape!
+          .getPreferredSize(isInteractive, isDiscrete)
+          .width,
+      _sliderTheme.tickMarkShape!
+          .getPreferredSize(isEnabled: isInteractive, sliderTheme: sliderTheme)
+          .width,
+    ),
+  );
   double get _thumbSizeHeight => _sliderTheme.thumbShape!
       .getPreferredSize(isInteractive, isDiscrete)
       .height;
   double get _overlayHeight => _sliderTheme.overlayShape!
       .getPreferredSize(isInteractive, isDiscrete)
       .height;
-  List<Size> get _sliderPartSizes => <Size>[
-    Size(
-      _sliderTheme.overlayShape!
-          .getPreferredSize(isInteractive, isDiscrete)
-          .width,
-      _sliderTheme.padding != null ? _thumbSizeHeight : _overlayHeight,
-    ),
-    _sliderTheme.thumbShape!.getPreferredSize(isInteractive, isDiscrete),
-    _sliderTheme.tickMarkShape!.getPreferredSize(
-      isEnabled: isInteractive,
-      sliderTheme: sliderTheme,
-    ),
-  ];
+  double get _maxSliderPartHeight {
+    final thumbHeight = _thumbSizeHeight;
+    return math.max(
+      _sliderTheme.padding != null ? thumbHeight : _overlayHeight,
+      math.max(
+        thumbHeight,
+        _sliderTheme.tickMarkShape!
+            .getPreferredSize(isEnabled: isInteractive, sliderTheme: sliderTheme)
+            .height,
+      ),
+    );
+  }
   double get _minPreferredTrackHeight => _sliderTheme.trackHeight!;
 
   final _VerticalSliderState _state;
@@ -1298,6 +1306,9 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   VoidCallback? onDidGainAccessibilityFocus;
   double _currentDragValue = 0.0;
   Rect? overlayRect;
+  Offset _valueIndicatorThumbCenter = .zero;
+  late final PaintValueIndicator _paintValueIndicatorCallback =
+      _paintValueIndicator;
 
   // This rect is used in gesture calculations, where the gesture coordinates
   // are relative to the sliders origin. Therefore, the offset is passed as
@@ -1864,11 +1875,14 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       }
     }
 
-    _sliderTheme.trackShape!.paint(
+    final trackTheme = trackGap == _sliderTheme.trackGap
+        ? _sliderTheme
+        : _sliderTheme.copyWith(trackGap: trackGap);
+    trackTheme.trackShape!.paint(
       context,
       offset,
       parentBox: this,
-      sliderTheme: _sliderTheme.copyWith(trackGap: trackGap),
+      sliderTheme: trackTheme,
       enableAnimation: _enableAnimation,
       textDirection: _textDirection,
       thumbCenter: thumbCenter,
@@ -1931,28 +1945,8 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         ((shouldShowValueIndicatorWhenDragged &&
                 !_valueIndicatorAnimation.isDismissed) ||
             shouldAlwaysShowValueIndicator)) {
-      _state.paintValueIndicator = (PaintingContext context, Offset offset) {
-        if (attached && _labelPainter.text != null) {
-          _sliderTheme.valueIndicatorShape?.paint(
-            context,
-            offset + thumbCenter,
-            activationAnimation: shouldAlwaysShowValueIndicator
-                ? const AlwaysStoppedAnimation<double>(1)
-                : _valueIndicatorAnimation,
-            enableAnimation: shouldAlwaysShowValueIndicator
-                ? const AlwaysStoppedAnimation<double>(1)
-                : _enableAnimation,
-            isDiscrete: isDiscrete,
-            labelPainter: _labelPainter,
-            parentBox: this,
-            sliderTheme: _sliderTheme,
-            textDirection: _textDirection,
-            value: _value,
-            textScaleFactor: textScaleFactor,
-            sizeWithOverflow: screenSize.isEmpty ? size : screenSize,
-          );
-        }
-      };
+      _valueIndicatorThumbCenter = thumbCenter;
+      _state.paintValueIndicator ??= _paintValueIndicatorCallback;
     } else {
       _state.paintValueIndicator = null;
     }
@@ -1965,13 +1959,36 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       isDiscrete: isDiscrete,
       labelPainter: _labelPainter,
       parentBox: this,
-      sliderTheme: thumbWidth != null && thumbHeight != null
+      sliderTheme: _active && thumbWidth != null && thumbHeight != null
           ? _sliderTheme.copyWith(
               thumbSize: WidgetStatePropertyAll<Size?>(
                 Size(thumbWidth, thumbHeight),
               ),
             )
           : _sliderTheme,
+      textDirection: _textDirection,
+      value: _value,
+      textScaleFactor: textScaleFactor,
+      sizeWithOverflow: screenSize.isEmpty ? size : screenSize,
+    );
+  }
+
+  void _paintValueIndicator(PaintingContext context, Offset offset) {
+    if (!attached || _labelPainter.text == null) return;
+    final alwaysVisible = shouldAlwaysShowValueIndicator;
+    _sliderTheme.valueIndicatorShape?.paint(
+      context,
+      offset + _valueIndicatorThumbCenter,
+      activationAnimation: alwaysVisible
+          ? const AlwaysStoppedAnimation<double>(1)
+          : _valueIndicatorAnimation,
+      enableAnimation: alwaysVisible
+          ? const AlwaysStoppedAnimation<double>(1)
+          : _enableAnimation,
+      isDiscrete: isDiscrete,
+      labelPainter: _labelPainter,
+      parentBox: this,
+      sliderTheme: _sliderTheme,
       textDirection: _textDirection,
       value: _value,
       textScaleFactor: textScaleFactor,

@@ -74,6 +74,10 @@ class RenderProgressBar extends RenderBox {
 
   final Paint _progressPaint;
   final Paint _backgroundPaint;
+  Size? _geometrySize;
+  double? _geometryRadius;
+  late Rect _clipRect;
+  late RRect _rrect;
 
   Color _color;
   Color get color => _color;
@@ -129,33 +133,37 @@ class RenderProgressBar extends RenderBox {
       ..save()
       ..translate(offset.dx, offset.dy);
 
-    final Radius radius = .circular(_radius);
-    final rect = Rect.fromLTWH(
-      0,
-      -(_radius - size.height),
-      size.width,
-      _radius,
-    );
-    final rrect = RRect.fromRectAndCorners(
-      rect,
-      bottomLeft: radius,
-      bottomRight: radius,
-    );
+    if (_geometrySize != size || _geometryRadius != _radius) {
+      _geometrySize = size;
+      _geometryRadius = _radius;
+      _clipRect = Offset.zero & size;
+      final radius = Radius.circular(_radius);
+      _rrect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(
+          0,
+          -(_radius - size.height),
+          size.width,
+          _radius,
+        ),
+        bottomLeft: radius,
+        bottomRight: radius,
+      );
+    }
 
     if (progress <= 0) {
       canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, _backgroundPaint);
+        ..clipRect(_clipRect)
+        ..drawRRect(_rrect, _backgroundPaint);
     } else if (progress >= 1) {
       canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, _progressPaint);
+        ..clipRect(_clipRect)
+        ..drawRRect(_rrect, _progressPaint);
     } else {
       final w = size.width * progress;
       final left = Rect.fromLTRB(0, 0, w, size.height);
       final right = Rect.fromLTRB(w, 0, size.width, size.height);
       canvas
-        ..clipRRect(rrect)
+        ..clipRRect(_rrect)
         ..drawRect(left, _progressPaint)
         ..drawRect(right, _backgroundPaint);
     }

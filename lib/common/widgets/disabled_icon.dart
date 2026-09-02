@@ -98,6 +98,9 @@ class RenderMaskedIcon extends RenderProxyBox {
   }
 
   final _linePaint = Paint();
+  Path? _maskPath;
+  Rect? _maskRect;
+  double? _maskStrokeWidth;
 
   @override
   void paint(PaintingContext context, Offset offset) {
@@ -126,22 +129,28 @@ class RenderMaskedIcon extends RenderProxyBox {
 
     final sqrt2Width = strokeWidth * sqrt2; // rotate pi / 4
 
-    final path = Path.combine(
-      PathOperation.union,
-      Path() // bottom
-        ..moveTo(rect.left, rect.bottom)
-        ..lineTo(rect.left, rect.top + sqrt2Width)
-        ..lineTo(rect.right - sqrt2Width, rect.bottom)
-        ..close(),
-      Path() // top
-        ..moveTo(rect.right, rect.top)
-        ..lineTo(rect.right, rect.bottom - sqrt2Width)
-        ..lineTo(rect.left + sqrt2Width, rect.top),
-    );
+    if (_maskPath == null ||
+        _maskRect != rect ||
+        _maskStrokeWidth != strokeWidth) {
+      _maskPath = Path.combine(
+        PathOperation.union,
+        Path() // bottom
+          ..moveTo(rect.left, rect.bottom)
+          ..lineTo(rect.left, rect.top + sqrt2Width)
+          ..lineTo(rect.right - sqrt2Width, rect.bottom)
+          ..close(),
+        Path() // top
+          ..moveTo(rect.right, rect.top)
+          ..lineTo(rect.right, rect.bottom - sqrt2Width)
+          ..lineTo(rect.left + sqrt2Width, rect.top),
+      );
+      _maskRect = rect;
+      _maskStrokeWidth = strokeWidth;
+    }
 
     canvas
       ..save()
-      ..clipPath(path, doAntiAlias: false);
+      ..clipPath(_maskPath!, doAntiAlias: false);
     super.paint(context, offset);
 
     canvas.restore();

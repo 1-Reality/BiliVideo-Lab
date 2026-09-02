@@ -292,6 +292,9 @@ class RenderTriangle extends RenderBox {
       ..style = PaintingStyle.fill;
 
   final Paint _paint;
+  Path? _path;
+  Size? _pathSize;
+  Offset? _pathOffset;
 
   Color _color;
   Color get color => _color;
@@ -318,12 +321,16 @@ class RenderTriangle extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
 
-    final path = Path()
-      ..moveTo(offset.dx, offset.dy)
-      ..lineTo(offset.dx + size.width, offset.dy)
-      ..lineTo(offset.dx + size.width * 0.5, size.height + offset.dy)
-      ..close();
+    if (_path == null || _pathSize != size || _pathOffset != offset) {
+      _path = Path()
+        ..moveTo(offset.dx, offset.dy)
+        ..lineTo(offset.dx + size.width, offset.dy)
+        ..lineTo(offset.dx + size.width * 0.5, size.height + offset.dy)
+        ..close();
+      _pathSize = size;
+      _pathOffset = offset;
+    }
 
-    context.canvas.drawPath(path, _paint);
+    context.canvas.drawPath(_path!, _paint);
   }
 }

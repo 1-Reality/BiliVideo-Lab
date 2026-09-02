@@ -27,8 +27,7 @@ class SliverHotKeyword extends StatelessWidget {
       color: ColorScheme.of(context).outline,
     );
 
-    late final cacheHeight = (MediaQuery.devicePixelRatioOf(context) * 15.0)
-        .round();
+    final cacheHeight = (MediaQuery.devicePixelRatioOf(context) * 15.0).round();
 
     return SliverToBoxAdapter(
       child: _HotKeywordGrid(

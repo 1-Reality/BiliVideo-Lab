@@ -51,6 +51,7 @@ class RenderArc extends RenderBox {
       ..strokeWidth = _strokeWidth;
 
   final Paint _paint;
+  Rect? _arcRect;
 
   Color _color;
   Color get color => _color;
@@ -89,6 +90,11 @@ class RenderArc extends RenderBox {
   @override
   void performLayout() {
     size = constraints.constrainDimensions(_preferredSize, _preferredSize);
+    final radius = size.width * 0.5;
+    _arcRect = Rect.fromCircle(
+      center: Offset(radius, radius),
+      radius: radius,
+    );
   }
 
   @override
@@ -97,14 +103,14 @@ class RenderArc extends RenderBox {
       return;
     }
 
-    final radius = size.width * 0.5;
-    final rect = Rect.fromCircle(
-      center: Offset(radius, radius),
-      radius: radius,
-    );
-
     const startAngle = -pi * 0.5;
-    context.canvas.drawArc(rect, startAngle, progress * 2 * pi, false, _paint);
+    context.canvas.drawArc(
+      _arcRect!,
+      startAngle,
+      progress * 2 * pi,
+      false,
+      _paint,
+    );
   }
 
   @override
