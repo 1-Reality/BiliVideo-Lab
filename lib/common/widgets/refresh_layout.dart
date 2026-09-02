@@ -126,11 +126,7 @@ class RenderRefreshLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox child) {
-      context.paintChild(child, getOffset(child) + offset);
-    }
-
-    doPaint(body);
+    context.paintChild(body, getOffset(body) + offset);
     final indicator = this.indicator;
     if (indicator != null && heightFactor > 0 && scaleFactor > 0) {
       final indicatorOffset = getOffset(indicator);

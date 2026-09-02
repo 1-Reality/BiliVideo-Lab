@@ -68,13 +68,9 @@ class RenderIntroLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox? child) {
-      if (child != null) {
-        context.paintChild(child, getOffset(child) + offset);
-      }
+    context.paintChild(body, getOffset(body) + offset);
+    if (playlist case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
     }
-
-    doPaint(body);
-    doPaint(playlist);
   }
 }

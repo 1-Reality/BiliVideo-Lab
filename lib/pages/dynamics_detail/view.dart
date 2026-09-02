@@ -467,7 +467,7 @@ class _DynamicDetailPageState
   }
 
   Widget _buildBody() {
-    double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+    double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
     Widget child;
     if (isPortrait) {
       child = _buildPortrait(padding);

@@ -72,7 +72,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   }
 
   Widget _buildPage() {
-    double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+    double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
     if (isPortrait) {
       return Padding(
         padding: .symmetric(horizontal: padding),

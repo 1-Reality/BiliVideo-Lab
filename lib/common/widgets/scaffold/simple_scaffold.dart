@@ -119,14 +119,12 @@ class _RenderScaffoldLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox? child) {
-      if (child != null) {
-        context.paintChild(child, getOffset(child) + offset);
-      }
+    if (appBar case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
     }
-
-    doPaint(appBar);
-    doPaint(body);
-    doPaint(fab);
+    context.paintChild(body, getOffset(body) + offset);
+    if (fab case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
+    }
   }
 }

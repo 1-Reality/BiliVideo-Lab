@@ -14,7 +14,15 @@ extension IntExt on int? {
 
 extension DoubleExt on double {
   double toPrecision(int fractionDigits) {
-    final mod = pow(10, fractionDigits).toDouble();
+    final mod = switch (fractionDigits) {
+      0 => 1.0,
+      1 => 10.0,
+      2 => 100.0,
+      3 => 1000.0,
+      4 => 10000.0,
+      5 => 100000.0,
+      _ => pow(10, fractionDigits).toDouble(),
+    };
     return (this * mod).roundToDouble() / mod;
   }
 

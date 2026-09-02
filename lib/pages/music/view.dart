@@ -114,7 +114,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
   Widget _buildBody() => Obx(() {
     switch (controller.infoState.value) {
       case Success(:final response):
-        double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+        double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
         final Widget child;
         if (isPortrait) {
           child = Padding(

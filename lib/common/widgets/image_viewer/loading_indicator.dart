@@ -90,7 +90,7 @@ class RenderLoadingIndicator extends RenderBox {
     }
     const padding = 8.0;
     const strokeWidth = 1.4;
-    const startAngle = -pi / 2;
+    const startAngle = -pi * 0.5;
 
     final size = this.size;
     final radius = size.width * 0.5 - strokeWidth;

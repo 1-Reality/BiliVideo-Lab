@@ -103,19 +103,19 @@ class _PlDanmakuState extends State<PlDanmaku> {
       return;
     }
 
-    int currentPosition = position.inMilliseconds;
-    currentPosition -= currentPosition % 100; //取整百的毫秒数
-    if (currentPosition == latestAddedPosition) {
+    final bucket = position.inMilliseconds ~/ 100;
+    if (bucket == latestAddedPosition) {
       return;
     }
-    latestAddedPosition = currentPosition;
+    latestAddedPosition = bucket;
 
-    List<DanmakuElem>? currentDanmakuList = _plDanmakuController
-        .getCurrentDanmaku(currentPosition);
+    final currentDanmakuList = _plDanmakuController.getCurrentDanmakuAtBucket(
+      bucket,
+    );
     if (currentDanmakuList != null) {
       final blockColorful = DanmakuOptions.blockColorful;
       final danmakuWeight = DanmakuOptions.danmakuWeight;
-      for (DanmakuElem e in currentDanmakuList) {
+      for (final e in currentDanmakuList) {
         if (e.weight < danmakuWeight) return;
         if (e.mode == 7) {
           try {

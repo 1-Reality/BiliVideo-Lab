@@ -71,6 +71,7 @@ abstract final class PlaybackStatsService {
   static int _suppressDiscontinuityUntilUs = 0;
   static int? _pendingPositionUs;
   static double _rate = 1;
+  static String _rateKey = '1';
   static double _nominalRate = 1;
   static bool _temporaryRate = false;
   static double _defaultRate = 1;
@@ -944,6 +945,7 @@ abstract final class PlaybackStatsService {
     _buffering = true;
     _completedIdle = false;
     _rate = speed;
+    _rateKey = _speedKey(speed);
     _nominalRate = speed;
     _temporaryRate = false;
     _defaultRate = defaultSpeed;
@@ -1352,6 +1354,7 @@ abstract final class PlaybackStatsService {
       }
     }
     _rate = speed;
+    _rateKey = _speedKey(speed);
     _temporaryRate = temporary;
     if (!temporary) _nominalRate = speed;
   }
@@ -1492,7 +1495,7 @@ abstract final class PlaybackStatsService {
       _addVideoUp('bufferingUs', wallUs);
       _addDimension('bufferingUs', wallUs);
       final rewind = _rewind;
-      final speed = _speedKey(_rate);
+      final speed = _rateKey;
       if (rewind == null) {
         _add('normalBufferingUs', wallUs);
         _addVideoUp('normalBufferingUs', wallUs);
@@ -1613,7 +1616,7 @@ abstract final class PlaybackStatsService {
       _trailingPauseUs += wallUs;
       final rewind = _rewind;
       if (rewind == null) {
-        final speed = _speedKey(_rate);
+        final speed = _rateKey;
         _add('normalPausedUs', wallUs);
         _addVideoUp('normalPausedUs', wallUs);
         _addBucket('normalSpeedPausedUs', speed, wallUs);
@@ -1625,7 +1628,7 @@ abstract final class PlaybackStatsService {
           ifAbsent: () => wallUs,
         );
       } else {
-        final speed = _speedKey(_rate);
+        final speed = _rateKey;
         _add('rewindPausedUs', wallUs);
         _addVideoUp('rewindPausedUs', wallUs);
         _addBucket('rewindSpeedPausedUs', speed, wallUs);

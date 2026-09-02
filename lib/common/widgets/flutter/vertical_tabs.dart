@@ -493,7 +493,7 @@ class _IndicatorPainter extends CustomPainter {
           tabKeys[tabIndex].currentContext!.size!.height; // dom
       final EdgeInsets insets = labelPadding.resolve(_currentTextDirection);
       final double delta =
-          ((tabRight - tabLeft) - (tabWidth + insets.vertical)) / 2.0; // dom
+          ((tabRight - tabLeft) - (tabWidth + insets.vertical)) * 0.5; // dom
       tabLeft += delta + insets.top; // dom
       tabRight = tabLeft + tabWidth;
     }
@@ -567,12 +567,12 @@ class _IndicatorPainter extends CustomPainter {
 
   // Ease out sine (decelerating).
   double decelerateInterpolation(double fraction) {
-    return math.sin((fraction * math.pi) / 2.0);
+    return math.sin(fraction * math.pi * 0.5);
   }
 
   // Ease in sine (accelerating).
   double accelerateInterpolation(double fraction) {
-    return 1.0 - math.cos((fraction * math.pi) / 2.0);
+    return 1.0 - math.cos(fraction * math.pi * 0.5);
   }
 
   /// Applies the elastic effect to the indicator.
@@ -1654,7 +1654,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
     return clampDouble(
       tabCenter +
           paddingTop -
-          viewportWidth / 2.0 +
+          viewportWidth * 0.5 +
           (_mainCtr.useBottomNav &&
                   switch (_mainCtr.barHideType) {
                     .instant => _mainCtr.showBottomBar?.value ?? true,

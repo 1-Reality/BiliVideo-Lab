@@ -317,9 +317,16 @@ class _RenderDanmakuTip extends RenderProxyBox {
     required this._offset,
   });
 
-  final _paint = Paint()
+  final _fillPaint = Paint()
     ..color = const Color(0xB3000000)
     ..style = .fill;
+  final _strokePaint = Paint()
+    ..color = const Color(0x7EFFFFFF)
+    ..style = .stroke
+    ..strokeWidth = 1.25;
+  Path? _path;
+  Size? _pathSize;
+  double? _pathOffset;
 
   double _offset;
   double get offset => _offset;
@@ -329,15 +336,14 @@ class _RenderDanmakuTip extends RenderProxyBox {
     markNeedsPaint();
   }
 
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    _paint
-      ..color = const Color(0xB3000000)
-      ..style = .fill;
-
+  Path _getPath() {
+    final size = this.size;
+    if (_path case final path?
+        when _pathSize == size && _pathOffset == _offset) {
+      return path;
+    }
     final radius = size.height * 0.5;
     const triangleBase = _triangleHeight * 2 / 3;
-
     final triangleCenterX = (size.width * 0.5 + _offset).clamp(
       radius + triangleBase,
       size.width - radius - triangleBase,
@@ -362,18 +368,21 @@ class _RenderDanmakuTip extends RenderProxyBox {
         radius: Radius.circular(radius),
       )
       ..close();
+    _path = path;
+    _pathSize = size;
+    _pathOffset = _offset;
+    return path;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final path = _getPath();
 
     context.canvas
       ..save()
       ..translate(offset.dx, offset.dy)
-      ..drawPath(path, _paint)
-      ..drawPath(
-        path,
-        _paint
-          ..color = const Color(0x7EFFFFFF)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.25,
-      )
+      ..drawPath(path, _fillPaint)
+      ..drawPath(path, _strokePaint)
       ..restore();
 
     super.paint(context, offset);

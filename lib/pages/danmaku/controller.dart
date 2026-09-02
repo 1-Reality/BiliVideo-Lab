@@ -30,6 +30,7 @@ class PlDanmakuController {
   late final Set<int> _requestedSeg = HashSet();
 
   static const int segmentLength = 360000;
+  static const int segmentBuckets = 3600;
 
   void dispose() {
     _dmSegMap.clear();
@@ -95,17 +96,17 @@ class PlDanmakuController {
     }
   }
 
-  List<DanmakuElem>? getCurrentDanmaku(int progress) {
+  List<DanmakuElem>? getCurrentDanmakuAtBucket(int bucket) {
     if (_isFileSource) {
       initFileDmIfNeeded();
     } else {
-      final int segmentIndex = calcSegment(progress);
+      final int segmentIndex = bucket ~/ segmentBuckets;
       if (!_requestedSeg.contains(segmentIndex)) {
         queryDanmaku(segmentIndex);
         return null;
       }
     }
-    return _dmSegMap[progress ~/ 100];
+    return _dmSegMap[bucket];
   }
 
   bool _fileDmLoaded = false;

@@ -103,7 +103,7 @@ class RenderArc extends RenderBox {
       radius: radius,
     );
 
-    const startAngle = -pi / 2;
+    const startAngle = -pi * 0.5;
     context.canvas.drawArc(rect, startAngle, progress * 2 * pi, false, _paint);
   }
 

@@ -39,6 +39,7 @@ class RenderLevel extends RenderBox {
   }
 
   final _paint = Paint();
+  final _digitPaint = Paint()..color = Colors.white;
 
   double _height;
   set height(double value) {
@@ -81,14 +82,13 @@ class RenderLevel extends RenderBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    _paint.color = lookupBackgroundColor(_level);
     LevelCanvas(context.canvas)
       ..save()
       ..translate(offset.dx, offset.dy)
       ..scale(size.height * LevelCanvas._inverseTotalB)
       ..drawLevelBack(_paint, bolt: _flash)
       ..drawLevelLv()
-      ..drawLEDigit(_level, _paint..color = Colors.white)
+      ..drawLEDigit(_level, _digitPaint)
       ..restore();
   }
 

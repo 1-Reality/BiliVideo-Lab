@@ -55,7 +55,7 @@ class ChatListView extends BoxScrollView {
        ),
        childrenDelegate = SliverChildBuilderDelegate(
          (BuildContext context, int index) {
-           final int itemIndex = index ~/ 2;
+           final int itemIndex = index >> 1;
            if (index.isEven) {
              return itemBuilder(context, itemIndex);
            }
@@ -72,7 +72,7 @@ class ChatListView extends BoxScrollView {
          addRepaintBoundaries: addRepaintBoundaries,
          addSemanticIndexes: addSemanticIndexes,
          semanticIndexCallback: (Widget widget, int index) {
-           return index.isEven ? index ~/ 2 : null;
+           return index.isEven ? index >> 1 : null;
          },
        ),
        super(semanticChildCount: itemCount, reverse: true);

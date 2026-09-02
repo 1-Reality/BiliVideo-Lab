@@ -65,16 +65,22 @@ class RenderProgressBar extends RenderBox {
     required this._radius,
     required this._height,
     required this._progress,
-  }) : _paint = Paint()..style = .fill;
+  }) : _progressPaint = Paint()
+         ..style = .fill
+         ..color = _color,
+       _backgroundPaint = Paint()
+         ..style = .fill
+         ..color = _backgroundColor;
 
-  final Paint _paint;
+  final Paint _progressPaint;
+  final Paint _backgroundPaint;
 
   Color _color;
   Color get color => _color;
   set color(Color value) {
     if (_color == value) return;
     _color = value;
-    _paint.color = value;
+    _progressPaint.color = value;
     markNeedsPaint();
   }
 
@@ -83,7 +89,7 @@ class RenderProgressBar extends RenderBox {
   set backgroundColor(Color value) {
     if (_backgroundColor == value) return;
     _backgroundColor = value;
-    _paint.color = value;
+    _backgroundPaint.color = value;
     markNeedsPaint();
   }
 
@@ -139,19 +145,19 @@ class RenderProgressBar extends RenderBox {
     if (progress <= 0) {
       canvas
         ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, _paint..color = _backgroundColor);
+        ..drawRRect(rrect, _backgroundPaint);
     } else if (progress >= 1) {
       canvas
         ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, _paint..color = _color);
+        ..drawRRect(rrect, _progressPaint);
     } else {
       final w = size.width * progress;
       final left = Rect.fromLTRB(0, 0, w, size.height);
       final right = Rect.fromLTRB(w, 0, size.width, size.height);
       canvas
         ..clipRRect(rrect)
-        ..drawRect(left, _paint..color = _color)
-        ..drawRect(right, _paint..color = _backgroundColor);
+        ..drawRect(left, _progressPaint)
+        ..drawRect(right, _backgroundPaint);
     }
     canvas.restore();
   }

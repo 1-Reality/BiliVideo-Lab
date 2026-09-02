@@ -507,7 +507,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     final isSingle = length == 1;
     final isFour = length == 4;
     if (length == 2) {
-      imageWidth = imageHeight = (maxWidth - space) / 2;
+      imageWidth = imageHeight = (maxWidth - space) * 0.5;
     } else {
       imageHeight = imageWidth = (maxWidth - 2 * space) / 3;
       if (isSingle) {

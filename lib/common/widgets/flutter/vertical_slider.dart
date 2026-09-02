@@ -1826,7 +1826,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       );
       overlayRect = Rect.fromCircle(
         center: thumbCenter,
-        radius: overlaySize.width / 2.0,
+        radius: overlaySize.width * 0.5,
       );
     }
     final Offset? secondaryOffset = (secondaryVisualPosition != null)
@@ -1860,7 +1860,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         thumbWidth = pressedThumbWidth;
       }
       if (trackGap > 0.0) {
-        trackGap = trackGap - delta / 2;
+        trackGap = trackGap - delta * 0.5;
       }
     }
 
@@ -1910,7 +1910,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
           final double dx =
               trackRect.left +
               value * adjustedTrackWidth +
-              discreteTrackPadding / 2;
+              discreteTrackPadding * 0.5;
           final tickMarkOffset = Offset(dx, dy);
           _sliderTheme.tickMarkShape!.paint(
             context,
@@ -1994,7 +1994,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     final double thumbPosition = isDiscrete
         ? trackRect.left +
               visualPosition * (trackRect.width - padding) +
-              padding / 2
+            padding * 0.5
         : trackRect.bottom - visualPosition * trackRect.height;
     // Apply padding to trackRect.left and trackRect.right if the track height is
     // greater than the thumb radius to ensure the thumb is drawn within the track.
@@ -2002,8 +2002,8 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       isInteractive,
       isDiscrete,
     );
-    final double thumbPadding = padding > thumbPreferredSize.width / 2
-        ? padding / 2
+    final double thumbPadding = padding > thumbPreferredSize.width * 0.5
+        ? padding * 0.5
         : 0;
     return Offset(
       trackRect.center.dx,
@@ -2487,7 +2487,7 @@ class _SliderDefaultsM3 extends SliderThemeData {
   SliderComponentShape? get overlayShape => const RoundSliderOverlayShape();
 
   @override
-  SliderTickMarkShape? get tickMarkShape => const RoundSliderTickMarkShape(tickMarkRadius: 4.0 / 2);
+  SliderTickMarkShape? get tickMarkShape => const RoundSliderTickMarkShape(tickMarkRadius: 2.0);
 
   @override
   WidgetStateProperty<Size?>? get thumbSize {
