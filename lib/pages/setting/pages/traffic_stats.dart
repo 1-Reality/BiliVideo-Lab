@@ -95,9 +95,9 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
   }
 
   String _bytes(int value) {
-    if (value >= 1000000000) return '${(value / 1000000000).toStringAsFixed(3)} GB';
-    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(3)} MB';
-    if (value >= 1000) return '${(value / 1000).toStringAsFixed(3)} kB';
+    if (value >= 1000000000) return '${(value * 0.000000001).toStringAsFixed(3)} GB';
+    if (value >= 1000000) return '${(value * 0.000001).toStringAsFixed(3)} MB';
+    if (value >= 1000) return '${(value * 0.001).toStringAsFixed(3)} kB';
     return '$value B';
   }
 

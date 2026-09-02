@@ -126,7 +126,7 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
   void _syncWarmupFromTotal() {
     final total = double.tryParse(totalController.text);
     if (total == null || !total.isFinite || total <= 0) return;
-    final value = total / 8;
+    final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
@@ -182,11 +182,11 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
 
     final effectiveTotal = !k && total > 512 ? 512.0 : total;
     final effectiveWarmup = warmup.clamp(0.0, effectiveTotal * 0.999);
-    final totalBytes = (effectiveTotal * 1048576).round();
+    final totalBytes = (effectiveTotal * (1 << 20)).round();
     if (!mounted) return;
     Navigator.of(context).pop((
       totalBytes: totalBytes,
-      warmupBytes: (effectiveWarmup * 1048576).round(),
+      warmupBytes: (effectiveWarmup * (1 << 20)).round(),
       cooldown: Duration(microseconds: (cooldown * 1000000).round()),
       mode: mode,
     ));
@@ -1044,12 +1044,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '${(bytesPerSecond / sample.divisor).toStringAsPrecision(3)} ${sample.unit}';
 
   String _ms(num microseconds) =>
-      '${(microseconds / 1000).toStringAsPrecision(3)} ms';
+      '${(microseconds * 0.001).toStringAsPrecision(3)} ms';
 
   String _duration(int microseconds) {
     if (microseconds < 1000) return '$microseconds μs';
     if (microseconds < 1000000) return _ms(microseconds);
-    return '${(microseconds / 1000000).toStringAsPrecision(3)} s';
+    return '${(microseconds * 0.000001).toStringAsPrecision(3)} s';
   }
 
   void _sortByDiagnostics() {
