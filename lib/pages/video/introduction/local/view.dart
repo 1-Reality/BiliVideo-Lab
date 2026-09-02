@@ -267,8 +267,8 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                 Text(
                   '${result.modeLabel}：实际 ${result.effectiveSpeed.toStringAsFixed(2)}× '
                   '/ 设定 ${result.targetSpeed.toStringAsFixed(2)}× · '
-                  '${(result.wallTime.inMilliseconds / 1000).toStringAsFixed(2)}s '
-                  '推进 ${(result.mediaTime.inMilliseconds / 1000).toStringAsFixed(1)}s',
+                  '${(result.wallTime.inMilliseconds * 0.001).toStringAsFixed(2)}s '
+                  '推进 ${(result.mediaTime.inMilliseconds * 0.001).toStringAsFixed(1)}s',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),

@@ -569,14 +569,17 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
     await ConnectivityUtils.notifySettingsChanged();
   }
 
-  String _time(int minute) =>
-      '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
+  String _time(int minute) {
+    final hour = minute ~/ 60;
+    return '${hour.toString().padLeft(2, '0')}:${(minute - hour * 60).toString().padLeft(2, '0')}';
+  }
 
   Future<void> _setTime(int index, String key) async {
     final value = periods[index][key] as int;
+    final hour = value ~/ 60;
     final time = await pili.showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: value ~/ 60, minute: value % 60),
+      initialTime: TimeOfDay(hour: hour, minute: value - hour * 60),
     );
     if (time != null) {
       periods[index][key] = time.hour * 60 + time.minute;

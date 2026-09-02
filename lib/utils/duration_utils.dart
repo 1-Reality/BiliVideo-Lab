@@ -34,12 +34,13 @@ abstract final class DurationUtils {
 
   static String formatTimeDuration(Duration duration) {
     final inDays = duration.inDays;
-    final daysLeft = inDays % 365;
     final years = inDays ~/ 365;
+    final daysLeft = inDays - years * 365;
     final months = daysLeft ~/ 30;
-    final days = daysLeft % 30;
-    final hours = duration.inHours % 24;
-    final minutes = duration.inMinutes % 60;
+    final days = daysLeft - months * 30;
+    final inHours = duration.inHours;
+    final hours = inHours - inDays * 24;
+    final minutes = duration.inMinutes - inHours * 60;
 
     final format = StringBuffer();
 

@@ -148,8 +148,8 @@ class VideoDetailController extends GetxController
           ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
           : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
       final rate = bitrate >= 1000000
-          ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
-          : '${(bitrate / 1000).round()} kb/s';
+          ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+          : '${(bitrate * 0.001).round()} kb/s';
       return '${exactBytes == null ? '约 ' : ''}$size · $rate';
     } catch (_) {
       return null;
@@ -212,8 +212,8 @@ class VideoDetailController extends GetxController
         ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
         : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
     final rate = bitrate >= 1000000
-        ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
-        : '${(bitrate / 1000).round()} kb/s';
+        ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+        : '${(bitrate * 0.001).round()} kb/s';
     return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
   }
 
@@ -248,7 +248,7 @@ class VideoDetailController extends GetxController
   Duration? playedTime;
   String get playedTimePos {
     final pos = playedTime?.inMilliseconds;
-    return pos == null || pos == 0 ? '' : '?t=${pos / 1000}';
+    return pos == null || pos == 0 ? '' : '?t=${pos * 0.001}';
   }
 
   // 亮度
@@ -1191,7 +1191,7 @@ class VideoDetailController extends GetxController
       for (final item in durl) {
         final video = _getCdnUrl(item.playUrls);
         buffer.write(
-          '%${video.length}%$video,length=${item.length! / 1000};',
+          '%${video.length}%$video,length=${item.length! * 0.001};',
         );
       }
       videoUrl = buffer.toString();
@@ -1330,7 +1330,7 @@ class VideoDetailController extends GetxController
         PostSegmentModel(
           segment: Pair(
             first: 0,
-            second: plPlayerController.positionInMilliseconds / 1000,
+            second: plPlayerController.positionInMilliseconds * 0.001,
           ),
           category: SegmentType.sponsor,
           actionType: ActionType.skip,

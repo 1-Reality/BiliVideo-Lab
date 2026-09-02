@@ -1165,13 +1165,13 @@ abstract final class PlaybackStatsService {
     }
     _addHistogram(
       'sessionWatchDurationHistogram',
-      _sessionActiveUs / 1000000,
+      _sessionActiveUs * 0.000001,
       const [60, 300, 1200, 3600, 7200],
     );
     if (_sourceDurationUs > 0) {
       _addHistogram(
         'sessionSourceDurationHistogram',
-        _sourceDurationUs / 1000000,
+        _sourceDurationUs * 0.000001,
         const [60, 300, 1200, 3600, 7200],
       );
     }

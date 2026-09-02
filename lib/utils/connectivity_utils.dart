@@ -120,12 +120,13 @@ abstract final class ConnectivityUtils {
       if (period['enabled'] != true) continue;
       for (final value in [period['start'], period['end']]) {
         if (value is! int) continue;
+        final hour = value ~/ 60;
         var candidate = DateTime(
           now.year,
           now.month,
           now.day,
-          value ~/ 60,
-          value % 60,
+          hour,
+          value - hour * 60,
         );
         if (!candidate.isAfter(now)) {
           candidate = candidate.add(const Duration(days: 1));

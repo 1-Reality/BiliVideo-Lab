@@ -188,16 +188,13 @@ class MemberVideoCtr
         if (element.cid == null) {
           continue;
         } else {
-          bool desc = seasonId != null ? false : true;
+          var desc = seasonId == null;
           desc =
               (seasonId != null || seriesId != null) &&
                   (isVideo ? order == .click : sort == .asc)
               ? !desc
               : desc;
-          bool isVertical = false;
-          if (element.uri case final uri?) {
-            isVertical = uri.isVerticalFromUri;
-          }
+          final isVertical = element.uri?.isVerticalFromUri ?? false;
           PageUtils.toVideoPage(
             bvid: element.bvid,
             cid: element.cid!,
