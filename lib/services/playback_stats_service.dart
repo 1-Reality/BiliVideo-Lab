@@ -414,74 +414,55 @@ abstract final class PlaybackStatsService {
   }
 
   static String _routeCategory(String? routeName) {
-    if (routeName == '/videoV') return 'video';
-    if (routeName == '/liveRoom') return 'live';
-    if (routeName == '/audio' || routeName == '/musicDetail') return 'audio';
-    if (routeName == '/' || routeName == '/home' || routeName == '/hot' ||
-        routeName == '/popularSeries' || routeName == '/popularPrecious') {
-      return 'feed';
-    }
-    if (routeName == '/dynamics' ||
-        routeName == '/dynamicDetail' ||
-        routeName == '/dynTopic' ||
-        routeName == '/dynTopicRcmd') {
-      return 'dynamics';
-    }
-    if (routeName?.toLowerCase().contains('search') == true ||
-        routeName == '/searchTrending') {
-      return 'search';
-    }
-    if (routeName == '/whisper' ||
-        routeName == '/whisperDetail' ||
-        routeName == '/replyMe' ||
-        routeName == '/atMe' ||
-        routeName == '/likeMe' ||
-        routeName == '/sysMsg' ||
-        routeName == '/msgLikeDetail' ||
-        routeName == '/commentHelper') {
-      return 'messages';
-    }
-    if (routeName == '/mainReply' || routeName == '/myReply') {
-      return 'comments';
-    }
-    if (routeName == '/member' ||
-        routeName == '/memberDynamics' ||
-        routeName == '/follow' ||
-        routeName == '/fan' ||
-        routeName == '/followed' ||
-        routeName == '/sameFollowing' ||
-        routeName == '/editProfile') {
-      return 'profile';
-    }
-    if (routeName == '/fav' ||
-        routeName == '/favDetail' ||
-        routeName == '/later' ||
-        routeName == '/history' ||
-        routeName == '/download' ||
-        routeName == '/subscription' ||
-        routeName == '/subDetail') {
-      return 'library';
-    }
-    if (routeName == '/setting' ||
-        routeName == '/cdnSettings' ||
-        routeName == '/playSpeedSet' ||
-        routeName == '/networkPolicy' ||
-        routeName == '/playbackStats' ||
-        routeName == '/trafficStats' ||
-        routeName == '/colorSetting' ||
-        routeName == '/fontSetting' ||
-        routeName == '/displayModeSetting' ||
-        routeName == '/barSetting' ||
-        routeName == '/spaceSetting' ||
-        routeName == '/settingsSearch' ||
-        routeName == '/danmakuBlock' ||
-        routeName == '/sponsorBlock') {
-      return 'settings';
-    }
-    if (routeName == '/articlePage' || routeName == '/articleList') {
-      return 'article';
-    }
-    return 'other';
+    return switch (routeName) {
+      '/videoV' => 'video',
+      '/liveRoom' => 'live',
+      '/audio' || '/musicDetail' => 'audio',
+      '/' || '/home' || '/hot' || '/popularSeries' || '/popularPrecious' =>
+        'feed',
+      '/dynamics' || '/dynamicDetail' || '/dynTopic' || '/dynTopicRcmd' =>
+        'dynamics',
+      final name? when name.toLowerCase().contains('search') => 'search',
+      '/whisper' ||
+      '/whisperDetail' ||
+      '/replyMe' ||
+      '/atMe' ||
+      '/likeMe' ||
+      '/sysMsg' ||
+      '/msgLikeDetail' ||
+      '/commentHelper' => 'messages',
+      '/mainReply' || '/myReply' => 'comments',
+      '/member' ||
+      '/memberDynamics' ||
+      '/follow' ||
+      '/fan' ||
+      '/followed' ||
+      '/sameFollowing' ||
+      '/editProfile' => 'profile',
+      '/fav' ||
+      '/favDetail' ||
+      '/later' ||
+      '/history' ||
+      '/download' ||
+      '/subscription' ||
+      '/subDetail' => 'library',
+      '/setting' ||
+      '/cdnSettings' ||
+      '/playSpeedSet' ||
+      '/networkPolicy' ||
+      '/playbackStats' ||
+      '/trafficStats' ||
+      '/colorSetting' ||
+      '/fontSetting' ||
+      '/displayModeSetting' ||
+      '/barSetting' ||
+      '/spaceSetting' ||
+      '/settingsSearch' ||
+      '/danmakuBlock' ||
+      '/sponsorBlock' => 'settings',
+      '/articlePage' || '/articleList' => 'article',
+      _ => 'other',
+    };
   }
 
   static Map<String, dynamic> _map(String key) {
@@ -512,9 +493,10 @@ abstract final class PlaybackStatsService {
   static void _addVideoUp(String key, num value) {
     final uid = _videoUpUid;
     if (uid == null || value == 0) return;
+    final name = _videoUpName;
     final byUid = _map('videoByUpUid');
     final item = _mutableMap(byUid[uid]);
-    if (_videoUpName case final name? when name.isNotEmpty) {
+    if (name?.isNotEmpty == true) {
       item['name'] = name;
     }
     item[key] = (item[key] as num? ?? 0) + value;
@@ -522,7 +504,7 @@ abstract final class PlaybackStatsService {
     final monthKey = _monthKey;
     final monthItem = _mutableMap(months[monthKey]);
     monthItem[key] = (monthItem[key] as num? ?? 0) + value;
-    if (_videoUpName case final name? when name.isNotEmpty) {
+    if (name?.isNotEmpty == true) {
       monthItem['name'] = name;
     }
     months[monthKey] = monthItem;

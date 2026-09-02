@@ -946,6 +946,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late ColorScheme colorScheme;
   late double maxWidth;
   late double maxHeight;
+  late double _inverseMaxWidth;
+  late double _inverseBrightnessLevel;
+  late double _inverseVolumeLevel;
 
   @override
   void didChangeDependencies() {
@@ -978,7 +981,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final curPos =
         plPlayerController.seekToPos?.inMilliseconds ??
         plPlayerController.position.value * 1000;
-    final posDelta = (plPlayerController.sliderScale * dx / maxWidth).round();
+    final posDelta =
+        (plPlayerController.sliderScale * dx * _inverseMaxWidth).round();
     final newPos = (curPos + posDelta).clamp(
       0,
       plPlayerController.durationInMilliseconds,
@@ -1095,9 +1099,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _onHorizontalDragUpdate(delta.dx);
     } else if (_gestureType == .left) {
       // 左边区域 👈
-      final double level = maxHeight * 3;
-      final double brightness = (_brightnessValue.value - delta.dy / level)
-          .clamp(0.0, 1.0);
+      final double brightness =
+          (_brightnessValue.value - delta.dy * _inverseBrightnessLevel).clamp(
+            0.0,
+            1.0,
+          );
       setBrightness(brightness);
     } else if (_gestureType == .center) {
       // 全屏
@@ -1125,13 +1131,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
     } else if (_gestureType == .right) {
       // 右边区域
-      final double level = maxHeight * 0.5;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
         () {
           final double volume = clampDouble(
-            plPlayerController.volume.value - delta.dy / level,
+            plPlayerController.volume.value - delta.dy * _inverseVolumeLevel,
             0.0,
             plPlayerController.maxVolume,
           );
@@ -1325,13 +1330,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return;
       }
 
-      final double level = maxHeight * 0.5;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
         () {
           final double volume = clampDouble(
-            plPlayerController.volume.value - event.localPanDelta.dy / level,
+            plPlayerController.volume.value -
+                event.localPanDelta.dy * _inverseVolumeLevel,
             0.0,
             plPlayerController.maxVolume,
           );
@@ -1364,6 +1369,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   Widget build(BuildContext context) {
     maxWidth = widget.maxWidth;
     maxHeight = widget.maxHeight;
+    _inverseMaxWidth = 1 / maxWidth;
+    _inverseBrightnessLevel = 1 / (maxHeight * 3);
+    _inverseVolumeLevel = 2 / maxHeight;
     final isFullScreen = this.isFullScreen;
     final primary = isFullScreen && colorScheme.isLight
         ? colorScheme.inversePrimary

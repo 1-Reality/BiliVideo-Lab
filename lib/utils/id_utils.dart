@@ -95,7 +95,7 @@ abstract final class IdUtils {
   static String genTraceId() {
     final randomTraceId = StringBuffer(Utils.generateRandomString(24));
 
-    final ts = (DateTime.now().millisecondsSinceEpoch ~/ 1000) >> 8;
+    final ts = DateTime.now().millisecondsSinceEpoch ~/ 256000;
 
     randomTraceId
       ..write((ts & 0xFFFFFF).toRadixString(16).padLeft(6, '0'))
