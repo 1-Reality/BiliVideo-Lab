@@ -1,7 +1,10 @@
+import 'dart:async' show unawaited;
+
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
 import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart'
     show CdnSpeedConfig, CdnSpeedMode, showCdnSpeedConfigDialog;
+import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:PiliBro/services/cdn_last_video_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
@@ -38,6 +41,11 @@ Future<CdnSpeedSetup?> showCdnSpeedSetupDialog(BuildContext context) async {
   if (!context.mounted || source == null || source == _CdnTestSource.skip) {
     return (config: null, sample: null);
   }
+
+  // The next user steps are enough time to remove the previous detailed
+  // snapshot before network measurement begins. Do not put this I/O on the
+  // speed-test critical path.
+  unawaited(CdnDiagnosticsService.clearLatest());
 
   if (source == _CdnTestSource.fixed) {
     final config = await showCdnSpeedConfigDialog(context);
