@@ -72,6 +72,7 @@ class RenderLoadingIndicator extends RenderBox {
     ..isAntiAlias = true
     ..style = .fill
     ..color = Colors.white;
+  static const _fullRotation = pi * 2;
 
   late Offset _center;
   late double _radius;
@@ -123,7 +124,7 @@ class RenderLoadingIndicator extends RenderBox {
       ..drawArc(
         _progressRect,
         startAngle,
-        progress * 2 * pi,
+        progress * _fullRotation,
         true,
         _progressPaint,
       );

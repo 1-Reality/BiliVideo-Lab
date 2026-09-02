@@ -51,6 +51,7 @@ class RenderArc extends RenderBox {
       ..strokeWidth = _strokeWidth;
 
   final Paint _paint;
+  static const _fullRotation = pi * 2;
   Rect? _arcRect;
 
   Color _color;
@@ -107,7 +108,7 @@ class RenderArc extends RenderBox {
     context.canvas.drawArc(
       _arcRect!,
       startAngle,
-      progress * 2 * pi,
+      progress * _fullRotation,
       false,
       _paint,
     );

@@ -701,86 +701,42 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       ..save()
       ..translate(offset.dx, offset.dy);
 
-    _drawProgressBarWithoutLabels(canvas);
-
-    canvas.restore();
-  }
-
-  /// Draw the progress bar without labels like this:
-  ///
-  /// | -------O---------------- |
-  ///
-  void _drawProgressBarWithoutLabels(Canvas canvas) {
-    final barWidth = size.width;
     final barHeight = _heightWhenNoLabels();
-    _drawProgressBar(canvas, Offset.zero, Size(barWidth, barHeight));
-  }
-
-  void _drawProgressBar(Canvas canvas, Offset offset, Size localSize) {
-    canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
-    _drawBaseBar(canvas, localSize);
-    _drawBufferedBar(canvas, localSize);
-    _drawCurrentProgressBar(canvas, localSize);
-    _drawThumb(canvas, localSize);
-    canvas.restore();
-  }
-
-  void _drawBaseBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: 1.0,
-      paint: _baseBarPaint,
-    );
-  }
-
-  void _drawBufferedBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: _proportionOfTotal(_buffered),
-      paint: _bufferedBarPaint,
-    );
-  }
-
-  void _drawCurrentProgressBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: _thumbValue,
-      paint: _progressBarPaint,
-    );
-  }
-
-  void _drawBar({
-    required Canvas canvas,
-    required Size availableSize,
-    required double widthProportion,
-    required Paint paint,
-  }) {
     final capRadius = _barHeight * 0.5;
-    final adjustedWidth = availableSize.width - barHeight;
-    final dx = widthProportion * adjustedWidth + capRadius;
-    final dy = availableSize.height * 0.5;
-    final startPoint = Offset(capRadius, dy);
-    final endPoint = Offset(dx, dy);
-    canvas.drawLine(startPoint, endPoint, paint);
-  }
+    final adjustedWidth = size.width - _barHeight;
+    final centerY = barHeight * 0.5;
+    final startPoint = Offset(capRadius, centerY);
+    canvas
+      ..drawLine(
+        startPoint,
+        Offset(adjustedWidth + capRadius, centerY),
+        _baseBarPaint,
+      )
+      ..drawLine(
+        startPoint,
+        Offset(
+          _proportionOfTotal(_buffered) * adjustedWidth + capRadius,
+          centerY,
+        ),
+        _bufferedBarPaint,
+      )
+      ..drawLine(
+        startPoint,
+        Offset(_thumbValue * adjustedWidth + capRadius, centerY),
+        _progressBarPaint,
+      );
 
-  void _drawThumb(Canvas canvas, Size localSize) {
-    final barCapRadius = _barHeight * 0.5;
-    final availableWidth = localSize.width - _barHeight;
-    var thumbDx = _thumbValue * availableWidth + barCapRadius;
+    var thumbDx = _thumbValue * adjustedWidth + capRadius;
     if (!_thumbCanPaintOutsideBar) {
-      thumbDx = thumbDx.clamp(_thumbRadius, localSize.width - _thumbRadius);
+      thumbDx = thumbDx.clamp(_thumbRadius, size.width - _thumbRadius);
     }
-    final center = Offset(thumbDx, localSize.height * 0.5);
+    final center = Offset(thumbDx, centerY);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }
     canvas.drawCircle(center, thumbRadius, _thumbPaint);
+
+    canvas.restore();
   }
 
   double _proportionOfTotal(int duration) {

@@ -149,6 +149,7 @@ class RenderImageGrid extends RenderBox
 
   ImageGridInfo? imageGridInfo;
   LayoutCallback<Constraints>? _callback;
+  late final _defaultPaintCallback = defaultPaint;
 
   void _updateCallback(LayoutCallback<Constraints> value) {
     if (value == _callback) {
@@ -177,6 +178,8 @@ class RenderImageGrid extends RenderBox
       width: width,
       height: height,
     );
+    final columnStride = space + width;
+    final rowStride = space + height;
     RenderBox? child = firstChild;
     while (child != null) {
       child.layout(childConstraints);
@@ -185,8 +188,8 @@ class RenderImageGrid extends RenderBox
       final rowIndex = index ~/ column;
       final columnIndex = index - rowIndex * column;
       childParentData.offset = Offset(
-        (space + width) * columnIndex,
-        (space + height) * rowIndex,
+        columnStride * columnIndex,
+        rowStride * rowIndex,
       );
       child = childParentData.nextSibling;
     }
@@ -198,7 +201,7 @@ class RenderImageGrid extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 
   @override

@@ -171,6 +171,7 @@ class _RenderToolTip extends RenderBox
   }
 
   TapGestureRecognizer? _tapGestureRecognizer;
+  late final _defaultPaintCallback = defaultPaint;
 
   set onTap(VoidCallback? value) {
     _tapGestureRecognizer?.onTap = value;
@@ -250,7 +251,7 @@ class _RenderToolTip extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 }
 
@@ -294,7 +295,6 @@ class RenderTriangle extends RenderBox {
   final Paint _paint;
   Path? _path;
   Size? _pathSize;
-  Offset? _pathOffset;
 
   Color _color;
   Color get color => _color;
@@ -321,16 +321,19 @@ class RenderTriangle extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
 
-    if (_path == null || _pathSize != size || _pathOffset != offset) {
+    if (_path == null || _pathSize != size) {
       _path = Path()
-        ..moveTo(offset.dx, offset.dy)
-        ..lineTo(offset.dx + size.width, offset.dy)
-        ..lineTo(offset.dx + size.width * 0.5, size.height + offset.dy)
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width * 0.5, size.height)
         ..close();
       _pathSize = size;
-      _pathOffset = offset;
     }
 
-    context.canvas.drawPath(_path!, _paint);
+    context.canvas
+      ..save()
+      ..translate(offset.dx, offset.dy)
+      ..drawPath(_path!, _paint)
+      ..restore();
   }
 }
