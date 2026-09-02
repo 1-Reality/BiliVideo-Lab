@@ -181,16 +181,19 @@ class RenderImageGrid extends RenderBox
     final columnStride = space + width;
     final rowStride = space + height;
     RenderBox? child = firstChild;
+    var rowIndex = 0;
+    var columnIndex = 0;
     while (child != null) {
       child.layout(childConstraints);
       final childParentData = child.parentData as MultiChildLayoutParentData;
-      final index = childParentData.id as int;
-      final rowIndex = index ~/ column;
-      final columnIndex = index - rowIndex * column;
       childParentData.offset = Offset(
         columnStride * columnIndex,
         rowStride * rowIndex,
       );
+      if (++columnIndex == column) {
+        columnIndex = 0;
+        rowIndex++;
+      }
       child = childParentData.nextSibling;
     }
     size = constraints.constrainDimensions(

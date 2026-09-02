@@ -183,7 +183,8 @@ class _RenderHotKeywordGrid extends RenderBox
     var child = firstChild;
     double? childHeight;
     var rowStride = 0.0;
-    int index = 0;
+    var row = 0;
+    var column = 0;
     while (child != null) {
       if (childHeight == null) {
         childHeight = (child..layout(c, parentUsesSize: true)).size.height;
@@ -191,20 +192,21 @@ class _RenderHotKeywordGrid extends RenderBox
       } else {
         child.layout(c);
       }
-      final row = index ~/ crossAxisCount;
-      final column = index - row * crossAxisCount;
       final parentData = child.parentData as MultiChildLayoutParentData
         ..offset = Offset(
           columnStride * column,
           rowStride * row,
         );
+      if (++column == crossAxisCount) {
+        column = 0;
+        row++;
+      }
       child = parentData.nextSibling;
-      index++;
     }
-    final row = (index + crossAxisCount - 1) ~/ crossAxisCount;
+    final rowCount = row + (column == 0 ? 0 : 1);
     size = constraints.constrainDimensions(
       constraints.maxWidth,
-      row * childHeight! + crossAxisSpacing * (row - 1),
+      rowCount * childHeight! + crossAxisSpacing * (rowCount - 1),
     );
   }
 

@@ -697,15 +697,20 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final canvas = context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
+    final canvas = context.canvas;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
 
     final barHeight = _heightWhenNoLabels();
-    final capRadius = _barHeight * 0.5;
-    final adjustedWidth = size.width - _barHeight;
+    final capRadius = _barStart;
+    final adjustedWidth = _barWidth;
     final centerY = barHeight * 0.5;
     final startPoint = Offset(capRadius, centerY);
+    var thumbDx = _thumbValue * adjustedWidth + capRadius;
     canvas
       ..drawLine(
         startPoint,
@@ -722,11 +727,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       )
       ..drawLine(
         startPoint,
-        Offset(_thumbValue * adjustedWidth + capRadius, centerY),
+        Offset(thumbDx, centerY),
         _progressBarPaint,
       );
 
-    var thumbDx = _thumbValue * adjustedWidth + capRadius;
     if (!_thumbCanPaintOutsideBar) {
       thumbDx = thumbDx.clamp(_thumbRadius, size.width - _thumbRadius);
     }
@@ -736,13 +740,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     }
     canvas.drawCircle(center, thumbRadius, _thumbPaint);
 
-    canvas.restore();
+    if (hasOffset) canvas.restore();
   }
 
   double _proportionOfTotal(int duration) {
-    if (_total == 0) {
-      return 0.0;
-    }
     return (duration * _inverseTotal).clamp(0.0, 1.0);
   }
 

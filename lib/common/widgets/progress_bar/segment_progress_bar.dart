@@ -121,25 +121,32 @@ class RenderProgressBar extends BaseRenderProgressBar<Segment> {
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
 
     for (final segment in segments) {
       _paint.color = segment.color;
-      final segmentStart = offset.dx + segment.start * size.width;
-      final segmentEnd = offset.dx + segment.end * size.width;
+      final segmentStart = segment.start * size.width;
+      final segmentEnd = segment.end * size.width;
 
       if (segmentEnd > segmentStart ||
           (segmentEnd == segmentStart && segmentStart > 0)) {
         canvas.drawRect(
           Rect.fromLTRB(
             segmentStart,
-            offset.dy,
+            0,
             segmentEnd == segmentStart ? segmentStart + 2 : segmentEnd,
-            size.height + offset.dy,
+            size.height,
           ),
           _paint,
         );
       }
     }
+    if (hasOffset) canvas.restore();
   }
 }
 
