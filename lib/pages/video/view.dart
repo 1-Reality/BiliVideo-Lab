@@ -910,7 +910,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledLandscapeInner(bool isFullScreen) {
     double width =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.5, 0.7) * maxWidth;
+        clampDouble(
+          videoDetailController.plPlayerController.screenRatio * 1.08,
+          0.5,
+          0.7,
+        ) *
+        maxWidth;
     if (maxWidth >= 560) {
       width = maxWidth - clampDouble(maxWidth - width, 280, 425);
     }
@@ -1285,7 +1290,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child = childWhenDisabled;
     } else if (maxWidth / maxHeight >= kScreenRatio) {
       child = childWhenDisabledLandscape;
-    } else if (maxWidth / Style.aspectRatio16x9 < 0.4 * maxHeight) {
+    } else if (maxWidth < 0.4 * maxHeight * Style.aspectRatio16x9) {
       child = childWhenDisabled;
     } else {
       child = childWhenDisabledAlmostSquare;

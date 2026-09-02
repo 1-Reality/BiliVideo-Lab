@@ -130,7 +130,7 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
     if (total == null || !total.isFinite || total <= 0) return;
     final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
+        ? value.round().toString()
         : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
   }
 

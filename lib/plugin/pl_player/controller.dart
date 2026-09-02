@@ -1954,10 +1954,18 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (videoShot case Success(:final response)) {
       showPreview.value = true;
-      previewIndex.value = max(
-        0,
-        (response.index.where((item) => item <= seconds).length - 2),
-      );
+      final index = response.index;
+      var low = 0;
+      var high = index.length;
+      while (low < high) {
+        final mid = (low + high) >> 1;
+        if (index[mid] <= seconds) {
+          low = mid + 1;
+        } else {
+          high = mid;
+        }
+      }
+      previewIndex.value = low > 1 ? low - 2 : 0;
     }
   }
 

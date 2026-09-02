@@ -1139,19 +1139,20 @@ abstract final class PlaybackStatsService {
         }
         next.add(interval);
       } else {
-        overlap += max(
-          0,
-          min(end, interval.end) - max(start, interval.start),
-        );
-        mergedStart = min(mergedStart, interval.start);
-        mergedEnd = max(mergedEnd, interval.end);
+        if (interval.start < end && interval.end > start) {
+          final overlapStart = start > interval.start ? start : interval.start;
+          final overlapEnd = end < interval.end ? end : interval.end;
+          overlap += overlapEnd - overlapStart;
+        }
+        if (interval.start < mergedStart) mergedStart = interval.start;
+        if (interval.end > mergedEnd) mergedEnd = interval.end;
       }
     }
     if (!inserted) next.add((start: mergedStart, end: mergedEnd));
     _coveredIntervals
       ..clear()
       ..addAll(next);
-    final unique = max(0, span - overlap);
+    final unique = span - overlap;
     _sessionUniqueCoveredUs += unique;
     _sessionRepeatCoveredUs += span - unique;
   }
@@ -1737,9 +1738,9 @@ abstract final class PlaybackStatsService {
     }
     final mediaAdvanceUs = max(0, toUs - fromUs);
     if (toUs >= rewind.checkpointUs && toUs > fromUs) {
-      final fraction = (rewind.checkpointUs - fromUs) / mediaAdvanceUs;
-      final playbackUs = (activeWallUs * fraction.clamp(0, 1)).round();
       final rewindMediaUs = rewind.checkpointUs - fromUs;
+      final playbackUs =
+          (activeWallUs * (rewindMediaUs / mediaAdvanceUs)).round();
       rewind
         ..activePlaybackUs += playbackUs
         ..mediaAdvanceUs += rewindMediaUs;

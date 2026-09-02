@@ -947,6 +947,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double maxWidth;
   late double maxHeight;
   late double _inverseMaxWidth;
+  late double _thirdWidth;
+  late double _twoThirdWidth;
+  late double _quarterWidth;
+  late double _threeQuarterWidth;
   late double _inverseBrightnessLevel;
   late double _inverseVolumeLevel;
 
@@ -1026,8 +1030,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         }
 
         final double tapPosition = details.localFocalPoint.dx;
-        final double sectionWidth = maxWidth / 3;
-        if (tapPosition < sectionWidth) {
+        if (tapPosition < _thirdWidth) {
           if (!plPlayerController.enableSlideVolumeBrightness) {
             return;
           }
@@ -1037,7 +1040,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           } else {
             _gestureType = .left;
           }
-        } else if (tapPosition < sectionWidth * 2) {
+        } else if (tapPosition < _twoThirdWidth) {
           if (!plPlayerController.enableSlideFS) {
             return;
           }
@@ -1155,11 +1158,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return;
     }
     final double tapPosition = details.localPosition.dx;
-    final double sectionWidth = maxWidth * 0.25;
     DoubleTapType type;
-    if (tapPosition < sectionWidth) {
+    if (tapPosition < _quarterWidth) {
       type = DoubleTapType.left;
-    } else if (tapPosition < sectionWidth * 3) {
+    } else if (tapPosition < _threeQuarterWidth) {
       type = DoubleTapType.center;
     } else {
       type = DoubleTapType.right;
@@ -1368,6 +1370,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     maxWidth = widget.maxWidth;
     maxHeight = widget.maxHeight;
     _inverseMaxWidth = 1 / maxWidth;
+    _thirdWidth = maxWidth / 3;
+    _twoThirdWidth = _thirdWidth * 2;
+    _quarterWidth = maxWidth * 0.25;
+    _threeQuarterWidth = _quarterWidth * 3;
     _inverseBrightnessLevel = 1 / (maxHeight * 3);
     _inverseVolumeLevel = 2 / maxHeight;
     final isFullScreen = this.isFullScreen;

@@ -697,7 +697,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Widget _buildBodyH(bool isFullScreen) {
     double videoWidth =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.56, 0.7) * maxWidth;
+        clampDouble(plPlayerController.screenRatio * 1.08, 0.56, 0.7) *
+        maxWidth;
     final rightWidth = min(400.0, maxWidth - videoWidth - padding.horizontal);
     videoWidth = maxWidth - rightWidth - padding.horizontal;
     final videoHeight = maxHeight - padding.top - kToolbarHeight;

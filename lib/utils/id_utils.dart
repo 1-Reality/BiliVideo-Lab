@@ -82,8 +82,10 @@ abstract final class IdUtils {
     final midByte = ascii.encode(uid.toString());
 
     const key = 'ad1va46a7lza';
+    var keyIndex = 0;
     for (int i = 0; i < midByte.length; i++) {
-      midByte[i] ^= key.codeUnitAt(i % key.length);
+      midByte[i] ^= key.codeUnitAt(keyIndex);
+      if (++keyIndex == key.length) keyIndex = 0;
     }
 
     return base64.encode(midByte).replaceAll('=', '');

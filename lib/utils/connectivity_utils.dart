@@ -164,11 +164,13 @@ abstract final class ConnectivityUtils {
 
       final hasWifi = connectivity.contains(ConnectivityResult.wifi);
       final hasEthernet = connectivity.contains(ConnectivityResult.ethernet);
-      final windows = Platform.isWindows
+      final isWindows = Platform.isWindows;
+      final isAndroid = Platform.isAndroid;
+      final windows = isWindows
           ? WindowsNetworkInfoReader.read()
           : null;
       var wiredActive = hasEthernet && !hasWifi;
-      if (Platform.isWindows && hasEthernet && hasWifi) {
+      if (isWindows && hasEthernet && hasWifi) {
         final wired = windows?.wired;
         final wifi = windows?.wifi;
         wiredActive = wired != null &&
@@ -177,7 +179,7 @@ abstract final class ConnectivityUtils {
 
       if (hasWifi && !wiredActive) {
         final windowsLink = windows?.wifi;
-        final android = Platform.isAndroid
+        final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
         final rssi = windows?.rssi ?? android?.rssi;
@@ -186,7 +188,7 @@ abstract final class ConnectivityUtils {
         final metered = android?.metered ?? false;
         final weakHint = _bufferingWeak || (android?.weakHint ?? false);
 
-        final signalWeak = Platform.isAndroid && Pref.wifiRssiThreshold == 0
+        final signalWeak = isAndroid && Pref.wifiRssiThreshold == 0
             ? (signalLevel != null && signalLevel < 3) || weakHint
             : rssi != null && rssi < Pref.wifiRssiThreshold;
         final speedWeak =
@@ -249,13 +251,13 @@ abstract final class ConnectivityUtils {
       }
 
       if (connectivity.contains(ConnectivityResult.mobile)) {
-        final android = Platform.isAndroid
+        final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
-        final carrierName = Platform.isAndroid
+        final carrierName = isAndroid
             ? PiliAndroidHelper.networkOperator()
             : null;
-        final subscription = Platform.isAndroid
+        final subscription = isAndroid
             ? PiliAndroidHelper.subscriptionInfo()
             : null;
         final flattened = _flattenCellularDetails(subscription);

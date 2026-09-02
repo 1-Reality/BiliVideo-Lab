@@ -171,7 +171,7 @@ class _LastVideoSpeedConfigDialogState
   }
 
   String _number(double value) => value == value.roundToDouble()
-      ? value.toStringAsFixed(0)
+      ? value.round().toString()
       : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
 
   void _syncWarmupFromTotal() {
