@@ -123,8 +123,7 @@ class MainController extends GetxController
 
   Future<int> _msgUnread() async {
     if (msgUnReadTypes.contains(MsgUnReadType.pm)) {
-      final res = await MsgHttp.msgUnread();
-      if (res case Success(:final response)) {
+      if (await MsgHttp.msgUnread() case Success(:final response)) {
         return response.followUnread +
             response.unfollowUnread +
             response.bizMsgFollowUnread +
@@ -138,28 +137,16 @@ class MainController extends GetxController
 
   Future<int> _msgFeedUnread() async {
     int count = 0;
-    final remainTypes = Set<MsgUnReadType>.from(msgUnReadTypes)
-      ..remove(MsgUnReadType.pm);
-    if (remainTypes.isNotEmpty) {
-      final res = await MsgHttp.msgFeedUnread();
-      if (res case Success(:final response)) {
-        for (final item in remainTypes) {
-          switch (item) {
-            case MsgUnReadType.pm:
-              break;
-            case MsgUnReadType.reply:
-              count += response.reply;
-              break;
-            case MsgUnReadType.at:
-              count += response.at;
-              break;
-            case MsgUnReadType.like:
-              count += response.like;
-              break;
-            case MsgUnReadType.sysMsg:
-              count += response.sysMsg;
-              break;
-          }
+    if (msgUnReadTypes.any((item) => item != .pm)) {
+      if (await MsgHttp.msgFeedUnread() case Success(:final response)) {
+        for (final item in msgUnReadTypes) {
+          count += switch (item) {
+            .reply => response.reply,
+            .at => response.at,
+            .like => response.like,
+            .sysMsg => response.sysMsg,
+            _ => 0,
+          };
         }
       }
     }
@@ -175,9 +162,7 @@ class MainController extends GetxController
       return;
     }
 
-    final res = await Future.wait([_msgUnread(), _msgFeedUnread()]);
-
-    final count = res.sum;
+    final count = (await Future.wait([_msgUnread(), _msgFeedUnread()])).sum;
 
     final countStr = count == 0
         ? ''

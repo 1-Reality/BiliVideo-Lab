@@ -313,8 +313,10 @@ class DownloadService extends GetxService {
         if (!isUpdate) {
           _updateCurStatus(DownloadStatus.getDanmaku);
         }
-        final seg = (entry.totalTimeMilli / PlDanmakuController.segmentLength)
-            .ceil();
+        final seg = (entry.totalTimeMilli +
+                PlDanmakuController.segmentLength -
+                1) ~/
+            PlDanmakuController.segmentLength;
 
         final res = await Future.wait([
           for (var i = 1; i <= seg; i++)

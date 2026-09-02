@@ -115,11 +115,12 @@ abstract final class LoginUtils {
   static String genDeviceId() {
     // https://github.com/bilive/bilive_client/blob/2873de0532c54832f5464a4c57325ad9af8b8698/bilive/lib/app_client.ts#L62
     final time = DateTime.now();
+    final century = time.year ~/ 100;
 
     final List<int> bytes = [
       ...Iterable.generate(16, (_) => Utils.random.nextInt(256)),
-      _dec2bcd(time.year ~/ 100),
-      _dec2bcd(time.year % 100),
+      _dec2bcd(century),
+      _dec2bcd(time.year - century * 100),
       _dec2bcd(time.month),
       _dec2bcd(time.day),
       _dec2bcd(time.hour),
