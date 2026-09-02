@@ -103,6 +103,11 @@ abstract final class PlaybackStatsService {
   static String _danmaku = 'unknown';
   static String _copyright = 'unknown';
   static String _decoder = 'unknown';
+  static Map<String, String>? _dimensionAxesCache;
+  static int _dimensionAxesCacheVersion = -1;
+  static int _dimensionAxesCacheTimeKey = -1;
+  static int _dimensionAxesCacheOffsetMinutes = 0;
+  static int _dimensionContextVersion = 0;
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -594,24 +599,7 @@ abstract final class PlaybackStatsService {
     String? speed,
   }) {
     if (value == 0) return;
-    final axes = <String, String>{
-      'orientation': _orientation,
-      'content': _contentType,
-      'partition': '$_partitionId:$_partitionName',
-      'codec': _codec,
-      'quality': _quality,
-      'network': _network,
-      'platform': defaultTargetPlatform.name,
-      'duration': _durationBand(_sourceDurationUs),
-      'playbackForm': _playbackForm,
-      'subtitle': _subtitle,
-      'danmaku': _danmaku,
-      'copyright': _copyright,
-      'decoder': _decoder,
-      'weekday': DateTime.now().weekday.toString(),
-      'hour': DateTime.now().hour.toString().padLeft(2, '0'),
-      'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes.toString(),
-    };
+    final axes = _dimensionAxes(DateTime.now());
     final dimensions = _map('dimensions');
     for (final axis in axes.entries) {
       final values = _mutableMap(dimensions[axis.key]);
@@ -628,24 +616,53 @@ abstract final class PlaybackStatsService {
     }
     if (speed != null) {
       final crosses = _map('crossDimensions');
-      for (final entry in <String, String>{
-        'upSpeed': '${_videoUpUid ?? 'unknown'}|$speed',
-        'partitionSpeed': '$_partitionId|$speed',
-        'orientationSpeed': '$_orientation|$speed',
-      }.entries) {
-        final values = _mutableMap(crosses[entry.key]);
-        final item = _mutableMap(values[entry.value]);
-        item[primitive] = (item[primitive] as num? ?? 0) + value;
-        final months = _mutableMap(item['months']);
-        final month = _mutableMap(months[_monthKey]);
-        month[primitive] = (month[primitive] as num? ?? 0) + value;
-        months[_monthKey] = month;
-        item['months'] = months;
-        values[entry.value] = item;
-        crosses[entry.key] = values;
-        _markDimensionDirty(entry.key, entry.value, cross: true);
-      }
+      final month = _monthKey;
+      _addCrossDimensionValue(
+        crosses,
+        'upSpeed',
+        '${_videoUpUid ?? 'unknown'}|$speed',
+        month,
+        primitive,
+        value,
+      );
+      _addCrossDimensionValue(
+        crosses,
+        'partitionSpeed',
+        '$_partitionId|$speed',
+        month,
+        primitive,
+        value,
+      );
+      _addCrossDimensionValue(
+        crosses,
+        'orientationSpeed',
+        '$_orientation|$speed',
+        month,
+        primitive,
+        value,
+      );
     }
+  }
+
+  static void _addCrossDimensionValue(
+    Map<String, dynamic> crosses,
+    String axis,
+    String valueKey,
+    String monthKey,
+    String primitive,
+    num value,
+  ) {
+    final values = _mutableMap(crosses[axis]);
+    final item = _mutableMap(values[valueKey]);
+    item[primitive] = (item[primitive] as num? ?? 0) + value;
+    final months = _mutableMap(item['months']);
+    final month = _mutableMap(months[monthKey]);
+    month[primitive] = (month[primitive] as num? ?? 0) + value;
+    months[monthKey] = month;
+    item['months'] = months;
+    values[valueKey] = item;
+    crosses[axis] = values;
+    _markDimensionDirty(axis, valueKey, cross: true);
   }
 
   // Position events are the hot path. Four independent calls used to rebuild
@@ -662,24 +679,7 @@ abstract final class PlaybackStatsService {
     final now = DateTime.now();
     final month = '${now.year.toString().padLeft(4, '0')}-'
         '${now.month.toString().padLeft(2, '0')}';
-    final axes = <String, String>{
-      'orientation': _orientation,
-      'content': _contentType,
-      'partition': '$_partitionId:$_partitionName',
-      'codec': _codec,
-      'quality': _quality,
-      'network': _network,
-      'platform': defaultTargetPlatform.name,
-      'duration': _durationBand(_sourceDurationUs),
-      'playbackForm': _playbackForm,
-      'subtitle': _subtitle,
-      'danmaku': _danmaku,
-      'copyright': _copyright,
-      'decoder': _decoder,
-      'weekday': now.weekday.toString(),
-      'hour': now.hour.toString().padLeft(2, '0'),
-      'utcOffsetMinutes': now.timeZoneOffset.inMinutes.toString(),
-    };
+    final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
     for (final axis in axes.entries) {
       final values = _mutableMap(dimensions[axis.key]);
@@ -711,29 +711,57 @@ abstract final class PlaybackStatsService {
       _markDimensionDirty(axis.key, axis.value);
     }
     final crosses = _map('crossDimensions');
-    for (final entry in <String, String>{
-      'upSpeed': '${_videoUpUid ?? 'unknown'}|$speed',
-      'partitionSpeed': '$_partitionId|$speed',
-      'orientationSpeed': '$_orientation|$speed',
-    }.entries) {
-      final values = _mutableMap(crosses[entry.key]);
-      final item = _mutableMap(values[entry.value]);
-      final months = _mutableMap(item['months']);
-      final current = _mutableMap(months[month]);
-      item['activePlaybackUs'] =
-          (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
-      item['mediaAdvanceUs'] =
-          (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
-      current['activePlaybackUs'] =
-          (current['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
-      current['mediaAdvanceUs'] =
-          (current['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
-      months[month] = current;
-      item['months'] = months;
-      values[entry.value] = item;
-      crosses[entry.key] = values;
-      _markDimensionDirty(entry.key, entry.value, cross: true);
-    }
+    _addCrossDimensionPlayback(
+      crosses,
+      'upSpeed',
+      '${_videoUpUid ?? 'unknown'}|$speed',
+      month,
+      activePlaybackUs,
+      mediaAdvanceUs,
+    );
+    _addCrossDimensionPlayback(
+      crosses,
+      'partitionSpeed',
+      '$_partitionId|$speed',
+      month,
+      activePlaybackUs,
+      mediaAdvanceUs,
+    );
+    _addCrossDimensionPlayback(
+      crosses,
+      'orientationSpeed',
+      '$_orientation|$speed',
+      month,
+      activePlaybackUs,
+      mediaAdvanceUs,
+    );
+  }
+
+  static void _addCrossDimensionPlayback(
+    Map<String, dynamic> crosses,
+    String axis,
+    String valueKey,
+    String monthKey,
+    int activePlaybackUs,
+    int mediaAdvanceUs,
+  ) {
+    final values = _mutableMap(crosses[axis]);
+    final item = _mutableMap(values[valueKey]);
+    final months = _mutableMap(item['months']);
+    final month = _mutableMap(months[monthKey]);
+    item['activePlaybackUs'] =
+        (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+    item['mediaAdvanceUs'] =
+        (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+    month['activePlaybackUs'] =
+        (month['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+    month['mediaAdvanceUs'] =
+        (month['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+    months[monthKey] = month;
+    item['months'] = months;
+    values[valueKey] = item;
+    crosses[axis] = values;
+    _markDimensionDirty(axis, valueKey, cross: true);
   }
 
   // Session outcomes have one final content identity. Keep them on dimensions
@@ -770,6 +798,43 @@ abstract final class PlaybackStatsService {
       dimensions[axis.key] = values;
       _markDimensionDirty(axis.key, axis.value);
     }
+  }
+
+  static Map<String, String> _dimensionAxes(DateTime now) {
+    final timeKey =
+        (((now.year * 13 + now.month) * 32 + now.day) * 24 + now.hour);
+    final offsetMinutes = now.timeZoneOffset.inMinutes;
+    final cached = _dimensionAxesCache;
+    if (cached != null &&
+        _dimensionAxesCacheVersion == _dimensionContextVersion &&
+        _dimensionAxesCacheTimeKey == timeKey &&
+        _dimensionAxesCacheOffsetMinutes == offsetMinutes) {
+      return cached;
+    }
+
+    final axes = <String, String>{
+      'orientation': _orientation,
+      'content': _contentType,
+      'partition': '$_partitionId:$_partitionName',
+      'codec': _codec,
+      'quality': _quality,
+      'network': _network,
+      'platform': defaultTargetPlatform.name,
+      'duration': _durationBand(_sourceDurationUs),
+      'playbackForm': _playbackForm,
+      'subtitle': _subtitle,
+      'danmaku': _danmaku,
+      'copyright': _copyright,
+      'decoder': _decoder,
+      'weekday': now.weekday.toString(),
+      'hour': now.hour.toString().padLeft(2, '0'),
+      'utcOffsetMinutes': offsetMinutes.toString(),
+    };
+    _dimensionAxesCache = axes;
+    _dimensionAxesCacheVersion = _dimensionContextVersion;
+    _dimensionAxesCacheTimeKey = timeKey;
+    _dimensionAxesCacheOffsetMinutes = offsetMinutes;
+    return axes;
   }
 
   static String _durationBand(int us) => switch (us) {
@@ -948,6 +1013,7 @@ abstract final class PlaybackStatsService {
     if (danmakuEnabled != null) _danmaku = danmakuEnabled ? 'on' : 'off';
     if (copyright != null) _copyright = copyright;
     if (decoder != null) _decoder = decoder;
+    _dimensionContextVersion++;
   }
 
   static void updateLiveIdentity({
@@ -973,6 +1039,7 @@ abstract final class PlaybackStatsService {
     if (!_active || _live || form == _playbackForm) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
     _playbackForm = form;
+    _dimensionContextVersion++;
   }
 
   static void _beginVideoSession(
@@ -993,6 +1060,7 @@ abstract final class PlaybackStatsService {
     _sessionMaxPositionUs = initialPositionUs;
     _sessionCompleted = false;
     _coveredIntervals.clear();
+    _dimensionContextVersion++;
     if (!resetContext) return;
     _orientation = 'unknown';
     _contentType = 'ugc';

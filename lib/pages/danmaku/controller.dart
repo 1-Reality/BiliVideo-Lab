@@ -29,7 +29,7 @@ class PlDanmakuController {
   // 已请求的段落标记
   late final Set<int> _requestedSeg = HashSet();
 
-  static const int segmentLength = 60 * 6 * 1000;
+  static const int segmentLength = 360000;
 
   void dispose() {
     _dmSegMap.clear();

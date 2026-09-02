@@ -215,17 +215,11 @@ class MainController extends GetxController
   }
 
   void setNavBarConfig() {
-    List<int>? navBarSort =
+    final navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    late final List<NavigationBarType> navigationBars;
-    if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
-    } else {
-      navigationBars = navBarSort
-          .map((i) => NavigationBarType.values[i])
-          .toList();
-    }
-    this.navigationBars = navigationBars;
+    navigationBars = navBarSort == null || navBarSort.isEmpty
+        ? NavigationBarType.values
+        : navBarSort.map((i) => NavigationBarType.values[i]).toList();
     final defPage = Pref.defaultHomePage;
     selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
   }
