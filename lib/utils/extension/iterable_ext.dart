@@ -48,10 +48,8 @@ extension ListExt<T> on List<T> {
     var min = start;
     var max = end;
     while (min < max) {
-      var mid = min + ((max - min) >> 1);
-      var element = this[mid];
-      var comp = keyOf(element).compareTo(key);
-      if (comp < 0) {
+      final mid = min + ((max - min) >> 1);
+      if (keyOf(this[mid]).compareTo(key) < 0) {
         min = mid + 1;
       } else {
         max = mid;

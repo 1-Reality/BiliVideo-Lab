@@ -14,15 +14,10 @@ extension BoxExt<E> on Box<E> {
   }
 
   Future<void>? putAllNE(Map<dynamic, E> entries) {
-    final Map<dynamic, E> newEntries = {};
-    entries.forEach((key, value) {
-      if (!equal(key, value)) {
-        newEntries[key] = value;
-      }
-    });
-    if (newEntries.isNotEmpty) {
-      return putAll(newEntries);
-    }
-    return null;
+    final newEntries = <dynamic, E>{
+      for (final entry in entries.entries)
+        if (!equal(entry.key, entry.value)) entry.key: entry.value,
+    };
+    return newEntries.isEmpty ? null : putAll(newEntries);
   }
 }
