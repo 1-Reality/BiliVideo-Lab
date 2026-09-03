@@ -68,8 +68,18 @@ abstract final class PlaybackStatsService {
   static bool _videoUpStartRecorded = false;
   static int _lastWallUs = 0;
   static int _lastPositionUs = 0;
-  static const _positionSampleIntervalUs = 1 << 19;
   static int _suppressDiscontinuityUntilUs = 0;
+  static const _playbackPendingFlushUs = 1 << 23;
+  static int _pendingActivePlaybackUs = 0;
+  static int _pendingMediaAdvanceUs = 0;
+  static double _pendingNominalMediaUs = 0;
+  static double _pendingNominalIncludingLongPressUs = 0;
+  static int _pendingLongPressActiveUs = 0;
+  static int _pendingRewindPlaybackUs = 0;
+  static int _pendingRewindMediaAdvanceUs = 0;
+  static int _pendingNormalPlaybackUs = 0;
+  static int _pendingNormalMediaAdvanceUs = 0;
+  static String _pendingPlaybackSpeed = '1';
   static int? _pendingPositionUs;
   static double _rate = 1;
   static String _rateKey = '1';
@@ -869,6 +879,111 @@ abstract final class PlaybackStatsService {
     _dirty = true;
   }
 
+  static void _flushPlaybackPending() {
+    final activePlaybackUs = _pendingActivePlaybackUs;
+    final mediaAdvanceUs = _pendingMediaAdvanceUs;
+    final nominalMediaUs = _pendingNominalMediaUs;
+    final nominalIncludingLongPressUs = _pendingNominalIncludingLongPressUs;
+    final longPressActiveUs = _pendingLongPressActiveUs;
+    final rewindPlaybackUs = _pendingRewindPlaybackUs;
+    final rewindMediaAdvanceUs = _pendingRewindMediaAdvanceUs;
+    final normalPlaybackUs = _pendingNormalPlaybackUs;
+    final normalMediaAdvanceUs = _pendingNormalMediaAdvanceUs;
+    if (activePlaybackUs == 0 &&
+        mediaAdvanceUs == 0 &&
+        nominalMediaUs == 0 &&
+        nominalIncludingLongPressUs == 0 &&
+        longPressActiveUs == 0 &&
+        rewindPlaybackUs == 0 &&
+        rewindMediaAdvanceUs == 0 &&
+        normalPlaybackUs == 0 &&
+        normalMediaAdvanceUs == 0) {
+      return;
+    }
+
+    final speed = _pendingPlaybackSpeed;
+    _pendingActivePlaybackUs = 0;
+    _pendingMediaAdvanceUs = 0;
+    _pendingNominalMediaUs = 0;
+    _pendingNominalIncludingLongPressUs = 0;
+    _pendingLongPressActiveUs = 0;
+    _pendingRewindPlaybackUs = 0;
+    _pendingRewindMediaAdvanceUs = 0;
+    _pendingNormalPlaybackUs = 0;
+    _pendingNormalMediaAdvanceUs = 0;
+
+    _add('activePlaybackUs', activePlaybackUs);
+    _addVideoUp('activePlaybackUs', activePlaybackUs);
+    _add('nominalMediaUs', nominalMediaUs);
+    _add('nominalMediaIncludingLongPressUs', nominalIncludingLongPressUs);
+    _addVideoUp('nominalMediaUs', nominalMediaUs);
+    _addVideoUp(
+      'nominalMediaIncludingLongPressUs',
+      nominalIncludingLongPressUs,
+    );
+    _addBucket('speedActiveUs', speed, activePlaybackUs);
+    _addVideoUpBucket('speedActiveUs', speed, activePlaybackUs);
+    if (longPressActiveUs != 0) {
+      _add('longPressActiveUs', longPressActiveUs);
+      _addBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
+      _addVideoUp('longPressActiveUs', longPressActiveUs);
+      _addVideoUpBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
+    }
+
+    _add('mediaAdvanceUs', mediaAdvanceUs);
+    _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
+    _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
+    _add('rewindPlaybackUs', rewindPlaybackUs);
+    _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
+    _add('normalPlaybackUs', normalPlaybackUs);
+    _add('normalMediaAdvanceUs', normalMediaAdvanceUs);
+    _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
+    _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
+    _addVideoUp('normalPlaybackUs', normalPlaybackUs);
+    _addVideoUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
+    _addDimensionPlayback(
+      activePlaybackUs,
+      mediaAdvanceUs,
+      nominalMediaUs,
+      nominalIncludingLongPressUs,
+      speed,
+    );
+    _addBucket('rewindSpeedActiveUs', speed, rewindPlaybackUs);
+    _addBucket('rewindSpeedMediaAdvanceUs', speed, rewindMediaAdvanceUs);
+    _addBucket('normalSpeedActiveUs', speed, normalPlaybackUs);
+    _addBucket('normalSpeedMediaAdvanceUs', speed, normalMediaAdvanceUs);
+  }
+
+  static void _accumulatePlayback(
+    String speed,
+    int activePlaybackUs,
+    int mediaAdvanceUs,
+    double nominalMediaUs,
+    double nominalIncludingLongPressUs,
+    int rewindPlaybackUs,
+    int rewindMediaAdvanceUs,
+    int normalPlaybackUs,
+    int normalMediaAdvanceUs,
+    bool temporary,
+  ) {
+    if (_pendingActivePlaybackUs != 0 && _pendingPlaybackSpeed != speed) {
+      _flushPlaybackPending();
+    }
+    _pendingPlaybackSpeed = speed;
+    _pendingActivePlaybackUs += activePlaybackUs;
+    _pendingMediaAdvanceUs += mediaAdvanceUs;
+    _pendingNominalMediaUs += nominalMediaUs;
+    _pendingNominalIncludingLongPressUs += nominalIncludingLongPressUs;
+    _pendingRewindPlaybackUs += rewindPlaybackUs;
+    _pendingRewindMediaAdvanceUs += rewindMediaAdvanceUs;
+    _pendingNormalPlaybackUs += normalPlaybackUs;
+    _pendingNormalMediaAdvanceUs += normalMediaAdvanceUs;
+    if (temporary) _pendingLongPressActiveUs += activePlaybackUs;
+    if (_pendingActivePlaybackUs >= _playbackPendingFlushUs) {
+      _flushPlaybackPending();
+    }
+  }
+
   // Session outcomes have one final content identity. Keep them on dimensions
   // that describe the media itself; network, quality and player UI can change
   // during a session and receive interval primitives instead.
@@ -1044,6 +1159,7 @@ abstract final class PlaybackStatsService {
     } else if (!isLive && _completedIdle) {
       _restartCompletedVideoSession(initialPosition.inMicroseconds, now);
     } else if (!isLive && videoUpUid != null) {
+      _flushPlaybackPending();
       _videoUpUid = videoUpUid.toString();
       _videoUpName = videoUpName ?? _videoUpName;
       _recordVideoUpStart();
@@ -1101,6 +1217,7 @@ abstract final class PlaybackStatsService {
   }) {
     _ensureInitialized();
     if (!_active || _live) return;
+    _flushPlaybackPending();
     if (sourceDuration != null && sourceDuration.inMicroseconds > 0) {
       _sourceDurationUs = sourceDuration.inMicroseconds;
     }
@@ -1143,6 +1260,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live || form == _playbackForm) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    _flushPlaybackPending();
     _playbackForm = form;
     _dimensionContextVersion++;
   }
@@ -1269,6 +1387,7 @@ abstract final class PlaybackStatsService {
 
   static void _finalizeVideoSession() {
     if (!_videoSessionOpen) return;
+    _flushPlaybackPending();
     _videoSessionOpen = false;
     final played = _sessionActiveUs > 0;
     final sessionPrimitives = <String, num>{
@@ -1388,6 +1507,7 @@ abstract final class PlaybackStatsService {
     if (!_active || _live || _mediaKey != 'cid:$cid' || videoUpUid == null) {
       return;
     }
+    _flushPlaybackPending();
     _videoUpUid = videoUpUid.toString();
     _videoUpName = videoUpName ?? _videoUpName;
     _recordVideoUpStart();
@@ -1396,9 +1516,7 @@ abstract final class PlaybackStatsService {
   static void samplePosition(Duration position) {
     _ensureInitialized();
     if (!_active || _live) return;
-    final now = _clock.elapsedMicroseconds;
-    if (now - _lastWallUs < _positionSampleIntervalUs) return;
-    _settleVideo(position.inMicroseconds, now);
+    _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
   }
 
   static void updatePlaying(bool playing, Duration position) {
@@ -1414,6 +1532,7 @@ abstract final class PlaybackStatsService {
         }
       }
       if (playing != _playing) {
+        _flushPlaybackPending();
         if (playing) {
           _clearTrailingPause();
           _add('playbackSegments', 1);
@@ -1439,6 +1558,7 @@ abstract final class PlaybackStatsService {
           _restartCompletedVideoSession(position.inMicroseconds, now);
         }
       }
+      if (buffering != _buffering) _flushPlaybackPending();
       if (buffering && !_buffering) {
         _add('bufferingCount', 1);
         _addVideoUp('bufferingCount', 1);
@@ -1457,6 +1577,7 @@ abstract final class PlaybackStatsService {
     final key = _speedKey(speed);
     if (_active && !_live) {
       _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+      _flushPlaybackPending();
       if (recordSelection) {
         _addBucket('manualSpeedSelections', key, 1);
         _stats!['lastSelectedSpeed'] = speed;
@@ -1486,6 +1607,7 @@ abstract final class PlaybackStatsService {
     final fromUs = from.inMicroseconds;
     final toUs = to.inMicroseconds;
     _settleVideo(fromUs, now);
+    _flushPlaybackPending();
     if (_completedIdle) {
       _restartCompletedVideoSession(toUs, now);
       return;
@@ -1509,6 +1631,7 @@ abstract final class PlaybackStatsService {
     final now = _clock.elapsedMicroseconds;
     final positionUs = position.inMicroseconds;
     _settleVideo(positionUs, now);
+    _flushPlaybackPending();
     _lastPositionUs = positionUs;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
@@ -1519,6 +1642,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live || _completedIdle) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    _flushPlaybackPending();
     _reclassifyTrailingPauseAsComment();
     _add('completedVideos', 1);
     _addVideoUp('completedCount', 1);
@@ -1632,21 +1756,6 @@ abstract final class PlaybackStatsService {
       final speed = _rateKey;
       final nominalMediaUs = wallUs * _nominalRate;
       final rateMediaUs = wallUs * _rate;
-      _add('activePlaybackUs', wallUs);
-      _addVideoUp('activePlaybackUs', wallUs);
-      _add('nominalMediaUs', nominalMediaUs);
-      _add('nominalMediaIncludingLongPressUs', rateMediaUs);
-      _addVideoUp('nominalMediaUs', nominalMediaUs);
-      _addVideoUp('nominalMediaIncludingLongPressUs', rateMediaUs);
-      _addBucket('speedActiveUs', speed, wallUs);
-      _addVideoUpBucket('speedActiveUs', speed, wallUs);
-      if (_temporaryRate) {
-        _add('longPressActiveUs', wallUs);
-        _addBucket('longPressSpeedActiveUs', speed, wallUs);
-        _addVideoUp('longPressActiveUs', wallUs);
-        _addVideoUpBucket('longPressSpeedActiveUs', speed, wallUs);
-      }
-
       final doubledRateUs = rateMediaUs * 2;
       final toleranceUs = doubledRateUs > 2000000
           ? doubledRateUs.round()
@@ -1687,8 +1796,6 @@ abstract final class PlaybackStatsService {
         rewindPlaybackUs = rewindPart.playbackUs;
         rewindMediaAdvanceUs = rewindPart.mediaAdvanceUs;
       }
-      _add('mediaAdvanceUs', mediaAdvanceUs);
-      _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
       _sessionActiveUs += wallUs;
       _sessionMediaAdvanceUs += mediaAdvanceUs;
       _sessionNominalMediaUs += nominalMediaUs;
@@ -1702,41 +1809,17 @@ abstract final class PlaybackStatsService {
       );
       final normalPlaybackUs = wallUs - rewindPlaybackUs;
       final normalMediaAdvanceUs = mediaAdvanceUs - rewindMediaAdvanceUs;
-      _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
-      _add('rewindPlaybackUs', rewindPlaybackUs);
-      _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _add('normalPlaybackUs', normalPlaybackUs);
-      _add('normalMediaAdvanceUs', normalMediaAdvanceUs);
-      _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
-      _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _addVideoUp('normalPlaybackUs', normalPlaybackUs);
-      _addVideoUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
-      _addDimensionPlayback(
+      _accumulatePlayback(
+        speed,
         wallUs,
         mediaAdvanceUs,
         nominalMediaUs,
         rateMediaUs,
-        speed,
-      );
-      _addBucket(
-        'rewindSpeedActiveUs',
-        speed,
         rewindPlaybackUs,
-      );
-      _addBucket(
-        'rewindSpeedMediaAdvanceUs',
-        speed,
         rewindMediaAdvanceUs,
-      );
-      _addBucket(
-        'normalSpeedActiveUs',
-        speed,
         normalPlaybackUs,
-      );
-      _addBucket(
-        'normalSpeedMediaAdvanceUs',
-        speed,
         normalMediaAdvanceUs,
+        _temporaryRate,
       );
     } else {
       _sessionPausedUs += wallUs;
@@ -1940,7 +2023,11 @@ abstract final class PlaybackStatsService {
     _settleAppForeground(now);
     _settlePageDwell(now);
     _settleCommentPanel(now);
-    if (_active && _live) _settleLive(now);
+    if (_active && _live) {
+      _settleLive(now);
+    } else {
+      _flushPlaybackPending();
+    }
     final raw = Map<String, dynamic>.from(_stats!);
     final source = _numericMap(raw['sourceSpeedSelections']);
     final manual = _numericMap(raw['manualSpeedSelections']);
@@ -2116,7 +2203,11 @@ abstract final class PlaybackStatsService {
     _settleAppForeground(now);
     _settlePageDwell(now);
     _settleCommentPanel(now);
-    if (_active && _live) _settleLive(now);
+    if (_active && _live) {
+      _settleLive(now);
+    } else {
+      _flushPlaybackPending();
+    }
     if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
