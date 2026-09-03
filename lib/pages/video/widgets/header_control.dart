@@ -65,6 +65,7 @@ import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -138,10 +139,29 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
 
   bool _showCurrTime = false;
   void showCurrTimeIfNeeded(bool isFullScreen) {
-    _showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
-    if (!_showCurrTime) {
+    final showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
+    if (_showCurrTime == showCurrTime) return;
+    _showCurrTime = showCurrTime;
+    if (!showCurrTime) {
       stopClock();
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_showCurrTime) return;
+      updateTimeBatteryVisibility(
+        plPlayerController.showControls.value &&
+            !plPlayerController.controlsLock.value,
+      );
+    });
+  }
+
+  void updateTimeBatteryVisibility(bool visible) {
+    if (!visible) {
+      stopClock();
+      return;
+    }
+    getBatteryLevelIfNeeded();
+    startClock();
   }
 
   late final _battery = Battery();
