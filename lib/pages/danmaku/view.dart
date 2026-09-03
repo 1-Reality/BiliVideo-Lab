@@ -66,7 +66,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     }
     playerController
       ..addStatusLister(playerListener)
-      ..addPositionListener(videoPositionListen);
+      ..addRawPositionListener(videoPositionListen);
   }
 
   @override
@@ -165,7 +165,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
   @override
   void dispose() {
     playerController
-      ..removePositionListener(videoPositionListen)
+      ..removeRawPositionListener(videoPositionListen)
       ..removeStatusLister(playerListener);
     _plDanmakuController.dispose();
     _controller = null;

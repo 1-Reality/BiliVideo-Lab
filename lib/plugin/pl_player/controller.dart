@@ -145,6 +145,9 @@ class PlPlayerController with BlockConfigMixin {
   VideoType _videoType = VideoType.ugc;
   int _heartDuration = 0;
   int _lastPositionEventSecond = -1;
+  final Stopwatch _positionClock = Stopwatch()..start();
+  late final int _statsSampleTicks = _positionClock.frequency >> 1;
+  int _nextStatsSampleTick = 0;
   int? width;
   int? height;
 
@@ -1072,6 +1075,7 @@ class PlPlayerController with BlockConfigMixin {
 
   List<StreamSubscription>? _subscriptions;
   final Set<ValueChanged<Duration>> _positionListeners = {};
+  final Set<ValueChanged<Duration>> _rawPositionListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   /// 播放事件监听
@@ -1142,7 +1146,16 @@ class PlPlayerController with BlockConfigMixin {
 
       /// position
       stream.position.listen((Duration position) {
-        PlaybackStatsService.samplePosition(position);
+        final ticks = _positionClock.elapsedTicks;
+        if (ticks >= _nextStatsSampleTick) {
+          _nextStatsSampleTick = ticks + _statsSampleTicks;
+          PlaybackStatsService.samplePosition(position);
+        }
+
+        for (final element in _rawPositionListeners) {
+          element(position);
+        }
+
         final positionUs = position.inMicroseconds;
         final lastSecond = _lastPositionEventSecond;
         final secondStartUs = lastSecond * Duration.microsecondsPerSecond;
@@ -1157,10 +1170,9 @@ class PlPlayerController with BlockConfigMixin {
 
           videoPlayerServiceHandler?.onPositionChange(position);
           makeHeartBeat(posInSeconds);
-        }
-
-        for (final element in _positionListeners) {
-          element(position);
+          for (final element in _positionListeners) {
+            element(position);
+          }
         }
       }),
       stream.duration.listen(updateDuration),
@@ -1763,6 +1775,14 @@ class PlPlayerController with BlockConfigMixin {
   void removePositionListener(ValueChanged<Duration> listener) =>
       _positionListeners.remove(listener);
 
+  void addRawPositionListener(ValueChanged<Duration> listener) {
+    if (_playerCount == 0) return;
+    _rawPositionListeners.add(listener);
+  }
+
+  void removeRawPositionListener(ValueChanged<Duration> listener) =>
+      _rawPositionListeners.remove(listener);
+
   void addStatusLister(ValueChanged<PlayerStatus> listener) {
     if (_playerCount == 0) return;
     _statusListeners.add(listener);
@@ -1913,6 +1933,7 @@ class PlPlayerController with BlockConfigMixin {
 
     _removeListeners();
     _positionListeners.clear();
+    _rawPositionListeners.clear();
     _statusListeners.clear();
     if (playerStatus.isPlaying) {
       WakelockPlus.disable();
