@@ -274,72 +274,6 @@ class VideoDetailController extends GetxController
   bool get showRelatedVideo =>
       !isFileSource && plPlayerController.showRelatedVideo;
 
-  int? get videoUpUid {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.mid;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.mid : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? get videoUpName {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.uname;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.name : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  int? get videoPartitionId {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.type;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.tid : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? get videoPartitionName {
-    try {
-      if (!isUgc) {
-        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
-        return 'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}';
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.tname : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String get videoCopyright {
-    if (!isUgc) return 'licensed';
-    try {
-      final value = Get.find<UgcIntroController>(tag: heroTag)
-          .videoDetail
-          .value
-          .copyright;
-      return switch (value) {
-        1 => 'original',
-        2 => 'repost',
-        _ => 'unknown',
-      };
-    } catch (_) {
-      return 'unknown';
-    }
-  }
-
   ScrollController? introScrollCtr;
   ScrollController get effectiveIntroScrollCtr =>
       introScrollCtr ??= ScrollController();
@@ -992,6 +926,51 @@ class VideoDetailController extends GetxController
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
+
+    ({
+      int? uid,
+      String? name,
+      int? partitionId,
+      String? partitionName,
+      String copyright,
+    }) statsContext;
+    try {
+      if (isUgc) {
+        final detail =
+            Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+        final matches = detail.bvid == bvid;
+        statsContext = (
+          uid: matches ? detail.owner?.mid : null,
+          name: matches ? detail.owner?.name : null,
+          partitionId: matches ? detail.tid : null,
+          partitionName: matches ? detail.tname : null,
+          copyright: switch (detail.copyright) {
+            1 => 'original',
+            2 => 'repost',
+            _ => 'unknown',
+          },
+        );
+      } else {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        statsContext = (
+          uid: item.upInfo?.mid,
+          name: item.upInfo?.uname,
+          partitionId: item.type,
+          partitionName:
+              'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}',
+          copyright: 'licensed',
+        );
+      }
+    } catch (_) {
+      statsContext = (
+        uid: null,
+        name: null,
+        partitionId: null,
+        partitionName: null,
+        copyright: isUgc ? 'unknown' : 'licensed',
+      );
+    }
+
     await plPlayerController.setDataSource(
       isFileSource
           ? FileSource(
@@ -1017,11 +996,11 @@ class VideoDetailController extends GetxController
       seasonId: isUgc ? null : seasonId,
       pgcType: isUgc ? null : pgcType,
       videoType: videoType,
-      videoUpUid: videoUpUid,
-      videoUpName: videoUpName,
-      partitionId: videoPartitionId,
-      partitionName: videoPartitionName,
-      copyright: videoCopyright,
+      videoUpUid: statsContext.uid,
+      videoUpName: statsContext.name,
+      partitionId: statsContext.partitionId,
+      partitionName: statsContext.partitionName,
+      copyright: statsContext.copyright,
       codec: isFileSource ? null : currentDecodeFormats.name,
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {

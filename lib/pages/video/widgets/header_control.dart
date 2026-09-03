@@ -1257,7 +1257,7 @@ class HeaderControlState extends State<HeaderControl>
                   final name =
                       '${videoDetail.title}-${videoDetail.owner?.name}(${videoDetail.owner?.mid})-${videoDetailCtr.bvid}-${videoDetailCtr.cid.value}-${item.lanDoc}.${format.name}'
                           .replaceAll(
-                            Platform.isWindows ? RegExp(r'[<>:/\\|?*"]') : '/',
+                            Platform.isWindows ? _windowsInvalidFilenameRegExp : '/',
                             '_',
                           );
                   // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
