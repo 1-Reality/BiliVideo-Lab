@@ -128,7 +128,7 @@ class LiveRoomController extends GetxController {
   bool isFullScreen = false;
 
   final superChatType = Pref.superChatType;
-  final showSuperChat = superChatType != SuperChatType.disable;
+  final showSuperChat = Pref.superChatType != SuperChatType.disable;
 
   final headerKey = GlobalKey<TimeBatteryMixin>();
 

@@ -148,9 +148,19 @@ extension type LevelCanvas(Canvas _) implements Canvas {
         ..layout(const ParagraphConstraints(width: double.infinity));
   void drawBolt() => drawParagraph(_boltIcon, const Offset(840, 5));
 
+  static final _oneTop = RRect.fromLTRBAndCorners(
+    673,
+    _topY,
+    787,
+    _topYB,
+    topLeft: _r,
+    bottomLeft: _r,
+    topRight: _r,
+  );
+
   void _draw1(Paint paint) {
     drawRRect(const .fromLTRBXY(673, _botY, 833, _botYB, 20, 20), paint);
-    drawRRect(const .fromLTRBAndCorners(673, _topY, 787, _topYB, topLeft: _r, bottomLeft: _r, topRight: _r), paint);
+    drawRRect(_oneTop, paint);
     drawRect(const .fromLTRB(719, _topYB, 787, _botY), paint);
   }
 
@@ -283,7 +293,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _extendR = 1250;
   static const double _totalB = 466;
   static const double _inverseTotalB = 1 / _totalB;
-  static const _normalBack = RRect.fromLTRBAndCorners(
+  static final _normalBack = RRect.fromLTRBAndCorners(
     0,
     48,
     _totalR,
@@ -292,7 +302,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
     bottomLeft: Radius.circular(27),
     bottomRight: Radius.circular(27),
   );
-  static const _boltBack = RRect.fromLTRBAndCorners(
+  static final _boltBack = RRect.fromLTRBAndCorners(
     0,
     48,
     _extendR,
@@ -301,7 +311,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
     bottomLeft: Radius.circular(27),
     bottomRight: Radius.circular(27),
   );
-  static const _normalTop = RRect.fromLTRBAndCorners(
+  static final _normalTop = RRect.fromLTRBAndCorners(
     576,
     0,
     _totalR,
@@ -309,7 +319,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
     topLeft: Radius.circular(27),
     topRight: Radius.circular(27),
   );
-  static const _boltTop = RRect.fromLTRBAndCorners(
+  static final _boltTop = RRect.fromLTRBAndCorners(
     576,
     0,
     _extendR,

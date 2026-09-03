@@ -49,7 +49,7 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   RenderSliverPinnedHeader({
     required this._backgroundColor,
   }) {
-    _backgroundPaint.color = _backgroundColor ?? Colors.transparent;
+    _backgroundPaint.color = _backgroundColor ?? const Color(0x00000000);
   }
 
   final _backgroundPaint = Paint();
@@ -58,7 +58,7 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   set backgroundColor(Color? value) {
     if (_backgroundColor == value) return;
     _backgroundColor = value;
-    _backgroundPaint.color = value ?? Colors.transparent;
+    _backgroundPaint.color = value ?? const Color(0x00000000);
     if (_isPinned) markNeedsPaint();
   }
 

@@ -2375,8 +2375,8 @@ class _VerticalUnderlinePainter extends BoxPainter {
   final VerticalUnderlineTabIndicator decoration;
   final BorderRadius? borderRadius;
   late final Paint _paint = borderRadius != null
-      ? Paint()..color = decoration.borderSide.color
-      : decoration.borderSide.toPaint()..strokeCap = StrokeCap.square;
+      ? (Paint()..color = decoration.borderSide.color)
+      : (decoration.borderSide.toPaint()..strokeCap = StrokeCap.square);
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
