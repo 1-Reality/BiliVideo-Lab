@@ -74,6 +74,8 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
 import 'package:media_kit/media_kit.dart' show NativePlayer;
 
+final RegExp _windowsInvalidFilenameRegExp = RegExp(r'[<>:/\\|?*"]');
+
 mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   PlPlayerController get plPlayerController;
   late final titleKey = GlobalKey();

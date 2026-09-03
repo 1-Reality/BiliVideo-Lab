@@ -85,6 +85,8 @@ import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
+  static final RegExp _httpSchemeRegExp = RegExp('^https?:');
+
   /// 路由传参
   late final Map args;
   late String bvid;
@@ -815,17 +817,16 @@ class VideoDetailController extends GetxController
 
   VideoItem findVideoByQa(int qa, {bool setCodecs = false}) {
     /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
-    final videoList = data.dash!.video!.where((i) => i.id == qa).toList();
-
     final currentCodes = currentDecodeFormats.codes;
+    VideoItem? firstVideo;
     VideoItem? bestVideo;
-    int bestIndex = preferCodecs.length;
-    for (final video in videoList) {
+    var bestIndex = preferCodecs.length;
+    for (final video in data.dash!.video!) {
+      if (video.id != qa) continue;
+      firstVideo ??= video;
       final c = video.codecs!;
-      if (currentCodes.any(c.startsWith)) {
-        return video;
-      }
-      for (int i = 0; i < bestIndex; i++) {
+      if (currentCodes.any(c.startsWith)) return video;
+      for (var i = 0; i < bestIndex; i++) {
         if (preferCodecs[i].codes.any(c.startsWith)) {
           bestIndex = i;
           bestVideo = video;
@@ -834,17 +835,13 @@ class VideoDetailController extends GetxController
       }
     }
 
+    final fallback = firstVideo!;
     if (setCodecs) {
-      if (bestIndex < preferCodecs.length) {
-        currentDecodeFormats = preferCodecs[bestIndex];
-      } else {
-        currentDecodeFormats = VideoDecodeFormatType.fromString(
-          videoList.first.codecs!,
-        );
-      }
+      currentDecodeFormats = bestIndex < preferCodecs.length
+          ? preferCodecs[bestIndex]
+          : VideoDecodeFormatType.fromString(fallback.codecs!);
     }
-
-    return bestVideo ?? videoList.first;
+    return bestVideo ?? fallback;
   }
 
   String get _cdnPlaybackKey => '$bvid:${cid.value}';
@@ -1143,33 +1140,42 @@ class VideoDetailController extends GetxController
           .codecs!,
       preferCodecs,
     );
-    final videos = videoList
-        .where((video) => video.quality.code == targetVideoQa)
-        .toList();
-    firstVideo = videos.firstWhere(
-      (video) => currentDecodeFormats.codes.any(video.codecs!.startsWith),
-      orElse: () => videos.first,
-    );
+    VideoItem? fallbackVideo;
+    VideoItem? preferredVideo;
+    final currentCodes = currentDecodeFormats.codes;
+    for (final video in videoList) {
+      if (video.quality.code != targetVideoQa) continue;
+      fallbackVideo ??= video;
+      if (currentCodes.any(video.codecs!.startsWith)) {
+        preferredVideo = video;
+        break;
+      }
+    }
+    firstVideo = preferredVideo ?? fallbackVideo!;
     _setVideoHeight();
     videoUrl = _getCdnUrl(firstVideo.playUrls);
 
     final audioList = data.dash?.audio;
     if (audioList != null && audioList.isNotEmpty) {
-      final audioIds = audioList.map((audio) => audio.id!).toList();
-      var closestNumber = audioIds.findClosestTarget(
-        (quality) => quality <= plPlayerController.cacheAudioQa,
-        (a, b) => a > b ? a : b,
-      );
-      if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
-          audioIds.any(
-            (quality) => quality > plPlayerController.cacheAudioQa,
-          )) {
-        closestNumber = AudioQuality.k192.code;
+      final cacheAudioQa = plPlayerController.cacheAudioQa;
+      AudioItem? exactAudio;
+      AudioItem? highestEligibleAudio;
+      AudioItem? audio192;
+      var hasHigherAudio = false;
+      for (final audio in audioList) {
+        final id = audio.id!;
+        if (id == cacheAudioQa) exactAudio = audio;
+        if (id > cacheAudioQa) hasHigherAudio = true;
+        if (id <= cacheAudioQa &&
+            (highestEligibleAudio == null || id > highestEligibleAudio.id!)) {
+          highestEligibleAudio = audio;
+        }
+        if (id == AudioQuality.k192.code) audio192 = audio;
       }
-      final firstAudio = audioList.firstWhere(
-        (audio) => audio.id == closestNumber,
-        orElse: () => audioList.first,
-      );
+      final firstAudio =
+          exactAudio ??
+          (hasHigherAudio ? audio192 : highestEligibleAudio) ??
+          audioList.first;
       audioUrl = _getCdnUrl(firstAudio.playUrls, isAudio: true);
       if (firstAudio.id case final int id?) {
         currentAudioQa = AudioQuality.fromCode(id);

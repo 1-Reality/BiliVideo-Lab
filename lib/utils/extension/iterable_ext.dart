@@ -34,7 +34,18 @@ extension ListExt<T> on List<T> {
     bool Function(T) test,
     T Function(T, T) combine,
   ) {
-    return where(test).reduceOrNull(combine) ?? reduce(combine);
+    final iterator = this.iterator;
+    iterator.moveNext();
+    var fallback = iterator.current;
+    T? matched = test(fallback) ? fallback : null;
+    while (iterator.moveNext()) {
+      final current = iterator.current;
+      fallback = combine(fallback, current);
+      if (test(current)) {
+        matched = matched == null ? current : combine(matched, current);
+      }
+    }
+    return matched ?? fallback;
   }
 
   /// from [algorithms.lowerBoundBy].
