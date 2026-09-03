@@ -581,8 +581,9 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
     final heat = item.hotSongHeat?.songHeat;
     if (heat == null || heat.isEmpty) return null;
     final colorScheme = theme.colorScheme;
-    int maxHeat = heat.first.heat;
-    int minHeat = heat.first.heat;
+    final firstHeat = heat.first.heat;
+    int maxHeat = firstHeat;
+    int minHeat = firstHeat;
     for (int i = 1; i < heat.length; i++) {
       final h = heat[i].heat;
       if (h > maxHeat) maxHeat = h;
