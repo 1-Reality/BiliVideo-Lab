@@ -1826,7 +1826,8 @@ class PlPlayerController with BlockConfigMixin {
 
     switch (type) {
       case .playing:
-        if (progress - _heartDuration >= 5) {
+        if (progress > _heartDuration &&
+            (progress & ~7) != (_heartDuration & ~7)) {
           _heartDuration = progress;
           return send();
         }

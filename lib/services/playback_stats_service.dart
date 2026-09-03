@@ -79,6 +79,7 @@ abstract final class PlaybackStatsService {
   static int _pendingRewindMediaAdvanceUs = 0;
   static int _pendingNormalPlaybackUs = 0;
   static int _pendingNormalMediaAdvanceUs = 0;
+  static int _pendingCommentPanelUs = 0;
   static String _pendingPlaybackSpeed = '1';
   static int? _pendingPositionUs;
   static double _rate = 1;
@@ -475,11 +476,21 @@ abstract final class PlaybackStatsService {
     final delta = now - _commentPanelLastWallUs;
     final elapsed = delta > 0 ? delta : 0;
     if (_appForeground && _active && !_live && _videoCommentPanelVisible) {
-      _add('commentPanelForegroundUs', elapsed);
-      _addVideoUp('commentPanelForegroundUs', elapsed);
-      _addDimension('commentPanelForegroundUs', elapsed);
+      _pendingCommentPanelUs += elapsed;
+      if (_pendingCommentPanelUs >= _playbackPendingFlushUs) {
+        _flushCommentPanelPending();
+      }
     }
     _commentPanelLastWallUs = now;
+  }
+
+  static void _flushCommentPanelPending() {
+    final elapsed = _pendingCommentPanelUs;
+    if (elapsed == 0) return;
+    _pendingCommentPanelUs = 0;
+    _add('commentPanelForegroundUs', elapsed);
+    _addVideoUp('commentPanelForegroundUs', elapsed);
+    _addDimension('commentPanelForegroundUs', elapsed);
   }
 
   static void setVideoCommentPanelVisible(bool visible) {
@@ -487,6 +498,7 @@ abstract final class PlaybackStatsService {
     if (_videoCommentPanelVisible == visible) return;
     final now = _clock.elapsedMicroseconds;
     _settleCommentPanel(now);
+    _flushCommentPanelPending();
     _videoCommentPanelVisible = visible;
     _commentPanelLastWallUs = now;
   }
@@ -880,6 +892,7 @@ abstract final class PlaybackStatsService {
   }
 
   static void _flushPlaybackPending() {
+    _flushCommentPanelPending();
     final activePlaybackUs = _pendingActivePlaybackUs;
     final mediaAdvanceUs = _pendingMediaAdvanceUs;
     final nominalMediaUs = _pendingNominalMediaUs;

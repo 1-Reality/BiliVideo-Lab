@@ -314,19 +314,21 @@ abstract final class ConnectivityUtils {
         final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
-        final carrierName = isAndroid
-            ? PiliAndroidHelper.networkOperator()
+        final checkCellularQuality =
+            _cellularQualityMode != 0 && _cellularQualityMatches.isNotEmpty;
+        final carrierName = checkCellularQuality
+            ? await PiliAndroidHelper.networkOperator()
             : null;
-        final subscription = isAndroid
-            ? PiliAndroidHelper.subscriptionInfo()
-            : null;
-        final flattened = _flattenCellularDetails(subscription);
-        final configured = _cellularQualityMatches;
-        final matched = configured.isNotEmpty &&
-            configured.any(flattened.matchValues.contains);
+        final flattened = checkCellularQuality
+            ? _flattenCellularDetails(
+                await PiliAndroidHelper.subscriptionInfo(),
+              )
+            : (details: const <String>[], matchValues: const <String>{});
+        final matched = checkCellularQuality &&
+            _cellularQualityMatches.any(flattened.matchValues.contains);
 
         bool useCellularPreferences = true;
-        if (_cellularQualityMode != 0 && matched) {
+        if (matched) {
           final downstream = android?.downstreamKbps;
           final dbm = android?.cellularDbm;
           final level = android?.signalLevel;

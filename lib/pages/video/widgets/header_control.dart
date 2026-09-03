@@ -103,17 +103,28 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   }
 
   void startClock() {
-    if (!_showCurrTime) return;
-    if (_clock == null) {
-      now.value = _format.format(DateTime.now());
-      _clock ??= Timer.periodic(const Duration(seconds: 1), (Timer t) {
-        if (!mounted) {
-          stopClock();
-          return;
-        }
-        now.value = _format.format(DateTime.now());
-      });
+    if (!_showCurrTime || _clock != null) return;
+
+    void tick() {
+      if (!mounted || !_showCurrTime) {
+        stopClock();
+        return;
+      }
+      final time = DateTime.now();
+      now.value = _format.format(time);
+      _clock = Timer(
+        Duration(
+          microseconds:
+              60000000 -
+              time.second * 1000000 -
+              time.millisecond * 1000 -
+              time.microsecond,
+        ),
+        tick,
+      );
     }
+
+    tick();
   }
 
   void stopClock() {
