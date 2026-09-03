@@ -246,15 +246,15 @@ abstract class MarqueeRender extends RenderBox
 
   void paintCenter(PaintingContext context, Offset offset) {
     if (_direction == Axis.horizontal) {
-      context.paintChild(child!, Offset(offset.dx - _distance / 2, offset.dy));
+      context.paintChild(child!, Offset(offset.dx - _distance * 0.5, offset.dy));
     } else {
-      context.paintChild(child!, Offset(offset.dx, offset.dy - _distance / 2));
+      context.paintChild(child!, Offset(offset.dx, offset.dy - _distance * 0.5));
     }
   }
 
   void _onTick(Duration elapsed) {
     delta = _simulation!.x(
-      elapsed.inMicroseconds.toDouble() / Duration.microsecondsPerSecond,
+      elapsed.inMicroseconds.toDouble() * 0.000001,
     );
   }
 
@@ -270,6 +270,22 @@ class _BounceMarqueeRender extends MarqueeRender {
     required super.provider,
   });
 
+  PaintingContext? _paintingContext;
+  Offset _paintingOffset = .zero;
+  late final VoidCallback _paintChild = _paintCurrentChild;
+
+  void _paintCurrentChild() {
+    final context = _paintingContext;
+    if (context == null) return;
+    final offset = _paintingOffset;
+    final delta = _spacing * 0.5 - _delta;
+    if (_direction == Axis.horizontal) {
+      context.paintChild(child!, Offset(offset.dx + delta, offset.dy));
+    } else {
+      context.paintChild(child!, Offset(offset.dx, offset.dy + delta));
+    }
+  }
+
   @override
   void updateSize() {
     final size = _distance + _spacing;
@@ -282,21 +298,16 @@ class _BounceMarqueeRender extends MarqueeRender {
     if (child == null) return;
 
     if (_distance > 0) {
-      final delta = _spacing / 2.0 - _delta;
-      void paintChild() {
-        if (_direction == Axis.horizontal) {
-          context.paintChild(child!, Offset(offset.dx + delta, offset.dy));
-        } else {
-          context.paintChild(child!, Offset(offset.dx, offset.dy + delta));
-        }
-      }
+      _paintingContext = context;
+      _paintingOffset = offset;
 
       if (clipBehavior == Clip.none) {
-        paintChild();
+        _paintChild();
       } else {
         final rect = Rect.fromLTRB(0, 0, size.width, size.height);
-        context.clipRectAndPaint(rect, clipBehavior, rect, paintChild);
+        context.clipRectAndPaint(rect, clipBehavior, rect, _paintChild);
       }
+      _paintingContext = null;
     } else {
       context.paintChild(child!, offset);
     }
@@ -311,6 +322,37 @@ class _NormalMarqueeRender extends MarqueeRender {
     required super.spacing,
     required super.provider,
   });
+
+  PaintingContext? _paintingContext;
+  Offset _paintingOffset = .zero;
+  late final VoidCallback _paintChild = _paintCurrentChild;
+
+  void _paintCurrentChild() {
+    final context = _paintingContext;
+    if (context == null) return;
+    final child = this.child;
+    if (child == null) return;
+    final offset = _paintingOffset;
+    if (_direction == Axis.horizontal) {
+      final dx = _delta;
+      context.paintChild(child, Offset(offset.dx - dx, offset.dy));
+      if (dx > _distance) {
+        context.paintChild(
+          child,
+          Offset(offset.dx + _simulation!.size - dx, offset.dy),
+        );
+      }
+    } else {
+      final dy = _delta;
+      context.paintChild(child, Offset(offset.dx, offset.dy - dy));
+      if (dy > _distance) {
+        context.paintChild(
+          child,
+          Offset(offset.dx, offset.dy + _simulation!.size - dy),
+        );
+      }
+    }
+  }
 
   @override
   void updateSize() {
@@ -329,34 +371,16 @@ class _NormalMarqueeRender extends MarqueeRender {
     if (child == null) return;
 
     if (_distance > 0) {
-      void paintChild() {
-        if (_direction == Axis.horizontal) {
-          final dx = _delta;
-          context.paintChild(child, Offset(offset.dx - dx, offset.dy));
-          if (dx > _distance) {
-            context.paintChild(
-              child,
-              Offset(offset.dx + _simulation!.size - dx, offset.dy),
-            );
-          }
-        } else {
-          final dy = _delta;
-          context.paintChild(child, Offset(offset.dx, offset.dy - dy));
-          if (dy > _distance) {
-            context.paintChild(
-              child,
-              Offset(offset.dx, offset.dy + _simulation!.size - dy),
-            );
-          }
-        }
-      }
+      _paintingContext = context;
+      _paintingOffset = offset;
 
       if (clipBehavior == Clip.none) {
-        paintChild();
+        _paintChild();
       } else {
         final rect = Rect.fromLTRB(0, 0, size.width, size.height);
-        context.clipRectAndPaint(rect, clipBehavior, rect, paintChild);
+        context.clipRectAndPaint(rect, clipBehavior, rect, _paintChild);
       }
+      _paintingContext = null;
     } else {
       context.paintChild(child, offset);
     }

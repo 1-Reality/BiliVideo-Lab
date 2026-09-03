@@ -501,6 +501,22 @@ class _MemberPageState extends State<MemberPage>
           ),
         if (_userController.account.isLogin)
           if (_userController.mid == _userController.account.mid) ...[
+            PopupMenuItem(
+              onTap: () => Get.toNamed(
+                '/webview',
+                parameters: {
+                  'url': 'https://member.bilibili.com/platform/home',
+                },
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.create_outlined, size: 19),
+                  SizedBox(width: 10),
+                  Text('创作中心'),
+                ],
+              ),
+            ),
             if ((_userController
                         .loadingState
                         .value

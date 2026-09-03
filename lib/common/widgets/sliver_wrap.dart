@@ -257,9 +257,10 @@ class RenderSliverFixedWrap extends RenderSliverMultiBoxAdaptor {
       }
     }
 
-    final endOffset = _rows.last.endIndex == childCount - 1
+    final lastRow = _rows.last;
+    final endOffset = lastRow.endIndex == childCount - 1
         ? (_rows.length * rowHeight)
-        : (_rows.last.startIndex + 1) * rowHeight;
+        : (lastRow.startIndex + 1) * rowHeight;
 
     final double estimatedMaxScrollOffset;
     if (_rows.length <= lastNeededRow || childCount == 0) {

@@ -114,12 +114,17 @@ class _SliverFloatingHeaderWidget extends SingleChildRenderObjectWidget {
 class RenderSliverFloatingHeader extends RenderSliverSingleBoxAdapter {
   RenderSliverFloatingHeader({
     required this._backgroundColor,
-  });
+  }) {
+    _backgroundPaint.color = _backgroundColor;
+  }
+
+  final _backgroundPaint = Paint();
 
   Color _backgroundColor;
   set backgroundColor(Color value) {
     if (_backgroundColor == value) return;
     _backgroundColor = value;
+    _backgroundPaint.color = value;
     markNeedsPaint();
   }
 
@@ -214,7 +219,7 @@ class RenderSliverFloatingHeader extends RenderSliverSingleBoxAdapter {
           size.width,
           size.height + 2,
         ),
-        Paint()..color = _backgroundColor,
+        _backgroundPaint,
       );
       context.paintChild(child!, offset);
     }

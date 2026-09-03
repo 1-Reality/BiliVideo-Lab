@@ -395,6 +395,12 @@ abstract final class Pref {
     defaultValue: false,
   );
 
+  static int get webviewUaType =>
+      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
+
+  static String get webviewUaCustom =>
+      _setting.get(SettingBoxKey.webviewUaCustom, defaultValue: '');
+
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
@@ -1017,7 +1023,8 @@ abstract final class Pref {
     return {
       'cache': 'yes',
       'cache-secs': bufSec.toStringAsFixed(3),
-      'demuxer-hysteresis-secs': (bufSec / 1.5).toStringAsFixed(3),
+      'demuxer-hysteresis-secs':
+          (bufSec * 0.6666666666666666).toStringAsFixed(3),
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };

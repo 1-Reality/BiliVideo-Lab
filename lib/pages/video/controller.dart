@@ -75,7 +75,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show Options;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -85,6 +85,8 @@ import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
+  static final RegExp _httpSchemeRegExp = RegExp('^https?:');
+
   /// 路由传参
   late final Map args;
   late String bvid;
@@ -107,7 +109,7 @@ class VideoDetailController extends GetxController
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
-  late bool _mediaDesc = false;
+  bool _mediaDesc = false;
   late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
   late String watchLaterTitle;
 
@@ -271,72 +273,6 @@ class VideoDetailController extends GetxController
 
   bool get showRelatedVideo =>
       !isFileSource && plPlayerController.showRelatedVideo;
-
-  int? get videoUpUid {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.mid;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.mid : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? get videoUpName {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.uname;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.name : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  int? get videoPartitionId {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.type;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.tid : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? get videoPartitionName {
-    try {
-      if (!isUgc) {
-        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
-        return 'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}';
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.tname : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String get videoCopyright {
-    if (!isUgc) return 'licensed';
-    try {
-      final value = Get.find<UgcIntroController>(tag: heroTag)
-          .videoDetail
-          .value
-          .copyright;
-      return switch (value) {
-        1 => 'original',
-        2 => 'repost',
-        _ => 'unknown',
-      };
-    } catch (_) {
-      return 'unknown';
-    }
-  }
 
   ScrollController? introScrollCtr;
   ScrollController get effectiveIntroScrollCtr =>
@@ -577,6 +513,11 @@ class VideoDetailController extends GetxController
     if (!isReverse && count != null && mediaList.length >= count) {
       return;
     }
+    final edge = mediaList.isEmpty
+        ? null
+        : isLoadPrevious
+        ? mediaList.first
+        : mediaList.last;
     final res = await UserHttp.getMediaList(
       type: args['mediaType'] ?? sourceType.mediaType,
       bizId: args['mediaId'] ?? -1,
@@ -584,20 +525,9 @@ class VideoDetailController extends GetxController
       direction: isLoadPrevious,
       oid: isReverse
           ? null
-          : mediaList.isEmpty
-          ? args['isContinuePlaying'] == true
-                ? args['oid']
-                : null
-          : isLoadPrevious
-          ? mediaList.first.aid
-          : mediaList.last.aid,
-      otype: isReverse
-          ? null
-          : mediaList.isEmpty
-          ? null
-          : isLoadPrevious
-          ? mediaList.first.type
-          : mediaList.last.type,
+          : edge?.aid ??
+                (args['isContinuePlaying'] == true ? args['oid'] : null),
+      otype: isReverse ? null : edge?.type,
       desc: _mediaDesc,
       sortField: args['sortField'] ?? 1,
       withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true,
@@ -707,6 +637,12 @@ class VideoDetailController extends GetxController
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
   Player? get player => plPlayerController.videoPlayerController;
+  @override
+  void addBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.addPositionListener(listener);
+  @override
+  void removeBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.removePositionListener(listener);
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
@@ -821,17 +757,16 @@ class VideoDetailController extends GetxController
 
   VideoItem findVideoByQa(int qa, {bool setCodecs = false}) {
     /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
-    final videoList = data.dash!.video!.where((i) => i.id == qa).toList();
-
     final currentCodes = currentDecodeFormats.codes;
+    VideoItem? firstVideo;
     VideoItem? bestVideo;
-    int bestIndex = preferCodecs.length;
-    for (final video in videoList) {
+    var bestIndex = preferCodecs.length;
+    for (final video in data.dash!.video!) {
+      if (video.id != qa) continue;
+      firstVideo ??= video;
       final c = video.codecs!;
-      if (currentCodes.any(c.startsWith)) {
-        return video;
-      }
-      for (int i = 0; i < bestIndex; i++) {
+      if (currentCodes.any(c.startsWith)) return video;
+      for (var i = 0; i < bestIndex; i++) {
         if (preferCodecs[i].codes.any(c.startsWith)) {
           bestIndex = i;
           bestVideo = video;
@@ -840,17 +775,13 @@ class VideoDetailController extends GetxController
       }
     }
 
+    final fallback = firstVideo!;
     if (setCodecs) {
-      if (bestIndex < preferCodecs.length) {
-        currentDecodeFormats = preferCodecs[bestIndex];
-      } else {
-        currentDecodeFormats = VideoDecodeFormatType.fromString(
-          videoList.first.codecs!,
-        );
-      }
+      currentDecodeFormats = bestIndex < preferCodecs.length
+          ? preferCodecs[bestIndex]
+          : VideoDecodeFormatType.fromString(fallback.codecs!);
     }
-
-    return bestVideo ?? videoList.first;
+    return bestVideo ?? fallback;
   }
 
   String get _cdnPlaybackKey => '$bvid:${cid.value}';
@@ -889,11 +820,9 @@ class VideoDetailController extends GetxController
     }
     _manualCdn = null;
     _manualCdnPlaybackKey = null;
-    _cdnPriority = List.of(
-      profile.useCellularPreferences
-          ? Pref.defaultCDNServicesCellular
-          : Pref.defaultCDNServices,
-    );
+    _cdnPriority = profile.useCellularPreferences
+        ? Pref.defaultCDNServicesCellular
+        : Pref.defaultCDNServices;
     _cdnIndex = 0;
   }
 
@@ -1003,6 +932,51 @@ class VideoDetailController extends GetxController
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
+
+    ({
+      int? uid,
+      String? name,
+      int? partitionId,
+      String? partitionName,
+      String copyright,
+    }) statsContext;
+    try {
+      if (isUgc) {
+        final detail =
+            Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+        final matches = detail.bvid == bvid;
+        statsContext = (
+          uid: matches ? detail.owner?.mid : null,
+          name: matches ? detail.owner?.name : null,
+          partitionId: matches ? detail.tid : null,
+          partitionName: matches ? detail.tname : null,
+          copyright: switch (detail.copyright) {
+            1 => 'original',
+            2 => 'repost',
+            _ => 'unknown',
+          },
+        );
+      } else {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        statsContext = (
+          uid: item.upInfo?.mid,
+          name: item.upInfo?.uname,
+          partitionId: item.type,
+          partitionName:
+              'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}',
+          copyright: 'licensed',
+        );
+      }
+    } catch (_) {
+      statsContext = (
+        uid: null,
+        name: null,
+        partitionId: null,
+        partitionName: null,
+        copyright: isUgc ? 'unknown' : 'licensed',
+      );
+    }
+
     await plPlayerController.setDataSource(
       isFileSource
           ? FileSource(
@@ -1028,11 +1002,11 @@ class VideoDetailController extends GetxController
       seasonId: isUgc ? null : seasonId,
       pgcType: isUgc ? null : pgcType,
       videoType: videoType,
-      videoUpUid: videoUpUid,
-      videoUpName: videoUpName,
-      partitionId: videoPartitionId,
-      partitionName: videoPartitionName,
-      copyright: videoCopyright,
+      videoUpUid: statsContext.uid,
+      videoUpName: statsContext.name,
+      partitionId: statsContext.partitionId,
+      partitionName: statsContext.partitionName,
+      copyright: statsContext.copyright,
       codec: isFileSource ? null : currentDecodeFormats.name,
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {
@@ -1149,33 +1123,42 @@ class VideoDetailController extends GetxController
           .codecs!,
       preferCodecs,
     );
-    final videos = videoList
-        .where((video) => video.quality.code == targetVideoQa)
-        .toList();
-    firstVideo = videos.firstWhere(
-      (video) => currentDecodeFormats.codes.any(video.codecs!.startsWith),
-      orElse: () => videos.first,
-    );
+    VideoItem? fallbackVideo;
+    VideoItem? preferredVideo;
+    final currentCodes = currentDecodeFormats.codes;
+    for (final video in videoList) {
+      if (video.quality.code != targetVideoQa) continue;
+      fallbackVideo ??= video;
+      if (currentCodes.any(video.codecs!.startsWith)) {
+        preferredVideo = video;
+        break;
+      }
+    }
+    firstVideo = preferredVideo ?? fallbackVideo!;
     _setVideoHeight();
     videoUrl = _getCdnUrl(firstVideo.playUrls);
 
     final audioList = data.dash?.audio;
     if (audioList != null && audioList.isNotEmpty) {
-      final audioIds = audioList.map((audio) => audio.id!).toList();
-      var closestNumber = audioIds.findClosestTarget(
-        (quality) => quality <= plPlayerController.cacheAudioQa,
-        (a, b) => a > b ? a : b,
-      );
-      if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
-          audioIds.any(
-            (quality) => quality > plPlayerController.cacheAudioQa,
-          )) {
-        closestNumber = AudioQuality.k192.code;
+      final cacheAudioQa = plPlayerController.cacheAudioQa;
+      AudioItem? exactAudio;
+      AudioItem? highestEligibleAudio;
+      AudioItem? audio192;
+      var hasHigherAudio = false;
+      for (final audio in audioList) {
+        final id = audio.id!;
+        if (id == cacheAudioQa) exactAudio = audio;
+        if (id > cacheAudioQa) hasHigherAudio = true;
+        if (id <= cacheAudioQa &&
+            (highestEligibleAudio == null || id > highestEligibleAudio.id!)) {
+          highestEligibleAudio = audio;
+        }
+        if (id == AudioQuality.k192.code) audio192 = audio;
       }
-      final firstAudio = audioList.firstWhere(
-        (audio) => audio.id == closestNumber,
-        orElse: () => audioList.first,
-      );
+      final firstAudio =
+          exactAudio ??
+          (hasHigherAudio ? audio192 : highestEligibleAudio) ??
+          audioList.first;
       audioUrl = _getCdnUrl(firstAudio.playUrls, isAudio: true);
       if (firstAudio.id case final int id?) {
         currentAudioQa = AudioQuality.fromCode(id);
@@ -1220,8 +1203,7 @@ class VideoDetailController extends GetxController
       if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
         querySponsorBlock(bvid: bvid, cid: cid.value);
       }
-      await _syncNetworkProfile();
-
+      final networkProfileFuture = _syncNetworkProfile();
       final result = await VideoHttp.videoUrl(
         cid: cid.value,
         bvid: bvid,
@@ -1232,6 +1214,7 @@ class VideoDetailController extends GetxController
         language: currLang.value,
         voiceBalance: plPlayerController.enableAudioNormalization,
       );
+      await networkProfileFuture;
 
       if (result case Success(:final response)) {
         data = response;
@@ -1459,39 +1442,42 @@ class VideoDetailController extends GetxController
     );
     if (res case Success(:final response)) {
       // interactive video
-      late final introCtr = Get.find<UgcIntroController>(tag: heroTag);
-      if (isUgc && graphVersion == null) {
-        try {
-          if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
-            graphVersion = response.interaction?.graphVersion;
-            getSteinEdgeInfo();
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('handle stein: $e');
-        }
-      }
-
-      if (isUgc && continuePlayingPart) {
-        continuePlayingPart = false;
-        final lastCid = response.lastPlayCid;
-        if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+      if (isUgc && (graphVersion == null || continuePlayingPart)) {
+        final introCtr = Get.find<UgcIntroController>(tag: heroTag);
+        if (graphVersion == null) {
           try {
-            final pages = introCtr.videoDetail.value.pages;
-            if (pages != null && pages.length > 1) {
-              final index = pages.indexWhere((item) => item.cid == lastCid);
-              if (index != -1) {
-                onAddItem(index);
-              }
+            if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
+              graphVersion = response.interaction?.graphVersion;
+              getSteinEdgeInfo();
             }
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('handle stein: $e');
+          }
+        }
+
+        if (continuePlayingPart) {
+          continuePlayingPart = false;
+          final lastCid = response.lastPlayCid;
+          if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+            try {
+              final pages = introCtr.videoDetail.value.pages;
+              if (pages != null && pages.length > 1) {
+                final index = pages.indexWhere((item) => item.cid == lastCid);
+                if (index != -1) {
+                  onAddItem(index);
+                }
+              }
+            } catch (_) {}
+          }
         }
       }
 
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
+          final timeScale = 1000 / data.timeLength!;
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! * 1000 / data.timeLength!).clamp(0.0, 1.0);
+            final end = (item.to! * timeScale).clamp(0.0, 1.0);
             return ViewPointSegment(
               end: end,
               title: item.content,
@@ -1517,7 +1503,7 @@ class VideoDetailController extends GetxController
                       lan: i.lan,
                       lanDoc: i.lanDoc,
                       subtitleUrl: i.subtitleUrl.replaceFirst(
-                        RegExp('^https?:'),
+                        _httpSchemeRegExp,
                         '',
                       ),
                       isAi: i.type == .AI,

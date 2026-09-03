@@ -29,7 +29,11 @@ class RenderSimpleColoredBox extends RenderProxyBox {
   RenderSimpleColoredBox({
     required this._color,
     required this._isAntiAlias,
-  });
+  }) : _paint = Paint()
+      ..color = _color
+      ..isAntiAlias = _isAntiAlias;
+
+  final Paint _paint;
 
   Color get color => _color;
   Color _color;
@@ -38,6 +42,7 @@ class RenderSimpleColoredBox extends RenderProxyBox {
       return;
     }
     _color = value;
+    _paint.color = value;
     markNeedsPaint();
   }
 
@@ -48,6 +53,7 @@ class RenderSimpleColoredBox extends RenderProxyBox {
       return;
     }
     _isAntiAlias = value;
+    _paint.isAntiAlias = value;
     markNeedsPaint();
   }
 
@@ -56,9 +62,7 @@ class RenderSimpleColoredBox extends RenderProxyBox {
     if (size > Size.zero) {
       context.canvas.drawRect(
         offset & size,
-        Paint()
-          ..isAntiAlias = isAntiAlias
-          ..color = color,
+        _paint,
       );
     }
     if (child != null) {

@@ -44,20 +44,18 @@ class ImageModel {
     required num? height,
     required this.url,
     this.liveUrl,
-  }) {
-    this.width = width == null || width == 0 ? 1 : width;
-    this.height = height == null || height == 0 ? 1 : height;
-  }
+  }) : width = width == null || width == 0 ? 1 : width,
+       height = height == null || height == 0 ? 1 : height;
 
-  late num width;
-  late num height;
+  final num width;
+  final num height;
   String url;
   String? liveUrl;
   bool? _isLongPic;
   bool? _isLivePhoto;
 
   bool get isLongPic =>
-      _isLongPic ??= (height / width) > Style.imgMaxRatio && width > 100;
+      _isLongPic ??= width > 100 && height > width * Style.imgMaxRatio;
   bool get isLivePhoto =>
       _isLivePhoto ??= enableLivePhoto && liveUrl?.isNotEmpty == true;
 
@@ -130,8 +128,9 @@ class ImageGridView extends StatelessWidget {
     final bool hasUp = index - col >= 0;
     final bool hasDown = index + col < length;
 
-    final bool isRowStart = index % col == 0;
-    final bool isRowEnd = index % col == col - 1 || index == length - 1;
+    final column = index % col;
+    final bool isRowStart = column == 0;
+    final bool isRowEnd = column == col - 1 || index == length - 1;
 
     return BorderRadius.only(
       topLeft: !hasUp && isRowStart ? r : Radius.zero,

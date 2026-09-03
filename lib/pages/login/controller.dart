@@ -466,7 +466,7 @@ class LoginPageController extends GetxController
       return;
     }
     if (DateTime.now().millisecondsSinceEpoch - smsSendTimestamp >
-        1000 * 60 * 5) {
+        300000) {
       SmartDialog.showToast('验证码已过期，请重新获取');
       return;
     }

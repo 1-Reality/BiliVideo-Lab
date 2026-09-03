@@ -27,12 +27,13 @@ abstract final class DanmakuOptions {
     required bool notFullscreen,
     double speed = 1.0,
   }) {
+    final speedScale = 1 / speed;
     return DanmakuOption(
       fontSize: 15 * (notFullscreen ? danmakuFontScale : danmakuFontScaleFS),
       fontWeight: danmakuFontWeight,
       area: danmakuShowArea,
-      duration: danmakuDuration / speed,
-      staticDuration: danmakuStaticDuration / speed,
+      duration: danmakuDuration * speedScale,
+      staticDuration: danmakuStaticDuration * speedScale,
       hideBottom: blockTypes.contains(4),
       hideScroll: blockTypes.contains(2),
       hideTop: blockTypes.contains(5),

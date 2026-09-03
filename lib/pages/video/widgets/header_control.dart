@@ -65,14 +65,16 @@ import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
 import 'package:media_kit/media_kit.dart' show NativePlayer;
+
+final RegExp _windowsInvalidFilenameRegExp = RegExp(r'[<>:/\\|?*"]');
 
 mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   PlPlayerController get plPlayerController;
@@ -92,7 +94,14 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   Timer? _clock;
   RxString now = ''.obs;
 
-  static final _format = DateFormat('HH:mm');
+  static const _twoDigits = [
+    '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
+    '10', '11', '12', '13', '14', '15', '16', '17', '18', '19',
+    '20', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+    '30', '31', '32', '33', '34', '35', '36', '37', '38', '39',
+    '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',
+    '50', '51', '52', '53', '54', '55', '56', '57', '58', '59',
+  ];
 
   @override
   void dispose() {
@@ -101,17 +110,26 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   }
 
   void startClock() {
-    if (!_showCurrTime) return;
-    if (_clock == null) {
-      now.value = _format.format(DateTime.now());
-      _clock ??= Timer.periodic(const Duration(seconds: 1), (Timer t) {
-        if (!mounted) {
-          stopClock();
-          return;
-        }
-        now.value = _format.format(DateTime.now());
-      });
+    if (!_showCurrTime || _clock != null) return;
+
+    void tick() {
+      if (!mounted || !_showCurrTime) {
+        stopClock();
+        return;
+      }
+      final time = DateTime.now();
+      now.value =
+          '${_twoDigits[time.hour]}:${_twoDigits[time.minute]}:${_twoDigits[time.second]}';
+      _clock = Timer(
+        Duration(
+          microseconds:
+              1000000 - time.millisecond * 1000 - time.microsecond,
+        ),
+        tick,
+      );
     }
+
+    tick();
   }
 
   void stopClock() {
@@ -121,10 +139,29 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
 
   bool _showCurrTime = false;
   void showCurrTimeIfNeeded(bool isFullScreen) {
-    _showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
-    if (!_showCurrTime) {
+    final showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
+    if (_showCurrTime == showCurrTime) return;
+    _showCurrTime = showCurrTime;
+    if (!showCurrTime) {
       stopClock();
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_showCurrTime) return;
+      updateTimeBatteryVisibility(
+        plPlayerController.showControls.value &&
+            !plPlayerController.controlsLock.value,
+      );
+    });
+  }
+
+  void updateTimeBatteryVisibility(bool visible) {
+    if (!visible) {
+      stopClock();
+      return;
+    }
+    getBatteryLevelIfNeeded();
+    startClock();
   }
 
   late final _battery = Battery();
@@ -1255,7 +1292,7 @@ class HeaderControlState extends State<HeaderControl>
                   final name =
                       '${videoDetail.title}-${videoDetail.owner?.name}(${videoDetail.owner?.mid})-${videoDetailCtr.bvid}-${videoDetailCtr.cid.value}-${item.lanDoc}.${format.name}'
                           .replaceAll(
-                            Platform.isWindows ? RegExp(r'[<>:/\\|?*"]') : '/',
+                            Platform.isWindows ? _windowsInvalidFilenameRegExp : '/',
                             '_',
                           );
                   // Reserved characters may not be used in file names. See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions

@@ -92,6 +92,34 @@ class ReplyItemGrpc extends StatelessWidget {
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
+  static final _avBvRegExp = RegExp(r'^(av|bv)', caseSensitive: false);
+  static final _cvidRegExp = RegExp(
+    r'^cv(\d+)$|/read/cv(\d+)|note-app/view\?cvid=(\d+)',
+    caseSensitive: false,
+  );
+  static final _baseMessageRegExp = RegExp(
+    '${_timeRegExp.pattern}|${_voteRegExp.pattern}|${Constants.urlRegex.pattern}',
+  );
+  static final _messagePatternCache = Expando<RegExp>();
+
+  static bool _needsBaseMessageParsing(String message) {
+    for (var i = 0; i < message.length; i++) {
+      switch (message.codeUnitAt(i)) {
+        case 0x3A:
+        case 0xFF1A:
+        case 0x7B:
+          return true;
+        case 0x68 when i + 3 < message.length:
+          if (message.codeUnitAt(i + 1) == 0x74 &&
+              message.codeUnitAt(i + 2) == 0x74 &&
+              message.codeUnitAt(i + 3) == 0x70) {
+            return true;
+          }
+      }
+    }
+    return false;
+  }
+
   static bool enableWordRe = Pref.enableWordRe;
   static int? replyLengthLimit = Pref.replyLengthLimit;
 
@@ -325,7 +353,9 @@ class ReplyItemGrpc extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, ColorScheme colorScheme) {
     final replyControl = replyItem.replyControl;
-    final padding = EdgeInsets.only(left: replyLevel == 0 ? 6 : 45, right: 6);
+    final padding = replyLevel == 0
+        ? const EdgeInsets.only(left: 6, right: 6)
+        : const EdgeInsets.only(left: 45, right: 6);
     return Column(
       mainAxisSize: .min,
       crossAxisAlignment: .start,
@@ -717,26 +747,44 @@ class ReplyItemGrpc extends StatelessWidget {
     Content content,
     ReplyControl replyControl,
   ) {
+    final message = content.message;
+    final noMappedTokens =
+        content.emotes.isEmpty &&
+        content.topics.isEmpty &&
+        content.atNameToMid.isEmpty &&
+        content.urls.isEmpty;
+    if (noMappedTokens && !_needsBaseMessageParsing(message)) {
+      return TextSpan(text: message);
+    }
+
     final List<InlineSpan> spanChildren = <InlineSpan>[];
     bool hasNote = false;
 
-    final urlKeys = content.urls.keys;
-    // 构建正则表达式
-    final List<String> specialTokens = [
-      ...content.emotes.keys,
-      ...content.topics.keys.map((e) => '#$e#'),
-      ...content.atNameToMid.keys.map((e) => '@$e'),
-      ...urlKeys,
-    ];
-    String patternStr = [
-      ...specialTokens.map(RegExp.escape),
-      r'(?:\d+[:：])?\d+[:：]\d+',
-      r'\{vote:\d+?\}',
-      Constants.urlRegex.pattern,
-    ].join('|');
-    final RegExp pattern = RegExp(patternStr);
+    final pattern = noMappedTokens
+        ? _baseMessageRegExp
+        : _messagePatternCache[content] ??= (() {
+            final buffer = StringBuffer();
+            var first = true;
+            void addToken(String token) {
+              if (first) {
+                first = false;
+              } else {
+                buffer.write('|');
+              }
+              buffer.write(RegExp.escape(token));
+            }
 
-    late List<String> matchedUrls = [];
+            for (final token in content.emotes.keys) addToken(token);
+            for (final token in content.topics.keys) addToken('#$token#');
+            for (final token in content.atNameToMid.keys) addToken('@$token');
+            for (final token in content.urls.keys) addToken(token);
+            if (!first) buffer.write('|');
+            buffer.write(_baseMessageRegExp.pattern);
+            return RegExp(buffer.toString());
+          })();
+
+    late final primaryStyle = TextStyle(color: colorScheme.primary);
+    late final matchedUrls = <String>{};
 
     void addPlainTextSpan(str) {
       spanChildren.add(TextSpan(text: str));
@@ -766,21 +814,15 @@ class ReplyItemGrpc extends StatelessWidget {
           ),
         TextSpan(
           text: isCv ? '[笔记] ' : url.title,
-          style: TextStyle(color: colorScheme.primary),
+          style: primaryStyle,
           recognizer: NoDeadlineTapGestureRecognizer()
             ..onTap = () {
               if (url.appUrlSchema.isEmpty) {
-                if (RegExp(
-                  r'^(av|bv)',
-                  caseSensitive: false,
-                ).hasMatch(matchStr)) {
+                if (_avBvRegExp.hasMatch(matchStr)) {
                   UrlUtils.matchUrlPush(matchStr, '');
                 } else {
-                  RegExpMatch? match = RegExp(
-                    r'^cv(\d+)$|/read/cv(\d+)|note-app/view\?cvid=(\d+)',
-                    caseSensitive: false,
-                  ).firstMatch(matchStr);
-                  String? cvid =
+                  final match = _cvidRegExp.firstMatch(matchStr);
+                  final cvid =
                       match?.group(1) ?? match?.group(2) ?? match?.group(3);
                   if (cvid != null) {
                     Get.toNamed(
@@ -815,15 +857,17 @@ class ReplyItemGrpc extends StatelessWidget {
     }
 
     // 分割文本并处理每个部分
-    content.message.splitMapJoin(
+    message.splitMapJoin(
       pattern,
       onMatch: (Match match) {
         String matchStr = match[0]!;
+        final firstCode = matchStr.codeUnitAt(0);
         late final name = matchStr.substring(1);
         late final topic = matchStr.substring(1, matchStr.length - 1);
-        if (content.emotes.containsKey(matchStr)) {
+        late final atMid = content.atNameToMid[name];
+        final emote = content.emotes[matchStr];
+        if (emote != null) {
           // 处理表情
-          final emote = content.emotes[matchStr]!;
           final size = emote.size.toInt() * 20.0;
           spanChildren.add(
             WidgetSpan(
@@ -839,29 +883,29 @@ class ReplyItemGrpc extends StatelessWidget {
               ),
             ),
           );
-        } else if (matchStr.startsWith("@") &&
-            content.atNameToMid.containsKey(name)) {
+        } else if (firstCode == 0x40 && atMid != null) {
           // 处理@用户
           spanChildren.add(
             TextSpan(
               text: matchStr,
-              style: TextStyle(color: colorScheme.primary),
+              style: primaryStyle,
               recognizer: NoDeadlineTapGestureRecognizer()
-                ..onTap = () =>
-                    Get.toNamed('/member?mid=${content.atNameToMid[name]}'),
+                ..onTap = () => Get.toNamed('/member?mid=$atMid'),
             ),
           );
-        } else if (_voteRegExp.hasMatch(matchStr)) {
+        } else if (firstCode == 0x7B && _voteRegExp.hasMatch(matchStr)) {
           spanChildren.add(
             TextSpan(
               text: '投票: ${content.vote.title}',
-              style: TextStyle(color: colorScheme.primary),
+              style: primaryStyle,
               recognizer: NoDeadlineTapGestureRecognizer()
                 ..onTap = () =>
                     showVoteDialog(context, content.vote.id.toInt()),
             ),
           );
-        } else if (_timeRegExp.hasMatch(matchStr)) {
+        } else if (firstCode >= 0x30 &&
+            firstCode <= 0x39 &&
+            _timeRegExp.hasMatch(matchStr)) {
           matchStr = matchStr.replaceAll('：', ':');
           bool isValid = false;
           try {
@@ -877,7 +921,7 @@ class ReplyItemGrpc extends StatelessWidget {
           spanChildren.add(
             TextSpan(
               text: isValid ? ' $matchStr ' : matchStr,
-              style: isValid ? TextStyle(color: colorScheme.primary) : null,
+              style: isValid ? primaryStyle : null,
               recognizer: isValid
                   ? (NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
@@ -901,15 +945,13 @@ class ReplyItemGrpc extends StatelessWidget {
           );
         } else {
           final url = content.urls[matchStr];
-          if (url != null && !matchedUrls.contains(matchStr)) {
+          if (url != null && matchedUrls.add(matchStr)) {
             addUrl(matchStr, url, addPlainText: true);
-            // 只显示一次
-            matchedUrls.add(matchStr);
           } else if (matchStr.length > 1 && content.topics[topic] != null) {
             spanChildren.add(
               TextSpan(
                 text: matchStr,
-                style: TextStyle(color: colorScheme.primary),
+                style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
                   ..onTap = () {
                     Get.toNamed(
@@ -923,7 +965,7 @@ class ReplyItemGrpc extends StatelessWidget {
             spanChildren.add(
               TextSpan(
                 text: matchStr,
-                style: TextStyle(color: colorScheme.primary),
+                style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
                   ..onTap = () => PageUtils.handleWebview(matchStr),
               ),

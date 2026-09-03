@@ -12,6 +12,27 @@ abstract final class ConnectivityUtils {
   static final _changes = StreamController<NetworkPolicyChange>.broadcast(
     sync: true,
   );
+  static final _connectivity = Connectivity();
+  static final _sampleClock = Stopwatch()..start();
+  static final _profileReuseTicks = _sampleClock.frequency << 3;
+  static int _lastSampleTicks = -0x7FFFFFFFFFFFFFFF;
+
+  static bool _wiredNetworkPolicy = false;
+  static int _wiredMinLinkSpeed = 1000;
+  static bool _wiredNonstandardLinkSpeed = false;
+  static bool _wifiNetworkPolicy = false;
+  static int _wifiNetworkPolicyMode = 0;
+  static int _wifiRssiThreshold = -70;
+  static int _wifiMinLinkSpeed = 100;
+  static int _cellularQualityMode = 0;
+  static int _cellularQualityJudgeMode = 3;
+  static int _cellularDownstreamThresholdMbps = 100;
+  static int _cellularDbmThreshold = -105;
+  static int _cellularSignalLevelThreshold = 3;
+  static Set<String> _cellularQualityMatches = const {};
+  static List<Map<String, dynamic>> _networkPeakPeriods = const [];
+  static List<VideoDecodeFormatType> _networkPeakCodecs = const [];
+
   static Stream<NetworkPolicyChange> get changes => _changes.stream;
 
   // App-lifetime observer; ConnectivityUtils lives for the whole process.
@@ -27,10 +48,12 @@ abstract final class ConnectivityUtils {
 
   static Future<void> initialize() async {
     if (_subscription != null) return;
+    _refreshPolicyCache();
     _current = await _sample();
+    _lastSampleTicks = _sampleClock.elapsedTicks;
     _peakActive = isNetworkPeak(_current!);
     _schedulePeakBoundary();
-    _subscription = Connectivity().onConnectivityChanged.skip(1).listen((_) {
+    _subscription = _connectivity.onConnectivityChanged.skip(1).listen((_) {
       _networkDebounce?.cancel();
       _networkDebounce = Timer(const Duration(milliseconds: 800), () {
         _bufferingWeak = false;
@@ -40,7 +63,15 @@ abstract final class ConnectivityUtils {
   }
 
   static Future<NetworkProfile> resolveForPlayback() async {
-    if (_subscription == null) await initialize();
+    if (_subscription == null) {
+      await initialize();
+      return _current!;
+    }
+    final current = _current;
+    if (current != null &&
+        _sampleClock.elapsedTicks - _lastSampleTicks < _profileReuseTicks) {
+      return current;
+    }
     return _refresh();
   }
 
@@ -51,6 +82,7 @@ abstract final class ConnectivityUtils {
     bool forcePeakRefresh = false,
   }) async {
     final next = await _sample();
+    _lastSampleTicks = _sampleClock.elapsedTicks;
     final previous = _current;
     final peak = isNetworkPeak(next);
     final peakChanged = peak != _peakActive;
@@ -66,15 +98,47 @@ abstract final class ConnectivityUtils {
   }
 
   static Future<void> notifySettingsChanged() async {
-    if (_subscription == null) await initialize();
+    _refreshPolicyCache();
+    if (_subscription == null) {
+      await initialize();
+      return;
+    }
     await _refresh(forcePeakRefresh: true);
+  }
+
+  static void _refreshPolicyCache() {
+    _wiredNetworkPolicy = Pref.wiredNetworkPolicy;
+    _wiredMinLinkSpeed = Pref.wiredMinLinkSpeed;
+    _wiredNonstandardLinkSpeed = Pref.wiredNonstandardLinkSpeed;
+    _wifiNetworkPolicy = Pref.wifiNetworkPolicy;
+    _wifiNetworkPolicyMode = Pref.wifiNetworkPolicyMode;
+    _wifiRssiThreshold = Pref.wifiRssiThreshold;
+    _wifiMinLinkSpeed = Pref.wifiMinLinkSpeed;
+    _cellularQualityMode = Pref.cellularQualityMode;
+    _cellularQualityJudgeMode = Pref.cellularQualityJudgeMode;
+    _cellularDownstreamThresholdMbps = Pref.cellularDownstreamThresholdMbps;
+    _cellularDbmThreshold = Pref.cellularDbmThreshold;
+    _cellularSignalLevelThreshold = Pref.cellularSignalLevelThreshold;
+    _networkPeakPeriods = Pref.networkPeakPeriods;
+    _networkPeakCodecs = Pref.networkPeakCodecs;
+    final cellularMatch = Pref.cellularQualityMatch;
+    if (cellularMatch.isEmpty) {
+      _cellularQualityMatches = const {};
+    } else {
+      final values = <String>{};
+      for (final item in cellularMatch.split(',')) {
+        final value = item.trim();
+        if (value.isNotEmpty) values.add(value);
+      }
+      _cellularQualityMatches = values;
+    }
   }
 
   static void markCurrentWifiWeak() {
     if (!Platform.isAndroid ||
         _current?.transport != NetworkTransport.wifi ||
-        !Pref.wifiNetworkPolicy ||
-        Pref.wifiRssiThreshold != 0 ||
+        !_wifiNetworkPolicy ||
+        _wifiRssiThreshold != 0 ||
         _bufferingWeak) {
       return;
     }
@@ -82,19 +146,15 @@ abstract final class ConnectivityUtils {
     _refresh();
   }
 
-  static List<VideoDecodeFormatType> effectiveCodecs(
-    List<VideoDecodeFormatType> base,
-    NetworkProfile profile,
-  ) {
-    if (!isNetworkPeak(profile)) return List.of(base);
-    final peak = Pref.networkPeakCodecs;
+  static List<VideoDecodeFormatType> effectiveCodecs() {
+    final peak = _networkPeakCodecs;
     return List.of(peak.isEmpty ? Pref.preferCodecsCellular : peak);
   }
 
   static bool isNetworkPeak(NetworkProfile profile, [DateTime? now]) {
     final time = now ?? DateTime.now();
     final currentMinute = time.hour * 60 + time.minute;
-    for (final period in Pref.networkPeakPeriods) {
+    for (final period in _networkPeakPeriods) {
       if (period['enabled'] != true) continue;
       final start = period['start'] as int?;
       final end = period['end'] as int?;
@@ -116,7 +176,7 @@ abstract final class ConnectivityUtils {
     _peakTimer?.cancel();
     final now = DateTime.now();
     DateTime? next;
-    for (final period in Pref.networkPeakPeriods) {
+    for (final period in _networkPeakPeriods) {
       if (period['enabled'] != true) continue;
       for (final value in [period['start'], period['end']]) {
         if (value is! int) continue;
@@ -156,7 +216,7 @@ abstract final class ConnectivityUtils {
 
   static Future<NetworkProfile> _sample() async {
     try {
-      final connectivity = await Connectivity().checkConnectivity();
+      final connectivity = await _connectivity.checkConnectivity();
       if (connectivity.length == 1 &&
           connectivity.single == ConnectivityResult.none) {
         return _current ?? _fallback;
@@ -164,11 +224,13 @@ abstract final class ConnectivityUtils {
 
       final hasWifi = connectivity.contains(ConnectivityResult.wifi);
       final hasEthernet = connectivity.contains(ConnectivityResult.ethernet);
-      final windows = Platform.isWindows
+      final isWindows = Platform.isWindows;
+      final isAndroid = Platform.isAndroid;
+      final windows = isWindows
           ? WindowsNetworkInfoReader.read()
           : null;
       var wiredActive = hasEthernet && !hasWifi;
-      if (Platform.isWindows && hasEthernet && hasWifi) {
+      if (isWindows && hasEthernet && hasWifi) {
         final wired = windows?.wired;
         final wifi = windows?.wifi;
         wiredActive = wired != null &&
@@ -177,7 +239,7 @@ abstract final class ConnectivityUtils {
 
       if (hasWifi && !wiredActive) {
         final windowsLink = windows?.wifi;
-        final android = Platform.isAndroid
+        final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
         final rssi = windows?.rssi ?? android?.rssi;
@@ -186,14 +248,14 @@ abstract final class ConnectivityUtils {
         final metered = android?.metered ?? false;
         final weakHint = _bufferingWeak || (android?.weakHint ?? false);
 
-        final signalWeak = Platform.isAndroid && Pref.wifiRssiThreshold == 0
+        final signalWeak = isAndroid && _wifiRssiThreshold == 0
             ? (signalLevel != null && signalLevel < 3) || weakHint
-            : rssi != null && rssi < Pref.wifiRssiThreshold;
+            : rssi != null && rssi < _wifiRssiThreshold;
         final speedWeak =
-            linkSpeed != null && linkSpeed < Pref.wifiMinLinkSpeed;
+            linkSpeed != null && linkSpeed < _wifiMinLinkSpeed;
         final wifiWeak =
-            Pref.wifiNetworkPolicy &&
-            switch (Pref.wifiNetworkPolicyMode) {
+            _wifiNetworkPolicy &&
+            switch (_wifiNetworkPolicyMode) {
               0 => signalWeak,
               1 => speedWeak,
               2 => signalWeak && speedWeak,
@@ -231,10 +293,10 @@ abstract final class ConnectivityUtils {
         final speed = windowsLink?.minimumSpeedMbps;
         final isNonstandard = speed != null && !_isStandardWiredSpeed(speed);
         final wiredWeak =
-            Pref.wiredNetworkPolicy &&
+            _wiredNetworkPolicy &&
             speed != null &&
-            (speed < Pref.wiredMinLinkSpeed ||
-                Pref.wiredNonstandardLinkSpeed && isNonstandard);
+            (speed < _wiredMinLinkSpeed ||
+                _wiredNonstandardLinkSpeed && isNonstandard);
         return NetworkProfile(
           transport: NetworkTransport.wired,
           useCellularPreferences: wiredWeak,
@@ -249,46 +311,44 @@ abstract final class ConnectivityUtils {
       }
 
       if (connectivity.contains(ConnectivityResult.mobile)) {
-        final android = Platform.isAndroid
+        final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
-        final carrierName = Platform.isAndroid
-            ? PiliAndroidHelper.networkOperator()
+        final checkCellularQuality =
+            _cellularQualityMode != 0 && _cellularQualityMatches.isNotEmpty;
+        final carrierName = checkCellularQuality
+            ? await PiliAndroidHelper.networkOperator()
             : null;
-        final subscription = Platform.isAndroid
-            ? PiliAndroidHelper.subscriptionInfo()
-            : null;
-        final flattened = _flattenCellularDetails(subscription);
-        final configured = Pref.cellularQualityMatch
-            .split(',')
-            .map((item) => item.trim())
-            .where((item) => item.isNotEmpty)
-            .toSet();
-        final matched = configured.isNotEmpty &&
-            configured.any(flattened.matchValues.contains);
+        final flattened = checkCellularQuality
+            ? _flattenCellularDetails(
+                await PiliAndroidHelper.subscriptionInfo(),
+              )
+            : (details: const <String>[], matchValues: const <String>{});
+        final matched = checkCellularQuality &&
+            _cellularQualityMatches.any(flattened.matchValues.contains);
 
         bool useCellularPreferences = true;
-        if (Pref.cellularQualityMode != 0 && matched) {
+        if (matched) {
           final downstream = android?.downstreamKbps;
           final dbm = android?.cellularDbm;
           final level = android?.signalLevel;
           final speedWeak = downstream == null
               ? null
-              : downstream < Pref.cellularDownstreamThresholdMbps * 1000;
+              : downstream < _cellularDownstreamThresholdMbps * 1000;
           final speedGood = downstream == null
               ? null
-              : downstream > Pref.cellularDownstreamThresholdMbps * 1000;
+              : downstream > _cellularDownstreamThresholdMbps * 1000;
           final signalWeak = dbm != null
-              ? dbm < Pref.cellularDbmThreshold
+              ? dbm < _cellularDbmThreshold
               : level == null
               ? null
-              : level < Pref.cellularSignalLevelThreshold;
+              : level < _cellularSignalLevelThreshold;
           final signalGood = dbm != null
-              ? dbm > Pref.cellularDbmThreshold
+              ? dbm > _cellularDbmThreshold
               : level == null
               ? null
-              : level > Pref.cellularSignalLevelThreshold;
-          if (Pref.cellularQualityMode == 1) {
+              : level > _cellularSignalLevelThreshold;
+          if (_cellularQualityMode == 1) {
             // 默认按宽带；满足“弱”条件才降为蜂窝策略。
             useCellularPreferences = _matchesCellularQuality(
               signalWeak,
@@ -332,7 +392,7 @@ abstract final class ConnectivityUtils {
   }
 
   static bool _matchesCellularQuality(bool? signal, bool? speed) =>
-      switch (Pref.cellularQualityJudgeMode) {
+      switch (_cellularQualityJudgeMode) {
         0 => signal == true,
         1 => speed == true,
         2 => signal == true && speed == true,

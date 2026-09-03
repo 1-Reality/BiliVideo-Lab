@@ -81,10 +81,10 @@ extension on ListTileTitleAlignment {
       // to the top.
       ListTileTitleAlignment.titleHeight =>
         isLeading
-            ? math.min((tileHeight - childHeight) / 2.0, 16.0)
-            : (tileHeight - childHeight) / 2.0,
+            ? math.min((tileHeight - childHeight) * 0.5, 16.0)
+            : (tileHeight - childHeight) * 0.5,
       ListTileTitleAlignment.top => listTile.minVerticalPadding,
-      ListTileTitleAlignment.center => (tileHeight - childHeight) / 2.0,
+      ListTileTitleAlignment.center => (tileHeight - childHeight) * 0.5,
       ListTileTitleAlignment.bottom =>
         tileHeight - childHeight - listTile.minVerticalPadding,
     };
@@ -1699,7 +1699,7 @@ class _RenderListTile extends RenderBox
         _targetTileHeight,
         titleHeight + 2.0 * _minVerticalPadding,
       );
-      titleY = (tileHeight - titleHeight) / 2.0;
+      titleY = (tileHeight - titleHeight) * 0.5;
     } else {
       final double subtitleHeight = getSize(subtitle, textConstraints).height;
       final double titleBaseline =
@@ -1718,7 +1718,7 @@ class _RenderListTile extends RenderBox
       // Prevent the title and the subtitle from overlapping by moving them away from
       // each other by the same distance.
       final double halfOverlap =
-          math.max(targetTitleY + titleHeight - targetSubtitleY, 0) / 2;
+          math.max(targetTitleY + titleHeight - targetSubtitleY, 0) * 0.5;
       final double idealTitleY = targetTitleY - halfOverlap;
       final double idealSubtitleY = targetSubtitleY + halfOverlap;
       // However if either component can't maintain the minimal padding from the top/bottom edges, the ListTile enters "compat mode".
@@ -1828,17 +1828,20 @@ class _RenderListTile extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox? child) {
-      if (child != null) {
-        final BoxParentData parentData = child.parentData! as BoxParentData;
-        context.paintChild(child, parentData.offset + offset);
-      }
-    }
+    _paintChild(context, leading, offset);
+    _paintChild(context, title, offset);
+    _paintChild(context, subtitle, offset);
+    _paintChild(context, trailing, offset);
+  }
 
-    doPaint(leading);
-    doPaint(title);
-    doPaint(subtitle);
-    doPaint(trailing);
+  void _paintChild(
+    PaintingContext context,
+    RenderBox? child,
+    Offset offset,
+  ) {
+    if (child == null) return;
+    final parentData = child.parentData! as BoxParentData;
+    context.paintChild(child, parentData.offset + offset);
   }
 
   @override

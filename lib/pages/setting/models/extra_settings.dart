@@ -238,6 +238,16 @@ List<SettingsModel> get extraSettings => [
     defaultVal: false,
   ),
   NormalModel(
+    title: 'WebView User-Agent',
+    leading: const Icon(Icons.language_outlined),
+    getSubtitle: () => switch (Pref.webviewUaType) {
+      1 => 'BiliApp',
+      2 => '自定义',
+      _ => '浏览器',
+    },
+    onTap: _showWebviewUaDialog,
+  ),
+  NormalModel(
     title: '横向滑动阈值',
     getSubtitle: () => '当前:「${Pref.touchSlopH}」，系统默认值: $deviceTouchSlop',
     onTap: _showTouchSlopDialog,
@@ -1122,6 +1132,66 @@ Future<void> _showDefDynDialog(
     );
     setState();
   }
+}
+
+Future<void> _showWebviewUaDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final type = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: 'WebView User-Agent',
+      value: Pref.webviewUaType,
+      values: const [
+        (0, '浏览器'),
+        (1, 'BiliApp'),
+        (2, '自定义'),
+      ],
+    ),
+  );
+  if (type == null) return;
+
+  if (type != 2) {
+    await GStorage.setting.put(SettingBoxKey.webviewUaType, type);
+    setState();
+    return;
+  }
+
+  var custom = Pref.webviewUaCustom;
+  final value = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('自定义 User-Agent'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: custom,
+        minLines: 1,
+        maxLines: 4,
+        onChanged: (value) => custom = value,
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(custom.trim()),
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+  if (value == null || value.isEmpty) return;
+
+  await Future.wait([
+    GStorage.setting.put(SettingBoxKey.webviewUaCustom, value),
+    GStorage.setting.put(SettingBoxKey.webviewUaType, type),
+  ]);
+  setState();
 }
 
 Future<void> _showMemberTabDialog(

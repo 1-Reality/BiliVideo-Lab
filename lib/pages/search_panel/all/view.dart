@@ -69,7 +69,7 @@ class _SearchAllPanelState
                     )
                   : SizedBox(
                       height:
-                          Grid.smallCardWidth / 2 / 0.75 +
+                          Grid.smallCardWidth * 0.6666666666666666 +
                           MediaQuery.textScalerOf(context).scale(60),
                       child: ListView.builder(
                         padding: const EdgeInsets.only(bottom: 7),
@@ -78,7 +78,7 @@ class _SearchAllPanelState
                         itemCount: e.length,
                         itemBuilder: (context, index) {
                           return Container(
-                            width: Grid.smallCardWidth / 2,
+                            width: Grid.smallCardWidth * 0.5,
                             margin: EdgeInsets.only(
                               left: Style.safeSpace,
                               right: index == e.length - 1

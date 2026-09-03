@@ -71,15 +71,18 @@ class Viewer extends StatefulWidget {
 
 class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   static const double _scaleFactor = kDefaultMouseScrollToScaleFactor;
+  static const double _inverseScaleFactor = 1 / _scaleFactor;
 
   _GestureType? _gestureType;
 
   final Matrix4 _matrix = Matrix4.identity();
 
   late double __scale;
+  late double _inverseScale;
   double get _scale => __scale;
   set _scale(double value) {
     __scale = value;
+    _inverseScale = 1 / value;
     _matrix[0] = _matrix[5] = _matrix[10] = value;
   }
 
@@ -111,7 +114,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
   void _listener() {
     final t = Curves.easeOut.transform(_animationController.value);
-    _scale = t.lerp(_scaleFrom, _scaleTo);
+    _scale = _scaleFrom + (_scaleTo - _scaleFrom) * t;
     _position = Offset.lerp(_positionFrom, _positionTo, t)!;
     setState(() {});
   }
@@ -133,8 +136,8 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       final containerHeight = widget.containerSize.height;
       final imageHeight = _imageSize.height * _scale;
       _position = Offset(
-        (1 - _scale) * containerWidth / 2,
-        (imageHeight - _scale * containerHeight) / 2,
+        (1 - _scale) * containerWidth * 0.5,
+        (imageHeight - _scale * containerHeight) * 0.5,
       );
     }
   }
@@ -180,7 +183,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   Offset _toScene(Offset localFocalPoint) {
-    return (localFocalPoint - _position) / _scale;
+    return (localFocalPoint - _position) * _inverseScale;
   }
 
   Offset _clampPosition(Offset offset, double scale) {
@@ -188,10 +191,10 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     final imageWidth = _imageSize.width * scale;
     final imageHeight = _imageSize.height * scale;
 
-    final center = containerSize * (1 - scale) / 2;
+    final center = containerSize * (1 - scale) * 0.5;
 
-    final dxOffset = (imageWidth - containerSize.width) / 2;
-    final dyOffset = (imageHeight - containerSize.height) / 2;
+    final dxOffset = (imageWidth - containerSize.width) * 0.5;
+    final dyOffset = (imageHeight - containerSize.height) * 0.5;
 
     return Offset(
       imageWidth > containerSize.width
@@ -248,7 +251,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       endScale = widget.minScale;
     }
     final position = _clampPosition(
-      Offset.lerp(_downPos!, _position, endScale / _scale)!,
+      Offset.lerp(_downPos!, _position, endScale * _inverseScale)!,
       endScale,
     );
 
@@ -278,7 +281,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
           final bool drag;
           if (details.focalPoint.dy > _scalePos!.dy) {
             drag = _position.dy.equals(
-              (imageHeight - _scale * containerHeight) / 2,
+              (imageHeight - _scale * containerHeight) * 0.5,
               1e-6,
             );
           } else {
@@ -365,7 +368,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     );
 
     _flingDirection = velocityMagnitude > 0
-        ? velocity.pixelsPerSecond / velocityMagnitude
+        ? velocity.pixelsPerSecond * (1 / velocityMagnitude)
         : Offset.zero;
 
     _flingStartTime = null;
@@ -380,19 +383,21 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   void _handleFlingFrame(Duration timeStamp) {
-    if (_flingSimulation == null) return;
+    final simulation = _flingSimulation;
+    if (simulation == null) return;
 
     _flingStartTime ??= timeStamp;
     final double elapsedSeconds =
-        (timeStamp - _flingStartTime!).inMicroseconds / 1e6;
+        (timeStamp - _flingStartTime!).inMicroseconds * 0.000001;
 
-    final double distance = _flingSimulation!.x(elapsedSeconds);
-    final double prevDistance = _flingSimulation!.x(_lastFlingElapsedSeconds);
+    final double distance = simulation.x(elapsedSeconds);
+    final double prevDistance = simulation.x(_lastFlingElapsedSeconds);
     final double delta = distance - prevDistance;
     _lastFlingElapsedSeconds = elapsedSeconds;
+    final done = simulation.isDone(elapsedSeconds);
 
     if ((prevDistance != 0.0 && delta.abs() < 0.1) ||
-        _flingSimulation!.isDone(elapsedSeconds)) {
+        done) {
       _stopFling();
       return;
     }
@@ -401,7 +406,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     _position = _clampPosition(_position + movement, _scale);
     setState(() {});
 
-    if (_flingSimulation!.isDone(elapsedSeconds)) {
+    if (done) {
       _stopFling();
     } else {
       _scheduleFlingFrame();
@@ -431,29 +436,6 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         }
 
       case _GestureType.scale:
-        // if (details.scaleVelocity.abs() < 0.1) {
-        //   return;
-        // }
-        // final double scale = _scale;
-        // final FrictionSimulation frictionSimulation = FrictionSimulation(
-        //   _interactionEndFrictionCoefficient * _scaleFactor,
-        //   scale,
-        //   details.scaleVelocity / 10,
-        // );
-        // final double tFinal = _getFinalTime(
-        //   details.scaleVelocity.abs(),
-        //   _interactionEndFrictionCoefficient,
-        //   effectivelyMotionless: 0.1,
-        // );
-        // _scaleAnimation = _scaleController.drive(
-        //   Tween<double>(
-        //     begin: scale,
-        //     end: frictionSimulation.x(tFinal),
-        //   ).chain(CurveTween(curve: Curves.decelerate)),
-        // )..addListener(_handleScaleAnimation);
-        // _animationController
-        //   ..duration = Duration(milliseconds: (tFinal * 1000).round())
-        //   ..forward(from: 0);
         break;
       case _GestureType.drag:
         widget.onDragEnd?.call(details);
@@ -507,8 +489,8 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       _horizontalDragGestureRecognizer.setAtBothEdges();
       return true;
     }
-    final dx = (1 - _scale) * containerWidth / 2;
-    final dxOffset = (imageWidth - containerWidth) / 2;
+    final dx = (1 - _scale) * containerWidth * 0.5;
+    final dxOffset = (imageWidth - containerWidth) * 0.5;
     if (_position.dx.equals(dx + dxOffset, 1e-6)) {
       _horizontalDragGestureRecognizer.isAtLeftEdge = true;
       return true;
@@ -528,7 +510,9 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         return;
       }
       _stopFling();
-      final double scaleChange = math.exp(-event.scrollDelta.dy / _scaleFactor);
+      final double scaleChange = math.exp(
+        -event.scrollDelta.dy * _inverseScaleFactor,
+      );
       final Offset local = event.localPosition;
       final Offset focalPointScene = _toScene(local);
       _scale = clampDouble(

@@ -920,7 +920,7 @@ class RichTextEditingController extends TextEditingController {
       if (endOffset <= range.start) {
         break;
       }
-      late final cal = range.start + range.end;
+      final cal = range.start + range.end;
       if (startOffset > range.start && startOffset < range.end) {
         if (e.isRich) {
           if (startOffset * 2 > cal) {

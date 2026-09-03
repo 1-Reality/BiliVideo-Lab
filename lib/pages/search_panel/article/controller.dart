@@ -10,6 +10,11 @@ import 'package:get/get.dart';
 
 class SearchArticleController
     extends SearchPanelController<SearchArticleData, SearchArticleItemModel> {
+  static final _articleIdRegExp = RegExp(
+    r'^cv(id)?(\d+)',
+    caseSensitive: false,
+  );
+
   SearchArticleController({
     required super.keyword,
     required super.searchType,
@@ -24,10 +29,8 @@ class SearchArticleController
   }
 
   void jump2Article() {
-    String? cvid = RegExp(
-      r'^cv(id)?(\d+)$',
-      caseSensitive: false,
-    ).matchAsPrefix(keyword)?.group(2);
+    final match = _articleIdRegExp.matchAsPrefix(keyword);
+    final cvid = match?.end == keyword.length ? match?.group(2) : null;
     if (cvid != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Get.toNamed(

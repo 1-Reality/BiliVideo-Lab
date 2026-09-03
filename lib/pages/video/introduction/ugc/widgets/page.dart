@@ -74,7 +74,7 @@ class _PagesPanelState extends State<PagesPanel> {
 
   double get targetOffset {
     const double itemWidth = 150;
-    return max(0, pageIndex * itemWidth - itemWidth / 2);
+    return max(0, pageIndex * itemWidth - itemWidth * 0.5);
   }
 
   void jumpToCurr() {

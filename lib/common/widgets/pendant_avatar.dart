@@ -24,7 +24,7 @@ class PendantAvatar extends StatelessWidget {
     this.liveFontSize,
     this.onTap,
   }) : preferredSize = size,
-       badgeSize = badgeSize ?? size / 3,
+       badgeSize = badgeSize ?? size * 0.3333333333333333,
        badgeType = officialType == null || officialType < 0
            ? vipStatus != null && vipStatus > 0
                  ? .vip
@@ -58,7 +58,7 @@ class PendantAvatar extends StatelessWidget {
       final pendantSize = size * 1.75;
       pendant = Positioned(
         // -(size * 1.75 - size) / 2
-        top: -0.375 * size + pendentOffset / 2,
+        top: -0.375 * size + pendentOffset * 0.5,
         child: IgnorePointer(
           child: NetworkImgLayer(
             type: .emote,

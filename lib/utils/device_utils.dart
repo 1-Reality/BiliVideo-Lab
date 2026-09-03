@@ -11,7 +11,7 @@ abstract final class DeviceUtils {
 
   static Size get size {
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
-    return view.physicalSize / view.devicePixelRatio;
+    return view.physicalSize * (1 / view.devicePixelRatio);
   }
 
   static String get platformName => PlatformUtils.isDesktop

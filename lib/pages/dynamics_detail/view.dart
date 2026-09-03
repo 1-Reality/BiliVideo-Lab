@@ -421,7 +421,7 @@ class _DynamicDetailPageState
   }
 
   Widget _buildHorizontal(double padding) {
-    padding = padding / 4;
+    padding *= 0.25;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
     final child = Row(
@@ -467,7 +467,7 @@ class _DynamicDetailPageState
   }
 
   Widget _buildBody() {
-    double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+    double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
     Widget child;
     if (isPortrait) {
       child = _buildPortrait(padding);

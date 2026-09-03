@@ -313,8 +313,10 @@ class DownloadService extends GetxService {
         if (!isUpdate) {
           _updateCurStatus(DownloadStatus.getDanmaku);
         }
-        final seg = (entry.totalTimeMilli / PlDanmakuController.segmentLength)
-            .ceil();
+        final seg = (entry.totalTimeMilli +
+                PlDanmakuController.segmentLength -
+                1) ~/
+            PlDanmakuController.segmentLength;
 
         final res = await Future.wait([
           for (var i = 1; i <= seg; i++)
@@ -405,8 +407,9 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
+          final first = mediaFileInfo.video.first;
           _downloadManager = DownloadManager(
-            url: mediaFileInfo.video.first.baseUrl,
+            url: first.baseUrl,
             path: path.join(videoDir.path, PathUtils.videoNameType2),
             onReceiveProgress: _onReceive,
             onDone: _onDone,
@@ -420,7 +423,6 @@ class DownloadService extends GetxService {
               onDone: _onAudioDone,
             );
           }
-          late final first = mediaFileInfo.video.first;
           entry.pageData
             ?..width = first.width
             ..height = first.height;

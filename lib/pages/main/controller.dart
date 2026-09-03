@@ -44,17 +44,17 @@ class MainController extends GetxController
   late DynamicBadgeMode dynamicBadgeMode;
   late bool checkDynamic = Pref.checkDynamic;
   late int dynamicPeriod = Pref.dynamicPeriod;
-  late int _lastCheckDynamicAt = 0;
-  late bool hasDyn = false;
+  int _lastCheckDynamicAt = 0;
+  bool hasDyn = false;
   late final dynamicController = Get.putOrFind(DynamicsController.new);
 
-  late bool hasHome = false;
+  bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
 
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
   late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
   late final RxString msgUnReadCount = ''.obs;
-  late int lastCheckUnreadAt = 0;
+  int lastCheckUnreadAt = 0;
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
@@ -66,7 +66,7 @@ class MainController extends GetxController
   late bool showTrayIcon = Pref.showTrayIcon;
   late bool minimizeOnExit = Pref.minimizeOnExit;
   late bool pauseOnMinimize = Pref.pauseOnMinimize;
-  late bool isPlaying = false;
+  bool isPlaying = false;
 
   static const _period = 300000;
   late int _lastSelectTime = 0;
@@ -100,13 +100,13 @@ class MainController extends GetxController
     }
 
     dynamicBadgeMode = Pref.dynamicBadgeMode;
+    late final now = DateTime.now().millisecondsSinceEpoch;
 
     hasDyn = navigationBars.contains(NavigationBarType.dynamics);
     if (dynamicBadgeMode != DynamicBadgeMode.hidden) {
       if (hasDyn && navigationBars[selectedIndex.value] != .dynamics) {
         if (checkDynamic) {
-          _lastCheckDynamicAt =
-              DateTime.now().millisecondsSinceEpoch + dynamicPeriod;
+          _lastCheckDynamicAt = now + dynamicPeriod;
         }
         getUnreadDynamic();
       }
@@ -115,7 +115,7 @@ class MainController extends GetxController
     hasHome = navigationBars.contains(NavigationBarType.home);
     if (msgBadgeMode != DynamicBadgeMode.hidden) {
       if (hasHome) {
-        lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
+        lastCheckUnreadAt = now;
         queryUnreadMsg();
       }
     }
@@ -123,8 +123,7 @@ class MainController extends GetxController
 
   Future<int> _msgUnread() async {
     if (msgUnReadTypes.contains(MsgUnReadType.pm)) {
-      final res = await MsgHttp.msgUnread();
-      if (res case Success(:final response)) {
+      if (await MsgHttp.msgUnread() case Success(:final response)) {
         return response.followUnread +
             response.unfollowUnread +
             response.bizMsgFollowUnread +
@@ -138,28 +137,16 @@ class MainController extends GetxController
 
   Future<int> _msgFeedUnread() async {
     int count = 0;
-    final remainTypes = Set<MsgUnReadType>.from(msgUnReadTypes)
-      ..remove(MsgUnReadType.pm);
-    if (remainTypes.isNotEmpty) {
-      final res = await MsgHttp.msgFeedUnread();
-      if (res case Success(:final response)) {
-        for (final item in remainTypes) {
-          switch (item) {
-            case MsgUnReadType.pm:
-              break;
-            case MsgUnReadType.reply:
-              count += response.reply;
-              break;
-            case MsgUnReadType.at:
-              count += response.at;
-              break;
-            case MsgUnReadType.like:
-              count += response.like;
-              break;
-            case MsgUnReadType.sysMsg:
-              count += response.sysMsg;
-              break;
-          }
+    if (msgUnReadTypes.any((item) => item != .pm)) {
+      if (await MsgHttp.msgFeedUnread() case Success(:final response)) {
+        for (final item in msgUnReadTypes) {
+          count += switch (item) {
+            .reply => response.reply,
+            .at => response.at,
+            .like => response.like,
+            .sysMsg => response.sysMsg,
+            _ => 0,
+          };
         }
       }
     }
@@ -175,9 +162,7 @@ class MainController extends GetxController
       return;
     }
 
-    final res = await Future.wait([_msgUnread(), _msgFeedUnread()]);
-
-    final count = res.sum;
+    final count = (await Future.wait([_msgUnread(), _msgFeedUnread()])).sum;
 
     final countStr = count == 0
         ? ''
@@ -230,17 +215,11 @@ class MainController extends GetxController
   }
 
   void setNavBarConfig() {
-    List<int>? navBarSort =
+    final navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    late final List<NavigationBarType> navigationBars;
-    if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
-    } else {
-      navigationBars = navBarSort
-          .map((i) => NavigationBarType.values[i])
-          .toList();
-    }
-    this.navigationBars = navigationBars;
+    navigationBars = navBarSort == null || navBarSort.isEmpty
+        ? NavigationBarType.values
+        : navBarSort.map((i) => NavigationBarType.values[i]).toList();
     final defPage = Pref.defaultHomePage;
     selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
   }
@@ -308,7 +287,7 @@ class MainController extends GetxController
         setDynCount();
       }
     } else {
-      int now = DateTime.now().millisecondsSinceEpoch;
+      final now = DateTime.now().millisecondsSinceEpoch;
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
           'topOrRefresh',

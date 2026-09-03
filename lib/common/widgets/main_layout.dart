@@ -77,7 +77,7 @@ class _RenderMainLayout extends RenderBox
         setOffset(
           bottomNav,
           Offset(
-            (constraints.maxWidth - bottomNavSize.width) / 2,
+            (constraints.maxWidth - bottomNavSize.width) * 0.5,
             constraints.maxHeight - bottomNavSize.height,
           ),
         );
@@ -96,14 +96,12 @@ class _RenderMainLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox? child) {
-      if (child != null) {
-        context.paintChild(child, getOffset(child) + offset);
-      }
+    if (sideBar case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
     }
-
-    doPaint(sideBar);
-    doPaint(body);
-    doPaint(bottomNav);
+    context.paintChild(body, getOffset(body) + offset);
+    if (bottomNav case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
+    }
   }
 }

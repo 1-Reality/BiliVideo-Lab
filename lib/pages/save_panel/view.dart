@@ -89,7 +89,7 @@ class _SavePanelState extends State<SavePanel> {
     if (_item case final ReplyInfo reply) {
       itemType = '评论';
       final currentRoute = Get.currentRoute;
-      late final hasRoot = reply.hasRoot();
+      final hasRoot = reply.hasRoot();
 
       if (currentRoute == '/videoV') {
         final rootId = hasRoot ? reply.root : reply.id;
@@ -337,7 +337,7 @@ class _SavePanelState extends State<SavePanel> {
     final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
     final maxWidth = context.mediaQueryShortestSide;
-    late final coverSize = MediaQuery.textScalerOf(context).scale(65);
+    final coverSize = MediaQuery.textScalerOf(context).scale(65);
     return Stack(
       clipBehavior: .none,
       alignment: .center,

@@ -1262,29 +1262,37 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   // Compute the largest width and height needed to paint the slider shapes,
   // other than the track shape. It is assumed that these shapes are vertically
   // centered on the track.
-  double get _maxSliderPartWidth =>
-      _sliderPartSizes.map((Size size) => size.width).reduce(math.max);
-  double get _maxSliderPartHeight =>
-      _sliderPartSizes.map((Size size) => size.height).reduce(math.max);
+  double get _maxSliderPartWidth => math.max(
+    _sliderTheme.overlayShape!
+        .getPreferredSize(isInteractive, isDiscrete)
+        .width,
+    math.max(
+      _sliderTheme.thumbShape!
+          .getPreferredSize(isInteractive, isDiscrete)
+          .width,
+      _sliderTheme.tickMarkShape!
+          .getPreferredSize(isEnabled: isInteractive, sliderTheme: sliderTheme)
+          .width,
+    ),
+  );
   double get _thumbSizeHeight => _sliderTheme.thumbShape!
       .getPreferredSize(isInteractive, isDiscrete)
       .height;
   double get _overlayHeight => _sliderTheme.overlayShape!
       .getPreferredSize(isInteractive, isDiscrete)
       .height;
-  List<Size> get _sliderPartSizes => <Size>[
-    Size(
-      _sliderTheme.overlayShape!
-          .getPreferredSize(isInteractive, isDiscrete)
-          .width,
-      _sliderTheme.padding != null ? _thumbSizeHeight : _overlayHeight,
-    ),
-    _sliderTheme.thumbShape!.getPreferredSize(isInteractive, isDiscrete),
-    _sliderTheme.tickMarkShape!.getPreferredSize(
-      isEnabled: isInteractive,
-      sliderTheme: sliderTheme,
-    ),
-  ];
+  double get _maxSliderPartHeight {
+    final thumbHeight = _thumbSizeHeight;
+    return math.max(
+      _sliderTheme.padding != null ? thumbHeight : _overlayHeight,
+      math.max(
+        thumbHeight,
+        _sliderTheme.tickMarkShape!
+            .getPreferredSize(isEnabled: isInteractive, sliderTheme: sliderTheme)
+            .height,
+      ),
+    );
+  }
   double get _minPreferredTrackHeight => _sliderTheme.trackHeight!;
 
   final _VerticalSliderState _state;
@@ -1298,6 +1306,43 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   VoidCallback? onDidGainAccessibilityFocus;
   double _currentDragValue = 0.0;
   Rect? overlayRect;
+  Offset _valueIndicatorThumbCenter = .zero;
+  late final PaintValueIndicator _paintValueIndicatorCallback =
+      _paintValueIndicator;
+  double _inverseTrackHeight = 0.0;
+  SliderThemeData? _trackThemeCache;
+  SliderThemeData? _thumbThemeCache;
+  SliderThemeData? _trackThemeSource;
+  SliderThemeData? _thumbThemeSource;
+  double? _trackThemeGap;
+  double? _thumbThemeWidth;
+  double? _thumbThemeHeight;
+
+  SliderThemeData _trackTheme(double? gap) {
+    if (gap == _sliderTheme.trackGap) return _sliderTheme;
+    if (identical(_trackThemeSource, _sliderTheme) && _trackThemeGap == gap) {
+      return _trackThemeCache!;
+    }
+    _trackThemeSource = _sliderTheme;
+    _trackThemeGap = gap;
+    return _trackThemeCache = _sliderTheme.copyWith(trackGap: gap);
+  }
+
+  SliderThemeData _thumbTheme(double? width, double? height) {
+    if (!_active || width == null || height == null) return _sliderTheme;
+    if (identical(_thumbThemeSource, _sliderTheme) &&
+        _thumbThemeWidth == width &&
+        _thumbThemeHeight == height) {
+      return _thumbThemeCache!;
+    }
+    _thumbThemeSource = _sliderTheme;
+    _thumbThemeWidth = width;
+    _thumbThemeHeight = height;
+    final size = Size(width, height);
+    return _thumbThemeCache = _sliderTheme.copyWith(
+      thumbSize: WidgetStatePropertyAll<Size?>(size),
+    );
+  }
 
   // This rect is used in gesture calculations, where the gesture coordinates
   // are relative to the sliders origin. Therefore, the offset is passed as
@@ -1621,13 +1666,6 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     };
   }
 
-  double _getValueFromGlobalPosition(Offset globalPosition) {
-    final double visualPosition =
-        (_trackRect.bottom - globalToLocal(globalPosition).dy) /
-        _trackRect.height;
-    return _getValueFromVisualPosition(visualPosition);
-  }
-
   double _discretize(double value) {
     double result = clampDouble(value, 0.0, 1.0);
     if (isDiscrete) {
@@ -1641,11 +1679,16 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       return;
     }
     if (!_active && isInteractive) {
+      final trackRect = _trackRect;
+      _inverseTrackHeight = 1 / trackRect.height;
       switch (allowedInteraction) {
         case SliderInteraction.tapAndSlide:
         case SliderInteraction.tapOnly:
           _active = true;
-          _currentDragValue = _getValueFromGlobalPosition(globalPosition);
+          _currentDragValue = _getValueFromVisualPosition(
+            (trackRect.bottom - globalToLocal(globalPosition).dy) *
+                _inverseTrackHeight,
+          );
         case SliderInteraction.slideThumb:
           if (_isPointerOnOverlay(globalPosition)) {
             _active = true;
@@ -1711,7 +1754,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       case SliderInteraction.slideOnly:
       case SliderInteraction.slideThumb:
         if (_active && isInteractive) {
-          final double valueDelta = details.primaryDelta! / _trackRect.height;
+          final double valueDelta = details.primaryDelta! * _inverseTrackHeight;
           _currentDragValue -= valueDelta;
           onChanged!(_discretize(_currentDragValue));
         }
@@ -1812,7 +1855,6 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       sliderTheme: _sliderTheme,
       isDiscrete: isDiscrete,
     );
-
     final Offset thumbCenter = _calcThumbCenter(
       trackRect: trackRect,
       visualPosition: visualPosition,
@@ -1825,7 +1867,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       );
       overlayRect = Rect.fromCircle(
         center: thumbCenter,
-        radius: overlaySize.width / 2.0,
+        radius: overlaySize.width * 0.5,
       );
     }
     final Offset? secondaryOffset = (secondaryVisualPosition != null)
@@ -1838,14 +1880,14 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     // If [Slider.year2023] is false, the thumb uses handle thumb shape and gapped track shape.
     // The handle width and track gap are adjusted when the thumb is pressed.
     double? thumbWidth = _sliderTheme.thumbSize
-        ?.resolve(<WidgetState>{})
+        ?.resolve(const <WidgetState>{})
         ?.width;
     final double? thumbHeight = _sliderTheme.thumbSize
-        ?.resolve(<WidgetState>{})
+        ?.resolve(const <WidgetState>{})
         ?.height;
     double? trackGap = _sliderTheme.trackGap;
     final double? pressedThumbWidth = _sliderTheme.thumbSize?.resolve(
-      <WidgetState>{
+      const <WidgetState>{
         WidgetState.pressed,
       },
     )?.width;
@@ -1859,15 +1901,16 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         thumbWidth = pressedThumbWidth;
       }
       if (trackGap > 0.0) {
-        trackGap = trackGap - delta / 2;
+        trackGap = trackGap - delta * 0.5;
       }
     }
 
-    _sliderTheme.trackShape!.paint(
+    final trackTheme = _trackTheme(trackGap);
+    trackTheme.trackShape!.paint(
       context,
       offset,
       parentBox: this,
-      sliderTheme: _sliderTheme.copyWith(trackGap: trackGap),
+      sliderTheme: trackTheme,
       enableAnimation: _enableAnimation,
       textDirection: _textDirection,
       thumbCenter: thumbCenter,
@@ -1899,17 +1942,18 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
           .width;
       final double discreteTrackPadding = trackRect.height;
       final double adjustedTrackWidth = trackRect.width - discreteTrackPadding;
+      final double inverseDivisions = 1 / divisions!;
       // If the tick marks would be too dense, don't bother painting them.
-      if (adjustedTrackWidth / divisions! >= 3.0 * tickMarkWidth) {
+      if (adjustedTrackWidth * inverseDivisions >= 3.0 * tickMarkWidth) {
         final double dy = trackRect.center.dy;
         for (var i = 0; i <= divisions!; i++) {
-          final double value = i / divisions!;
+          final double value = i * inverseDivisions;
           // The ticks are mapped to be within the track, so the tick mark width
           // must be subtracted from the track width.
           final double dx =
               trackRect.left +
               value * adjustedTrackWidth +
-              discreteTrackPadding / 2;
+              discreteTrackPadding * 0.5;
           final tickMarkOffset = Offset(dx, dy);
           _sliderTheme.tickMarkShape!.paint(
             context,
@@ -1930,32 +1974,13 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         ((shouldShowValueIndicatorWhenDragged &&
                 !_valueIndicatorAnimation.isDismissed) ||
             shouldAlwaysShowValueIndicator)) {
-      _state.paintValueIndicator = (PaintingContext context, Offset offset) {
-        if (attached && _labelPainter.text != null) {
-          _sliderTheme.valueIndicatorShape?.paint(
-            context,
-            offset + thumbCenter,
-            activationAnimation: shouldAlwaysShowValueIndicator
-                ? const AlwaysStoppedAnimation<double>(1)
-                : _valueIndicatorAnimation,
-            enableAnimation: shouldAlwaysShowValueIndicator
-                ? const AlwaysStoppedAnimation<double>(1)
-                : _enableAnimation,
-            isDiscrete: isDiscrete,
-            labelPainter: _labelPainter,
-            parentBox: this,
-            sliderTheme: _sliderTheme,
-            textDirection: _textDirection,
-            value: _value,
-            textScaleFactor: textScaleFactor,
-            sizeWithOverflow: screenSize.isEmpty ? size : screenSize,
-          );
-        }
-      };
+      _valueIndicatorThumbCenter = thumbCenter;
+      _state.paintValueIndicator ??= _paintValueIndicatorCallback;
     } else {
       _state.paintValueIndicator = null;
     }
 
+    final thumbTheme = _thumbTheme(thumbWidth, thumbHeight);
     _sliderTheme.thumbShape!.paint(
       context,
       thumbCenter,
@@ -1964,13 +1989,30 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       isDiscrete: isDiscrete,
       labelPainter: _labelPainter,
       parentBox: this,
-      sliderTheme: thumbWidth != null && thumbHeight != null
-          ? _sliderTheme.copyWith(
-              thumbSize: WidgetStatePropertyAll<Size?>(
-                Size(thumbWidth, thumbHeight),
-              ),
-            )
-          : _sliderTheme,
+      sliderTheme: thumbTheme,
+      textDirection: _textDirection,
+      value: _value,
+      textScaleFactor: textScaleFactor,
+      sizeWithOverflow: screenSize.isEmpty ? size : screenSize,
+    );
+  }
+
+  void _paintValueIndicator(PaintingContext context, Offset offset) {
+    if (!attached || _labelPainter.text == null) return;
+    final alwaysVisible = shouldAlwaysShowValueIndicator;
+    _sliderTheme.valueIndicatorShape?.paint(
+      context,
+      offset + _valueIndicatorThumbCenter,
+      activationAnimation: alwaysVisible
+          ? const AlwaysStoppedAnimation<double>(1)
+          : _valueIndicatorAnimation,
+      enableAnimation: alwaysVisible
+          ? const AlwaysStoppedAnimation<double>(1)
+          : _enableAnimation,
+      isDiscrete: isDiscrete,
+      labelPainter: _labelPainter,
+      parentBox: this,
+      sliderTheme: _sliderTheme,
       textDirection: _textDirection,
       value: _value,
       textScaleFactor: textScaleFactor,
@@ -1993,7 +2035,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     final double thumbPosition = isDiscrete
         ? trackRect.left +
               visualPosition * (trackRect.width - padding) +
-              padding / 2
+            padding * 0.5
         : trackRect.bottom - visualPosition * trackRect.height;
     // Apply padding to trackRect.left and trackRect.right if the track height is
     // greater than the thumb radius to ensure the thumb is drawn within the track.
@@ -2001,8 +2043,8 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       isInteractive,
       isDiscrete,
     );
-    final double thumbPadding = padding > thumbPreferredSize.width / 2
-        ? padding / 2
+    final double thumbPadding = padding > thumbPreferredSize.width * 0.5
+        ? padding * 0.5
         : 0;
     return Offset(
       trackRect.center.dx,
@@ -2486,7 +2528,7 @@ class _SliderDefaultsM3 extends SliderThemeData {
   SliderComponentShape? get overlayShape => const RoundSliderOverlayShape();
 
   @override
-  SliderTickMarkShape? get tickMarkShape => const RoundSliderTickMarkShape(tickMarkRadius: 4.0 / 2);
+  SliderTickMarkShape? get tickMarkShape => const RoundSliderTickMarkShape(tickMarkRadius: 2.0);
 
   @override
   WidgetStateProperty<Size?>? get thumbSize {
@@ -2518,6 +2560,9 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
   /// Create a slider track that draws two rectangles with rounded outer edges.
   const RoundedRectSliderTrackShape();
 
+  static final _activePaint = Paint();
+  static final _inactivePaint = Paint();
+
   @override
   Rect getPreferredRect({
     required RenderBox parentBox,
@@ -2544,7 +2589,7 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
     }
 
     final double trackLeft =
-        offset.dx + (parentBox.size.width - trackWidth) / 2;
+        offset.dx + (parentBox.size.width - trackWidth) * 0.5;
     final double trackTop = offset.dy + 10;
     // padding
     // (sliderTheme.padding == null
@@ -2590,22 +2635,19 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
 
     // Assign the track segment paints, which are leading: active and
     // trailing: inactive.
-    final activeTrackColorTween = ColorTween(
-      begin: sliderTheme.disabledActiveTrackColor,
-      end: sliderTheme.activeTrackColor,
-    );
-    final inactiveTrackColorTween = ColorTween(
-      begin: sliderTheme.disabledInactiveTrackColor,
-      end: sliderTheme.inactiveTrackColor,
-    );
-    final activePaint = Paint()
-      ..color = activeTrackColorTween.evaluate(enableAnimation)!;
-    final inactivePaint = Paint()
-      ..color = inactiveTrackColorTween.evaluate(enableAnimation)!;
-    final (Paint leftTrackPaint, Paint rightTrackPaint) = (
-      activePaint,
-      inactivePaint,
-    );
+    final animationValue = enableAnimation.value;
+    final activePaint = _activePaint
+      ..color = Color.lerp(
+        sliderTheme.disabledActiveTrackColor,
+        sliderTheme.activeTrackColor,
+        animationValue,
+      )!;
+    final inactivePaint = _inactivePaint
+      ..color = Color.lerp(
+        sliderTheme.disabledInactiveTrackColor,
+        sliderTheme.inactiveTrackColor,
+        animationValue,
+      )!;
 
     final Rect trackRect = getPreferredRect(
       parentBox: parentBox,
@@ -2614,13 +2656,14 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
       isEnabled: isEnabled,
       isDiscrete: isDiscrete,
     );
-    final trackRadius = Radius.circular(trackRect.height / 2);
+    final halfTrackHeight = sliderTheme.trackHeight! * 0.5;
+    final trackRadius = Radius.circular(trackRect.height * 0.5);
     final activeTrackRadius = Radius.circular(
-      (trackRect.height + additionalActiveTrackHeight) / 2,
+      (trackRect.height + additionalActiveTrackHeight) * 0.5,
     );
 
     final bool drawInactiveTrack =
-        thumbCenter.dy > (trackRect.top - (sliderTheme.trackHeight! / 2));
+        thumbCenter.dy > trackRect.top - halfTrackHeight;
     if (drawInactiveTrack) {
       // Draw the inactive track segment.
       context.canvas.drawRRect(
@@ -2628,51 +2671,27 @@ class RoundedRectSliderTrackShape extends SliderTrackShape {
           trackRect.left,
           trackRect.top,
           trackRect.right,
-          thumbCenter.dy - (sliderTheme.trackHeight! / 2),
+          thumbCenter.dy - halfTrackHeight,
           trackRadius,
         ),
-        rightTrackPaint,
+        inactivePaint,
       );
     }
     final bool drawActiveTrack =
-        thumbCenter.dy < (trackRect.bottom - (sliderTheme.trackHeight! / 2));
+        thumbCenter.dy < trackRect.bottom - halfTrackHeight;
     if (drawActiveTrack) {
       // Draw the active track segment.
       context.canvas.drawRRect(
         RRect.fromLTRBR(
           trackRect.left,
-          thumbCenter.dy + (sliderTheme.trackHeight! / 2),
+          thumbCenter.dy + halfTrackHeight,
           trackRect.right,
           trackRect.bottom,
           activeTrackRadius,
         ),
-        leftTrackPaint,
+        activePaint,
       );
     }
-
-    // final bool showSecondaryTrack =
-    //     (secondaryOffset != null) && (secondaryOffset.dx > thumbCenter.dx);
-
-    // if (showSecondaryTrack) {
-    //   final secondaryTrackColorTween = ColorTween(
-    //     begin: sliderTheme.disabledSecondaryActiveTrackColor,
-    //     end: sliderTheme.secondaryActiveTrackColor,
-    //   );
-    //   final secondaryTrackPaint = Paint()
-    //     ..color = secondaryTrackColorTween.evaluate(enableAnimation)!;
-
-    //   context.canvas.drawRRect(
-    //     RRect.fromLTRBAndCorners(
-    //       thumbCenter.dx,
-    //       trackRect.top,
-    //       secondaryOffset.dx,
-    //       trackRect.bottom,
-    //       topRight: trackRadius,
-    //       bottomRight: trackRadius,
-    //     ),
-    //     secondaryTrackPaint,
-    //   );
-    // }
   }
 
   @override

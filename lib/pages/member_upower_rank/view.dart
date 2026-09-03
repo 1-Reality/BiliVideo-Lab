@@ -178,7 +178,7 @@ class _UpowerRankPageState extends State<UpowerRankPage>
     ThemeData theme,
     LoadingState<List<UpowerRankInfo>?> loadingState,
   ) {
-    late final width = MediaQuery.textScalerOf(context).scale(32);
+    final width = MediaQuery.textScalerOf(context).scale(32);
     return switch (loadingState) {
       Loading() => const SliverFillRemaining(child: m3eLoading),
       Success<List<UpowerRankInfo>?>(:final response) =>

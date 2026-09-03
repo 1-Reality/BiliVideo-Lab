@@ -22,13 +22,12 @@ class SliverHotKeyword extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    late final style = TextStyle(
+    final style = TextStyle(
       fontSize: 14,
       color: ColorScheme.of(context).outline,
     );
 
-    late final cacheHeight = (MediaQuery.devicePixelRatioOf(context) * 15.0)
-        .round();
+    final cacheHeight = (MediaQuery.devicePixelRatioOf(context) * 15.0).round();
 
     return SliverToBoxAdapter(
       child: _HotKeywordGrid(
@@ -164,6 +163,8 @@ class _RenderHotKeywordGrid extends RenderBox
     markNeedsLayout();
   }
 
+  late final _defaultPaintCallback = defaultPaint;
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! MultiChildLayoutParentData) {
@@ -177,34 +178,41 @@ class _RenderHotKeywordGrid extends RenderBox
     final childWidth =
         (constraints.maxWidth - mainAxisSpacing * (crossAxisCount - 1)) /
         crossAxisCount;
+    final columnStride = childWidth + mainAxisSpacing;
     final c = BoxConstraints(maxWidth: childWidth);
     var child = firstChild;
     double? childHeight;
-    int index = 0;
+    var rowStride = 0.0;
+    var row = 0;
+    var column = 0;
     while (child != null) {
       if (childHeight == null) {
         childHeight = (child..layout(c, parentUsesSize: true)).size.height;
+        rowStride = childHeight + crossAxisSpacing;
       } else {
         child.layout(c);
       }
       final parentData = child.parentData as MultiChildLayoutParentData
         ..offset = Offset(
-          (childWidth + mainAxisSpacing) * (index % crossAxisCount),
-          (childHeight + crossAxisSpacing) * (index ~/ crossAxisCount),
+          columnStride * column,
+          rowStride * row,
         );
+      if (++column == crossAxisCount) {
+        column = 0;
+        row++;
+      }
       child = parentData.nextSibling;
-      index++;
     }
-    final row = (index / crossAxisCount).ceil();
+    final rowCount = row + (column == 0 ? 0 : 1);
     size = constraints.constrainDimensions(
       constraints.maxWidth,
-      row * childHeight! + crossAxisSpacing * (row - 1),
+      rowCount * childHeight! + crossAxisSpacing * (rowCount - 1),
     );
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 
   @override

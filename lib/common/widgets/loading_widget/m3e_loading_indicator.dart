@@ -48,12 +48,15 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
   static const int _morphIntervalMs = 650;
   static const double _fullRotation = 2 * math.pi;
   static const int _globalRotationDurationMs = 4666;
-  static const double _quarterRotation = _fullRotation / 4;
+  static const double _globalRotationScale =
+      _fullRotation / _globalRotationDurationMs;
+  static const double _quarterRotation = _fullRotation * 0.25;
 
   late final List<Morph> _morphs;
   late final AnimationController _controller;
 
   int _morphIndex = 1;
+  int _morphSlot = 1;
 
   double _morphRotationTarget = _quarterRotation;
 
@@ -74,8 +77,11 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
 
   void _startAnimation() {
     _morphIndex++;
-    _morphRotationTarget =
-        (_morphRotationTarget + _quarterRotation) % _fullRotation;
+    if (++_morphSlot == _morphs.length) _morphSlot = 0;
+    _morphRotationTarget += _quarterRotation;
+    if (_morphRotationTarget >= _fullRotation) {
+      _morphRotationTarget -= _fullRotation;
+    }
     _controller.animateWith(_morphAnimationSpec);
   }
 
@@ -83,6 +89,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
   void initState() {
     super.initState();
     _morphs = widget.morphs ?? Morphs.loadingMorphs;
+    _morphSlot = _morphs.length > 1 ? 1 : 0;
     _controller =
         AnimationController(
             vsync: this,
@@ -105,9 +112,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
         _morphIntervalMs * (_morphIndex - 1) +
         (_controller.lastElapsedDuration?.inMilliseconds ?? 0);
     final globalRotation =
-        (elapsedInMs % _globalRotationDurationMs) /
-        _globalRotationDurationMs *
-        _fullRotation;
+        (elapsedInMs % _globalRotationDurationMs) * _globalRotationScale;
 
     return progress * _quarterRotation + _morphRotationTarget + globalRotation;
   }
@@ -121,7 +126,7 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
         final progress = _controller.value;
         return RawM3ELoadingIndicator(
           // key: widget.childKey,
-          morph: _morphs[_morphIndex % _morphs.length],
+          morph: _morphs[_morphSlot],
           progress: progress,
           angle: _calcAngle(progress),
           color: color,
@@ -186,6 +191,8 @@ class RenderM3ELoadingIndicator extends RenderBox {
          ..style = PaintingStyle.fill
          ..color = color;
 
+  final _matrix = Matrix4.identity();
+
   Morph _morph;
   Morph get morph => _morph;
   set morph(Morph value) {
@@ -221,7 +228,7 @@ class RenderM3ELoadingIndicator extends RenderBox {
   Size _preferredSize;
   set preferredSize(Size value) {
     if (_preferredSize == value) return;
-    _preferredSize = size;
+    _preferredSize = value;
     markNeedsLayout();
   }
 
@@ -244,12 +251,13 @@ class RenderM3ELoadingIndicator extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final width = size.width;
-    final value = size.width / 2;
-    final matrix =
-        Matrix4.translationValues(offset.dx + value, offset.dy + value, 0.0)
-          ..rotateZ(angle)
-          ..translateByDouble(-value, -value, 0.0, 1.0)
-          ..scaleByDouble(width, width, width, 1.0);
+    final value = size.width * 0.5;
+    final matrix = _matrix
+      ..setIdentity()
+      ..translateByDouble(offset.dx + value, offset.dy + value, 0.0, 1.0)
+      ..rotateZ(angle)
+      ..translateByDouble(-value, -value, 0.0, 1.0)
+      ..scaleByDouble(width, width, width, 1.0);
     final path = morph.toPath(progress: progress).transform(matrix.storage);
 
     context.canvas.drawPath(path, _paint);

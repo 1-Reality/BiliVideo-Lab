@@ -21,6 +21,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _trailingZerosRegExp = RegExp(r'0+$');
+
 class SelectDialog<T> extends StatelessWidget {
   final T? value;
   final String title;
@@ -128,8 +130,8 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
     if (total == null || !total.isFinite || total <= 0) return;
     final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+        ? value.round().toString()
+        : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
   }
 
   @override
@@ -668,8 +670,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           received: chunk.length,
         );
         final now = watch.elapsedMicroseconds;
-        final total = downloaded + chunk.length;
-        downloaded = total > limits.max ? limits.max : total;
+        downloaded += chunk.length;
+        if (downloaded > limits.max) downloaded = limits.max;
         if (firstByteUs == null) {
           firstByteUs = now;
           tracker.reset(now, downloaded, windowStartBytes: 0);
@@ -1825,15 +1827,15 @@ class _CdnMetrics {
       for (final probe in sample.probes) probe.firstByteUs,
       if (sample.probes.isEmpty) sample.firstByteUs,
     ];
-    final latencyValues = latency.map((e) => e.toDouble()).toList();
+    final latencyValues = [for (final value in latency) value.toDouble()];
     final latencySorted = List<double>.of(latencyValues)..sort();
     final latencyMean = _mean(latencySorted);
     final latencyVariance = _variance(latencySorted, latencyMean);
     final latencyStd = math.sqrt(latencyVariance);
     final latencyJitter = _meanAbsoluteDifference(latencyValues);
 
-    const rollingWindowCount = 1000000 ~/ windowUs;
-    final rollingScale = 1 / rollingWindowCount;
+    const rollingWindowCount = 4;
+    const rollingScale = 0.25;
     var rollingSum = 0.0;
     var rollingLow = double.infinity;
     var rollingHigh = double.negativeInfinity;
@@ -1879,7 +1881,7 @@ class _CdnMetrics {
         1 +
         relativeJitter * 2 +
         coefficientOfVariation +
-        latencyP95 / 500000 +
+        latencyP95 * 0.000002 +
         sample.maxGapUs * 0.000001;
     final stabilityScore = p05 / stabilityPenalty;
 

@@ -115,30 +115,38 @@ class RenderProgressBar extends BaseRenderProgressBar<Segment> {
     required super.segments,
   });
 
+  final _paint = Paint()..style = PaintingStyle.fill;
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final paint = Paint()..style = PaintingStyle.fill;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
 
     for (final segment in segments) {
-      paint.color = segment.color;
-      final segmentStart = offset.dx + segment.start * size.width;
-      final segmentEnd = offset.dx + segment.end * size.width;
+      _paint.color = segment.color;
+      final segmentStart = segment.start * size.width;
+      final segmentEnd = segment.end * size.width;
 
       if (segmentEnd > segmentStart ||
           (segmentEnd == segmentStart && segmentStart > 0)) {
         canvas.drawRect(
           Rect.fromLTRB(
             segmentStart,
-            offset.dy,
+            0,
             segmentEnd == segmentStart ? segmentStart + 2 : segmentEnd,
-            size.height + offset.dy,
+            size.height,
           ),
-          paint,
+          _paint,
         );
       }
     }
+    if (hasOffset) canvas.restore();
   }
 }
 
@@ -187,6 +195,27 @@ class RenderViewPointProgressBar
     }
   }
 
+  static final _segmentBackground = Colors.grey[600]!.withValues(alpha: 0.45);
+  static final _segmentDivider = Colors.black.withValues(alpha: 0.5);
+  final _backgroundPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..color = _segmentBackground;
+  final _dividerPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..color = _segmentDivider;
+  final _paragraphs =
+      <String, ({ui.Paragraph paragraph, double width, double height, double inverseWidth})>{};
+
+  @override
+  set segments(List<ViewPointSegment> value) {
+    if (listEquals(segments, value)) return;
+    for (final entry in _paragraphs.values) {
+      entry.paragraph.dispose();
+    }
+    _paragraphs.clear();
+    super.segments = value;
+  }
+
   @override
   void performLayout() {
     size = constraints.constrainDimensions(constraints.maxWidth, _barHeight);
@@ -195,7 +224,12 @@ class RenderViewPointProgressBar
   static const double _barHeight = 15.0;
   static const double _dividerWidth = 2.0;
 
-  static ui.Paragraph _getParagraph(String title, double size) {
+  static ({
+    ui.Paragraph paragraph,
+    double width,
+    double height,
+    double inverseWidth,
+  }) _getParagraph(String title, double size) {
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
@@ -209,17 +243,24 @@ class RenderViewPointProgressBar
           )
           ..pushStyle(.new(color: Colors.white, fontSize: size, height: 1))
           ..addText(title);
-    return builder.build()
+    final paragraph = builder.build()
       ..layout(const ui.ParagraphConstraints(width: double.infinity));
+    final width = paragraph.maxIntrinsicWidth;
+    return (
+      paragraph: paragraph,
+      width: width,
+      height: paragraph.height,
+      inverseWidth: width == 0 ? 0 : 1 / width,
+    );
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final paint = Paint()..style = PaintingStyle.fill;
+    final hasOffset = offset != .zero;
 
-    if (offset != .zero) {
+    if (hasOffset) {
       canvas
         ..save()
         ..translate(offset.dx, offset.dy);
@@ -229,10 +270,8 @@ class RenderViewPointProgressBar
 
     canvas.drawRect(
       Rect.fromLTRB(0, 0, size.width, _barHeight),
-      paint..color = Colors.grey[600]!.withValues(alpha: 0.45),
+      _backgroundPaint,
     );
-
-    paint.color = Colors.black.withValues(alpha: 0.5);
 
     double prevEnd = 0.0;
     for (final segment in segments) {
@@ -244,39 +283,38 @@ class RenderViewPointProgressBar
           segmentEnd + _dividerWidth,
           _barHeight + height,
         ),
-        paint,
+        _dividerPaint,
       );
       final title = segment.title;
       if (title != null && title.isNotEmpty) {
         final segmentWidth = segmentEnd - prevEnd;
-        final paragraph = _getParagraph(title, 10);
-        final textWidth = paragraph.maxIntrinsicWidth;
-        final textHeight = paragraph.height;
+        final text = _paragraphs[title] ??= _getParagraph(title, 10);
+        final textWidth = text.width;
+        final textHeight = text.height;
 
         final isOverflow = textWidth > segmentWidth;
         final Offset offset;
         if (isOverflow) {
-          final scale = segmentWidth / textWidth;
+          final scale = segmentWidth * text.inverseWidth;
           canvas
             ..save()
-            ..translate(prevEnd, (_barHeight - textHeight * scale) / 2)
+            ..translate(prevEnd, (_barHeight - textHeight * scale) * 0.5)
             ..scale(scale);
           offset = Offset.zero;
         } else {
           offset = Offset(
-            (segmentWidth - textWidth) / 2 + prevEnd,
-            (_barHeight - textHeight) / 2,
+            (segmentWidth - textWidth) * 0.5 + prevEnd,
+            (_barHeight - textHeight) * 0.5,
           );
         }
-        canvas.drawParagraph(paragraph, offset);
-        paragraph.dispose();
+        canvas.drawParagraph(text.paragraph, offset);
         if (isOverflow) {
           canvas.restore();
         }
       }
       prevEnd = segmentEnd + _dividerWidth;
     }
-    if (offset != .zero) canvas.restore();
+    if (hasOffset) canvas.restore();
   }
 
   ValueSetter<Duration>? _onSeek;
@@ -291,6 +329,10 @@ class RenderViewPointProgressBar
 
   @override
   void dispose() {
+    for (final entry in _paragraphs.values) {
+      entry.paragraph.dispose();
+    }
+    _paragraphs.clear();
     _onSeek = null;
     _tapGestureRecognizer
       ?..onTapUp = null

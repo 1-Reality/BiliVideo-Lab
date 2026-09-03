@@ -114,7 +114,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
   Widget _buildBody() => Obx(() {
     switch (controller.infoState.value) {
       case Success(:final response):
-        double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+        double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
         final Widget child;
         if (isPortrait) {
           child = Padding(
@@ -136,7 +136,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
             ),
           );
         } else {
-          padding = padding / 4;
+          padding *= 0.25;
           final flex = controller.ratio[0].toInt();
           final flex1 = controller.ratio[1].toInt();
           final leftWidth =
@@ -581,8 +581,9 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
     final heat = item.hotSongHeat?.songHeat;
     if (heat == null || heat.isEmpty) return null;
     final colorScheme = theme.colorScheme;
-    int maxHeat = heat.first.heat;
-    int minHeat = heat.first.heat;
+    final firstHeat = heat.first.heat;
+    int maxHeat = firstHeat;
+    int minHeat = firstHeat;
     for (int i = 1; i < heat.length; i++) {
       final h = heat[i].heat;
       if (h > maxHeat) maxHeat = h;
@@ -622,7 +623,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                         reservedSize: 30 * sqrt2,
                         getTitlesWidget: (index, meta) {
                           return SideTitleWidget(
-                            angle: -pi / 4,
+                            angle: -pi * 0.25,
                             space: 8 * sqrt2,
                             meta: meta,
                             child: Text(

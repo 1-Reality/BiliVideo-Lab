@@ -6,7 +6,6 @@ import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/home_tab_type.dart';
 import 'package:PiliBro/pages/common/common_controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
-import 'package:PiliBro/services/account_service.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -24,15 +23,13 @@ class HomeController extends GetxController
   late final bool hideTopBar;
 
   bool enableSearchWord = Pref.enableSearchWord;
-  late final RxString defaultSearch = ''.obs;
-  late int lateCheckSearchAt = 0;
+  final RxString defaultSearch = ''.obs;
+  int lateCheckSearchAt = 0;
 
   ScrollOrRefreshMixin get controller => tabs[tabController.index].ctr();
 
   @override
   ScrollController get scrollController => controller.scrollController;
-
-  AccountService accountService = Get.find<AccountService>();
 
   @override
   void onInit() {

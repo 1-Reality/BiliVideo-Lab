@@ -171,6 +171,7 @@ class _RenderToolTip extends RenderBox
   }
 
   TapGestureRecognizer? _tapGestureRecognizer;
+  late final _defaultPaintCallback = defaultPaint;
 
   set onTap(VoidCallback? value) {
     _tapGestureRecognizer?.onTap = value;
@@ -243,14 +244,14 @@ class _RenderToolTip extends RenderBox
     offset = Offset(offset.dx, offset.dy - indicatorSize.height + 1);
     overlayParentData.offset = offset;
     indicatorParentData.offset = Offset(
-      target.dx - indicatorSize.width / 2,
+      target.dx - indicatorSize.width * 0.5,
       offset.dy + overlaySize.height - 1,
     );
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 }
 
@@ -287,13 +288,20 @@ class RenderTriangle extends RenderBox {
   RenderTriangle({
     required this._color,
     required this._preferredSize,
-  });
+  }) : _paint = Paint()
+      ..color = _color
+      ..style = PaintingStyle.fill;
+
+  final Paint _paint;
+  Path? _path;
+  Size? _pathSize;
 
   Color _color;
   Color get color => _color;
   set color(Color value) {
     if (_color == value) return;
     _color = value;
+    _paint.color = value;
     markNeedsPaint();
   }
 
@@ -312,16 +320,20 @@ class RenderTriangle extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
 
-    final path = Path()
-      ..moveTo(offset.dx, offset.dy)
-      ..lineTo(offset.dx + size.width, offset.dy)
-      ..lineTo(offset.dx + size.width / 2, size.height + offset.dy)
-      ..close();
+    if (_path == null || _pathSize != size) {
+      _path = Path()
+        ..moveTo(0, 0)
+        ..lineTo(size.width, 0)
+        ..lineTo(size.width * 0.5, size.height)
+        ..close();
+      _pathSize = size;
+    }
 
-    context.canvas.drawPath(path, paint);
+    context.canvas
+      ..save()
+      ..translate(offset.dx, offset.dy)
+      ..drawPath(_path!, _paint)
+      ..restore();
   }
 }

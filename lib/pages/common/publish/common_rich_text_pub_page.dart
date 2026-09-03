@@ -199,7 +199,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
         await SmartDialog.dismiss();
     }
     if (!mounted || path.isEmpty) return;
-    late final colorScheme = ColorScheme.of(context);
+    final colorScheme = ColorScheme.of(context);
     final croppedFile = await ImageCropper.platform.cropImage(
       sourcePath: path,
       uiSettings: [

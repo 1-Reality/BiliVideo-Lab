@@ -106,29 +106,29 @@ class LiveRoomController extends GetxController {
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
-  late final fsSC = Rxn<SuperChatItem>();
-  late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
+  final fsSC = Rxn<SuperChatItem>();
+  final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
   LiveMessageStream? _msgStream;
   late final ScrollController scrollController;
-  late final RxInt pageIndex = 0.obs;
+  final RxInt pageIndex = 0.obs;
   PageController? pageController;
 
   int? currentQn;
   final currentQnDesc = ''.obs;
   final RxBool isPortrait = false.obs;
-  late List<({int code, String desc})> acceptQnList = [];
+  List<({int code, String desc})> acceptQnList = [];
 
   late final bool isLogin;
   late final int mid;
 
   String? videoUrl;
   bool? isPlaying;
-  late bool isFullScreen = false;
+  bool isFullScreen = false;
 
   final superChatType = Pref.superChatType;
-  late final showSuperChat = superChatType != SuperChatType.disable;
+  final showSuperChat = Pref.superChatType != SuperChatType.disable;
 
   final headerKey = GlobalKey<TimeBatteryMixin>();
 

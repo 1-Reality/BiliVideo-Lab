@@ -101,6 +101,7 @@ class _GalleryViewerState extends State<GalleryViewer>
   late final AnimationController _animateController;
   late final Animation<Color?> _opacityAnimation;
   double dx = 0, dy = 0;
+  late double _inverseContainerHeight;
 
   Offset _offset = Offset.zero;
   bool _dragging = false;
@@ -218,7 +219,7 @@ class _GalleryViewerState extends State<GalleryViewer>
   }
 
   Matrix4 _onTransform(double val) {
-    final scale = val.lerp(1.0, 0.25);
+    final scale = 1.0 - val * 0.75;
 
     // Matrix4.identity()
     //   ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
@@ -226,10 +227,10 @@ class _GalleryViewerState extends State<GalleryViewer>
     //   ..scaleByDouble(scale, scale, scale, 1)
     //   ..translateByDouble(-size.width / 2, -size.height / 2, 0, 1);
 
-    final tmp = (1.0 - scale) / 2.0;
+    final offset = val * 0.375;
     return Matrix4.diagonal3Values(scale, scale, scale)..setTranslationRaw(
-      _containerSize.width * (val * dx + tmp),
-      _containerSize.height * (val * dy + tmp),
+      _containerSize.width * (val * dx + offset),
+      _containerSize.height * (val * dy + offset),
       0,
     );
   }
@@ -262,10 +263,7 @@ class _GalleryViewerState extends State<GalleryViewer>
 
     _offset += details.focalPointDelta;
     _updateMoveAnimation();
-
-    if (!_animateController.isAnimating) {
-      _animateController.value = _offset.dy.abs() / _containerSize.height;
-    }
+    _animateController.value = _offset.dy.abs() * _inverseContainerHeight;
   }
 
   void _onDragEnd(ScaleEndDetails details) {
@@ -331,6 +329,7 @@ class _GalleryViewerState extends State<GalleryViewer>
           LayoutBuilder(
             builder: (context, constraints) {
               _containerSize = constraints.biggest;
+              _inverseContainerHeight = 1 / _containerSize.height;
               return MatrixTransition(
                 alignment: .topLeft,
                 animation: _animateController,

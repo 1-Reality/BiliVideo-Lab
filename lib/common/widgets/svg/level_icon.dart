@@ -34,7 +34,12 @@ class UserLevel extends LeafRenderObjectWidget {
 }
 
 class RenderLevel extends RenderBox {
-  RenderLevel(this._height, this._level, this._flash);
+  RenderLevel(this._height, this._level, this._flash) {
+    _paint.color = lookupBackgroundColor(_level);
+  }
+
+  final _paint = Paint();
+  final _digitPaint = Paint()..color = Colors.white;
 
   double _height;
   set height(double value) {
@@ -47,6 +52,7 @@ class RenderLevel extends RenderBox {
   set level(int value) {
     if (_level == value) return;
     _level = value;
+    _paint.color = lookupBackgroundColor(value);
     markNeedsPaint();
     markNeedsSemanticsUpdate();
   }
@@ -62,7 +68,8 @@ class RenderLevel extends RenderBox {
   Size computeDryLayout(covariant BoxConstraints constraints) {
     return constraints.constrainSizeAndAttemptToPreserveAspectRatio(
       Size(
-        (_flash ? LevelCanvas._extendR : LevelCanvas._totalR) * _height / LevelCanvas._totalB,
+        (_flash ? LevelCanvas._extendR : LevelCanvas._totalR) *
+            _height * LevelCanvas._inverseTotalB,
         _height,
       ),
     );
@@ -75,14 +82,13 @@ class RenderLevel extends RenderBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()..color = lookupBackgroundColor(_level);
     LevelCanvas(context.canvas)
       ..save()
       ..translate(offset.dx, offset.dy)
-      ..scale(size.height / LevelCanvas._totalB)
-      ..drawLevelBack(paint, bolt: _flash)
+      ..scale(size.height * LevelCanvas._inverseTotalB)
+      ..drawLevelBack(_paint, bolt: _flash)
       ..drawLevelLv()
-      ..drawLEDigit(_level, paint..color = Colors.white)
+      ..drawLEDigit(_level, _digitPaint)
       ..restore();
   }
 
@@ -127,7 +133,7 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _botYB = _botY + _rowH; // 415
 
   // 竖段拼接用的中心线
-  static const double _midMid = (_midY + _midYB) / 2; // 235
+  static const double _midMid = (_midY + _midYB) * 0.5; // 235
 
   static final _boltIcon =
       (ParagraphBuilder(
@@ -142,9 +148,19 @@ extension type LevelCanvas(Canvas _) implements Canvas {
         ..layout(const ParagraphConstraints(width: double.infinity));
   void drawBolt() => drawParagraph(_boltIcon, const Offset(840, 5));
 
+  static final _oneTop = RRect.fromLTRBAndCorners(
+    673,
+    _topY,
+    787,
+    _topYB,
+    topLeft: _r,
+    bottomLeft: _r,
+    topRight: _r,
+  );
+
   void _draw1(Paint paint) {
     drawRRect(const .fromLTRBXY(673, _botY, 833, _botYB, 20, 20), paint);
-    drawRRect(.fromLTRBAndCorners(673, _topY, 787, _topYB, topLeft: _r, bottomLeft: _r, topRight: _r), paint);
+    drawRRect(_oneTop, paint);
     drawRect(const .fromLTRB(719, _topYB, 787, _botY), paint);
   }
 
@@ -276,19 +292,45 @@ extension type LevelCanvas(Canvas _) implements Canvas {
   static const double _totalR = 930;
   static const double _extendR = 1250;
   static const double _totalB = 466;
+  static const double _inverseTotalB = 1 / _totalB;
+  static final _normalBack = RRect.fromLTRBAndCorners(
+    0,
+    48,
+    _totalR,
+    _totalB,
+    topLeft: const Radius.circular(27),
+    bottomLeft: const Radius.circular(27),
+    bottomRight: const Radius.circular(27),
+  );
+  static final _boltBack = RRect.fromLTRBAndCorners(
+    0,
+    48,
+    _extendR,
+    _totalB,
+    topLeft: const Radius.circular(27),
+    bottomLeft: const Radius.circular(27),
+    bottomRight: const Radius.circular(27),
+  );
+  static final _normalTop = RRect.fromLTRBAndCorners(
+    576,
+    0,
+    _totalR,
+    49,
+    topLeft: const Radius.circular(27),
+    topRight: const Radius.circular(27),
+  );
+  static final _boltTop = RRect.fromLTRBAndCorners(
+    576,
+    0,
+    _extendR,
+    49,
+    topLeft: const Radius.circular(27),
+    topRight: const Radius.circular(27),
+  );
 
   void drawLevelBack(Paint paint, {bool bolt = false}) {
-    const radius = Radius.circular(27);
-    final double right = bolt ? _extendR : _totalR;
-    const double blockTop = 48;
-    drawRRect(
-      RRect.fromLTRBAndCorners(0, blockTop, right, _totalB, topLeft: radius, bottomLeft: radius, bottomRight: radius),
-      paint,
-    );
-    drawRRect(
-      RRect.fromLTRBAndCorners(576, 0, right, blockTop + 1, topLeft: radius, topRight: radius),
-      paint,
-    );
+    drawRRect(bolt ? _boltBack : _normalBack, paint);
+    drawRRect(bolt ? _boltTop : _normalTop, paint);
 
     if (bolt) drawBolt();
   }

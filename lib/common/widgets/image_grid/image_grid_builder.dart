@@ -149,6 +149,7 @@ class RenderImageGrid extends RenderBox
 
   ImageGridInfo? imageGridInfo;
   LayoutCallback<Constraints>? _callback;
+  late final _defaultPaintCallback = defaultPaint;
 
   void _updateCallback(LayoutCallback<Constraints> value) {
     if (value == _callback) {
@@ -177,15 +178,22 @@ class RenderImageGrid extends RenderBox
       width: width,
       height: height,
     );
+    final columnStride = space + width;
+    final rowStride = space + height;
     RenderBox? child = firstChild;
+    var rowIndex = 0;
+    var columnIndex = 0;
     while (child != null) {
       child.layout(childConstraints);
       final childParentData = child.parentData as MultiChildLayoutParentData;
-      final index = childParentData.id as int;
       childParentData.offset = Offset(
-        (space + width) * (index % column),
-        (space + height) * (index ~/ column),
+        columnStride * columnIndex,
+        rowStride * rowIndex,
       );
+      if (++columnIndex == column) {
+        columnIndex = 0;
+        rowIndex++;
+      }
       child = childParentData.nextSibling;
     }
     size = constraints.constrainDimensions(
@@ -196,7 +204,7 @@ class RenderImageGrid extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
+    _defaultPaintCallback(context, offset);
   }
 
   @override
@@ -505,9 +513,9 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     final isSingle = length == 1;
     final isFour = length == 4;
     if (length == 2) {
-      imageWidth = imageHeight = (maxWidth - space) / 2;
+      imageWidth = imageHeight = (maxWidth - space) * 0.5;
     } else {
-      imageHeight = imageWidth = (maxWidth - 2 * space) / 3;
+      imageHeight = imageWidth = (maxWidth - 2 * space) * 0.3333333333333333;
       if (isSingle) {
         final img = picArr.first;
         final width = img.width;
@@ -527,7 +535,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     }
 
     final int column = isFour ? 2 : 3;
-    final int row = isFour ? 2 : (length / 3).ceil();
+    final int row = isFour ? 2 : (length + 2) ~/ 3;
 
     return (
       row: row,

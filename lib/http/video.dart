@@ -323,12 +323,14 @@ abstract final class VideoHttp {
       queryParameters: {'bvid': bvid},
     );
     if (res.data['code'] == 0) {
-      final items = (res.data['data'] as List?)?.map(
-        (i) => HotVideoItemModel.fromJson(i),
-      );
-      final list = RecommendFilter.applyFilterToRelatedVideos
-          ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
-          : items?.toList();
+      final data = res.data['data'] as List?;
+      if (data == null) return const Success(null);
+      final filter = RecommendFilter.applyFilterToRelatedVideos;
+      final list = <HotVideoItemModel>[];
+      for (final raw in data) {
+        final item = HotVideoItemModel.fromJson(raw);
+        if (!filter || !RecommendFilter.filterAll(item)) list.add(item);
+      }
       return Success(list);
     } else {
       return Error(res.data['message']);

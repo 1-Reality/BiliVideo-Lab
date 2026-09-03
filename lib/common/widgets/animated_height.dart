@@ -1,4 +1,3 @@
-import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:flutter/rendering.dart'
     show ClipRectLayer, LayerHandle, RenderAnimatedSize, RenderProxyBox;
 import 'package:material_ui/material_ui.dart';
@@ -221,6 +220,12 @@ class RenderAnimatedHeight extends RenderProxyBox {
 
   double? _lastValue;
   Heights? _heights;
+  late Rect _clipRect;
+  late final _paintChildCallback = _paintChild;
+
+  void _paintChild(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+  }
 
   Duration get duration => _controller.duration!;
   set duration(Duration value) {
@@ -277,8 +282,9 @@ class RenderAnimatedHeight extends RenderProxyBox {
   @override
   void performLayout() {
     final BoxConstraints constraints = this.constraints;
+    final controllerValue = _controller.value;
 
-    _lastValue = _controller.value;
+    _lastValue = controllerValue;
 
     final childSize = (child!..layout(constraints, parentUsesSize: true)).size;
 
@@ -291,7 +297,8 @@ class RenderAnimatedHeight extends RenderProxyBox {
       }
       animatedSize = Size(
         childSize.width,
-        curve.transform(_controller.value).lerp(_heights!.from, _heights!.to),
+        _heights!.from +
+            (_heights!.to - _heights!.from) * curve.transform(controllerValue),
       );
     } else {
       animatedSize = childSize;
@@ -299,17 +306,17 @@ class RenderAnimatedHeight extends RenderProxyBox {
     }
 
     size = constraints.constrain(animatedSize);
+    _clipRect = Offset.zero & size;
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
     if (isAnimating && clipBehavior != .none) {
-      final Rect rect = Offset.zero & size;
       _clipRectLayer.layer = context.pushClipRect(
         needsCompositing,
         offset,
-        rect,
-        super.paint,
+        _clipRect,
+        _paintChildCallback,
         clipBehavior: clipBehavior,
         oldLayer: _clipRectLayer.layer,
       );

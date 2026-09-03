@@ -15,8 +15,8 @@ RectTween createEndRectTween(Rect? begin, Rect? end) {
     final endHeight = end.height;
     // TODO: use real image rect
     final beginRect = Rect.fromLTWH(
-      begin.left + (begin.width - endWidth) / 2,
-      begin.top + (begin.height - endHeight) / 2,
+      begin.left + (begin.width - endWidth) * 0.5,
+      begin.top + (begin.height - endHeight) * 0.5,
       endWidth,
       endHeight,
     );

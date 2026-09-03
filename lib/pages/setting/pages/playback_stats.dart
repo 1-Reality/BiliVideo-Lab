@@ -15,6 +15,9 @@ class PlaybackStatsPage extends StatefulWidget {
 }
 
 class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
+  static final _trailingZeros = RegExp(r'0+$');
+  static final _trailingDot = RegExp(r'\.$');
+
   late Map<String, dynamic> stats = PlaybackStatsService.snapshot();
 
   num _value(String key) => stats[key] as num? ?? 0;
@@ -42,16 +45,13 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
     if (value == null || !value.isFinite || value == 0) return '暂无数据';
     final text = value
         .toStringAsFixed(2)
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(
-          RegExp(r'\.$'),
-          '',
-        );
+        .replaceFirst(_trailingZeros, '')
+        .replaceFirst(_trailingDot, '');
     return '$text 倍';
   }
 
   String _speedCompact(num value) =>
-      '${value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}×';
+      '${value.toStringAsFixed(2).replaceFirst(_trailingZeros, '').replaceFirst(_trailingDot, '')}×';
 
   Widget _section(String title) => Padding(
     padding: const .fromLTRB(16, 20, 16, 4),
@@ -223,6 +223,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   final observed = active +
                       (item['pausedUs'] as num? ?? 0) +
                       (item['bufferingUs'] as num? ?? 0);
+                  final activeScale = active == 0 ? 0 : 1 / active;
                   final unique = item['uniqueCoveredUs'] as num? ?? 0;
                   final repeat = item['repeatCoveredUs'] as num? ?? 0;
                   final opened = item['openedSourceDurationUs'] as num? ?? 0;
@@ -230,14 +231,14 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
                       'UID ${entry.key} · 本月 ${_duration(month?['activePlaybackUs'] as num? ?? 0)}'
-                      ' · 名义 ${_speed(active == 0 ? 0 : nominal / active)}'
-                      ' · 含长按 ${_speed(active == 0 ? 0 : nominalLong / active)}\n'
-                      '推进 ${_speed(active == 0 ? 0 : media / active)}'
-                      ' · 新内容 ${_speed(active == 0 ? 0 : unique / active)}'
+                      ' · 名义 ${_speed(nominal * activeScale)}'
+                      ' · 含长按 ${_speed(nominalLong * activeScale)}\n'
+                      '推进 ${_speed(media * activeScale)}'
+                      ' · 新内容 ${_speed(unique * activeScale)}'
                       ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
-                      ' · 覆盖 ${(opened == 0 ? 0 : unique / opened * 100).toStringAsFixed(1)}%'
-                      ' · 重复 ${(media == 0 ? 0 : repeat / media * 100).toStringAsFixed(1)}%'
-                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) / (item['sessionPlayedCount'] as num? ?? 0) * 100).toStringAsFixed(1)}%'}'
+                      ' · 覆盖 ${(opened == 0 ? 0 : unique * 100 / opened).toStringAsFixed(1)}%'
+                      ' · 重复 ${(media == 0 ? 0 : repeat * 100 / media).toStringAsFixed(1)}%'
+                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) * 100 / (item['sessionPlayedCount'] as num? ?? 0)).toStringAsFixed(1)}%'}'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
                     trailing: Text(

@@ -854,7 +854,7 @@ Widget moduleBlockedItem(
               mainAxisAlignment: .center,
               children: [
                 if (moduleBlocked.icon != null)
-                  icon(math.max(40, maxWidth / 7)),
+                  icon(math.max(40, maxWidth * 0.14285714285714285)),
                 if (moduleBlocked.hintMessage?.isNotEmpty == true) ...[
                   const SizedBox(height: 5),
                   Text(

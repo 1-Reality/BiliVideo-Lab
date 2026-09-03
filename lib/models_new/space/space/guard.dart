@@ -1,6 +1,7 @@
 import 'package:PiliBro/models/model_owner.dart';
 
 class Guard {
+  static final _countRegExp = RegExp(r'^(\d+)');
   String? uri;
   Object? count;
   List<Owner>? item;
@@ -12,7 +13,7 @@ class Guard {
         .toList();
     final String? desc = json['desc'];
     if (desc != null) {
-      count = RegExp(r'^(\d+)').firstMatch(desc)?.group(1);
+      count = _countRegExp.firstMatch(desc)?.group(1);
     }
   }
 }

@@ -47,9 +47,10 @@ class ScaledWidgetsFlutterBinding extends WidgetsFlutterBinding {
     devicePixelRatioScaled = devicePixelRatio * _scaleFactor;
     final BoxConstraints physicalConstraints =
         BoxConstraints.fromViewConstraints(view.physicalConstraints);
+    final inverseDevicePixelRatio = 1 / devicePixelRatioScaled;
     return ViewConfiguration(
       physicalConstraints: physicalConstraints,
-      logicalConstraints: physicalConstraints / devicePixelRatioScaled,
+      logicalConstraints: physicalConstraints * inverseDevicePixelRatio,
       devicePixelRatio: devicePixelRatioScaled,
     );
   }

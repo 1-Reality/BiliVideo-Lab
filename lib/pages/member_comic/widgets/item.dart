@@ -14,7 +14,7 @@ class MemberComicItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    late final style = TextStyle(
+    final style = TextStyle(
       fontSize: 13,
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -41,7 +41,7 @@ class MemberComicItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
-                aspectRatio: 3 / 4,
+                aspectRatio: 0.75,
                 child: LayoutBuilder(
                   builder:
                       (BuildContext context, BoxConstraints boxConstraints) {

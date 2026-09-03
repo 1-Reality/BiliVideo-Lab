@@ -26,14 +26,15 @@ abstract final class ReplyGrpc {
 
   // ref BiliRoamingX
   static bool needRemoveGoodGrpc(ReplyInfo reply) {
-    return (reply.content.urls.isNotEmpty &&
-            reply.content.urls.values.any((url) {
+    final content = reply.content;
+    return content.message.contains(Constants.goodsUrlPrefix) ||
+        (content.urls.isNotEmpty &&
+            content.urls.values.any((url) {
               return url.hasExtra() &&
                   (url.extra.goodsCmControl == Int64.ONE ||
                       url.extra.hasGoodsItemId() ||
                       url.extra.hasGoodsPrefetchedCache());
-            })) ||
-        reply.content.message.contains(Constants.goodsUrlPrefix);
+            }));
   }
 
   static bool needRemoveGrpc(ReplyInfo reply) {

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
-import 'dart:math' show max, min;
+import 'dart:math' show max;
 
 import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -50,6 +50,8 @@ abstract final class PlaybackStatsService {
 
   static final NavigatorObserver pageRouteObserver =
       PlaybackPageRouteObserver();
+  static final _trailingZeros = RegExp(r'0+$');
+  static final _trailingDot = RegExp(r'\.$');
 
   static bool _active = false;
   static bool _live = false;
@@ -67,8 +69,21 @@ abstract final class PlaybackStatsService {
   static int _lastWallUs = 0;
   static int _lastPositionUs = 0;
   static int _suppressDiscontinuityUntilUs = 0;
+  static const _playbackPendingFlushUs = 1 << 23;
+  static int _pendingActivePlaybackUs = 0;
+  static int _pendingMediaAdvanceUs = 0;
+  static double _pendingNominalMediaUs = 0;
+  static double _pendingNominalIncludingLongPressUs = 0;
+  static int _pendingLongPressActiveUs = 0;
+  static int _pendingRewindPlaybackUs = 0;
+  static int _pendingRewindMediaAdvanceUs = 0;
+  static int _pendingNormalPlaybackUs = 0;
+  static int _pendingNormalMediaAdvanceUs = 0;
+  static int _pendingCommentPanelUs = 0;
+  static String _pendingPlaybackSpeed = '1';
   static int? _pendingPositionUs;
   static double _rate = 1;
+  static String _rateKey = '1';
   static double _nominalRate = 1;
   static bool _temporaryRate = false;
   static double _defaultRate = 1;
@@ -84,7 +99,6 @@ abstract final class PlaybackStatsService {
   static double _sessionNominalMediaUs = 0;
   static double _sessionNominalIncludingLongPressUs = 0;
   static int _sessionPausedUs = 0;
-  static int _sessionBufferingUs = 0;
   static int _sessionUniqueCoveredUs = 0;
   static int _sessionRepeatCoveredUs = 0;
   static int _sessionMaxPositionUs = 0;
@@ -103,6 +117,51 @@ abstract final class PlaybackStatsService {
   static String _danmaku = 'unknown';
   static String _copyright = 'unknown';
   static String _decoder = 'unknown';
+  static Map<String, String>? _dimensionAxesCache;
+  static int _dimensionAxesCacheVersion = -1;
+  static int _dimensionAxesCacheTimeKey = -1;
+  static int _dimensionAxesCacheOffsetMinutes = 0;
+  static int _dimensionContextVersion = 0;
+  static DateTime? _wallTimeCache;
+  static int _wallTimeRefreshAtUs = 0;
+  static const _wallTimeRefreshIntervalUs = 1 << 26;
+  static String _crossSpeed = '';
+  static String? _crossUpUid;
+  static String _crossPartition = '';
+  static String _crossOrientation = '';
+  static String _upSpeedKey = '';
+  static String _partitionSpeedKey = '';
+  static String _orientationSpeedKey = '';
+  static int _crossKeyVersion = 0;
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  >? _dimensionTargetsCache;
+  static int _dimensionTargetsVersion = -1;
+  static int _dimensionTargetsTimeKey = -1;
+  static int _dimensionTargetsOffsetMinutes = 0;
+  static String _dimensionTargetsMonth = '';
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  >? _crossTargetsCache;
+  static int _crossTargetsVersion = -1;
+  static String _crossTargetsMonth = '';
+  static Map<String, dynamic>? _monthValuesCache;
+  static String _monthValuesKey = '';
+  static final Map<String, String> _monthDirtyKeyCache = {};
+  static final Map<String, Map<String, dynamic>> _monthBucketCache = {};
+  static final Map<String, Map<String, dynamic>> _bucketMapCache = {};
+  static String? _videoUpCacheUid;
+  static String _videoUpCacheMonth = '';
+  static Map<String, dynamic>? _videoUpItemCache;
+  static Map<String, dynamic>? _videoUpMonthCache;
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -311,9 +370,16 @@ abstract final class PlaybackStatsService {
     _dirtyKeys.add(key);
   }
 
-  static void _markMonthDirty(String field, [String? month]) {
+  static void _markMonthDirty(String field, String month) {
     _dirty = true;
-    _dirtyMonths.add('${month ?? _monthKey}:$field');
+    final cached = _monthDirtyKeyCache[field];
+    if (cached != null) {
+      _dirtyMonths.add(cached);
+      return;
+    }
+    final key = '$month:$field';
+    _monthDirtyKeyCache[field] = key;
+    _dirtyMonths.add(key);
   }
 
   static void _markVideoUpDirty(String uid) {
@@ -335,27 +401,61 @@ abstract final class PlaybackStatsService {
     (cross ? _dirtyCrossDimensions : _dirtyDimensions).add('$axis:$value');
   }
 
-  static String get _monthKey {
+  static DateTime get _wallTime {
+    final clock = _clock.elapsedMicroseconds;
+    final cached = _wallTimeCache;
+    if (cached != null && clock < _wallTimeRefreshAtUs) return cached;
     final now = DateTime.now();
+    _wallTimeCache = now;
+    _wallTimeRefreshAtUs = clock + _wallTimeRefreshIntervalUs;
+    return now;
+  }
+
+  static String get _monthKey => _monthKeyAt(_wallTime);
+
+  static String _monthKeyAt(DateTime now) {
     final stamp = now.year * 12 + now.month;
     if (stamp != _monthStamp) {
       _monthStamp = stamp;
-      _cachedMonthKey = '${now.year.toString().padLeft(4, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}';
+      _cachedMonthKey = _monthKeyFor(now);
     }
     return _cachedMonthKey;
   }
 
+  static String _monthKeyFor(DateTime now) =>
+      '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}';
+
+  static Map<String, dynamic> _monthValues(String monthKey) {
+    final cached = _monthValuesCache;
+    if (cached != null && _monthValuesKey == monthKey) return cached;
+    final months = _map('months');
+    final month = _mutableMap(months[monthKey]);
+    months[monthKey] = month;
+    _monthValuesCache = month;
+    _monthValuesKey = monthKey;
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    return month;
+  }
+
+  static Map<String, dynamic> _bucketMap(String key) {
+    final cached = _bucketMapCache[key];
+    if (cached != null) return cached;
+    final map = _map(key);
+    _bucketMapCache[key] = map;
+    return map;
+  }
+
   static void _addMonthValue(String key, num value) {
     if (value == 0 || key == 'months') return;
-    final months = _map('months');
-    final month = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final month = _monthValues(monthKey);
     final current = month[key] as num? ?? 0;
     month[key] = value is double || current is double
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
-    months[_monthKey] = month;
-    _markMonthDirty(key);
+    _markMonthDirty(key, monthKey);
   }
 
   static void _settleAppForeground(int now) {
@@ -373,13 +473,24 @@ abstract final class PlaybackStatsService {
   }
 
   static void _settleCommentPanel(int now) {
-    final elapsed = max(0, now - _commentPanelLastWallUs);
+    final delta = now - _commentPanelLastWallUs;
+    final elapsed = delta > 0 ? delta : 0;
     if (_appForeground && _active && !_live && _videoCommentPanelVisible) {
-      _add('commentPanelForegroundUs', elapsed);
-      _addVideoUp('commentPanelForegroundUs', elapsed);
-      _addDimension('commentPanelForegroundUs', elapsed);
+      _pendingCommentPanelUs += elapsed;
+      if (_pendingCommentPanelUs >= _playbackPendingFlushUs) {
+        _flushCommentPanelPending();
+      }
     }
     _commentPanelLastWallUs = now;
+  }
+
+  static void _flushCommentPanelPending() {
+    final elapsed = _pendingCommentPanelUs;
+    if (elapsed == 0) return;
+    _pendingCommentPanelUs = 0;
+    _add('commentPanelForegroundUs', elapsed);
+    _addVideoUp('commentPanelForegroundUs', elapsed);
+    _addDimension('commentPanelForegroundUs', elapsed);
   }
 
   static void setVideoCommentPanelVisible(bool visible) {
@@ -387,6 +498,7 @@ abstract final class PlaybackStatsService {
     if (_videoCommentPanelVisible == visible) return;
     final now = _clock.elapsedMicroseconds;
     _settleCommentPanel(now);
+    _flushCommentPanelPending();
     _videoCommentPanelVisible = visible;
     _commentPanelLastWallUs = now;
   }
@@ -403,74 +515,55 @@ abstract final class PlaybackStatsService {
   }
 
   static String _routeCategory(String? routeName) {
-    if (routeName == '/videoV') return 'video';
-    if (routeName == '/liveRoom') return 'live';
-    if (routeName == '/audio' || routeName == '/musicDetail') return 'audio';
-    if (routeName == '/' || routeName == '/home' || routeName == '/hot' ||
-        routeName == '/popularSeries' || routeName == '/popularPrecious') {
-      return 'feed';
-    }
-    if (routeName == '/dynamics' ||
-        routeName == '/dynamicDetail' ||
-        routeName == '/dynTopic' ||
-        routeName == '/dynTopicRcmd') {
-      return 'dynamics';
-    }
-    if (routeName?.toLowerCase().contains('search') == true ||
-        routeName == '/searchTrending') {
-      return 'search';
-    }
-    if (routeName == '/whisper' ||
-        routeName == '/whisperDetail' ||
-        routeName == '/replyMe' ||
-        routeName == '/atMe' ||
-        routeName == '/likeMe' ||
-        routeName == '/sysMsg' ||
-        routeName == '/msgLikeDetail' ||
-        routeName == '/commentHelper') {
-      return 'messages';
-    }
-    if (routeName == '/mainReply' || routeName == '/myReply') {
-      return 'comments';
-    }
-    if (routeName == '/member' ||
-        routeName == '/memberDynamics' ||
-        routeName == '/follow' ||
-        routeName == '/fan' ||
-        routeName == '/followed' ||
-        routeName == '/sameFollowing' ||
-        routeName == '/editProfile') {
-      return 'profile';
-    }
-    if (routeName == '/fav' ||
-        routeName == '/favDetail' ||
-        routeName == '/later' ||
-        routeName == '/history' ||
-        routeName == '/download' ||
-        routeName == '/subscription' ||
-        routeName == '/subDetail') {
-      return 'library';
-    }
-    if (routeName == '/setting' ||
-        routeName == '/cdnSettings' ||
-        routeName == '/playSpeedSet' ||
-        routeName == '/networkPolicy' ||
-        routeName == '/playbackStats' ||
-        routeName == '/trafficStats' ||
-        routeName == '/colorSetting' ||
-        routeName == '/fontSetting' ||
-        routeName == '/displayModeSetting' ||
-        routeName == '/barSetting' ||
-        routeName == '/spaceSetting' ||
-        routeName == '/settingsSearch' ||
-        routeName == '/danmakuBlock' ||
-        routeName == '/sponsorBlock') {
-      return 'settings';
-    }
-    if (routeName == '/articlePage' || routeName == '/articleList') {
-      return 'article';
-    }
-    return 'other';
+    return switch (routeName) {
+      '/videoV' => 'video',
+      '/liveRoom' => 'live',
+      '/audio' || '/musicDetail' => 'audio',
+      '/' || '/home' || '/hot' || '/popularSeries' || '/popularPrecious' =>
+        'feed',
+      '/dynamics' || '/dynamicDetail' || '/dynTopic' || '/dynTopicRcmd' =>
+        'dynamics',
+      final name? when name.toLowerCase().contains('search') => 'search',
+      '/whisper' ||
+      '/whisperDetail' ||
+      '/replyMe' ||
+      '/atMe' ||
+      '/likeMe' ||
+      '/sysMsg' ||
+      '/msgLikeDetail' ||
+      '/commentHelper' => 'messages',
+      '/mainReply' || '/myReply' => 'comments',
+      '/member' ||
+      '/memberDynamics' ||
+      '/follow' ||
+      '/fan' ||
+      '/followed' ||
+      '/sameFollowing' ||
+      '/editProfile' => 'profile',
+      '/fav' ||
+      '/favDetail' ||
+      '/later' ||
+      '/history' ||
+      '/download' ||
+      '/subscription' ||
+      '/subDetail' => 'library',
+      '/setting' ||
+      '/cdnSettings' ||
+      '/playSpeedSet' ||
+      '/networkPolicy' ||
+      '/playbackStats' ||
+      '/trafficStats' ||
+      '/colorSetting' ||
+      '/fontSetting' ||
+      '/displayModeSetting' ||
+      '/barSetting' ||
+      '/spaceSetting' ||
+      '/settingsSearch' ||
+      '/danmakuBlock' ||
+      '/sponsorBlock' => 'settings',
+      '/articlePage' || '/articleList' => 'article',
+      _ => 'other',
+    };
   }
 
   static Map<String, dynamic> _map(String key) {
@@ -482,58 +575,73 @@ abstract final class PlaybackStatsService {
 
   static void _addBucket(String key, String bucket, num value) {
     if (value == 0) return;
-    final map = _map(key);
+    final map = _bucketMap(key);
     final current = map[bucket] as num? ?? 0;
     map[bucket] = value is double || current is double
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
     _markDirty(key);
-    final months = _map('months');
-    final month = _mutableMap(months[_monthKey]);
-    final monthBuckets = _mutableMap(month[key]);
+    final monthKey = _monthKey;
+    final month = _monthValues(monthKey);
+    var monthBuckets = _monthBucketCache[key];
+    if (monthBuckets == null) {
+      monthBuckets = _mutableMap(month[key]);
+      month[key] = monthBuckets;
+      _monthBucketCache[key] = monthBuckets;
+    }
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
-    month[key] = monthBuckets;
-    months[_monthKey] = month;
-    _markMonthDirty(key);
+    _markMonthDirty(key, monthKey);
+  }
+
+  static bool _ensureVideoUpTarget() {
+    final uid = _videoUpUid;
+    if (uid == null) return false;
+    final monthKey = _monthKey;
+    if (_videoUpItemCache != null &&
+        _videoUpCacheUid == uid &&
+        _videoUpCacheMonth == monthKey) {
+      return true;
+    }
+    final byUid = _map('videoByUpUid');
+    final item = _mutableMap(byUid[uid]);
+    final months = _mutableMap(item['months']);
+    final month = _mutableMap(months[monthKey]);
+    months[monthKey] = month;
+    item['months'] = months;
+    byUid[uid] = item;
+    _videoUpCacheUid = uid;
+    _videoUpCacheMonth = monthKey;
+    _videoUpItemCache = item;
+    _videoUpMonthCache = month;
+    return true;
   }
 
   static void _addVideoUp(String key, num value) {
     final uid = _videoUpUid;
-    if (uid == null || value == 0) return;
-    final byUid = _map('videoByUpUid');
-    final item = _mutableMap(byUid[uid]);
-    if (_videoUpName case final name? when name.isNotEmpty) {
+    if (uid == null || value == 0 || !_ensureVideoUpTarget()) return;
+    final item = _videoUpItemCache!;
+    final month = _videoUpMonthCache!;
+    final name = _videoUpName;
+    if (name?.isNotEmpty == true) {
       item['name'] = name;
+      month['name'] = name;
     }
     item[key] = (item[key] as num? ?? 0) + value;
-    final months = _mutableMap(item['months']);
-    final monthItem = _mutableMap(months[_monthKey]);
-    monthItem[key] = (monthItem[key] as num? ?? 0) + value;
-    if (_videoUpName case final name? when name.isNotEmpty) {
-      monthItem['name'] = name;
-    }
-    months[_monthKey] = monthItem;
-    item['months'] = months;
-    byUid[uid] = item;
+    month[key] = (month[key] as num? ?? 0) + value;
     _markVideoUpDirty(uid);
   }
 
   static void _addVideoUpBucket(String key, String bucket, num value) {
     final uid = _videoUpUid;
-    if (uid == null || value == 0) return;
-    final byUid = _map('videoByUpUid');
-    final item = _mutableMap(byUid[uid]);
+    if (uid == null || value == 0 || !_ensureVideoUpTarget()) return;
+    final item = _videoUpItemCache!;
+    final month = _videoUpMonthCache!;
     final buckets = _mutableMap(item[key]);
     buckets[bucket] = (buckets[bucket] as num? ?? 0) + value;
     item[key] = buckets;
-    final months = _mutableMap(item['months']);
-    final monthItem = _mutableMap(months[_monthKey]);
-    final monthBuckets = _mutableMap(monthItem[key]);
+    final monthBuckets = _mutableMap(month[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
-    monthItem[key] = monthBuckets;
-    months[_monthKey] = monthItem;
-    item['months'] = months;
-    byUid[uid] = item;
+    month[key] = monthBuckets;
     _markVideoUpDirty(uid);
   }
 
@@ -565,8 +673,8 @@ abstract final class PlaybackStatsService {
   static String _speedKey(double speed) {
     final text = speed.toStringAsFixed(2);
     return text
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(RegExp(r'\.$'), '');
+        .replaceFirst(_trailingZeros, '')
+        .replaceFirst(_trailingDot, '');
   }
 
   static void _recordSourceSpeed(double speed, double defaultSpeed) {
@@ -581,11 +689,128 @@ abstract final class PlaybackStatsService {
 
   static void _addLiveMonth(Map<String, dynamic> item, String key, num value) {
     final months = _mutableMap(item['months']);
-    final month = _mutableMap(months[_monthKey]);
+    final monthKey = _monthKey;
+    final month = _mutableMap(months[monthKey]);
     month[key] = (month[key] as num? ?? 0) + value;
     if (_liveName case final name? when name.isNotEmpty) month['name'] = name;
-    months[_monthKey] = month;
+    months[monthKey] = month;
     item['months'] = months;
+  }
+
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  > _dimensionTargets(String month, Map<String, String> axes) {
+    final cached = _dimensionTargetsCache;
+    if (cached != null &&
+        _dimensionTargetsVersion == _dimensionContextVersion &&
+        _dimensionTargetsTimeKey == _dimensionAxesCacheTimeKey &&
+        _dimensionTargetsOffsetMinutes == _dimensionAxesCacheOffsetMinutes &&
+        _dimensionTargetsMonth == month) {
+      return cached;
+    }
+
+    final dimensions = _map('dimensions');
+    final targets = <
+      ({
+        Map<String, dynamic> item,
+        Map<String, dynamic> month,
+        String dirtyKey,
+      })
+    >[];
+    for (final axis in axes.entries) {
+      final values = _mutableMap(dimensions[axis.key]);
+      final item = _mutableMap(values[axis.value]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      months[month] = current;
+      item['months'] = months;
+      values[axis.value] = item;
+      dimensions[axis.key] = values;
+      targets.add((
+        item: item,
+        month: current,
+        dirtyKey: '${axis.key}:${axis.value}',
+      ));
+    }
+
+    _dimensionTargetsCache = targets;
+    _dimensionTargetsVersion = _dimensionContextVersion;
+    _dimensionTargetsTimeKey = _dimensionAxesCacheTimeKey;
+    _dimensionTargetsOffsetMinutes = _dimensionAxesCacheOffsetMinutes;
+    _dimensionTargetsMonth = month;
+    return targets;
+  }
+
+  static void _updateCrossKeys(String speed) {
+    final uid = _videoUpUid;
+    if (speed == _crossSpeed &&
+        uid == _crossUpUid &&
+        _partitionId == _crossPartition &&
+        _orientation == _crossOrientation) {
+      return;
+    }
+    _crossSpeed = speed;
+    _crossUpUid = uid;
+    _crossPartition = _partitionId;
+    _crossOrientation = _orientation;
+    _upSpeedKey = '${uid ?? 'unknown'}|$speed';
+    _partitionSpeedKey = '$_partitionId|$speed';
+    _orientationSpeedKey = '$_orientation|$speed';
+    _crossKeyVersion++;
+  }
+
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  > _crossTargets(String speed, String month) {
+    _updateCrossKeys(speed);
+    final cached = _crossTargetsCache;
+    if (cached != null &&
+        _crossTargetsVersion == _crossKeyVersion &&
+        _crossTargetsMonth == month) {
+      return cached;
+    }
+
+    final crosses = _map('crossDimensions');
+    final keys = (
+      ('upSpeed', _upSpeedKey),
+      ('partitionSpeed', _partitionSpeedKey),
+      ('orientationSpeed', _orientationSpeedKey),
+    );
+    final targets = <
+      ({
+        Map<String, dynamic> item,
+        Map<String, dynamic> month,
+        String dirtyKey,
+      })
+    >[];
+    for (final (axis, valueKey) in [keys.$1, keys.$2, keys.$3]) {
+      final values = _mutableMap(crosses[axis]);
+      final item = _mutableMap(values[valueKey]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      months[month] = current;
+      item['months'] = months;
+      values[valueKey] = item;
+      crosses[axis] = values;
+      targets.add((
+        item: item,
+        month: current,
+        dirtyKey: '$axis:$valueKey',
+      ));
+    }
+
+    _crossTargetsCache = targets;
+    _crossTargetsVersion = _crossKeyVersion;
+    _crossTargetsMonth = month;
+    return targets;
   }
 
   static void _addDimension(
@@ -594,58 +819,23 @@ abstract final class PlaybackStatsService {
     String? speed,
   }) {
     if (value == 0) return;
-    final axes = <String, String>{
-      'orientation': _orientation,
-      'content': _contentType,
-      'partition': '$_partitionId:$_partitionName',
-      'codec': _codec,
-      'quality': _quality,
-      'network': _network,
-      'platform': defaultTargetPlatform.name,
-      'duration': _durationBand(_sourceDurationUs),
-      'playbackForm': _playbackForm,
-      'subtitle': _subtitle,
-      'danmaku': _danmaku,
-      'copyright': _copyright,
-      'decoder': _decoder,
-      'weekday': DateTime.now().weekday.toString(),
-      'hour': DateTime.now().hour.toString().padLeft(2, '0'),
-      'utcOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes.toString(),
-    };
-    final dimensions = _map('dimensions');
-    for (final axis in axes.entries) {
-      final values = _mutableMap(dimensions[axis.key]);
-      final item = _mutableMap(values[axis.value]);
-      item[primitive] = (item[primitive] as num? ?? 0) + value;
-      final months = _mutableMap(item['months']);
-      final month = _mutableMap(months[_monthKey]);
-      month[primitive] = (month[primitive] as num? ?? 0) + value;
-      months[_monthKey] = month;
-      item['months'] = months;
-      values[axis.value] = item;
-      dimensions[axis.key] = values;
-      _markDimensionDirty(axis.key, axis.value);
+    final now = _wallTime;
+    final axes = _dimensionAxes(now);
+    final monthKey = _monthKeyAt(now);
+    for (final target in _dimensionTargets(monthKey, axes)) {
+      target.item[primitive] = (target.item[primitive] as num? ?? 0) + value;
+      target.month[primitive] = (target.month[primitive] as num? ?? 0) + value;
+      _dirtyDimensions.add(target.dirtyKey);
     }
     if (speed != null) {
-      final crosses = _map('crossDimensions');
-      for (final entry in <String, String>{
-        'upSpeed': '${_videoUpUid ?? 'unknown'}|$speed',
-        'partitionSpeed': '$_partitionId|$speed',
-        'orientationSpeed': '$_orientation|$speed',
-      }.entries) {
-        final values = _mutableMap(crosses[entry.key]);
-        final item = _mutableMap(values[entry.value]);
-        item[primitive] = (item[primitive] as num? ?? 0) + value;
-        final months = _mutableMap(item['months']);
-        final month = _mutableMap(months[_monthKey]);
-        month[primitive] = (month[primitive] as num? ?? 0) + value;
-        months[_monthKey] = month;
-        item['months'] = months;
-        values[entry.value] = item;
-        crosses[entry.key] = values;
-        _markDimensionDirty(entry.key, entry.value, cross: true);
+      for (final target in _crossTargets(speed, monthKey)) {
+        target.item[primitive] = (target.item[primitive] as num? ?? 0) + value;
+        target.month[primitive] =
+            (target.month[primitive] as num? ?? 0) + value;
+        _dirtyCrossDimensions.add(target.dirtyKey);
       }
     }
+    _dirty = true;
   }
 
   // Position events are the hot path. Four independent calls used to rebuild
@@ -659,33 +849,12 @@ abstract final class PlaybackStatsService {
     num nominalMediaIncludingLongPressUs,
     String speed,
   ) {
-    final now = DateTime.now();
-    final month = '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}';
-    final axes = <String, String>{
-      'orientation': _orientation,
-      'content': _contentType,
-      'partition': '$_partitionId:$_partitionName',
-      'codec': _codec,
-      'quality': _quality,
-      'network': _network,
-      'platform': defaultTargetPlatform.name,
-      'duration': _durationBand(_sourceDurationUs),
-      'playbackForm': _playbackForm,
-      'subtitle': _subtitle,
-      'danmaku': _danmaku,
-      'copyright': _copyright,
-      'decoder': _decoder,
-      'weekday': now.weekday.toString(),
-      'hour': now.hour.toString().padLeft(2, '0'),
-      'utcOffsetMinutes': now.timeZoneOffset.inMinutes.toString(),
-    };
-    final dimensions = _map('dimensions');
-    for (final axis in axes.entries) {
-      final values = _mutableMap(dimensions[axis.key]);
-      final item = _mutableMap(values[axis.value]);
-      final months = _mutableMap(item['months']);
-      final current = _mutableMap(months[month]);
+    final now = _wallTime;
+    final month = _monthKeyAt(now);
+    final axes = _dimensionAxes(now);
+    for (final target in _dimensionTargets(month, axes)) {
+      final item = target.item;
+      final current = target.month;
       item['activePlaybackUs'] =
           (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
       item['mediaAdvanceUs'] =
@@ -704,22 +873,11 @@ abstract final class PlaybackStatsService {
       current['nominalMediaIncludingLongPressUs'] =
           (current['nominalMediaIncludingLongPressUs'] as num? ?? 0) +
           nominalMediaIncludingLongPressUs;
-      months[month] = current;
-      item['months'] = months;
-      values[axis.value] = item;
-      dimensions[axis.key] = values;
-      _markDimensionDirty(axis.key, axis.value);
+      _dirtyDimensions.add(target.dirtyKey);
     }
-    final crosses = _map('crossDimensions');
-    for (final entry in <String, String>{
-      'upSpeed': '${_videoUpUid ?? 'unknown'}|$speed',
-      'partitionSpeed': '$_partitionId|$speed',
-      'orientationSpeed': '$_orientation|$speed',
-    }.entries) {
-      final values = _mutableMap(crosses[entry.key]);
-      final item = _mutableMap(values[entry.value]);
-      final months = _mutableMap(item['months']);
-      final current = _mutableMap(months[month]);
+    for (final target in _crossTargets(speed, month)) {
+      final item = target.item;
+      final current = target.month;
       item['activePlaybackUs'] =
           (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
       item['mediaAdvanceUs'] =
@@ -728,11 +886,114 @@ abstract final class PlaybackStatsService {
           (current['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
       current['mediaAdvanceUs'] =
           (current['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
-      months[month] = current;
-      item['months'] = months;
-      values[entry.value] = item;
-      crosses[entry.key] = values;
-      _markDimensionDirty(entry.key, entry.value, cross: true);
+      _dirtyCrossDimensions.add(target.dirtyKey);
+    }
+    _dirty = true;
+  }
+
+  static void _flushPlaybackPending() {
+    _flushCommentPanelPending();
+    final activePlaybackUs = _pendingActivePlaybackUs;
+    final mediaAdvanceUs = _pendingMediaAdvanceUs;
+    final nominalMediaUs = _pendingNominalMediaUs;
+    final nominalIncludingLongPressUs = _pendingNominalIncludingLongPressUs;
+    final longPressActiveUs = _pendingLongPressActiveUs;
+    final rewindPlaybackUs = _pendingRewindPlaybackUs;
+    final rewindMediaAdvanceUs = _pendingRewindMediaAdvanceUs;
+    final normalPlaybackUs = _pendingNormalPlaybackUs;
+    final normalMediaAdvanceUs = _pendingNormalMediaAdvanceUs;
+    if (activePlaybackUs == 0 &&
+        mediaAdvanceUs == 0 &&
+        nominalMediaUs == 0 &&
+        nominalIncludingLongPressUs == 0 &&
+        longPressActiveUs == 0 &&
+        rewindPlaybackUs == 0 &&
+        rewindMediaAdvanceUs == 0 &&
+        normalPlaybackUs == 0 &&
+        normalMediaAdvanceUs == 0) {
+      return;
+    }
+
+    final speed = _pendingPlaybackSpeed;
+    _pendingActivePlaybackUs = 0;
+    _pendingMediaAdvanceUs = 0;
+    _pendingNominalMediaUs = 0;
+    _pendingNominalIncludingLongPressUs = 0;
+    _pendingLongPressActiveUs = 0;
+    _pendingRewindPlaybackUs = 0;
+    _pendingRewindMediaAdvanceUs = 0;
+    _pendingNormalPlaybackUs = 0;
+    _pendingNormalMediaAdvanceUs = 0;
+
+    _add('activePlaybackUs', activePlaybackUs);
+    _addVideoUp('activePlaybackUs', activePlaybackUs);
+    _add('nominalMediaUs', nominalMediaUs);
+    _add('nominalMediaIncludingLongPressUs', nominalIncludingLongPressUs);
+    _addVideoUp('nominalMediaUs', nominalMediaUs);
+    _addVideoUp(
+      'nominalMediaIncludingLongPressUs',
+      nominalIncludingLongPressUs,
+    );
+    _addBucket('speedActiveUs', speed, activePlaybackUs);
+    _addVideoUpBucket('speedActiveUs', speed, activePlaybackUs);
+    if (longPressActiveUs != 0) {
+      _add('longPressActiveUs', longPressActiveUs);
+      _addBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
+      _addVideoUp('longPressActiveUs', longPressActiveUs);
+      _addVideoUpBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
+    }
+
+    _add('mediaAdvanceUs', mediaAdvanceUs);
+    _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
+    _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
+    _add('rewindPlaybackUs', rewindPlaybackUs);
+    _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
+    _add('normalPlaybackUs', normalPlaybackUs);
+    _add('normalMediaAdvanceUs', normalMediaAdvanceUs);
+    _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
+    _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
+    _addVideoUp('normalPlaybackUs', normalPlaybackUs);
+    _addVideoUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
+    _addDimensionPlayback(
+      activePlaybackUs,
+      mediaAdvanceUs,
+      nominalMediaUs,
+      nominalIncludingLongPressUs,
+      speed,
+    );
+    _addBucket('rewindSpeedActiveUs', speed, rewindPlaybackUs);
+    _addBucket('rewindSpeedMediaAdvanceUs', speed, rewindMediaAdvanceUs);
+    _addBucket('normalSpeedActiveUs', speed, normalPlaybackUs);
+    _addBucket('normalSpeedMediaAdvanceUs', speed, normalMediaAdvanceUs);
+  }
+
+  static void _accumulatePlayback(
+    String speed,
+    int activePlaybackUs,
+    int mediaAdvanceUs,
+    double nominalMediaUs,
+    double nominalIncludingLongPressUs,
+    int rewindPlaybackUs,
+    int rewindMediaAdvanceUs,
+    int normalPlaybackUs,
+    int normalMediaAdvanceUs,
+    bool temporary,
+  ) {
+    if (_pendingActivePlaybackUs != 0 && _pendingPlaybackSpeed != speed) {
+      _flushPlaybackPending();
+    }
+    _pendingPlaybackSpeed = speed;
+    _pendingActivePlaybackUs += activePlaybackUs;
+    _pendingMediaAdvanceUs += mediaAdvanceUs;
+    _pendingNominalMediaUs += nominalMediaUs;
+    _pendingNominalIncludingLongPressUs += nominalIncludingLongPressUs;
+    _pendingRewindPlaybackUs += rewindPlaybackUs;
+    _pendingRewindMediaAdvanceUs += rewindMediaAdvanceUs;
+    _pendingNormalPlaybackUs += normalPlaybackUs;
+    _pendingNormalMediaAdvanceUs += normalMediaAdvanceUs;
+    if (temporary) _pendingLongPressActiveUs += activePlaybackUs;
+    if (_pendingActivePlaybackUs >= _playbackPendingFlushUs) {
+      _flushPlaybackPending();
     }
   }
 
@@ -742,8 +1003,7 @@ abstract final class PlaybackStatsService {
   static void _addStaticSessionDimensions(Map<String, num> primitives) {
     if (primitives.isEmpty) return;
     final now = DateTime.now();
-    final month = '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}';
+    final month = _monthKeyAt(now);
     final axes = <String, String>{
       'orientation': _orientation,
       'content': _contentType,
@@ -772,12 +1032,49 @@ abstract final class PlaybackStatsService {
     }
   }
 
+  static Map<String, String> _dimensionAxes(DateTime now) {
+    final timeKey =
+        (((now.year * 13 + now.month) * 32 + now.day) * 24 + now.hour);
+    final offsetMinutes = now.timeZoneOffset.inMinutes;
+    final cached = _dimensionAxesCache;
+    if (cached != null &&
+        _dimensionAxesCacheVersion == _dimensionContextVersion &&
+        _dimensionAxesCacheTimeKey == timeKey &&
+        _dimensionAxesCacheOffsetMinutes == offsetMinutes) {
+      return cached;
+    }
+
+    final axes = <String, String>{
+      'orientation': _orientation,
+      'content': _contentType,
+      'partition': '$_partitionId:$_partitionName',
+      'codec': _codec,
+      'quality': _quality,
+      'network': _network,
+      'platform': defaultTargetPlatform.name,
+      'duration': _durationBand(_sourceDurationUs),
+      'playbackForm': _playbackForm,
+      'subtitle': _subtitle,
+      'danmaku': _danmaku,
+      'copyright': _copyright,
+      'decoder': _decoder,
+      'weekday': now.weekday.toString(),
+      'hour': now.hour.toString().padLeft(2, '0'),
+      'utcOffsetMinutes': offsetMinutes.toString(),
+    };
+    _dimensionAxesCache = axes;
+    _dimensionAxesCacheVersion = _dimensionContextVersion;
+    _dimensionAxesCacheTimeKey = timeKey;
+    _dimensionAxesCacheOffsetMinutes = offsetMinutes;
+    return axes;
+  }
+
   static String _durationBand(int us) => switch (us) {
     <= 0 => 'unknown',
-    < 60 * 1000000 => '<1m',
-    < 5 * 60 * 1000000 => '1-5m',
-    < 20 * 60 * 1000000 => '5-20m',
-    < 60 * 60 * 1000000 => '20-60m',
+    < 60_000_000 => '<1m',
+    < 300_000_000 => '1-5m',
+    < 1_200_000_000 => '5-20m',
+    < 3_600_000_000 => '20-60m',
     _ => '>=60m',
   };
 
@@ -875,6 +1172,7 @@ abstract final class PlaybackStatsService {
     } else if (!isLive && _completedIdle) {
       _restartCompletedVideoSession(initialPosition.inMicroseconds, now);
     } else if (!isLive && videoUpUid != null) {
+      _flushPlaybackPending();
       _videoUpUid = videoUpUid.toString();
       _videoUpName = videoUpName ?? _videoUpName;
       _recordVideoUpStart();
@@ -887,6 +1185,7 @@ abstract final class PlaybackStatsService {
     _buffering = true;
     _completedIdle = false;
     _rate = speed;
+    _rateKey = _speedKey(speed);
     _nominalRate = speed;
     _temporaryRate = false;
     _defaultRate = defaultSpeed;
@@ -931,6 +1230,7 @@ abstract final class PlaybackStatsService {
   }) {
     _ensureInitialized();
     if (!_active || _live) return;
+    _flushPlaybackPending();
     if (sourceDuration != null && sourceDuration.inMicroseconds > 0) {
       _sourceDurationUs = sourceDuration.inMicroseconds;
     }
@@ -948,6 +1248,7 @@ abstract final class PlaybackStatsService {
     if (danmakuEnabled != null) _danmaku = danmakuEnabled ? 'on' : 'off';
     if (copyright != null) _copyright = copyright;
     if (decoder != null) _decoder = decoder;
+    _dimensionContextVersion++;
   }
 
   static void updateLiveIdentity({
@@ -972,7 +1273,9 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live || form == _playbackForm) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    _flushPlaybackPending();
     _playbackForm = form;
+    _dimensionContextVersion++;
   }
 
   static void _beginVideoSession(
@@ -987,12 +1290,12 @@ abstract final class PlaybackStatsService {
     _sessionNominalMediaUs = 0;
     _sessionNominalIncludingLongPressUs = 0;
     _sessionPausedUs = 0;
-    _sessionBufferingUs = 0;
     _sessionUniqueCoveredUs = 0;
     _sessionRepeatCoveredUs = 0;
     _sessionMaxPositionUs = initialPositionUs;
     _sessionCompleted = false;
     _coveredIntervals.clear();
+    _dimensionContextVersion++;
     if (!resetContext) return;
     _orientation = 'unknown';
     _contentType = 'ugc';
@@ -1024,11 +1327,14 @@ abstract final class PlaybackStatsService {
   }
 
   static void _recordCoverage(int rawStartUs, int rawEndUs) {
-    var start = max(0, min(rawStartUs, rawEndUs));
-    var end = max(0, max(rawStartUs, rawEndUs));
+    var start = rawStartUs;
+    var end = rawEndUs;
+    if (start > end) (start, end) = (end, start);
+    if (start < 0) start = 0;
+    if (end < 0) end = 0;
     if (_sourceDurationUs > 0) {
-      start = min(start, _sourceDurationUs);
-      end = min(end, _sourceDurationUs);
+      if (start > _sourceDurationUs) start = _sourceDurationUs;
+      if (end > _sourceDurationUs) end = _sourceDurationUs;
     }
     if (end <= start) return;
 
@@ -1074,25 +1380,27 @@ abstract final class PlaybackStatsService {
         }
         next.add(interval);
       } else {
-        overlap += max(
-          0,
-          min(end, interval.end) - max(start, interval.start),
-        );
-        mergedStart = min(mergedStart, interval.start);
-        mergedEnd = max(mergedEnd, interval.end);
+        if (interval.start < end && interval.end > start) {
+          final overlapStart = start > interval.start ? start : interval.start;
+          final overlapEnd = end < interval.end ? end : interval.end;
+          overlap += overlapEnd - overlapStart;
+        }
+        if (interval.start < mergedStart) mergedStart = interval.start;
+        if (interval.end > mergedEnd) mergedEnd = interval.end;
       }
     }
     if (!inserted) next.add((start: mergedStart, end: mergedEnd));
     _coveredIntervals
       ..clear()
       ..addAll(next);
-    final unique = max(0, span - overlap);
+    final unique = span - overlap;
     _sessionUniqueCoveredUs += unique;
     _sessionRepeatCoveredUs += span - unique;
   }
 
   static void _finalizeVideoSession() {
     if (!_videoSessionOpen) return;
+    _flushPlaybackPending();
     _videoSessionOpen = false;
     final played = _sessionActiveUs > 0;
     final sessionPrimitives = <String, num>{
@@ -1128,31 +1436,33 @@ abstract final class PlaybackStatsService {
     _addDimension('repeatCoveredUs', _sessionRepeatCoveredUs);
 
     if (played) {
+      final activeScale = 1 / _sessionActiveUs;
       _addHistogram(
         'sessionActualSpeedHistogram',
-        _sessionMediaAdvanceUs / _sessionActiveUs,
+        _sessionMediaAdvanceUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
       _addHistogram(
         'sessionNominalSpeedHistogram',
-        _sessionNominalMediaUs / _sessionActiveUs,
+        _sessionNominalMediaUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
       _addHistogram(
         'sessionNominalLongPressSpeedHistogram',
-        _sessionNominalIncludingLongPressUs / _sessionActiveUs,
+        _sessionNominalIncludingLongPressUs * activeScale,
         const [0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4],
       );
     }
     if (_sourceDurationUs > 0) {
+      final sourceDurationScale = 1 / _sourceDurationUs;
       _addHistogram(
         'sessionCoverageHistogram',
-        _sessionUniqueCoveredUs / _sourceDurationUs,
+        _sessionUniqueCoveredUs * sourceDurationScale,
         const [0.1, 0.25, 0.5, 0.75, 0.9, 0.99],
       );
       _addHistogram(
         'sessionExitPositionHistogram',
-        _sessionMaxPositionUs / _sourceDurationUs,
+        _sessionMaxPositionUs * sourceDurationScale,
         const [0.1, 0.25, 0.5, 0.75, 0.9, 0.99],
       );
     }
@@ -1210,6 +1520,7 @@ abstract final class PlaybackStatsService {
     if (!_active || _live || _mediaKey != 'cid:$cid' || videoUpUid == null) {
       return;
     }
+    _flushPlaybackPending();
     _videoUpUid = videoUpUid.toString();
     _videoUpName = videoUpName ?? _videoUpName;
     _recordVideoUpStart();
@@ -1234,6 +1545,7 @@ abstract final class PlaybackStatsService {
         }
       }
       if (playing != _playing) {
+        _flushPlaybackPending();
         if (playing) {
           _clearTrailingPause();
           _add('playbackSegments', 1);
@@ -1259,6 +1571,7 @@ abstract final class PlaybackStatsService {
           _restartCompletedVideoSession(position.inMicroseconds, now);
         }
       }
+      if (buffering != _buffering) _flushPlaybackPending();
       if (buffering && !_buffering) {
         _add('bufferingCount', 1);
         _addVideoUp('bufferingCount', 1);
@@ -1274,10 +1587,11 @@ abstract final class PlaybackStatsService {
     bool temporary = false,
   }) {
     _ensureInitialized();
+    final key = _speedKey(speed);
     if (_active && !_live) {
       _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+      _flushPlaybackPending();
       if (recordSelection) {
-        final key = _speedKey(speed);
         _addBucket('manualSpeedSelections', key, 1);
         _stats!['lastSelectedSpeed'] = speed;
         _add('rateChangeCount', 1);
@@ -1290,6 +1604,7 @@ abstract final class PlaybackStatsService {
       }
     }
     _rate = speed;
+    _rateKey = key;
     _temporaryRate = temporary;
     if (!temporary) _nominalRate = speed;
   }
@@ -1302,19 +1617,22 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
-    _settleVideo(from.inMicroseconds, now);
+    final fromUs = from.inMicroseconds;
+    final toUs = to.inMicroseconds;
+    _settleVideo(fromUs, now);
+    _flushPlaybackPending();
     if (_completedIdle) {
-      _restartCompletedVideoSession(to.inMicroseconds, now);
+      _restartCompletedVideoSession(toUs, now);
       return;
     }
     _completedIdle = false;
     if (userInitiated) {
-      _recordSeek(from.inMicroseconds, to.inMicroseconds, now);
+      _recordSeek(fromUs, toUs, now);
     } else {
       _finishRewind(now, completed: false);
     }
-    _sessionMaxPositionUs = max(_sessionMaxPositionUs, to.inMicroseconds);
-    _lastPositionUs = to.inMicroseconds;
+    if (toUs > _sessionMaxPositionUs) _sessionMaxPositionUs = toUs;
+    _lastPositionUs = toUs;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
     _suppressDiscontinuityUntilUs = now + 2000000;
@@ -1324,8 +1642,10 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
-    _settleVideo(position.inMicroseconds, now);
-    _lastPositionUs = position.inMicroseconds;
+    final positionUs = position.inMicroseconds;
+    _settleVideo(positionUs, now);
+    _flushPlaybackPending();
+    _lastPositionUs = positionUs;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
     _suppressDiscontinuityUntilUs = now + 2000000;
@@ -1335,6 +1655,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live || _completedIdle) return;
     _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    _flushPlaybackPending();
     _reclassifyTrailingPauseAsComment();
     _add('completedVideos', 1);
     _addVideoUp('completedCount', 1);
@@ -1384,7 +1705,8 @@ abstract final class PlaybackStatsService {
 
   static void _settleLive(int now) {
     if (!_active || !_live) return;
-    final elapsed = max(0, now - _lastWallUs);
+    final delta = now - _lastWallUs;
+    final elapsed = delta > 0 ? delta : 0;
     if (elapsed > 0) {
       _add('liveWatchUs', elapsed);
       final uid = _liveUid;
@@ -1404,7 +1726,8 @@ abstract final class PlaybackStatsService {
   static void _settleVideo(int positionUs, int now) {
     if (!_active || _live) return;
     _settleCommentPanel(now);
-    final wallUs = max(0, now - _lastWallUs);
+    final elapsedUs = now - _lastWallUs;
+    final wallUs = elapsedUs > 0 ? elapsedUs : 0;
     final mediaDeltaUs = positionUs - _lastPositionUs;
     if (_pendingPositionUs case final target?) {
       if (now >= _suppressDiscontinuityUntilUs) {
@@ -1425,12 +1748,11 @@ abstract final class PlaybackStatsService {
       _addVideoUp('commentAreaUs', wallUs);
       _addDimension('commentAreaUs', wallUs);
     } else if (_buffering) {
-      _sessionBufferingUs += wallUs;
       _add('bufferingUs', wallUs);
       _addVideoUp('bufferingUs', wallUs);
       _addDimension('bufferingUs', wallUs);
       final rewind = _rewind;
-      final speed = _speedKey(_rate);
+      final speed = _rateKey;
       if (rewind == null) {
         _add('normalBufferingUs', wallUs);
         _addVideoUp('normalBufferingUs', wallUs);
@@ -1444,25 +1766,13 @@ abstract final class PlaybackStatsService {
         rewind.bufferingUs += wallUs;
       }
     } else if (_playing) {
-      final speed = _speedKey(_rate);
+      final speed = _rateKey;
       final nominalMediaUs = wallUs * _nominalRate;
       final rateMediaUs = wallUs * _rate;
-      _add('activePlaybackUs', wallUs);
-      _addVideoUp('activePlaybackUs', wallUs);
-      _add('nominalMediaUs', nominalMediaUs);
-      _add('nominalMediaIncludingLongPressUs', rateMediaUs);
-      _addVideoUp('nominalMediaUs', nominalMediaUs);
-      _addVideoUp('nominalMediaIncludingLongPressUs', rateMediaUs);
-      _addBucket('speedActiveUs', speed, wallUs);
-      _addVideoUpBucket('speedActiveUs', speed, wallUs);
-      if (_temporaryRate) {
-        _add('longPressActiveUs', wallUs);
-        _addBucket('longPressSpeedActiveUs', speed, wallUs);
-        _addVideoUp('longPressActiveUs', wallUs);
-        _addVideoUpBucket('longPressSpeedActiveUs', speed, wallUs);
-      }
-
-      final toleranceUs = max(2000000, rateMediaUs * 2).round();
+      final doubledRateUs = rateMediaUs * 2;
+      final toleranceUs = doubledRateUs > 2000000
+          ? doubledRateUs.round()
+          : 2000000;
       final discontinuity =
           mediaDeltaUs < -_seekThresholdUs ||
           mediaDeltaUs > rateMediaUs + toleranceUs;
@@ -1470,9 +1780,12 @@ abstract final class PlaybackStatsService {
       var rewindPlaybackUs = 0;
       var rewindMediaAdvanceUs = 0;
       if (discontinuity) {
-        mediaAdvanceUs = now < _suppressDiscontinuityUntilUs
-            ? 0
-            : min(max(0, mediaDeltaUs), rateMediaUs.round());
+        if (now < _suppressDiscontinuityUntilUs || mediaDeltaUs <= 0) {
+          mediaAdvanceUs = 0;
+        } else {
+          final rateUs = rateMediaUs.round();
+          mediaAdvanceUs = mediaDeltaUs < rateUs ? mediaDeltaUs : rateUs;
+        }
         final rewindPart = _advanceRewind(
           _lastPositionUs,
           _lastPositionUs + mediaAdvanceUs,
@@ -1486,7 +1799,7 @@ abstract final class PlaybackStatsService {
           _recordSeek(_lastPositionUs, positionUs, now);
         }
       } else {
-        mediaAdvanceUs = max(0, mediaDeltaUs);
+        mediaAdvanceUs = mediaDeltaUs > 0 ? mediaDeltaUs : 0;
         final rewindPart = _advanceRewind(
           _lastPositionUs,
           positionUs,
@@ -1496,52 +1809,30 @@ abstract final class PlaybackStatsService {
         rewindPlaybackUs = rewindPart.playbackUs;
         rewindMediaAdvanceUs = rewindPart.mediaAdvanceUs;
       }
-      _add('mediaAdvanceUs', mediaAdvanceUs);
-      _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
       _sessionActiveUs += wallUs;
       _sessionMediaAdvanceUs += mediaAdvanceUs;
       _sessionNominalMediaUs += nominalMediaUs;
       _sessionNominalIncludingLongPressUs += rateMediaUs;
-      _sessionMaxPositionUs = max(_sessionMaxPositionUs, positionUs);
+      if (positionUs > _sessionMaxPositionUs) {
+        _sessionMaxPositionUs = positionUs;
+      }
       _recordCoverage(
         _lastPositionUs,
         _lastPositionUs + mediaAdvanceUs,
       );
-      _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
-      _add('rewindPlaybackUs', rewindPlaybackUs);
-      _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _add('normalPlaybackUs', wallUs - rewindPlaybackUs);
-      _add('normalMediaAdvanceUs', mediaAdvanceUs - rewindMediaAdvanceUs);
-      _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
-      _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-      _addVideoUp('normalPlaybackUs', wallUs - rewindPlaybackUs);
-      _addVideoUp('normalMediaAdvanceUs', mediaAdvanceUs - rewindMediaAdvanceUs);
-      _addDimensionPlayback(
+      final normalPlaybackUs = wallUs - rewindPlaybackUs;
+      final normalMediaAdvanceUs = mediaAdvanceUs - rewindMediaAdvanceUs;
+      _accumulatePlayback(
+        speed,
         wallUs,
         mediaAdvanceUs,
         nominalMediaUs,
         rateMediaUs,
-        speed,
-      );
-      _addBucket(
-        'rewindSpeedActiveUs',
-        speed,
         rewindPlaybackUs,
-      );
-      _addBucket(
-        'rewindSpeedMediaAdvanceUs',
-        speed,
         rewindMediaAdvanceUs,
-      );
-      _addBucket(
-        'normalSpeedActiveUs',
-        speed,
-        wallUs - rewindPlaybackUs,
-      );
-      _addBucket(
-        'normalSpeedMediaAdvanceUs',
-        speed,
-        mediaAdvanceUs - rewindMediaAdvanceUs,
+        normalPlaybackUs,
+        normalMediaAdvanceUs,
+        _temporaryRate,
       );
     } else {
       _sessionPausedUs += wallUs;
@@ -1550,8 +1841,8 @@ abstract final class PlaybackStatsService {
       _addDimension('pausedUs', wallUs);
       _trailingPauseUs += wallUs;
       final rewind = _rewind;
+      final speed = _rateKey;
       if (rewind == null) {
-        final speed = _speedKey(_rate);
         _add('normalPausedUs', wallUs);
         _addVideoUp('normalPausedUs', wallUs);
         _addBucket('normalSpeedPausedUs', speed, wallUs);
@@ -1563,7 +1854,6 @@ abstract final class PlaybackStatsService {
           ifAbsent: () => wallUs,
         );
       } else {
-        final speed = _speedKey(_rate);
         _add('rewindPausedUs', wallUs);
         _addVideoUp('rewindPausedUs', wallUs);
         _addBucket('rewindSpeedPausedUs', speed, wallUs);
@@ -1608,7 +1898,8 @@ abstract final class PlaybackStatsService {
     _add('rewindPausedUs', -_trailingRewindPauseUs);
     _addVideoUp('normalPausedUs', -_trailingNormalPauseUs);
     _addVideoUp('rewindPausedUs', -_trailingRewindPauseUs);
-    _sessionPausedUs = max(0, _sessionPausedUs - _trailingPauseUs);
+    final sessionPausedUs = _sessionPausedUs - _trailingPauseUs;
+    _sessionPausedUs = sessionPausedUs > 0 ? sessionPausedUs : 0;
     for (final entry in _trailingNormalPauseBySpeed.entries) {
       _addBucket('normalSpeedPausedUs', entry.key, -entry.value);
       _addVideoUpBucket('normalSpeedPausedUs', entry.key, -entry.value);
@@ -1619,7 +1910,8 @@ abstract final class PlaybackStatsService {
     }
     final rewind = _rewind;
     if (rewind != null) {
-      rewind.pausedUs = max(0, rewind.pausedUs - _trailingRewindPauseUs);
+      final pausedUs = rewind.pausedUs - _trailingRewindPauseUs;
+      rewind.pausedUs = pausedUs > 0 ? pausedUs : 0;
     }
     _clearTrailingPause();
   }
@@ -1666,11 +1958,12 @@ abstract final class PlaybackStatsService {
       _finishRewind(now, completed: true);
       return (playbackUs: 0, mediaAdvanceUs: 0);
     }
-    final mediaAdvanceUs = max(0, toUs - fromUs);
+    final deltaUs = toUs - fromUs;
+    final mediaAdvanceUs = deltaUs > 0 ? deltaUs : 0;
     if (toUs >= rewind.checkpointUs && toUs > fromUs) {
-      final fraction = (rewind.checkpointUs - fromUs) / max(1, toUs - fromUs);
-      final playbackUs = (activeWallUs * fraction.clamp(0, 1)).round();
       final rewindMediaUs = rewind.checkpointUs - fromUs;
+      final playbackUs =
+          (activeWallUs * (rewindMediaUs / mediaAdvanceUs)).round();
       rewind
         ..activePlaybackUs += playbackUs
         ..mediaAdvanceUs += rewindMediaUs;
@@ -1743,7 +2036,11 @@ abstract final class PlaybackStatsService {
     _settleAppForeground(now);
     _settlePageDwell(now);
     _settleCommentPanel(now);
-    if (_active && _live) _settleLive(now);
+    if (_active && _live) {
+      _settleLive(now);
+    } else {
+      _flushPlaybackPending();
+    }
     final raw = Map<String, dynamic>.from(_stats!);
     final source = _numericMap(raw['sourceSpeedSelections']);
     final manual = _numericMap(raw['manualSpeedSelections']);
@@ -1803,6 +2100,7 @@ abstract final class PlaybackStatsService {
     final playedSessions = _number(raw['sessionPlayedCount']);
     final completedSessions = _number(raw['sessionCompletedCount']);
     final coverageSessions = _number(raw['sessionCoverageEligibleCount']);
+    final activeScale = active == 0 ? 0 : 1 / active;
     raw['derived'] = {
       'favoriteSpeed': favorite,
       'favoriteSpeeds': [for (final item in rankedSpeeds.take(5)) item.speed],
@@ -1813,8 +2111,8 @@ abstract final class PlaybackStatsService {
                   )[_speedKey(favorite)] ??
                   0) >
               0,
-      'actualAverageSpeed': active == 0 ? 0 : media / active,
-      'newContentEquivalentSpeed': active == 0 ? 0 : uniqueCovered / active,
+      'actualAverageSpeed': media * activeScale,
+      'newContentEquivalentSpeed': uniqueCovered * activeScale,
       'observedEquivalentSpeed': observed == 0 ? 0 : media / observed,
       'repeatRatio': media == 0 ? 0 : _number(raw['repeatCoveredUs']) / media,
       'coverageRatio': sourceDuration == 0 ? 0 : uniqueCovered / sourceDuration,
@@ -1827,10 +2125,9 @@ abstract final class PlaybackStatsService {
       'averageSessionCoverageRatio': coverageSessions == 0
           ? 0
           : _number(raw['sessionCoverageRatioSum']) / coverageSessions,
-      'nominalAverageSpeed': active == 0 ? 0 : nominal / active,
-      'nominalAverageSpeedIncludingLongPress': active == 0
-          ? 0
-          : nominalIncludingLongPress / active,
+      'nominalAverageSpeed': nominal * activeScale,
+      'nominalAverageSpeedIncludingLongPress':
+          nominalIncludingLongPress * activeScale,
       'savedTimeUs': media - active,
       'normalSavedTimeUs': normalMedia - normalWall,
       'rewindSavedTimeUs': allRewindMedia - allRewindWall,
@@ -1919,7 +2216,11 @@ abstract final class PlaybackStatsService {
     _settleAppForeground(now);
     _settlePageDwell(now);
     _settleCommentPanel(now);
-    if (_active && _live) _settleLive(now);
+    if (_active && _live) {
+      _settleLive(now);
+    } else {
+      _flushPlaybackPending();
+    }
     if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
@@ -2050,6 +2351,19 @@ abstract final class PlaybackStatsService {
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
     _legacyCompositeKeys.clear();
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
     final now = _clock.elapsedMicroseconds;
     _appLastWallUs = now;
     _pageLastWallUs = now;
@@ -2091,6 +2405,19 @@ abstract final class PlaybackStatsService {
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
     _legacyCompositeKeys.clear();
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
     _writeChain = Future.value();
     final now = _clock.elapsedMicroseconds;
     _lastWallUs = now;

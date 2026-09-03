@@ -38,6 +38,8 @@ class MpvConvertWebp {
     this.preset = WebpPreset.def,
   }) : duration = end - start;
 
+  late final _durationScale = 1 / duration;
+
   Future<void> _init() async {
     final enableHA = Pref.enableHA;
     _ctx = await Initializer.create(
@@ -87,7 +89,8 @@ class MpvConvertWebp {
         final prop = event.ref.data.cast<generated.mpv_event_property>().ref;
         if (prop.name.toDartString() == 'time-pos' &&
             prop.format == generated.mpv_format.MPV_FORMAT_DOUBLE) {
-          progress!.value = (prop.data.cast<Double>().value - start) / duration;
+          progress!.value =
+              (prop.data.cast<Double>().value - start) * _durationScale;
         }
         break;
       case generated.mpv_event_id.MPV_EVENT_FILE_LOADED:

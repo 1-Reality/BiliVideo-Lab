@@ -477,7 +477,7 @@ class MSliderTrackShape extends RoundedRectSliderTrackShape {
     const double trackHeight = 3;
     final double trackLeft = offset.dx;
     final double trackTop =
-        offset.dy + (parentBox.size.height - trackHeight) / 2;
+        offset.dy + (parentBox.size.height - trackHeight) * 0.5;
     final double trackWidth = parentBox.size.width;
     return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
   }

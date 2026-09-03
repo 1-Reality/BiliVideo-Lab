@@ -178,8 +178,8 @@ class _LikeMePageState extends State<LikeMePage> {
           children: [
             for (var j = 0; j < item.users!.length && j < 4; j++) ...[
               Positioned(
-                left: 15.0 * (j % 2),
-                top: 15.0 * (j ~/ 2),
+                left: 15.0 * (j & 1),
+                top: 15.0 * (j >> 1),
                 child: NetworkImgLayer(
                   width: 30,
                   height: 30,

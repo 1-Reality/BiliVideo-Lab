@@ -24,7 +24,7 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    late final iconTheme = IconTheme.of(context);
+    final iconTheme = IconTheme.of(context);
     final icon = _icon;
     return RenderMaskedIcon(
       disable: disable,
@@ -37,7 +37,7 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 
   @override
   void updateRenderObject(BuildContext context, RenderMaskedIcon renderObject) {
-    late final iconTheme = IconTheme.of(context);
+    final iconTheme = IconTheme.of(context);
     final icon = _icon;
     renderObject
       ..disable = disable
@@ -49,6 +49,8 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 }
 
 class RenderMaskedIcon extends RenderProxyBox {
+  static const _inverseStrokeScale = 0.08333333333333333;
+
   RenderMaskedIcon({
     required this._disable,
     required this._iconSize,
@@ -97,6 +99,11 @@ class RenderMaskedIcon extends RenderProxyBox {
     markNeedsPaint();
   }
 
+  final _linePaint = Paint();
+  Path? _maskPath;
+  Rect? _maskRect;
+  double? _maskStrokeWidth;
+
   @override
   void paint(PaintingContext context, Offset offset) {
     if (!disable) {
@@ -105,58 +112,64 @@ class RenderMaskedIcon extends RenderProxyBox {
 
     final canvas = context.canvas;
 
-    var rectOffset = offset;
     Size size = this.size;
+    Offset rectOffset = .zero;
     final exceedWidth = size.width > _iconSize;
     final exceedHeight = size.height > _iconSize;
     if (exceedWidth || exceedHeight) {
-      final dx = exceedWidth ? (size.width - _iconSize) / 2.0 : 0.0;
-      final dy = exceedHeight ? (size.height - _iconSize) / 2.0 : 0.0;
+      final dx = exceedWidth ? (size.width - _iconSize) * 0.5 : 0.0;
+      final dy = exceedHeight ? (size.height - _iconSize) * 0.5 : 0.0;
       size = Size.square(_iconSize);
-      rectOffset += Offset(dx, dy);
+      rectOffset = Offset(dx, dy);
     } else if (size.width < _iconSize && size.height < _iconSize) {
       size = Size.square(_iconSize);
     }
 
-    final strokeWidth = size.width / 12;
+    final strokeWidth = size.width * _inverseStrokeScale;
 
-    var rect = rectOffset & size;
+    final rect = rectOffset & size;
 
     final sqrt2Width = strokeWidth * sqrt2; // rotate pi / 4
 
-    final path = Path.combine(
-      PathOperation.union,
-      Path() // bottom
-        ..moveTo(rect.left, rect.bottom)
-        ..lineTo(rect.left, rect.top + sqrt2Width)
-        ..lineTo(rect.right - sqrt2Width, rect.bottom)
-        ..close(),
-      Path() // top
-        ..moveTo(rect.right, rect.top)
-        ..lineTo(rect.right, rect.bottom - sqrt2Width)
-        ..lineTo(rect.left + sqrt2Width, rect.top),
-    );
+    if (_maskPath == null ||
+        _maskRect != rect ||
+        _maskStrokeWidth != strokeWidth) {
+      _maskPath = Path.combine(
+        PathOperation.union,
+        Path() // bottom
+          ..moveTo(rect.left, rect.bottom)
+          ..lineTo(rect.left, rect.top + sqrt2Width)
+          ..lineTo(rect.right - sqrt2Width, rect.bottom)
+          ..close(),
+        Path() // top
+          ..moveTo(rect.right, rect.top)
+          ..lineTo(rect.right, rect.bottom - sqrt2Width)
+          ..lineTo(rect.left + sqrt2Width, rect.top),
+      );
+      _maskRect = rect;
+      _maskStrokeWidth = strokeWidth;
+    }
 
     canvas
       ..save()
-      ..clipPath(path, doAntiAlias: false);
-    super.paint(context, offset);
+      ..translate(offset.dx, offset.dy)
+      ..clipPath(_maskPath!, doAntiAlias: false);
+    super.paint(context, .zero);
 
-    canvas.restore();
-
-    final linePaint = Paint()
+    _linePaint
       ..color = color
       ..strokeWidth = strokeWidth
       ..strokeCap = strokeCap;
 
-    final strokeOffset = strokeWidth * sqrt1_2 / 2;
-    rect = rect
+    final strokeOffset = strokeWidth * 0.3535533905932738;
+    final lineRect = rect
         .translate(-strokeOffset, strokeOffset)
         .deflate(size.width * lineLengthScale);
     canvas.drawLine(
-      rect.topLeft,
-      rect.bottomRight,
-      linePaint,
+      lineRect.topLeft,
+      lineRect.bottomRight,
+      _linePaint,
     );
+    canvas.restore();
   }
 }

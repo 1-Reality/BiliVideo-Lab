@@ -190,7 +190,7 @@ abstract final class PageUtils {
 
   static bool _fitsInAndroidRequirements(int width, int height) {
     final aspectRatio = width / height;
-    const min = 1 / 2.39;
+    const min = 0.41841004184100417;
     const max = 2.39;
     return (min <= aspectRatio) && (aspectRatio <= max);
   }

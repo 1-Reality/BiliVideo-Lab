@@ -20,7 +20,7 @@ abstract final class ShareUtils {
   static Future<Rect?> get sharePositionOrigin async {
     if (await isIpad) {
       final screenSize = DeviceUtils.size;
-      return Rect.fromLTRB(0, 0, screenSize.width, screenSize.height / 2);
+      return Rect.fromLTRB(0, 0, screenSize.width, screenSize.height * 0.5);
     }
     return null;
   }

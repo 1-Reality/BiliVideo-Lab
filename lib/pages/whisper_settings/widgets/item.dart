@@ -127,10 +127,10 @@ class ImSettingsItem extends StatelessWidget {
         children: List.generate(
           max(0, item.select.item.length * 2 - 1),
           (index) {
-            if (index.isOdd) {
+            if ((index & 1) != 0) {
               return divider;
             }
-            final e = item.select.item[index ~/ 2];
+            final e = item.select.item[index >> 1];
             if (e.selected) {
               selected ??= e.text;
             }

@@ -125,7 +125,7 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
         );
         final currIndex = seriesList.indexWhere((e) => e.number == number);
         final controller = ScrollController(
-          initialScrollOffset: max(0, currIndex * 44 + 34 - width / 2),
+          initialScrollOffset: max(0, currIndex * 44 + 34 - width * 0.5),
         );
         showDialog(
           context: context,

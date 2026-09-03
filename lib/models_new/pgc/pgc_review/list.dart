@@ -32,7 +32,7 @@ class PgcReviewItemModel {
         content: json['content'] as String?,
         pushTimeStr: json['push_time_str'] as String?,
         reviewId: json['review_id'] as int?,
-        score: json['score'] == null ? 0 : json['score'] ~/ 2,
+        score: json['score'] == null ? 0 : json['score'] >> 1,
         stat: json['stat'] == null
             ? null
             : Stat.fromJson(json['stat'] as Map<String, dynamic>),

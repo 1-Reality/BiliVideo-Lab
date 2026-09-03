@@ -45,7 +45,7 @@ class _EmotePanelState extends State<EmotePanel>
     ThemeData theme,
     LoadingState<List<Package>?> loadingState,
   ) {
-    late final color = ElevationOverlay.colorWithOverlay(
+    final color = ElevationOverlay.colorWithOverlay(
       theme.colorScheme.surface,
       theme.hoverColor,
       Get.currentRoute.startsWith('/whisperDetail') ? 8 : 2,

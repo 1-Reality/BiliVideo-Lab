@@ -37,7 +37,7 @@ class FavVideoCardH extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOwner = !isSort && ctr!.isOwner;
-    late final enableMultiSelect = ctr?.enableMultiSelect.value ?? false;
+    final enableMultiSelect = ctr?.enableMultiSelect.value ?? false;
     final colorScheme = ColorScheme.of(context);
 
     final onLongPress = isSort || enableMultiSelect

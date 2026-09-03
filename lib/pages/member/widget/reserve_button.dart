@@ -72,6 +72,8 @@ class RenderReserveBtn extends RenderProxyBox {
   }
 
   late final TextPainter _textPainter;
+  Path? _path;
+  Size? _pathSize;
 
   void _updateTextSpan() {
     _textPainter
@@ -94,24 +96,24 @@ class RenderReserveBtn extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
-    final dx = offset.dx;
-    final dy = offset.dy;
-    final width = dx + size.width;
-    final height = dy + size.height;
-    final offsetDx = dx + 13.0;
-    final offsetDy = dy + 14.0;
-    final path = Path()
-      ..moveTo(dx, dy)
-      ..lineTo(offsetDx, dy)
-      ..lineTo(offsetDx, offsetDy)
-      ..lineTo(width, offsetDy)
-      ..lineTo(width, height)
-      ..lineTo(dx, height)
-      ..close();
+    if (_path == null || _pathSize != size) {
+      final width = size.width;
+      final height = size.height;
+      _path = Path()
+        ..moveTo(0, 0)
+        ..lineTo(13.0, 0)
+        ..lineTo(13.0, 14.0)
+        ..lineTo(width, 14.0)
+        ..lineTo(width, height)
+        ..lineTo(0, height)
+        ..close();
+      _pathSize = size;
+    }
     final canvas = context.canvas
       ..save()
-      ..clipPath(path);
-    context.paintChild(child!, offset);
+      ..translate(offset.dx, offset.dy)
+      ..clipPath(_path!);
+    context.paintChild(child!, .zero);
     canvas.restore();
 
     _textPainter.paint(canvas, Offset(offset.dx + 15.0, offset.dy));

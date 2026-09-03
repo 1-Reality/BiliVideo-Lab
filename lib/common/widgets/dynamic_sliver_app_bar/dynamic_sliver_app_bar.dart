@@ -28,6 +28,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverPersistentHeader, SliverPersistentHeaderDelegate;
 
+const _inverseToolbarHeight = 1 / kToolbarHeight;
+
 /// ref [SliverAppBar]
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate({
@@ -370,7 +372,7 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
         return 0.0;
       case CollapseMode.parallax:
         final double deltaExtent = settings.maxExtent - settings.minExtent;
-        return -Tween<double>(begin: 0.0, end: deltaExtent / 4.0).transform(t);
+        return -deltaExtent * 0.25 * t;
     }
   }
 
@@ -385,30 +387,31 @@ class DynamicFlexibleSpaceBar extends StatelessWidget {
     if (settings.maxExtent == .infinity) {
       opacity = 1.0;
       topPadding = 0.0;
+    } else if (settings.maxExtent == settings.minExtent) {
+      height = settings.maxExtent;
+      opacity = 1.0;
+      topPadding = 0.0;
     } else {
       height = settings.maxExtent;
 
       final double deltaExtent = settings.maxExtent - settings.minExtent;
+      final double inverseDeltaExtent = 1 / deltaExtent;
 
       // 0.0 -> Expanded
       // 1.0 -> Collapsed to toolbar
       final double t = clampDouble(
-        1.0 - (settings.currentExtent - settings.minExtent) / deltaExtent,
+        1.0 -
+            (settings.currentExtent - settings.minExtent) *
+                inverseDeltaExtent,
         0.0,
         1.0,
       );
 
-      final double fadeStart = math.max(
+      opacity = clampDouble(
+        (1.0 - t) * math.max(1.0, deltaExtent * _inverseToolbarHeight),
         0.0,
-        1.0 - kToolbarHeight / deltaExtent,
+        1.0,
       );
-      const fadeEnd = 1.0;
-      assert(fadeStart <= fadeEnd);
-      // If the min and max extent are the same, the app bar cannot collapse
-      // and the content should be visible, so opacity = 1.
-      opacity = settings.maxExtent == settings.minExtent
-          ? 1.0
-          : 1.0 - Interval(fadeStart, fadeEnd).transform(t);
 
       topPadding = _getCollapsePadding(collapseMode, t, settings);
     }
@@ -468,20 +471,27 @@ class _RenderFlexibleSpaceHeaderOpacity extends RenderOpacity {
   @override
   bool get isRepaintBoundary => false;
 
+  late final _paintChildCallback = _paintChild;
+
+  void _paintChild(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child == null) {
       return;
     }
-    if ((opacity * 255).roundToDouble() <= 0) {
+    final alpha = (opacity * 255).round();
+    if (alpha <= 0) {
       layer = null;
       return;
     }
     assert(needsCompositing);
     layer = context.pushOpacity(
       offset,
-      (opacity * 255).round(),
-      super.paint,
+      alpha,
+      _paintChildCallback,
       oldLayer: layer as OpacityLayer?,
     );
     assert(() {

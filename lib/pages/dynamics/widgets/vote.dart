@@ -453,9 +453,11 @@ class _VotePanelState extends State<VotePanel> {
 
   static List<double> _cnt2Percentage(List<Option> options) {
     final total = options.fold(0, (sum, opt) => sum + opt.cnt);
-    return total == 0
-        ? List<double>.filled(options.length, 0)
-        : options.map((i) => i.cnt / total).toList(growable: false);
+    if (total == 0) return List<double>.filled(options.length, 0);
+    final totalScale = 1 / total;
+    return options
+        .map((i) => i.cnt.toDouble() * totalScale)
+        .toList(growable: false);
   }
 }
 

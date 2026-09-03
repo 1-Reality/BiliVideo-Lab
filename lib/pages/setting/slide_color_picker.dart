@@ -4,6 +4,11 @@ import 'package:flutter/services.dart'
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _hexFormatters = [
+  LengthLimitingTextInputFormatter(6),
+  FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+];
+
 class SlideColorPicker extends StatefulWidget {
   const SlideColorPicker({
     super.key,
@@ -93,10 +98,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
           const SizedBox(height: 10),
           IntrinsicWidth(
             child: TextField(
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(6),
-                FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
-              ],
+              inputFormatters: _hexFormatters,
               controller: _textController,
               decoration: const InputDecoration(
                 isDense: true,

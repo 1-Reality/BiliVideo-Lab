@@ -849,7 +849,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           final double videoHeight = maxHeight - padding.vertical;
           final double width = videoHeight / Style.aspectRatio16x9;
           final videoWidth = isFullScreen ? maxWidth : width;
-          final introWidth = (maxWidth - padding.horizontal - width) / 2;
+          final introWidth = (maxWidth - padding.horizontal - width) * 0.5;
           final introHeight = maxHeight - padding.top;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,7 +910,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledLandscapeInner(bool isFullScreen) {
     double width =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.5, 0.7) * maxWidth;
+        clampDouble(
+          videoDetailController.plPlayerController.screenRatio * 1.08,
+          0.5,
+          0.7,
+        ) *
+        maxWidth;
     if (maxWidth >= 560) {
       width = maxWidth - clampDouble(maxWidth - width, 280, 425);
     }
@@ -1028,7 +1033,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return Obx(
         () {
           if (videoDetailController.isVertical.value && !isPortrait) {
-            return childSplit(9 / 16);
+            return childSplit(0.5625);
           }
 
           return _childWhenDisabledAlmostSquareInner(isFullScreen);
@@ -1041,7 +1046,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledAlmostSquareInner(bool isFullScreen) {
     final shouldShowSeasonPanel = _shouldShowSeasonPanel;
-    final double height = maxHeight / 2.5;
+    final double height = maxHeight * 0.4;
     final videoHeight = isFullScreen
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : height;
@@ -1283,9 +1288,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
     } else if (!videoDetailController.horizontalScreen) {
       child = childWhenDisabled;
-    } else if (maxWidth / maxHeight >= kScreenRatio) {
+    } else if (maxWidth >= maxHeight * kScreenRatio) {
       child = childWhenDisabledLandscape;
-    } else if (maxWidth / Style.aspectRatio16x9 < 0.4 * maxHeight) {
+    } else if (maxWidth < maxHeight * 0.7111111111111111) {
       child = childWhenDisabled;
     } else {
       child = childWhenDisabledAlmostSquare;

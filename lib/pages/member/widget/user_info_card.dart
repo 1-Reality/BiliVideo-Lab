@@ -45,6 +45,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class UserInfoCard extends StatelessWidget {
+  static final RegExp _repeatedNewlineRegExp = RegExp(r'\n{2,}');
   const UserInfoCard({
     super.key,
     required this.isOwner,
@@ -314,7 +315,7 @@ class UserInfoCard extends StatelessWidget {
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
       child: SelectionText(
-        card.sign!.trim().replaceAll(RegExp(r'\n{2,}'), '\n'),
+        card.sign!.trim().replaceAll(_repeatedNewlineRegExp, '\n'),
         style: const TextStyle(fontSize: 14),
       ),
     );
