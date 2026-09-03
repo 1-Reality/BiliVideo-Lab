@@ -1568,7 +1568,7 @@ class _TextSelectionGestureDetectorState
         // triple click has selected a paragraph, on the next click the word at
         // the clicked position will be selected, and on the next click the
         // paragraph at the position is selected.
-        return rawCount < 2 ? rawCount : 2 + rawCount % 2;
+        return rawCount < 2 ? rawCount : 2 + (rawCount & 1);
     }
   }
 
@@ -3382,8 +3382,8 @@ class SelectionOverlay {
     final double midX = isMultiline
         ? editingRegion.width * 0.5
         : (selectionEndpoints.first.point.dx +
-                  selectionEndpoints.last.point.dx) /
-              2;
+                  selectionEndpoints.last.point.dx) *
+              0.5;
 
     final Offset midpoint = Offset(
       midX,

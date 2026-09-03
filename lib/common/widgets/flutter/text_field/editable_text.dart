@@ -2819,7 +2819,7 @@ class EditableTextState extends State<EditableText>
     var midIndex = 0;
 
     while (leftIndex <= rightIndex) {
-      midIndex = ((leftIndex + rightIndex) * 0.5).floor();
+      midIndex = (leftIndex + rightIndex) >> 1;
       final int currentSpanStart = suggestionSpans[midIndex].range.start;
       final int currentSpanEnd = suggestionSpans[midIndex].range.end;
 

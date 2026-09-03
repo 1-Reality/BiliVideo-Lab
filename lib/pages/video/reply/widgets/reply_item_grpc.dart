@@ -100,6 +100,7 @@ class ReplyItemGrpc extends StatelessWidget {
   static final _baseMessageRegExp = RegExp(
     '${_timeRegExp.pattern}|${_voteRegExp.pattern}|${Constants.urlRegex.pattern}',
   );
+  static final _messagePatternCache = Expando<RegExp>();
   static bool enableWordRe = Pref.enableWordRe;
   static int? replyLengthLimit = Pref.replyLengthLimit;
 
@@ -744,30 +745,30 @@ class ReplyItemGrpc extends StatelessWidget {
     final List<InlineSpan> spanChildren = <InlineSpan>[];
     bool hasNote = false;
 
-    final RegExp pattern;
-    if (noMappedTokens) {
-      pattern = _baseMessageRegExp;
-    } else {
-      final buffer = StringBuffer();
-      var first = true;
-      void addToken(String token) {
-        if (first) {
-          first = false;
-        } else {
-          buffer.write('|');
-        }
-        buffer.write(RegExp.escape(token));
-      }
+    final pattern = noMappedTokens
+        ? _baseMessageRegExp
+        : _messagePatternCache[content] ??= (() {
+            final buffer = StringBuffer();
+            var first = true;
+            void addToken(String token) {
+              if (first) {
+                first = false;
+              } else {
+                buffer.write('|');
+              }
+              buffer.write(RegExp.escape(token));
+            }
 
-      for (final token in content.emotes.keys) addToken(token);
-      for (final token in content.topics.keys) addToken('#$token#');
-      for (final token in content.atNameToMid.keys) addToken('@$token');
-      for (final token in content.urls.keys) addToken(token);
-      if (!first) buffer.write('|');
-      buffer.write(_baseMessageRegExp.pattern);
-      pattern = RegExp(buffer.toString());
-    }
+            for (final token in content.emotes.keys) addToken(token);
+            for (final token in content.topics.keys) addToken('#$token#');
+            for (final token in content.atNameToMid.keys) addToken('@$token');
+            for (final token in content.urls.keys) addToken(token);
+            if (!first) buffer.write('|');
+            buffer.write(_baseMessageRegExp.pattern);
+            return RegExp(buffer.toString());
+          })();
 
+    late final primaryStyle = TextStyle(color: colorScheme.primary);
     late final matchedUrls = <String>{};
 
     void addPlainTextSpan(str) {
@@ -798,7 +799,7 @@ class ReplyItemGrpc extends StatelessWidget {
           ),
         TextSpan(
           text: isCv ? '[笔记] ' : url.title,
-          style: TextStyle(color: colorScheme.primary),
+          style: primaryStyle,
           recognizer: NoDeadlineTapGestureRecognizer()
             ..onTap = () {
               if (url.appUrlSchema.isEmpty) {
@@ -845,11 +846,13 @@ class ReplyItemGrpc extends StatelessWidget {
       pattern,
       onMatch: (Match match) {
         String matchStr = match[0]!;
+        final firstCode = matchStr.codeUnitAt(0);
         late final name = matchStr.substring(1);
         late final topic = matchStr.substring(1, matchStr.length - 1);
-        if (content.emotes.containsKey(matchStr)) {
+        late final atMid = content.atNameToMid[name];
+        final emote = content.emotes[matchStr];
+        if (emote != null) {
           // 处理表情
-          final emote = content.emotes[matchStr]!;
           final size = emote.size.toInt() * 20.0;
           spanChildren.add(
             WidgetSpan(
@@ -865,20 +868,17 @@ class ReplyItemGrpc extends StatelessWidget {
               ),
             ),
           );
-        } else if (matchStr.startsWith("@") &&
-            content.atNameToMid.containsKey(name)) {
+        } else if (firstCode == 0x40 && atMid != null) {
           // 处理@用户
           spanChildren.add(
             TextSpan(
               text: matchStr,
               style: TextStyle(color: colorScheme.primary),
               recognizer: NoDeadlineTapGestureRecognizer()
-                ..onTap = () =>
-                    Get.toNamed('/member?mid=${content.atNameToMid[name]}'),
+                ..onTap = () => Get.toNamed('/member?mid=$atMid'),
             ),
           );
-        } else if (matchStr.startsWith('{') &&
-            _voteRegExp.hasMatch(matchStr)) {
+        } else if (firstCode == 0x7B && _voteRegExp.hasMatch(matchStr)) {
           spanChildren.add(
             TextSpan(
               text: '投票: ${content.vote.title}',
@@ -888,8 +888,8 @@ class ReplyItemGrpc extends StatelessWidget {
                     showVoteDialog(context, content.vote.id.toInt()),
             ),
           );
-        } else if (matchStr.codeUnitAt(0) >= 0x30 &&
-            matchStr.codeUnitAt(0) <= 0x39 &&
+        } else if (firstCode >= 0x30 &&
+            firstCode <= 0x39 &&
             _timeRegExp.hasMatch(matchStr)) {
           matchStr = matchStr.replaceAll('：', ':');
           bool isValid = false;

@@ -27,6 +27,14 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ChatItem extends StatelessWidget {
+  static final _decodedContentCache = Expando<Object>();
+  static final _emotionMatcherCache = Expando<_EmotionMatcher>();
+
+  static _EmotionMatcher _emotionMatcher(List<EmotionInfo>? infos) {
+    if (infos == null) return _EmotionMatcher.empty;
+    return _emotionMatcherCache[infos] ??= _EmotionMatcher(infos);
+  }
+
   static MsgType msgTypeFromValue(int value) {
     return MsgType.valueOf(value) ?? MsgType.EN_INVALID_MSG_TYPE;
   }
@@ -65,7 +73,8 @@ class ChatItem extends StatelessWidget {
     final Color textColor = isOwner
         ? theme.colorScheme.onSecondaryContainer
         : theme.colorScheme.onSurface;
-    final dynamic content = jsonDecode(item.content);
+    final dynamic content =
+        _decodedContentCache[item] ??= jsonDecode(item.content);
 
     Widget child = messageContent(
       context: context,
@@ -667,33 +676,22 @@ class ChatItem extends StatelessWidget {
   }) {
     final style = TextStyle(color: textColor, letterSpacing: 0.6, height: 1.5);
     final List<InlineSpan> children = [];
-    final Map<String, Map> emojiMap = {};
-    final List<String> patterns = [Constants.urlRegex.pattern];
-    if (eInfos != null) {
-      for (final e in eInfos!) {
-        emojiMap[e.text] ??= {
-          'url': e.hasGifUrl() ? e.gifUrl : e.url,
-          'size': e.size * 22.0,
-        };
-      }
-      patterns.addAll(emojiMap.keys.map(RegExp.escape));
-    }
-    final regex = RegExp(patterns.join('|'));
+    final matcher = _emotionMatcher(eInfos);
     content['content'].splitMapJoin(
-      regex,
+      matcher.pattern,
       onMatch: (Match match) {
         final matchStr = match[0]!;
         if (matchStr.startsWith('[')) {
-          final emoji = emojiMap[matchStr];
+          final emoji = matcher.emojis[matchStr];
           if (emoji != null) {
-            final size = emoji['size'];
+            final size = emoji.size;
             children.add(
               WidgetSpan(
                 rawText: matchStr,
                 child: NetworkImgLayer(
                   width: size,
                   height: size,
-                  src: emoji['url'],
+                  src: emoji.url,
                   type: ImageType.emote,
                 ),
               ),
@@ -831,4 +829,34 @@ class ChatItem extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class _EmotionMatcher {
+  factory _EmotionMatcher(List<EmotionInfo> infos) {
+    final emojis = <String, ({String url, double size})>{};
+    for (final e in infos) {
+      emojis.putIfAbsent(
+        e.text,
+        () => (
+          url: e.hasGifUrl() ? e.gifUrl : e.url,
+          size: e.size * 22.0,
+        ),
+      );
+    }
+    return _EmotionMatcher._(
+      emojis,
+      RegExp([
+        Constants.urlRegex.pattern,
+        ...emojis.keys.map(RegExp.escape),
+      ].join('|')),
+    );
+  }
+
+  const _EmotionMatcher._(this.emojis, this.pattern);
+
+  static final empty = _EmotionMatcher._(const {}, Constants.urlRegex);
+
+  final Map<String, ({String url, double size})> emojis;
+  final RegExp pattern;
 }

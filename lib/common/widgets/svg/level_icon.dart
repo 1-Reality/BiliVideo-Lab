@@ -298,34 +298,34 @@ extension type LevelCanvas(Canvas _) implements Canvas {
     48,
     _totalR,
     _totalB,
-    topLeft: Radius.circular(27),
-    bottomLeft: Radius.circular(27),
-    bottomRight: Radius.circular(27),
+    topLeft: const Radius.circular(27),
+    bottomLeft: const Radius.circular(27),
+    bottomRight: const Radius.circular(27),
   );
   static final _boltBack = RRect.fromLTRBAndCorners(
     0,
     48,
     _extendR,
     _totalB,
-    topLeft: Radius.circular(27),
-    bottomLeft: Radius.circular(27),
-    bottomRight: Radius.circular(27),
+    topLeft: const Radius.circular(27),
+    bottomLeft: const Radius.circular(27),
+    bottomRight: const Radius.circular(27),
   );
   static final _normalTop = RRect.fromLTRBAndCorners(
     576,
     0,
     _totalR,
     49,
-    topLeft: Radius.circular(27),
-    topRight: Radius.circular(27),
+    topLeft: const Radius.circular(27),
+    topRight: const Radius.circular(27),
   );
   static final _boltTop = RRect.fromLTRBAndCorners(
     576,
     0,
     _extendR,
     49,
-    topLeft: Radius.circular(27),
-    topRight: Radius.circular(27),
+    topLeft: const Radius.circular(27),
+    topRight: const Radius.circular(27),
   );
 
   void drawLevelBack(Paint paint, {bool bolt = false}) {
