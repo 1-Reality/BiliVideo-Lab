@@ -93,7 +93,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     _timer = Timer.periodic(
       Platform.isWindows
           ? const Duration(milliseconds: 250)
-          : const Duration(seconds: 5),
+          : const Duration(seconds: 90),
       (_) => _sample(),
     );
   }

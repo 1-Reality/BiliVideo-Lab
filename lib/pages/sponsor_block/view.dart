@@ -22,6 +22,10 @@ import 'package:hive_ce/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _sponsorUserIdFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\d]+')),
+];
+
 class SponsorBlockPage extends StatefulWidget {
   const SponsorBlockPage({super.key});
 
@@ -159,9 +163,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                   maxLines: 4,
                   autofocus: true,
                   controller: _textController,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\d]+')),
-                  ],
+                  inputFormatters: _sponsorUserIdFormatters,
                   decoration: const InputDecoration(errorMaxLines: 2),
                   validator: (value) {
                     if ((value?.length ?? -1) < 30) {

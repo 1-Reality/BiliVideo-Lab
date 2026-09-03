@@ -315,7 +315,7 @@ class UserInfoCard extends StatelessWidget {
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
       child: SelectionText(
-        card.sign!.trim().replaceAll(RegExp(r'\n{2,}'), '\n'),
+        card.sign!.trim().replaceAll(_repeatedNewlineRegExp, '\n'),
         style: const TextStyle(fontSize: 14),
       ),
     );

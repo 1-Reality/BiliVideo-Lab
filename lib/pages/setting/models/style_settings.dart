@@ -44,6 +44,17 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:path/path.dart' as path;
 
+final _scaleFormatters = [
+  LengthLimitingTextInputFormatter(4),
+  FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
+];
+final _decimalFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
+];
+final _signedDecimalFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+')),
+];
+
 List<SettingsModel> get styleSettings => [
   if (PlatformUtils.isDesktop) ...[
     const SwitchModel(
@@ -424,10 +435,7 @@ void _showUiScaleDialog(
             TextFormField(
               controller: textController,
               keyboardType: const .numberWithOptions(decimal: true),
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(4),
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
-              ],
+              inputFormatters: _scaleFormatters,
               decoration: const InputDecoration(
                 labelText: '缩放比例',
                 hintText: '0.50 - 2.00',
@@ -561,11 +569,9 @@ void _showSpringDialog(BuildContext context, _) {
               decimal: true,
             ),
             onChanged: (value) => springDescription[index] = value,
-            inputFormatters: [
-              !physicalMode && index == 1
-                  ? FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+'))
-                  : FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
-            ],
+            inputFormatters: !physicalMode && index == 1
+                ? _signedDecimalFormatters
+                : _decimalFormatters,
             decoration: InputDecoration(
               labelText: (physicalMode
                   ? const ['mass', 'stiffness', 'damping']

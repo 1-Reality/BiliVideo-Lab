@@ -19,6 +19,10 @@ import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
+final _signedIntFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'-?\d*')),
+];
+
 class NetworkPolicyPage extends StatefulWidget {
   const NetworkPolicyPage({super.key});
 
@@ -82,7 +86,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
           initialValue: text,
           keyboardType: TextInputType.numberWithOptions(signed: signed),
           inputFormatters: signed
-              ? [FilteringTextInputFormatter.allow(RegExp(r'-?\d*'))]
+              ? _signedIntFormatters
               : [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             suffixText: suffix,

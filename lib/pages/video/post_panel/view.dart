@@ -21,6 +21,10 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _segmentTimeFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
+];
+
 class PostPanel extends CommonSlidePage {
   const PostPanel({
     super.key,
@@ -113,9 +117,7 @@ class PostPanel extends CommonSlidePage {
                       initialValue: value,
                       autofocus: true,
                       onChanged: (value) => initV = value,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
-                      ],
+                      inputFormatters: _segmentTimeFormatters,
                     ),
                     actions: [
                       TextButton(

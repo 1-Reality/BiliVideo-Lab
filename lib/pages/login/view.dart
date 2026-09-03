@@ -22,6 +22,10 @@ import 'package:get/get.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+final _noWhitespaceFormatters = [
+  FilteringTextInputFormatter.deny(RegExp(r'\s')),
+];
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -191,7 +195,7 @@ class _LoginPageState extends State<LoginPage> {
             minLines: 1,
             maxLines: 10,
             controller: _loginPageCtr.cookieTextController,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
+            inputFormatters: _noWhitespaceFormatters,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.cookie_outlined),
               border: const UnderlineInputBorder(),
@@ -222,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: TextField(
             controller: _loginPageCtr.usernameTextController,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
+            inputFormatters: _noWhitespaceFormatters,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.account_box),
               border: const UnderlineInputBorder(),
@@ -240,7 +244,7 @@ class _LoginPageState extends State<LoginPage> {
           child: TextField(
             obscureText: !showPassword,
             keyboardType: TextInputType.visiblePassword,
-            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r"\s"))],
+            inputFormatters: _noWhitespaceFormatters,
             controller: _loginPageCtr.passwordTextController,
             autofillHints: const [AutofillHints.password],
             decoration: InputDecoration(
