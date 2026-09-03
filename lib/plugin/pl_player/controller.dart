@@ -1305,7 +1305,7 @@ class PlPlayerController with BlockConfigMixin {
       position = Duration.zero;
     }
     PlaybackStatsService.seek(
-      player?.state.position ?? Duration.zero,
+      _videoPlayerController?.state.position ?? Duration.zero,
       position,
       userInitiated: recordStats,
     );
@@ -1353,7 +1353,7 @@ class PlPlayerController with BlockConfigMixin {
 
     PlaybackStatsService.changeSpeed(
       speed,
-      _videoPlayerController?.state.position ?? Duration.zero,
+      player?.state.position ?? Duration.zero,
       recordSelection: recordSelection,
       temporary: temporary,
     );

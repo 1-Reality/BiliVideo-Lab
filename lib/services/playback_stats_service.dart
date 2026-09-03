@@ -1009,7 +1009,7 @@ abstract final class PlaybackStatsService {
     _buffering = true;
     _completedIdle = false;
     _rate = speed;
-    _rateKey = key;
+    _rateKey = _speedKey(speed);
     _nominalRate = speed;
     _temporaryRate = false;
     _defaultRate = defaultSpeed;
@@ -1421,7 +1421,7 @@ abstract final class PlaybackStatsService {
       }
     }
     _rate = speed;
-    _rateKey = _speedKey(speed);
+    _rateKey = key;
     _temporaryRate = temporary;
     if (!temporary) _nominalRate = speed;
   }
