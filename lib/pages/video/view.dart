@@ -1033,7 +1033,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return Obx(
         () {
           if (videoDetailController.isVertical.value && !isPortrait) {
-            return childSplit(9 / 16);
+            return childSplit(0.5625);
           }
 
           return _childWhenDisabledAlmostSquareInner(isFullScreen);

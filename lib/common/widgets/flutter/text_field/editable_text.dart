@@ -2819,7 +2819,7 @@ class EditableTextState extends State<EditableText>
     var midIndex = 0;
 
     while (leftIndex <= rightIndex) {
-      midIndex = ((leftIndex + rightIndex) / 2).floor();
+      midIndex = ((leftIndex + rightIndex) * 0.5).floor();
       final int currentSpanStart = suggestionSpans[midIndex].range.start;
       final int currentSpanEnd = suggestionSpans[midIndex].range.end;
 
@@ -3717,11 +3717,11 @@ class EditableTextState extends State<EditableText>
   // The most recent position of the floating cursor.
   Offset? _lastBoundedOffset;
 
-  // Because the center of the cursor is preferredLineHeight / 2 below the touch
+  // Because the center of the cursor is preferredLineHeight * 0.5 below the touch
   // origin, but the touch origin is used to determine which line the cursor is
   // on, we need this offset to correctly render and move the cursor.
   Offset get _floatingCursorOffset =>
-      Offset(0, renderEditable.preferredLineHeight / 2);
+      Offset(0, renderEditable.preferredLineHeight * 0.5);
 
   @override
   void updateFloatingCursor(RawFloatingCursorPoint point) {
@@ -4021,7 +4021,7 @@ class EditableTextState extends State<EditableText>
     if (!_isMultiline) {
       additionalOffset = rect.width >= editableSize.width
           // Center `rect` if it's oversized.
-          ? editableSize.width / 2 - rect.center.dx
+          ? editableSize.width * 0.5 - rect.center.dx
           // Valid additional offsets range from (rect.right - size.width)
           // to (rect.left). Pick the closest one if out of range.
           : clampDouble(0.0, rect.right - editableSize.width, rect.left);
@@ -4037,7 +4037,7 @@ class EditableTextState extends State<EditableText>
       );
 
       additionalOffset = expandedRect.height >= editableSize.height
-          ? editableSize.height / 2 - expandedRect.center.dy
+          ? editableSize.height * 0.5 - expandedRect.center.dy
           : clampDouble(
               0.0,
               expandedRect.bottom - editableSize.height,
@@ -4599,9 +4599,9 @@ class EditableTextState extends State<EditableText>
               TextSelectionHandleType.collapsed,
               lineHeight,
             );
-        final double handleCenter = handleHeight / 2 - anchor.dy;
+        final double handleCenter = handleHeight * 0.5 - anchor.dy;
         bottomSpacing = math.max(
-          handleCenter + interactiveHandleHeight / 2,
+          handleCenter + interactiveHandleHeight * 0.5,
           bottomSpacing,
         );
       }

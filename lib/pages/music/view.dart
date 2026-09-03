@@ -623,7 +623,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                         reservedSize: 30 * sqrt2,
                         getTitlesWidget: (index, meta) {
                           return SideTitleWidget(
-                            angle: -pi / 4,
+                            angle: -pi * 0.25,
                             space: 8 * sqrt2,
                             meta: meta,
                             child: Text(

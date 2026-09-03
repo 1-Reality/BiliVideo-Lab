@@ -1908,7 +1908,7 @@ class RenderEditable extends RenderBox
         final double heightDiff = fullHeight - caretRect.height;
         caretRect = Rect.fromLTWH(
           caretRect.left,
-          caretRect.top + heightDiff / 2,
+          caretRect.top + heightDiff * 0.5,
           caretRect.width,
           caretRect.height,
         );
@@ -1924,7 +1924,7 @@ class RenderEditable extends RenderBox
         final double heightDiff = fullHeight - caretHeight;
         caretRect = Rect.fromLTWH(
           caretRect.left,
-          caretRect.top - _kCaretHeightOffset + heightDiff / 2,
+          caretRect.top - _kCaretHeightOffset + heightDiff * 0.5,
           caretRect.width,
           caretHeight,
         );
