@@ -87,7 +87,6 @@ abstract final class PlaybackStatsService {
   static double _sessionNominalMediaUs = 0;
   static double _sessionNominalIncludingLongPressUs = 0;
   static int _sessionPausedUs = 0;
-  static int _sessionBufferingUs = 0;
   static int _sessionUniqueCoveredUs = 0;
   static int _sessionRepeatCoveredUs = 0;
   static int _sessionMaxPositionUs = 0;
@@ -1048,7 +1047,6 @@ abstract final class PlaybackStatsService {
     _sessionNominalMediaUs = 0;
     _sessionNominalIncludingLongPressUs = 0;
     _sessionPausedUs = 0;
-    _sessionBufferingUs = 0;
     _sessionUniqueCoveredUs = 0;
     _sessionRepeatCoveredUs = 0;
     _sessionMaxPositionUs = initialPositionUs;
@@ -1494,7 +1492,6 @@ abstract final class PlaybackStatsService {
       _addVideoUp('commentAreaUs', wallUs);
       _addDimension('commentAreaUs', wallUs);
     } else if (_buffering) {
-      _sessionBufferingUs += wallUs;
       _add('bufferingUs', wallUs);
       _addVideoUp('bufferingUs', wallUs);
       _addDimension('bufferingUs', wallUs);

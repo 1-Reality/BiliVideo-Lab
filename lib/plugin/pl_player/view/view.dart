@@ -339,17 +339,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     );
     if (isBackground) unawaited(PlaybackStatsService.flush());
     if (!plPlayerController.continuePlayInBackground.value) {
-      final player = plPlayerController.videoPlayerController;
       if (isBackground) {
-        if (player != null && player.state.playing) {
+        if (currentPlayer != null && currentPlayer.state.playing) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
-          player.pause();
+          currentPlayer.pause();
         }
-      } else {
-        if (_pauseDueToPauseUponEnteringBackgroundMode) {
-          _pauseDueToPauseUponEnteringBackgroundMode = false;
-          player?.play();
-        }
+      } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
+        _pauseDueToPauseUponEnteringBackgroundMode = false;
+        currentPlayer?.play();
       }
     }
   }

@@ -59,12 +59,12 @@ abstract final class IdUtils {
       return const (av: null, bv: null);
     }
     final bvid = bvRegex.firstMatch(input)?.group(0);
-
-    final aid = avRegex.firstMatch(input)?.group(1);
-
     if (bvid != null) {
       return (av: null, bv: bvid);
-    } else if (aid != null) {
+    }
+
+    final aid = avRegex.firstMatch(input)?.group(1);
+    if (aid != null) {
       return (av: int.parse(aid), bv: null);
     }
     return const (av: null, bv: null);

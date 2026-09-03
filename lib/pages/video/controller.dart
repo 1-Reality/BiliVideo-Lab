@@ -1459,31 +1459,33 @@ class VideoDetailController extends GetxController
     );
     if (res case Success(:final response)) {
       // interactive video
-      final introCtr = Get.find<UgcIntroController>(tag: heroTag);
-      if (isUgc && graphVersion == null) {
-        try {
-          if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
-            graphVersion = response.interaction?.graphVersion;
-            getSteinEdgeInfo();
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('handle stein: $e');
-        }
-      }
-
-      if (isUgc && continuePlayingPart) {
-        continuePlayingPart = false;
-        final lastCid = response.lastPlayCid;
-        if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+      if (isUgc && (graphVersion == null || continuePlayingPart)) {
+        final introCtr = Get.find<UgcIntroController>(tag: heroTag);
+        if (graphVersion == null) {
           try {
-            final pages = introCtr.videoDetail.value.pages;
-            if (pages != null && pages.length > 1) {
-              final index = pages.indexWhere((item) => item.cid == lastCid);
-              if (index != -1) {
-                onAddItem(index);
-              }
+            if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
+              graphVersion = response.interaction?.graphVersion;
+              getSteinEdgeInfo();
             }
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('handle stein: $e');
+          }
+        }
+
+        if (continuePlayingPart) {
+          continuePlayingPart = false;
+          final lastCid = response.lastPlayCid;
+          if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+            try {
+              final pages = introCtr.videoDetail.value.pages;
+              if (pages != null && pages.length > 1) {
+                final index = pages.indexWhere((item) => item.cid == lastCid);
+                if (index != -1) {
+                  onAddItem(index);
+                }
+              }
+            } catch (_) {}
+          }
         }
       }
 

@@ -111,11 +111,8 @@ class _M3ELoadingIndicatorState extends State<M3ELoadingIndicator>
     final elapsedInMs =
         _morphIntervalMs * (_morphIndex - 1) +
         (_controller.lastElapsedDuration?.inMilliseconds ?? 0);
-    final globalElapsed =
-        elapsedInMs -
-        (elapsedInMs ~/ _globalRotationDurationMs) *
-            _globalRotationDurationMs;
-    final globalRotation = globalElapsed * _globalRotationScale;
+    final globalRotation =
+        (elapsedInMs % _globalRotationDurationMs) * _globalRotationScale;
 
     return progress * _quarterRotation + _morphRotationTarget + globalRotation;
   }
