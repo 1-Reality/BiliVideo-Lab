@@ -952,6 +952,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double _eighthHeight;
   late double _inverseBrightnessLevel;
   late double _inverseVolumeLevel;
+  double _geometryWidth = -1;
+  double _geometryHeight = -1;
+  double _seekScalePerPixel = 0;
+  static const _oneThird = 1 / 3;
 
   @override
   void didChangeDependencies() {
@@ -978,18 +982,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onHorizontalDragStart() {
     plPlayerController.isSeeking.value = true;
+    _seekScalePerPixel =
+        plPlayerController.sliderScale.toDouble() * _inverseMaxWidth;
   }
 
   void _onHorizontalDragUpdate(double dx) {
     final curPos =
         plPlayerController.seekToPos?.inMilliseconds ??
         plPlayerController.position.value * 1000;
-    final posDelta =
-        (plPlayerController.sliderScale * dx * _inverseMaxWidth).round();
-    final newPos = (curPos + posDelta).clamp(
-      0,
-      plPlayerController.durationInMilliseconds,
-    );
+    final posDelta = (_seekScalePerPixel * dx).round();
+    final rawPos = curPos + posDelta;
+    final duration = plPlayerController.durationInMilliseconds;
+    final newPos = rawPos < 0
+        ? 0
+        : rawPos > duration
+        ? duration
+        : rawPos;
     final seconds = newPos ~/ 1000;
     plPlayerController
       ..seekToPos = Duration(milliseconds: newPos)
@@ -1101,11 +1109,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _onHorizontalDragUpdate(delta.dx);
     } else if (_gestureType == .left) {
       // 左边区域 👈
-      final double brightness =
-          (_brightnessValue.value - delta.dy * _inverseBrightnessLevel).clamp(
-            0.0,
-            1.0,
-          );
+      final rawBrightness =
+          _brightnessValue.value - delta.dy * _inverseBrightnessLevel;
+      final brightness = rawBrightness < 0
+          ? 0.0
+          : rawBrightness > 1
+          ? 1.0
+          : rawBrightness;
       setBrightness(brightness);
     } else if (_gestureType == .center) {
       // 全屏
@@ -1134,11 +1144,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         'setVolume',
         const Duration(milliseconds: 20),
         () {
-          final double volume = clampDouble(
-            plPlayerController.volume.value - delta.dy * _inverseVolumeLevel,
-            0.0,
-            plPlayerController.maxVolume,
-          );
+          final rawVolume =
+              plPlayerController.volume.value -
+              delta.dy * _inverseVolumeLevel;
+          final maxVolume = plPlayerController.maxVolume;
+          final volume = rawVolume < 0
+              ? 0.0
+              : rawVolume > maxVolume
+              ? maxVolume
+              : rawVolume;
           plPlayerController.setVolume(volume);
         },
       );
@@ -1367,19 +1381,25 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   Widget build(BuildContext context) {
-    maxWidth = widget.maxWidth;
-    maxHeight = widget.maxHeight;
-    _inverseMaxWidth = 1 / maxWidth;
-    _thirdWidth = maxWidth / 3;
-    _twoThirdWidth = _thirdWidth * 2;
-    _quarterWidth = maxWidth * 0.25;
-    _threeQuarterWidth = _quarterWidth * 3;
-    _eighthWidth = maxWidth * 0.125;
-    _sevenEighthWidth = maxWidth * 0.875;
-    _eighthHeight = maxHeight * 0.125;
-    final inverseMaxHeight = 1 / maxHeight;
-    _inverseBrightnessLevel = inverseMaxHeight / 3;
-    _inverseVolumeLevel = inverseMaxHeight * 2;
+    final width = widget.maxWidth;
+    final height = widget.maxHeight;
+    if (width != _geometryWidth) {
+      _geometryWidth = maxWidth = width;
+      _inverseMaxWidth = 1 / width;
+      _thirdWidth = width * _oneThird;
+      _twoThirdWidth = _thirdWidth * 2;
+      _quarterWidth = width * 0.25;
+      _threeQuarterWidth = _quarterWidth * 3;
+      _eighthWidth = width * 0.125;
+      _sevenEighthWidth = width * 0.875;
+    }
+    if (height != _geometryHeight) {
+      _geometryHeight = maxHeight = height;
+      _eighthHeight = height * 0.125;
+      final inverseMaxHeight = 1 / height;
+      _inverseBrightnessLevel = inverseMaxHeight * _oneThird;
+      _inverseVolumeLevel = inverseMaxHeight * 2;
+    }
     final isFullScreen = this.isFullScreen;
     final primary = isFullScreen && colorScheme.isLight
         ? colorScheme.inversePrimary

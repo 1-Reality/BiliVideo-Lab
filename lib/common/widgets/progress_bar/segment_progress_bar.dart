@@ -203,13 +203,14 @@ class RenderViewPointProgressBar
   final _dividerPaint = Paint()
     ..style = PaintingStyle.fill
     ..color = _segmentDivider;
-  final _paragraphs = <String, ui.Paragraph>{};
+  final _paragraphs =
+      <String, ({ui.Paragraph paragraph, double width, double height, double inverseWidth})>{};
 
   @override
   set segments(List<ViewPointSegment> value) {
     if (listEquals(segments, value)) return;
-    for (final paragraph in _paragraphs.values) {
-      paragraph.dispose();
+    for (final entry in _paragraphs.values) {
+      entry.paragraph.dispose();
     }
     _paragraphs.clear();
     super.segments = value;
@@ -223,7 +224,12 @@ class RenderViewPointProgressBar
   static const double _barHeight = 15.0;
   static const double _dividerWidth = 2.0;
 
-  static ui.Paragraph _getParagraph(String title, double size) {
+  static ({
+    ui.Paragraph paragraph,
+    double width,
+    double height,
+    double inverseWidth,
+  }) _getParagraph(String title, double size) {
     final builder =
         ui.ParagraphBuilder(
             ui.ParagraphStyle(
@@ -237,8 +243,15 @@ class RenderViewPointProgressBar
           )
           ..pushStyle(.new(color: Colors.white, fontSize: size, height: 1))
           ..addText(title);
-    return builder.build()
+    final paragraph = builder.build()
       ..layout(const ui.ParagraphConstraints(width: double.infinity));
+    final width = paragraph.maxIntrinsicWidth;
+    return (
+      paragraph: paragraph,
+      width: width,
+      height: paragraph.height,
+      inverseWidth: width == 0 ? 0 : 1 / width,
+    );
   }
 
   @override
@@ -275,14 +288,14 @@ class RenderViewPointProgressBar
       final title = segment.title;
       if (title != null && title.isNotEmpty) {
         final segmentWidth = segmentEnd - prevEnd;
-        final paragraph = _paragraphs[title] ??= _getParagraph(title, 10);
-        final textWidth = paragraph.maxIntrinsicWidth;
-        final textHeight = paragraph.height;
+        final text = _paragraphs[title] ??= _getParagraph(title, 10);
+        final textWidth = text.width;
+        final textHeight = text.height;
 
         final isOverflow = textWidth > segmentWidth;
         final Offset offset;
         if (isOverflow) {
-          final scale = segmentWidth / textWidth;
+          final scale = segmentWidth * text.inverseWidth;
           canvas
             ..save()
             ..translate(prevEnd, (_barHeight - textHeight * scale) * 0.5)
@@ -294,7 +307,7 @@ class RenderViewPointProgressBar
             (_barHeight - textHeight) * 0.5,
           );
         }
-        canvas.drawParagraph(paragraph, offset);
+        canvas.drawParagraph(text.paragraph, offset);
         if (isOverflow) {
           canvas.restore();
         }
@@ -316,8 +329,8 @@ class RenderViewPointProgressBar
 
   @override
   void dispose() {
-    for (final paragraph in _paragraphs.values) {
-      paragraph.dispose();
+    for (final entry in _paragraphs.values) {
+      entry.paragraph.dispose();
     }
     _paragraphs.clear();
     _onSeek = null;

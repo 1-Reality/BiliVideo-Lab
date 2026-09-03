@@ -373,6 +373,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
     }
+    _bufferedProportion = _proportionOfTotal(_buffered);
   }
 
   @override
@@ -391,6 +392,11 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   double _barStart = 0.0;
   double _barWidth = 0.0;
   double _inverseBarWidth = 0.0;
+  double _barCenterY = 0.0;
+  double _bufferedProportion = 0.0;
+  Offset _barStartPoint = Offset.zero;
+  Offset _barEndPoint = Offset.zero;
+  Offset _bufferedPoint = Offset.zero;
 
   // The thumb can move for two reasons. One is that the [progress] changed.
   // The other is that the user is dragging the thumb. This variable keeps
@@ -449,7 +455,12 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // The paint used to draw the bar line draws half of the cap before the
     // start of the line (and after the end of the line). The cap radius is
     // equal to half of the line width, which in this case is the bar height.
-    final position = (dx - _barStart).clamp(0.0, _barWidth);
+    final rawPosition = dx - _barStart;
+    final position = rawPosition < 0
+        ? 0.0
+        : rawPosition > _barWidth
+        ? _barWidth
+        : rawPosition;
     _thumbValue = position * _inverseBarWidth;
     _progress = _currentThumbDuration();
     markNeedsPaint();
@@ -483,6 +494,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     }
     _total = clamp;
     _inverseTotal = clamp == 0 ? 0.0 : 1 / clamp;
+    _bufferedProportion = _proportionOfTotal(_buffered);
+    _updateBufferedPoint();
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(progress);
     }
@@ -498,12 +511,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     _buffered = clamp;
+    _bufferedProportion = _proportionOfTotal(clamp);
+    _updateBufferedPoint();
     markNeedsPaint();
   }
 
   int _clampDuration(int value) {
-    if (value.isNegative) return 0;
-    if (value.compareTo(_total) > 0) return _total;
+    if (value < 0) return 0;
+    if (value > _total) return _total;
     return value;
   }
 
@@ -679,6 +694,17 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     _barStart = barCapRadius;
     _barWidth = size.width - _barHeight;
     _inverseBarWidth = 1 / _barWidth;
+    _barCenterY = _heightWhenNoLabels() * 0.5;
+    _barStartPoint = Offset(barCapRadius, _barCenterY);
+    _barEndPoint = Offset(_barWidth + barCapRadius, _barCenterY);
+    _updateBufferedPoint();
+  }
+
+  void _updateBufferedPoint() {
+    _bufferedPoint = Offset(
+      _bufferedProportion * _barWidth + _barStart,
+      _barCenterY,
+    );
   }
 
   @override
@@ -705,36 +731,20 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
         ..translate(offset.dx, offset.dy);
     }
 
-    final barHeight = _heightWhenNoLabels();
-    final capRadius = _barStart;
-    final adjustedWidth = _barWidth;
-    final centerY = barHeight * 0.5;
-    final startPoint = Offset(capRadius, centerY);
-    var thumbDx = _thumbValue * adjustedWidth + capRadius;
-    canvas
-      ..drawLine(
-        startPoint,
-        Offset(adjustedWidth + capRadius, centerY),
-        _baseBarPaint,
-      )
-      ..drawLine(
-        startPoint,
-        Offset(
-          _proportionOfTotal(_buffered) * adjustedWidth + capRadius,
-          centerY,
-        ),
-        _bufferedBarPaint,
-      )
-      ..drawLine(
-        startPoint,
-        Offset(thumbDx, centerY),
-        _progressBarPaint,
-      );
-
+    var thumbDx = _thumbValue * _barWidth + _barStart;
     if (!_thumbCanPaintOutsideBar) {
-      thumbDx = thumbDx.clamp(_thumbRadius, size.width - _thumbRadius);
+      final maxThumbDx = size.width - _thumbRadius;
+      if (thumbDx < _thumbRadius) {
+        thumbDx = _thumbRadius;
+      } else if (thumbDx > maxThumbDx) {
+        thumbDx = maxThumbDx;
+      }
     }
-    final center = Offset(thumbDx, centerY);
+    final center = Offset(thumbDx, _barCenterY);
+    canvas
+      ..drawLine(_barStartPoint, _barEndPoint, _baseBarPaint)
+      ..drawLine(_barStartPoint, _bufferedPoint, _bufferedBarPaint)
+      ..drawLine(_barStartPoint, center, _progressBarPaint);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }
@@ -744,7 +754,12 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   }
 
   double _proportionOfTotal(int duration) {
-    return (duration * _inverseTotal).clamp(0.0, 1.0);
+    final value = duration * _inverseTotal;
+    return value < 0
+        ? 0.0
+        : value > 1
+        ? 1.0
+        : value;
   }
 
   @override
