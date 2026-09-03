@@ -416,7 +416,7 @@ class _EpisodePanelState extends State<EpisodePanel>
         cacheWidth = item.dimension?.cacheWidth;
         break;
     }
-    final Color primary = theme.colorScheme.primary;
+    late final Color primary = theme.colorScheme.primary;
 
     void onLongPress() {
       if (cover?.isNotEmpty == true) {

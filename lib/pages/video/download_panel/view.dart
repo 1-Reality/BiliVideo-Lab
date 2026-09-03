@@ -378,7 +378,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
         cacheWidth = item.dimension?.cacheWidth;
         break;
     }
-    final primary = theme.colorScheme.primary;
+    late final primary = theme.colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),

@@ -342,8 +342,9 @@ abstract final class PlaybackStatsService {
     (cross ? _dirtyCrossDimensions : _dirtyDimensions).add('$axis:$value');
   }
 
-  static String get _monthKey {
-    final now = DateTime.now();
+  static String get _monthKey => _monthKeyAt(DateTime.now());
+
+  static String _monthKeyAt(DateTime now) {
     final stamp = now.year * 12 + now.month;
     if (stamp != _monthStamp) {
       _monthStamp = stamp;
@@ -594,7 +595,7 @@ abstract final class PlaybackStatsService {
     final now = DateTime.now();
     final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
-    final monthKey = _monthKeyFor(now);
+    final monthKey = _monthKeyAt(now);
     for (final axis in axes.entries) {
       final values = _mutableMap(dimensions[axis.key]);
       final item = _mutableMap(values[axis.value]);
@@ -671,7 +672,7 @@ abstract final class PlaybackStatsService {
     String speed,
   ) {
     final now = DateTime.now();
-    final month = _monthKeyFor(now);
+    final month = _monthKeyAt(now);
     final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
     for (final axis in axes.entries) {
@@ -763,7 +764,7 @@ abstract final class PlaybackStatsService {
   static void _addStaticSessionDimensions(Map<String, num> primitives) {
     if (primitives.isEmpty) return;
     final now = DateTime.now();
-    final month = _monthKeyFor(now);
+    final month = _monthKeyAt(now);
     final axes = <String, String>{
       'orientation': _orientation,
       'content': _contentType,

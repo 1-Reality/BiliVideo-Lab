@@ -407,8 +407,9 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
+          final first = mediaFileInfo.video.first;
           _downloadManager = DownloadManager(
-            url: mediaFileInfo.video.first.baseUrl,
+            url: first.baseUrl,
             path: path.join(videoDir.path, PathUtils.videoNameType2),
             onReceiveProgress: _onReceive,
             onDone: _onDone,
@@ -422,7 +423,6 @@ class DownloadService extends GetxService {
               onDone: _onAudioDone,
             );
           }
-          final first = mediaFileInfo.video.first;
           entry.pageData
             ?..width = first.width
             ..height = first.height;
