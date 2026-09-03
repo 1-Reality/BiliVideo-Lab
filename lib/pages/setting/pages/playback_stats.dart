@@ -236,9 +236,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                       '推进 ${_speed(media * activeScale)}'
                       ' · 新内容 ${_speed(unique * activeScale)}'
                       ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
-                      ' · 覆盖 ${(opened == 0 ? 0 : unique / opened * 100).toStringAsFixed(1)}%'
-                      ' · 重复 ${(media == 0 ? 0 : repeat / media * 100).toStringAsFixed(1)}%'
-                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) / (item['sessionPlayedCount'] as num? ?? 0) * 100).toStringAsFixed(1)}%'}'
+                      ' · 覆盖 ${(opened == 0 ? 0 : unique * 100 / opened).toStringAsFixed(1)}%'
+                      ' · 重复 ${(media == 0 ? 0 : repeat * 100 / media).toStringAsFixed(1)}%'
+                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) * 100 / (item['sessionPlayedCount'] as num? ?? 0)).toStringAsFixed(1)}%'}'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
                     trailing: Text(

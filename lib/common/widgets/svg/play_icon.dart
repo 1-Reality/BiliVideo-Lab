@@ -206,7 +206,7 @@ class RenderPlay extends RenderBox {
 
     // dy=0, blur=3.5
     paint
-      ..color = Colors.black.withValues(alpha: 0.16000000000000003)
+      ..color = Colors.black.withValues(alpha: 0.16)
       ..maskFilter = const .blur(.normal, 3.5);
 
     canvas.drawPath(path, paint);

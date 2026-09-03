@@ -161,7 +161,7 @@ class RenderMaskedIcon extends RenderProxyBox {
       ..strokeWidth = strokeWidth
       ..strokeCap = strokeCap;
 
-    final strokeOffset = strokeWidth * sqrt1_2 * 0.5;
+    final strokeOffset = strokeWidth * 0.3535533905932738;
     final lineRect = rect
         .translate(-strokeOffset, strokeOffset)
         .deflate(size.width * lineLengthScale);

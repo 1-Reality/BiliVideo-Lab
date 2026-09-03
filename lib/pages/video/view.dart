@@ -1288,9 +1288,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
     } else if (!videoDetailController.horizontalScreen) {
       child = childWhenDisabled;
-    } else if (maxWidth / maxHeight >= kScreenRatio) {
+    } else if (maxWidth >= maxHeight * kScreenRatio) {
       child = childWhenDisabledLandscape;
-    } else if (maxWidth < 0.4 * maxHeight * Style.aspectRatio16x9) {
+    } else if (maxWidth < maxHeight * 0.7111111111111111) {
       child = childWhenDisabled;
     } else {
       child = childWhenDisabledAlmostSquare;

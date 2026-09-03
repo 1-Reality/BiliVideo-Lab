@@ -567,12 +567,12 @@ class _IndicatorPainter extends CustomPainter {
 
   // Ease out sine (decelerating).
   double decelerateInterpolation(double fraction) {
-    return math.sin(fraction * math.pi * 0.5);
+    return math.sin(fraction * 1.5707963267948966);
   }
 
   // Ease in sine (accelerating).
   double accelerateInterpolation(double fraction) {
-    return 1.0 - math.cos(fraction * math.pi * 0.5);
+    return 1.0 - math.cos(fraction * 1.5707963267948966);
   }
 
   /// Applies the elastic effect to the indicator.

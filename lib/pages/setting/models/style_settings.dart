@@ -495,7 +495,7 @@ void _showSpringDialog(BuildContext context, _) {
     final stiffness = double.parse(springDescription[1]);
     final damping = double.parse(springDescription[2]);
 
-    final duration = math.sqrt(4 * math.pi * math.pi * mass / stiffness);
+    final duration = math.sqrt(39.47841760435743 * mass / stiffness);
     final dampingRatio = damping / (2.0 * math.sqrt(mass * stiffness));
     final bounce = dampingRatio < 1.0
         ? 1.0 - dampingRatio
@@ -510,7 +510,7 @@ void _showSpringDialog(BuildContext context, _) {
     final duration = double.parse(springDescription[0]);
     final bounce = double.parse(springDescription[1]).clamp(-1.0, 1.0);
 
-    final stiffness = 4 * math.pi * math.pi / (duration * duration);
+    final stiffness = 39.47841760435743 / (duration * duration);
     final dampingRatio = bounce > 0 ? 1.0 - bounce : 1.0 / (bounce + 1);
     final damping = 2 * math.sqrt(stiffness) * dampingRatio;
 
