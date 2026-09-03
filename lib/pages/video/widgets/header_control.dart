@@ -69,7 +69,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
 import 'package:media_kit/media_kit.dart' show NativePlayer;
@@ -94,7 +93,14 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   Timer? _clock;
   RxString now = ''.obs;
 
-  static final _format = DateFormat('HH:mm');
+  static const _twoDigits = [
+    '00', '01', '02', '03', '04', '05', '06', '07', '08', '09',
+    '10', '11', '12', '13', '14', '15', '16', '17', '18', '19',
+    '20', '21', '22', '23', '24', '25', '26', '27', '28', '29',
+    '30', '31', '32', '33', '34', '35', '36', '37', '38', '39',
+    '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',
+    '50', '51', '52', '53', '54', '55', '56', '57', '58', '59',
+  ];
 
   @override
   void dispose() {
@@ -111,14 +117,12 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
         return;
       }
       final time = DateTime.now();
-      now.value = _format.format(time);
+      now.value =
+          '${_twoDigits[time.hour]}:${_twoDigits[time.minute]}:${_twoDigits[time.second]}';
       _clock = Timer(
         Duration(
           microseconds:
-              60000000 -
-              time.second * 1000000 -
-              time.millisecond * 1000 -
-              time.microsecond,
+              1000000 - time.millisecond * 1000 - time.microsecond,
         ),
         tick,
       );

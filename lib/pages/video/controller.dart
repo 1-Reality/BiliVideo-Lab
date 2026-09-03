@@ -1203,8 +1203,7 @@ class VideoDetailController extends GetxController
       if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
         querySponsorBlock(bvid: bvid, cid: cid.value);
       }
-      await _syncNetworkProfile();
-
+      final networkProfileFuture = _syncNetworkProfile();
       final result = await VideoHttp.videoUrl(
         cid: cid.value,
         bvid: bvid,
@@ -1215,6 +1214,7 @@ class VideoDetailController extends GetxController
         language: currLang.value,
         voiceBalance: plPlayerController.enableAudioNormalization,
       );
+      await networkProfileFuture;
 
       if (result case Success(:final response)) {
         data = response;
