@@ -675,13 +675,14 @@ class ChatItem extends StatelessWidget {
     required Color textColor,
   }) {
     final style = TextStyle(color: textColor, letterSpacing: 0.6, height: 1.5);
+    late final linkStyle = style.copyWith(color: theme.colorScheme.primary);
     final List<InlineSpan> children = [];
     final matcher = _emotionMatcher(eInfos);
     content['content'].splitMapJoin(
       matcher.pattern,
       onMatch: (Match match) {
         final matchStr = match[0]!;
-        if (matchStr.startsWith('[')) {
+        if (matchStr.codeUnitAt(0) == 0x5B) {
           final emoji = matcher.emojis[matchStr];
           if (emoji != null) {
             final size = emoji.size;
@@ -703,7 +704,7 @@ class ChatItem extends StatelessWidget {
           children.add(
             TextSpan(
               text: matchStr,
-              style: style.copyWith(color: theme.colorScheme.primary),
+              style: linkStyle,
               recognizer: NoDeadlineTapGestureRecognizer()
                 ..onTap = () => PiliScheme.routePushFromUrl(matchStr),
             ),

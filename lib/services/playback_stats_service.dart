@@ -68,6 +68,7 @@ abstract final class PlaybackStatsService {
   static bool _videoUpStartRecorded = false;
   static int _lastWallUs = 0;
   static int _lastPositionUs = 0;
+  static const _positionSampleIntervalUs = 1 << 19;
   static int _suppressDiscontinuityUntilUs = 0;
   static int? _pendingPositionUs;
   static double _rate = 1;
@@ -1395,7 +1396,9 @@ abstract final class PlaybackStatsService {
   static void samplePosition(Duration position) {
     _ensureInitialized();
     if (!_active || _live) return;
-    _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
+    final now = _clock.elapsedMicroseconds;
+    if (now - _lastWallUs < _positionSampleIntervalUs) return;
+    _settleVideo(position.inMicroseconds, now);
   }
 
   static void updatePlaying(bool playing, Duration position) {
@@ -1480,19 +1483,21 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
-    _settleVideo(from.inMicroseconds, now);
+    final fromUs = from.inMicroseconds;
+    final toUs = to.inMicroseconds;
+    _settleVideo(fromUs, now);
     if (_completedIdle) {
-      _restartCompletedVideoSession(to.inMicroseconds, now);
+      _restartCompletedVideoSession(toUs, now);
       return;
     }
     _completedIdle = false;
     if (userInitiated) {
-      _recordSeek(from.inMicroseconds, to.inMicroseconds, now);
+      _recordSeek(fromUs, toUs, now);
     } else {
       _finishRewind(now, completed: false);
     }
-    _sessionMaxPositionUs = max(_sessionMaxPositionUs, to.inMicroseconds);
-    _lastPositionUs = to.inMicroseconds;
+    if (toUs > _sessionMaxPositionUs) _sessionMaxPositionUs = toUs;
+    _lastPositionUs = toUs;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
     _suppressDiscontinuityUntilUs = now + 2000000;
@@ -1502,8 +1507,9 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     if (!_active || _live) return;
     final now = _clock.elapsedMicroseconds;
-    _settleVideo(position.inMicroseconds, now);
-    _lastPositionUs = position.inMicroseconds;
+    final positionUs = position.inMicroseconds;
+    _settleVideo(positionUs, now);
+    _lastPositionUs = positionUs;
     _lastWallUs = now;
     _pendingPositionUs = _lastPositionUs;
     _suppressDiscontinuityUntilUs = now + 2000000;
@@ -1562,7 +1568,8 @@ abstract final class PlaybackStatsService {
 
   static void _settleLive(int now) {
     if (!_active || !_live) return;
-    final elapsed = max(0, now - _lastWallUs);
+    final delta = now - _lastWallUs;
+    final elapsed = delta > 0 ? delta : 0;
     if (elapsed > 0) {
       _add('liveWatchUs', elapsed);
       final uid = _liveUid;
@@ -1795,7 +1802,8 @@ abstract final class PlaybackStatsService {
     _add('rewindPausedUs', -_trailingRewindPauseUs);
     _addVideoUp('normalPausedUs', -_trailingNormalPauseUs);
     _addVideoUp('rewindPausedUs', -_trailingRewindPauseUs);
-    _sessionPausedUs = max(0, _sessionPausedUs - _trailingPauseUs);
+    final sessionPausedUs = _sessionPausedUs - _trailingPauseUs;
+    _sessionPausedUs = sessionPausedUs > 0 ? sessionPausedUs : 0;
     for (final entry in _trailingNormalPauseBySpeed.entries) {
       _addBucket('normalSpeedPausedUs', entry.key, -entry.value);
       _addVideoUpBucket('normalSpeedPausedUs', entry.key, -entry.value);
@@ -1806,7 +1814,8 @@ abstract final class PlaybackStatsService {
     }
     final rewind = _rewind;
     if (rewind != null) {
-      rewind.pausedUs = max(0, rewind.pausedUs - _trailingRewindPauseUs);
+      final pausedUs = rewind.pausedUs - _trailingRewindPauseUs;
+      rewind.pausedUs = pausedUs > 0 ? pausedUs : 0;
     }
     _clearTrailingPause();
   }
@@ -1853,7 +1862,8 @@ abstract final class PlaybackStatsService {
       _finishRewind(now, completed: true);
       return (playbackUs: 0, mediaAdvanceUs: 0);
     }
-    final mediaAdvanceUs = max(0, toUs - fromUs);
+    final deltaUs = toUs - fromUs;
+    final mediaAdvanceUs = deltaUs > 0 ? deltaUs : 0;
     if (toUs >= rewind.checkpointUs && toUs > fromUs) {
       final rewindMediaUs = rewind.checkpointUs - fromUs;
       final playbackUs =

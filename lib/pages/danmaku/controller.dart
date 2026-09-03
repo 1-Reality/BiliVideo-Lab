@@ -31,6 +31,9 @@ class PlDanmakuController {
 
   static const int segmentLength = 360000;
   static const int segmentBuckets = 3600;
+  int _segmentIndex = -1;
+  int _segmentStartBucket = 0;
+  int _segmentEndBucket = 0;
 
   void dispose() {
     _dmSegMap.clear();
@@ -100,9 +103,13 @@ class PlDanmakuController {
     if (_isFileSource) {
       initFileDmIfNeeded();
     } else {
-      final int segmentIndex = bucket ~/ segmentBuckets;
-      if (!_requestedSeg.contains(segmentIndex)) {
-        queryDanmaku(segmentIndex);
+      if (bucket < _segmentStartBucket || bucket >= _segmentEndBucket) {
+        _segmentIndex = bucket ~/ segmentBuckets;
+        _segmentStartBucket = _segmentIndex * segmentBuckets;
+        _segmentEndBucket = _segmentStartBucket + segmentBuckets;
+      }
+      if (!_requestedSeg.contains(_segmentIndex)) {
+        queryDanmaku(_segmentIndex);
         return null;
       }
     }

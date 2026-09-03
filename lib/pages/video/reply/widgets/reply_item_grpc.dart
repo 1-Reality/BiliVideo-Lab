@@ -101,6 +101,25 @@ class ReplyItemGrpc extends StatelessWidget {
     '${_timeRegExp.pattern}|${_voteRegExp.pattern}|${Constants.urlRegex.pattern}',
   );
   static final _messagePatternCache = Expando<RegExp>();
+
+  static bool _needsBaseMessageParsing(String message) {
+    for (var i = 0; i < message.length; i++) {
+      switch (message.codeUnitAt(i)) {
+        case 0x3A:
+        case 0xFF1A:
+        case 0x7B:
+          return true;
+        case 0x68 when i + 3 < message.length:
+          if (message.codeUnitAt(i + 1) == 0x74 &&
+              message.codeUnitAt(i + 2) == 0x74 &&
+              message.codeUnitAt(i + 3) == 0x70) {
+            return true;
+          }
+      }
+    }
+    return false;
+  }
+
   static bool enableWordRe = Pref.enableWordRe;
   static int? replyLengthLimit = Pref.replyLengthLimit;
 
@@ -734,11 +753,7 @@ class ReplyItemGrpc extends StatelessWidget {
         content.topics.isEmpty &&
         content.atNameToMid.isEmpty &&
         content.urls.isEmpty;
-    if (noMappedTokens &&
-        !message.contains(':') &&
-        !message.contains('：') &&
-        !message.contains('{') &&
-        !message.contains('http')) {
+    if (noMappedTokens && !_needsBaseMessageParsing(message)) {
       return TextSpan(text: message);
     }
 
@@ -873,7 +888,7 @@ class ReplyItemGrpc extends StatelessWidget {
           spanChildren.add(
             TextSpan(
               text: matchStr,
-              style: TextStyle(color: colorScheme.primary),
+              style: primaryStyle,
               recognizer: NoDeadlineTapGestureRecognizer()
                 ..onTap = () => Get.toNamed('/member?mid=$atMid'),
             ),
@@ -882,7 +897,7 @@ class ReplyItemGrpc extends StatelessWidget {
           spanChildren.add(
             TextSpan(
               text: '投票: ${content.vote.title}',
-              style: TextStyle(color: colorScheme.primary),
+              style: primaryStyle,
               recognizer: NoDeadlineTapGestureRecognizer()
                 ..onTap = () =>
                     showVoteDialog(context, content.vote.id.toInt()),
@@ -906,7 +921,7 @@ class ReplyItemGrpc extends StatelessWidget {
           spanChildren.add(
             TextSpan(
               text: isValid ? ' $matchStr ' : matchStr,
-              style: isValid ? TextStyle(color: colorScheme.primary) : null,
+              style: isValid ? primaryStyle : null,
               recognizer: isValid
                   ? (NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
@@ -930,15 +945,13 @@ class ReplyItemGrpc extends StatelessWidget {
           );
         } else {
           final url = content.urls[matchStr];
-          if (url != null && !matchedUrls.contains(matchStr)) {
+          if (url != null && matchedUrls.add(matchStr)) {
             addUrl(matchStr, url, addPlainText: true);
-            // 只显示一次
-            matchedUrls.add(matchStr);
           } else if (matchStr.length > 1 && content.topics[topic] != null) {
             spanChildren.add(
               TextSpan(
                 text: matchStr,
-                style: TextStyle(color: colorScheme.primary),
+                style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
                   ..onTap = () {
                     Get.toNamed(
@@ -952,7 +965,7 @@ class ReplyItemGrpc extends StatelessWidget {
             spanChildren.add(
               TextSpan(
                 text: matchStr,
-                style: TextStyle(color: colorScheme.primary),
+                style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
                   ..onTap = () => PageUtils.handleWebview(matchStr),
               ),

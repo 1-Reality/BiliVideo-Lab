@@ -144,6 +144,7 @@ class PlPlayerController with BlockConfigMixin {
   int? _pgcType;
   VideoType _videoType = VideoType.ugc;
   int _heartDuration = 0;
+  int _lastPositionEventSecond = -1;
   int? width;
   int? height;
 
@@ -1142,15 +1143,19 @@ class PlPlayerController with BlockConfigMixin {
       /// position
       stream.position.listen((Duration position) {
         PlaybackStatsService.samplePosition(position);
-        final posInSeconds = position.inSeconds;
-
-        if (posInSeconds != this.position.value) {
+        final positionUs = position.inMicroseconds;
+        final lastSecond = _lastPositionEventSecond;
+        final secondStartUs = lastSecond * Duration.microsecondsPerSecond;
+        if (lastSecond < 0 ||
+            positionUs < secondStartUs ||
+            positionUs >= secondStartUs + Duration.microsecondsPerSecond) {
+          final posInSeconds = positionUs ~/ Duration.microsecondsPerSecond;
+          _lastPositionEventSecond = posInSeconds;
           if (!isSeeking.value) {
             this.position.value = posInSeconds;
           }
 
           videoPlayerServiceHandler?.onPositionChange(position);
-
           makeHeartBeat(posInSeconds);
         }
 
@@ -1581,8 +1586,9 @@ class PlPlayerController with BlockConfigMixin {
     if (!longPressStatus.value || !enableLongPressSlideSpeed || steps == 0) {
       return;
     }
+    final nextSpeed = playbackSpeed + steps * 0.25;
     await setPlaybackSpeed(
-      max(0.25, playbackSpeed + steps * 0.25),
+      nextSpeed > 0.25 ? nextSpeed : 0.25,
       recordSelection: false,
       temporary: true,
     );

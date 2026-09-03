@@ -42,6 +42,8 @@ class _PlDanmakuState extends State<PlDanmaku> {
   late final PlDanmakuController _plDanmakuController;
   DanmakuController<DanmakuExtra>? _controller;
   int latestAddedPosition = -1;
+  int _bucketStartUs = -1;
+  int _nextBucketUs = 0;
 
   @override
   void initState() {
@@ -103,23 +105,26 @@ class _PlDanmakuState extends State<PlDanmaku> {
       return;
     }
 
-    final bucket = position.inMilliseconds ~/ 100;
-    if (bucket == latestAddedPosition) {
-      return;
-    }
+    final positionUs = position.inMicroseconds;
+    if (positionUs >= _bucketStartUs && positionUs < _nextBucketUs) return;
+    final bucket = positionUs ~/ 100000;
     latestAddedPosition = bucket;
+    _bucketStartUs = bucket * 100000;
+    _nextBucketUs = _bucketStartUs + 100000;
 
     final currentDanmakuList = _plDanmakuController.getCurrentDanmakuAtBucket(
       bucket,
     );
     if (currentDanmakuList != null) {
+      final controller = _controller!;
       final blockColorful = DanmakuOptions.blockColorful;
       final danmakuWeight = DanmakuOptions.danmakuWeight;
+      final showVipDanmaku = playerController.showVipDanmaku;
       for (final e in currentDanmakuList) {
         if (e.weight < danmakuWeight) return;
         if (e.mode == 7) {
           try {
-            _controller!.addDanmaku(
+            controller.addDanmaku(
               SpecialDanmakuContentItem.fromList(
                 DmUtils.decimalToColor(e.color),
                 e.fontsize.toDouble(),
@@ -133,7 +138,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
             );
           } catch (_) {}
         } else {
-          _controller!.addDanmaku(
+          controller.addDanmaku(
             DanmakuContentItem(
               e.content,
               color: blockColorful
@@ -141,7 +146,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
                   : DmUtils.decimalToColor(e.color),
               type: DmUtils.getPosition(e.mode),
               isColorful:
-                  playerController.showVipDanmaku &&
+                  showVipDanmaku &&
                   e.colorful == DmColorfulType.VipGradualColor,
               count: e.count > 1 ? e.count : null,
               selfSend: e.isSelf,

@@ -1520,7 +1520,7 @@ class VideoDetailController extends GetxController
                       lan: i.lan,
                       lanDoc: i.lanDoc,
                       subtitleUrl: i.subtitleUrl.replaceFirst(
-                        RegExp('^https?:'),
+                        _httpSchemeRegExp,
                         '',
                       ),
                       isAi: i.type == .AI,
