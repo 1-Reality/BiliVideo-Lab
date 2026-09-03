@@ -2210,16 +2210,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         false;
     if (!success) return;
 
+    final start = segment.first;
+    final end = segment.second;
     final progress = 0.0.obs;
     final name =
-        '${ctr.cid}-${segment.first.toStringAsFixed(3)}_${segment.second.toStringAsFixed(3)}.webp';
+        '${ctr.cid}-${start.toStringAsFixed(3)}_${end.toStringAsFixed(3)}.webp';
     final file = '$tmpDirPath/$name';
 
     final mpv = MpvConvertWebp(
       url!,
       file,
-      segment.first,
-      segment.second,
+      start,
+      end,
       progress: progress,
       preset: preset,
     );

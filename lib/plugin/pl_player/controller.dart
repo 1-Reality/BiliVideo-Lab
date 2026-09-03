@@ -1305,7 +1305,7 @@ class PlPlayerController with BlockConfigMixin {
       position = Duration.zero;
     }
     PlaybackStatsService.seek(
-      _videoPlayerController?.state.position ?? Duration.zero,
+      player?.state.position ?? Duration.zero,
       position,
       userInitiated: recordStats,
     );
@@ -1345,7 +1345,8 @@ class PlPlayerController with BlockConfigMixin {
   }) async {
     lastPlaybackSpeed = playbackSpeed;
 
-    final unchanged = speed == _videoPlayerController?.state.rate;
+    final player = _videoPlayerController;
+    final unchanged = speed == player?.state.rate;
     if (unchanged && !forceRecordSelection) {
       return;
     }
@@ -1357,17 +1358,18 @@ class PlPlayerController with BlockConfigMixin {
       temporary: temporary,
     );
 
-    if (!unchanged) await _videoPlayerController?.setRate(speed);
+    if (!unchanged) await player?.setRate(speed);
     _playbackSpeed.value = speed;
-    if (danmakuController != null) {
+    final danmaku = danmakuController;
+    if (danmaku != null) {
       try {
-        final currentOption = danmakuController!.option;
+        final currentOption = danmaku.option;
         final speedScale = lastPlaybackSpeed / speed;
         final updatedOption = currentOption.copyWith(
           duration: currentOption.duration * speedScale,
           staticDuration: currentOption.staticDuration * speedScale,
         );
-        danmakuController!.updateOption(updatedOption);
+        danmaku.updateOption(updatedOption);
       } catch (_) {}
     }
   }

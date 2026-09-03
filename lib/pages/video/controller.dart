@@ -577,6 +577,11 @@ class VideoDetailController extends GetxController
     if (!isReverse && count != null && mediaList.length >= count) {
       return;
     }
+    final edge = mediaList.isEmpty
+        ? null
+        : isLoadPrevious
+        ? mediaList.first
+        : mediaList.last;
     final res = await UserHttp.getMediaList(
       type: args['mediaType'] ?? sourceType.mediaType,
       bizId: args['mediaId'] ?? -1,
@@ -584,20 +589,9 @@ class VideoDetailController extends GetxController
       direction: isLoadPrevious,
       oid: isReverse
           ? null
-          : mediaList.isEmpty
-          ? args['isContinuePlaying'] == true
-                ? args['oid']
-                : null
-          : isLoadPrevious
-          ? mediaList.first.aid
-          : mediaList.last.aid,
-      otype: isReverse
-          ? null
-          : mediaList.isEmpty
-          ? null
-          : isLoadPrevious
-          ? mediaList.first.type
-          : mediaList.last.type,
+          : edge?.aid ??
+                (args['isContinuePlaying'] == true ? args['oid'] : null),
+      otype: isReverse ? null : edge?.type,
       desc: _mediaDesc,
       sortField: args['sortField'] ?? 1,
       withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true,

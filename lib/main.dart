@@ -114,6 +114,7 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
       await GStorage.migrateHeavyTelemetryFromVideoBox();
+      await RequestUtils.syncHistoryStatus();
     }));
   });
 }
@@ -160,7 +161,6 @@ void main() async {
 
   Request();
   Request.setCookie();
-  RequestUtils.syncHistoryStatus();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 

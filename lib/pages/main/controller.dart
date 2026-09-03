@@ -100,13 +100,13 @@ class MainController extends GetxController
     }
 
     dynamicBadgeMode = Pref.dynamicBadgeMode;
+    late final now = DateTime.now().millisecondsSinceEpoch;
 
     hasDyn = navigationBars.contains(NavigationBarType.dynamics);
     if (dynamicBadgeMode != DynamicBadgeMode.hidden) {
       if (hasDyn && navigationBars[selectedIndex.value] != .dynamics) {
         if (checkDynamic) {
-          _lastCheckDynamicAt =
-              DateTime.now().millisecondsSinceEpoch + dynamicPeriod;
+          _lastCheckDynamicAt = now + dynamicPeriod;
         }
         getUnreadDynamic();
       }
@@ -115,7 +115,7 @@ class MainController extends GetxController
     hasHome = navigationBars.contains(NavigationBarType.home);
     if (msgBadgeMode != DynamicBadgeMode.hidden) {
       if (hasHome) {
-        lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
+        lastCheckUnreadAt = now;
         queryUnreadMsg();
       }
     }
