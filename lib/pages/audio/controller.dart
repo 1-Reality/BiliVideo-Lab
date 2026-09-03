@@ -81,6 +81,7 @@ class AudioController extends GetxController
   late final AnimationController animController;
 
   List<StreamSubscription>? _subscriptions;
+  StreamSubscription<Duration>? _blockPositionSubscription;
   StreamSubscription<NetworkPolicyChange>? _networkPolicySubscription;
   bool _queryingPlayUrl = false;
   bool _pendingNetworkReload = false;
@@ -794,6 +795,18 @@ class AudioController extends GetxController
   BlockConfigMixin get blockConfig => this;
 
   @override
+  void addBlockPositionListener(ValueChanged<Duration> listener) {
+    _blockPositionSubscription?.cancel();
+    _blockPositionSubscription = player?.stream.position.listen(listener);
+  }
+
+  @override
+  void removeBlockPositionListener(ValueChanged<Duration> listener) {
+    _blockPositionSubscription?.cancel();
+    _blockPositionSubscription = null;
+  }
+
+  @override
   int get currPosInMilliseconds => player?.state.position.inMilliseconds ?? 0;
 
   @override
@@ -823,6 +836,8 @@ class AudioController extends GetxController
     _subscriptions?.forEach((e) => e.cancel());
     _subscriptions?.clear();
     _subscriptions = null;
+    _blockPositionSubscription?.cancel();
+    _blockPositionSubscription = null;
     _networkPolicySubscription?.cancel();
     _networkPolicySubscription = null;
     player?.dispose();

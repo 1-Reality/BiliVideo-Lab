@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
-import 'dart:math' show max, min;
+import 'dart:math' show max;
 
 import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;

@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show Timer;
 import 'dart:math' as math;
 
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
@@ -12,7 +12,7 @@ import 'package:PiliBro/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:easy_debounce/easy_throttle.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -38,8 +38,8 @@ mixin BlockConfigMixin {
 mixin BlockMixin on GetxController {
   int? _lastBlockPos;
   BlockConfigMixin get blockConfig;
-  StreamSubscription<Duration>? _blockListener;
-  StreamSubscription<Duration>? get blockListener => _blockListener;
+  ValueChanged<Duration>? _blockListener;
+  ValueChanged<Duration>? get blockListener => _blockListener;
   late final List<SegmentModel> _segmentList = <SegmentModel>[];
   late final RxList<Segment> segmentProgressList = <Segment>[].obs;
 
@@ -49,6 +49,8 @@ mixin BlockMixin on GetxController {
 
   RxString? get videoLabel => null;
   Player? get player;
+  void addBlockPositionListener(ValueChanged<Duration> listener);
+  void removeBlockPositionListener(ValueChanged<Duration> listener);
   bool get autoPlay;
   int? get timeLength;
   bool get preInitPlayer;
@@ -79,8 +81,10 @@ mixin BlockMixin on GetxController {
   void initSkip() {
     if (isClosed) return;
     if (_segmentList.isNotEmpty) {
-      _blockListener?.cancel();
-      _blockListener = player?.stream.position.listen((position) {
+      if (_blockListener case final listener?) {
+        removeBlockPositionListener(listener);
+      }
+      final listener = (Duration position) {
         int currentPos = position.inSeconds;
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
@@ -111,7 +115,9 @@ mixin BlockMixin on GetxController {
             }
           }
         }
-      });
+      };
+      _blockListener = listener;
+      addBlockPositionListener(listener);
     }
   }
 
@@ -467,8 +473,8 @@ mixin BlockMixin on GetxController {
   }
 
   void cancelBlockListener() {
-    if (_blockListener != null) {
-      _blockListener!.cancel();
+    if (_blockListener case final listener?) {
+      removeBlockPositionListener(listener);
       _blockListener = null;
     }
   }

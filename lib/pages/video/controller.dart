@@ -75,7 +75,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show Options;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -637,6 +637,12 @@ class VideoDetailController extends GetxController
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
   Player? get player => plPlayerController.videoPlayerController;
+  @override
+  void addBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.addPositionListener(listener);
+  @override
+  void removeBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.removePositionListener(listener);
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
