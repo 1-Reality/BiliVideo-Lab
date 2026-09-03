@@ -1384,8 +1384,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final primary = isFullScreen && colorScheme.isLight
         ? colorScheme.inversePrimary
         : colorScheme.primary;
-    final thumbGlowColor = primary.withAlpha(80);
-    final bufferedBarColor = primary.withValues(alpha: 0.4);
+    late final thumbGlowColor = primary.withAlpha(80);
+    late final bufferedBarColor = primary.withValues(alpha: 0.4);
     const TextStyle textStyle = TextStyle(
       color: Colors.white,
       fontSize: 12,

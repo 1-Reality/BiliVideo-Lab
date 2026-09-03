@@ -1347,15 +1347,11 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   // This rect is used in gesture calculations, where the gesture coordinates
   // are relative to the sliders origin. Therefore, the offset is passed as
   // (0,0).
-  Rect get _trackRect {
-    final rect = _sliderTheme.trackShape!.getPreferredRect(
-      parentBox: this,
-      sliderTheme: _sliderTheme,
-      isDiscrete: false,
-    );
-    _inverseTrackHeight = 1 / rect.height;
-    return rect;
-  }
+  Rect get _trackRect => _sliderTheme.trackShape!.getPreferredRect(
+    parentBox: this,
+    sliderTheme: _sliderTheme,
+    isDiscrete: false,
+  );
 
   bool get isInteractive => onChanged != null;
 
@@ -1670,14 +1666,6 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     };
   }
 
-  double _getValueFromGlobalPosition(Offset globalPosition) {
-    final trackRect = _trackRect;
-    final double visualPosition =
-        (trackRect.bottom - globalToLocal(globalPosition).dy) *
-        _inverseTrackHeight;
-    return _getValueFromVisualPosition(visualPosition);
-  }
-
   double _discretize(double value) {
     double result = clampDouble(value, 0.0, 1.0);
     if (isDiscrete) {
@@ -1691,12 +1679,16 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       return;
     }
     if (!_active && isInteractive) {
-      _inverseTrackHeight = 1 / _trackRect.height;
+      final trackRect = _trackRect;
+      _inverseTrackHeight = 1 / trackRect.height;
       switch (allowedInteraction) {
         case SliderInteraction.tapAndSlide:
         case SliderInteraction.tapOnly:
           _active = true;
-          _currentDragValue = _getValueFromGlobalPosition(globalPosition);
+          _currentDragValue = _getValueFromVisualPosition(
+            (trackRect.bottom - globalToLocal(globalPosition).dy) *
+                _inverseTrackHeight,
+          );
         case SliderInteraction.slideThumb:
           if (_isPointerOnOverlay(globalPosition)) {
             _active = true;
@@ -1863,8 +1855,6 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
       sliderTheme: _sliderTheme,
       isDiscrete: isDiscrete,
     );
-    _inverseTrackHeight = 1 / trackRect.height;
-
     final Offset thumbCenter = _calcThumbCenter(
       trackRect: trackRect,
       visualPosition: visualPosition,

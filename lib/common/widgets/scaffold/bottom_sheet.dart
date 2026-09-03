@@ -43,14 +43,13 @@ class _MiniBottomSheetState extends BottomSheetState {
 
   @override
   Widget build(BuildContext context) {
-    final bool useMaterial3 = Theme.of(context).useMaterial3;
-    final defaults = useMaterial3
+    late final theme = Theme.of(context);
+    late final defaults = theme.useMaterial3
         ? BottomSheetDefaultsM3(context)
         : const BottomSheetThemeData();
-    final bottomSheetTheme = Theme.of(context).bottomSheetTheme;
     final BoxConstraints? constraints =
         widget.constraints ??
-        bottomSheetTheme.constraints ??
+        theme.bottomSheetTheme.constraints ??
         defaults.constraints;
 
     Widget bottomSheet = KeyedSubtree(
