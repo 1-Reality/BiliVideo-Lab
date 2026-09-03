@@ -1,7 +1,7 @@
 import 'dart:async' show StreamSubscription, Timer;
 import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
-import 'dart:math' show max, min;
+import 'dart:math' show min;
 import 'dart:ui' as ui;
 
 import 'package:PiliBro/common/assets.dart';
@@ -617,7 +617,7 @@ class PlPlayerController with BlockConfigMixin {
           ? Pref.preferCodecsCellular
           : Pref.preferCodecs;
       peakPreferCodecs = peakActive
-          ? ConnectivityUtils.effectiveCodecs(cachePreferCodecs!, profile)
+          ? ConnectivityUtils.effectiveCodecs()
           : null;
     }
   }
@@ -1526,7 +1526,7 @@ class PlPlayerController with BlockConfigMixin {
         _lockedLongPressSpeed = playbackSpeed;
         HapticFeedback.mediumImpact();
         SmartDialog.showToast(
-          '${playbackSpeed} 倍将在松手后保持',
+          '$playbackSpeed 倍将在松手后保持',
           displayTime: const Duration(seconds: 1),
         );
       }

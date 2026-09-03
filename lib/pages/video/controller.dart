@@ -880,11 +880,9 @@ class VideoDetailController extends GetxController
     }
     _manualCdn = null;
     _manualCdnPlaybackKey = null;
-    _cdnPriority = List.of(
-      profile.useCellularPreferences
-          ? Pref.defaultCDNServicesCellular
-          : Pref.defaultCDNServices,
-    );
+    _cdnPriority = profile.useCellularPreferences
+        ? Pref.defaultCDNServicesCellular
+        : Pref.defaultCDNServices;
     _cdnIndex = 0;
   }
 
