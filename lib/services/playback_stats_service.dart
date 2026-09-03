@@ -110,6 +110,16 @@ abstract final class PlaybackStatsService {
   static int _dimensionAxesCacheTimeKey = -1;
   static int _dimensionAxesCacheOffsetMinutes = 0;
   static int _dimensionContextVersion = 0;
+  static DateTime? _wallTimeCache;
+  static int _wallTimeRefreshAtUs = 0;
+  static const _wallTimeRefreshIntervalUs = 1 << 26;
+  static String _crossSpeed = '';
+  static String? _crossUpUid;
+  static String _crossPartition = '';
+  static String _crossOrientation = '';
+  static String _upSpeedKey = '';
+  static String _partitionSpeedKey = '';
+  static String _orientationSpeedKey = '';
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -342,7 +352,17 @@ abstract final class PlaybackStatsService {
     (cross ? _dirtyCrossDimensions : _dirtyDimensions).add('$axis:$value');
   }
 
-  static String get _monthKey => _monthKeyAt(DateTime.now());
+  static DateTime get _wallTime {
+    final clock = _clock.elapsedMicroseconds;
+    final cached = _wallTimeCache;
+    if (cached != null && clock < _wallTimeRefreshAtUs) return cached;
+    final now = DateTime.now();
+    _wallTimeCache = now;
+    _wallTimeRefreshAtUs = clock + _wallTimeRefreshIntervalUs;
+    return now;
+  }
+
+  static String get _monthKey => _monthKeyAt(_wallTime);
 
   static String _monthKeyAt(DateTime now) {
     final stamp = now.year * 12 + now.month;
@@ -385,7 +405,8 @@ abstract final class PlaybackStatsService {
   }
 
   static void _settleCommentPanel(int now) {
-    final elapsed = max(0, now - _commentPanelLastWallUs);
+    final delta = now - _commentPanelLastWallUs;
+    final elapsed = delta > 0 ? delta : 0;
     if (_appForeground && _active && !_live && _videoCommentPanelVisible) {
       _add('commentPanelForegroundUs', elapsed);
       _addVideoUp('commentPanelForegroundUs', elapsed);
@@ -592,7 +613,7 @@ abstract final class PlaybackStatsService {
     String? speed,
   }) {
     if (value == 0) return;
-    final now = DateTime.now();
+    final now = _wallTime;
     final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
     final monthKey = _monthKeyAt(now);
@@ -671,7 +692,7 @@ abstract final class PlaybackStatsService {
     num nominalMediaIncludingLongPressUs,
     String speed,
   ) {
-    final now = DateTime.now();
+    final now = _wallTime;
     final month = _monthKeyAt(now);
     final axes = _dimensionAxes(now);
     final dimensions = _map('dimensions');
@@ -704,11 +725,24 @@ abstract final class PlaybackStatsService {
       dimensions[axis.key] = values;
       _markDimensionDirty(axis.key, axis.value);
     }
+    final uid = _videoUpUid;
+    if (speed != _crossSpeed ||
+        uid != _crossUpUid ||
+        _partitionId != _crossPartition ||
+        _orientation != _crossOrientation) {
+      _crossSpeed = speed;
+      _crossUpUid = uid;
+      _crossPartition = _partitionId;
+      _crossOrientation = _orientation;
+      _upSpeedKey = '${uid ?? 'unknown'}|$speed';
+      _partitionSpeedKey = '$_partitionId|$speed';
+      _orientationSpeedKey = '$_orientation|$speed';
+    }
     final crosses = _map('crossDimensions');
     _addCrossDimensionPlayback(
       crosses,
       'upSpeed',
-      '${_videoUpUid ?? 'unknown'}|$speed',
+      _upSpeedKey,
       month,
       activePlaybackUs,
       mediaAdvanceUs,
@@ -716,7 +750,7 @@ abstract final class PlaybackStatsService {
     _addCrossDimensionPlayback(
       crosses,
       'partitionSpeed',
-      '$_partitionId|$speed',
+      _partitionSpeedKey,
       month,
       activePlaybackUs,
       mediaAdvanceUs,
@@ -724,7 +758,7 @@ abstract final class PlaybackStatsService {
     _addCrossDimensionPlayback(
       crosses,
       'orientationSpeed',
-      '$_orientation|$speed',
+      _orientationSpeedKey,
       month,
       activePlaybackUs,
       mediaAdvanceUs,
@@ -945,7 +979,7 @@ abstract final class PlaybackStatsService {
     _buffering = true;
     _completedIdle = false;
     _rate = speed;
-    _rateKey = _speedKey(speed);
+    _rateKey = key;
     _nominalRate = speed;
     _temporaryRate = false;
     _defaultRate = defaultSpeed;
@@ -1341,10 +1375,10 @@ abstract final class PlaybackStatsService {
     bool temporary = false,
   }) {
     _ensureInitialized();
+    final key = _speedKey(speed);
     if (_active && !_live) {
       _settleVideo(position.inMicroseconds, _clock.elapsedMicroseconds);
       if (recordSelection) {
-        final key = _speedKey(speed);
         _addBucket('manualSpeedSelections', key, 1);
         _stats!['lastSelectedSpeed'] = speed;
         _add('rateChangeCount', 1);
@@ -1472,7 +1506,8 @@ abstract final class PlaybackStatsService {
   static void _settleVideo(int positionUs, int now) {
     if (!_active || _live) return;
     _settleCommentPanel(now);
-    final wallUs = max(0, now - _lastWallUs);
+    final elapsedUs = now - _lastWallUs;
+    final wallUs = elapsedUs > 0 ? elapsedUs : 0;
     final mediaDeltaUs = positionUs - _lastPositionUs;
     if (_pendingPositionUs case final target?) {
       if (now >= _suppressDiscontinuityUntilUs) {
@@ -1529,7 +1564,10 @@ abstract final class PlaybackStatsService {
         _addVideoUpBucket('longPressSpeedActiveUs', speed, wallUs);
       }
 
-      final toleranceUs = max(2000000, rateMediaUs * 2).round();
+      final doubledRateUs = rateMediaUs * 2;
+      final toleranceUs = doubledRateUs > 2000000
+          ? doubledRateUs.round()
+          : 2000000;
       final discontinuity =
           mediaDeltaUs < -_seekThresholdUs ||
           mediaDeltaUs > rateMediaUs + toleranceUs;
@@ -1537,9 +1575,12 @@ abstract final class PlaybackStatsService {
       var rewindPlaybackUs = 0;
       var rewindMediaAdvanceUs = 0;
       if (discontinuity) {
-        mediaAdvanceUs = now < _suppressDiscontinuityUntilUs
-            ? 0
-            : min(max(0, mediaDeltaUs), rateMediaUs.round());
+        if (now < _suppressDiscontinuityUntilUs || mediaDeltaUs <= 0) {
+          mediaAdvanceUs = 0;
+        } else {
+          final rateUs = rateMediaUs.round();
+          mediaAdvanceUs = mediaDeltaUs < rateUs ? mediaDeltaUs : rateUs;
+        }
         final rewindPart = _advanceRewind(
           _lastPositionUs,
           _lastPositionUs + mediaAdvanceUs,
@@ -1553,7 +1594,7 @@ abstract final class PlaybackStatsService {
           _recordSeek(_lastPositionUs, positionUs, now);
         }
       } else {
-        mediaAdvanceUs = max(0, mediaDeltaUs);
+        mediaAdvanceUs = mediaDeltaUs > 0 ? mediaDeltaUs : 0;
         final rewindPart = _advanceRewind(
           _lastPositionUs,
           positionUs,
@@ -1569,7 +1610,9 @@ abstract final class PlaybackStatsService {
       _sessionMediaAdvanceUs += mediaAdvanceUs;
       _sessionNominalMediaUs += nominalMediaUs;
       _sessionNominalIncludingLongPressUs += rateMediaUs;
-      _sessionMaxPositionUs = max(_sessionMaxPositionUs, positionUs);
+      if (positionUs > _sessionMaxPositionUs) {
+        _sessionMaxPositionUs = positionUs;
+      }
       _recordCoverage(
         _lastPositionUs,
         _lastPositionUs + mediaAdvanceUs,
@@ -2118,6 +2161,8 @@ abstract final class PlaybackStatsService {
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
     _legacyCompositeKeys.clear();
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
     final now = _clock.elapsedMicroseconds;
     _appLastWallUs = now;
     _pageLastWallUs = now;
@@ -2159,6 +2204,8 @@ abstract final class PlaybackStatsService {
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
     _legacyCompositeKeys.clear();
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
     _writeChain = Future.value();
     final now = _clock.elapsedMicroseconds;
     _lastWallUs = now;
