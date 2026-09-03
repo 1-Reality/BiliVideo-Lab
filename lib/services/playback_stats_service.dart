@@ -120,6 +120,27 @@ abstract final class PlaybackStatsService {
   static String _upSpeedKey = '';
   static String _partitionSpeedKey = '';
   static String _orientationSpeedKey = '';
+  static int _crossKeyVersion = 0;
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  >? _dimensionTargetsCache;
+  static int _dimensionTargetsVersion = -1;
+  static int _dimensionTargetsTimeKey = -1;
+  static int _dimensionTargetsOffsetMinutes = 0;
+  static String _dimensionTargetsMonth = '';
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  >? _crossTargetsCache;
+  static int _crossTargetsVersion = -1;
+  static String _crossTargetsMonth = '';
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -607,6 +628,122 @@ abstract final class PlaybackStatsService {
     item['months'] = months;
   }
 
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  > _dimensionTargets(String month, Map<String, String> axes) {
+    final cached = _dimensionTargetsCache;
+    if (cached != null &&
+        _dimensionTargetsVersion == _dimensionContextVersion &&
+        _dimensionTargetsTimeKey == _dimensionAxesCacheTimeKey &&
+        _dimensionTargetsOffsetMinutes == _dimensionAxesCacheOffsetMinutes &&
+        _dimensionTargetsMonth == month) {
+      return cached;
+    }
+
+    final dimensions = _map('dimensions');
+    final targets = <
+      ({
+        Map<String, dynamic> item,
+        Map<String, dynamic> month,
+        String dirtyKey,
+      })
+    >[];
+    for (final axis in axes.entries) {
+      final values = _mutableMap(dimensions[axis.key]);
+      final item = _mutableMap(values[axis.value]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      months[month] = current;
+      item['months'] = months;
+      values[axis.value] = item;
+      dimensions[axis.key] = values;
+      targets.add((
+        item: item,
+        month: current,
+        dirtyKey: '${axis.key}:${axis.value}',
+      ));
+    }
+
+    _dimensionTargetsCache = targets;
+    _dimensionTargetsVersion = _dimensionContextVersion;
+    _dimensionTargetsTimeKey = _dimensionAxesCacheTimeKey;
+    _dimensionTargetsOffsetMinutes = _dimensionAxesCacheOffsetMinutes;
+    _dimensionTargetsMonth = month;
+    return targets;
+  }
+
+  static void _updateCrossKeys(String speed) {
+    final uid = _videoUpUid;
+    if (speed == _crossSpeed &&
+        uid == _crossUpUid &&
+        _partitionId == _crossPartition &&
+        _orientation == _crossOrientation) {
+      return;
+    }
+    _crossSpeed = speed;
+    _crossUpUid = uid;
+    _crossPartition = _partitionId;
+    _crossOrientation = _orientation;
+    _upSpeedKey = '${uid ?? 'unknown'}|$speed';
+    _partitionSpeedKey = '$_partitionId|$speed';
+    _orientationSpeedKey = '$_orientation|$speed';
+    _crossKeyVersion++;
+  }
+
+  static List<
+    ({
+      Map<String, dynamic> item,
+      Map<String, dynamic> month,
+      String dirtyKey,
+    })
+  > _crossTargets(String speed, String month) {
+    _updateCrossKeys(speed);
+    final cached = _crossTargetsCache;
+    if (cached != null &&
+        _crossTargetsVersion == _crossKeyVersion &&
+        _crossTargetsMonth == month) {
+      return cached;
+    }
+
+    final crosses = _map('crossDimensions');
+    final keys = (
+      ('upSpeed', _upSpeedKey),
+      ('partitionSpeed', _partitionSpeedKey),
+      ('orientationSpeed', _orientationSpeedKey),
+    );
+    final targets = <
+      ({
+        Map<String, dynamic> item,
+        Map<String, dynamic> month,
+        String dirtyKey,
+      })
+    >[];
+    for (final (axis, valueKey) in [keys.$1, keys.$2, keys.$3]) {
+      final values = _mutableMap(crosses[axis]);
+      final item = _mutableMap(values[valueKey]);
+      final months = _mutableMap(item['months']);
+      final current = _mutableMap(months[month]);
+      months[month] = current;
+      item['months'] = months;
+      values[valueKey] = item;
+      crosses[axis] = values;
+      targets.add((
+        item: item,
+        month: current,
+        dirtyKey: '$axis:$valueKey',
+      ));
+    }
+
+    _crossTargetsCache = targets;
+    _crossTargetsVersion = _crossKeyVersion;
+    _crossTargetsMonth = month;
+    return targets;
+  }
+
   static void _addDimension(
     String primitive,
     num value, {
@@ -615,70 +752,21 @@ abstract final class PlaybackStatsService {
     if (value == 0) return;
     final now = _wallTime;
     final axes = _dimensionAxes(now);
-    final dimensions = _map('dimensions');
     final monthKey = _monthKeyAt(now);
-    for (final axis in axes.entries) {
-      final values = _mutableMap(dimensions[axis.key]);
-      final item = _mutableMap(values[axis.value]);
-      item[primitive] = (item[primitive] as num? ?? 0) + value;
-      final months = _mutableMap(item['months']);
-      final month = _mutableMap(months[monthKey]);
-      month[primitive] = (month[primitive] as num? ?? 0) + value;
-      months[monthKey] = month;
-      item['months'] = months;
-      values[axis.value] = item;
-      dimensions[axis.key] = values;
-      _markDimensionDirty(axis.key, axis.value);
+    for (final target in _dimensionTargets(monthKey, axes)) {
+      target.item[primitive] = (target.item[primitive] as num? ?? 0) + value;
+      target.month[primitive] = (target.month[primitive] as num? ?? 0) + value;
+      _dirtyDimensions.add(target.dirtyKey);
     }
     if (speed != null) {
-      final crosses = _map('crossDimensions');
-      final month = _monthKey;
-      _addCrossDimensionValue(
-        crosses,
-        'upSpeed',
-        '${_videoUpUid ?? 'unknown'}|$speed',
-        month,
-        primitive,
-        value,
-      );
-      _addCrossDimensionValue(
-        crosses,
-        'partitionSpeed',
-        '$_partitionId|$speed',
-        month,
-        primitive,
-        value,
-      );
-      _addCrossDimensionValue(
-        crosses,
-        'orientationSpeed',
-        '$_orientation|$speed',
-        month,
-        primitive,
-        value,
-      );
+      for (final target in _crossTargets(speed, monthKey)) {
+        target.item[primitive] = (target.item[primitive] as num? ?? 0) + value;
+        target.month[primitive] =
+            (target.month[primitive] as num? ?? 0) + value;
+        _dirtyCrossDimensions.add(target.dirtyKey);
+      }
     }
-  }
-
-  static void _addCrossDimensionValue(
-    Map<String, dynamic> crosses,
-    String axis,
-    String valueKey,
-    String monthKey,
-    String primitive,
-    num value,
-  ) {
-    final values = _mutableMap(crosses[axis]);
-    final item = _mutableMap(values[valueKey]);
-    item[primitive] = (item[primitive] as num? ?? 0) + value;
-    final months = _mutableMap(item['months']);
-    final month = _mutableMap(months[monthKey]);
-    month[primitive] = (month[primitive] as num? ?? 0) + value;
-    months[monthKey] = month;
-    item['months'] = months;
-    values[valueKey] = item;
-    crosses[axis] = values;
-    _markDimensionDirty(axis, valueKey, cross: true);
+    _dirty = true;
   }
 
   // Position events are the hot path. Four independent calls used to rebuild
@@ -695,12 +783,9 @@ abstract final class PlaybackStatsService {
     final now = _wallTime;
     final month = _monthKeyAt(now);
     final axes = _dimensionAxes(now);
-    final dimensions = _map('dimensions');
-    for (final axis in axes.entries) {
-      final values = _mutableMap(dimensions[axis.key]);
-      final item = _mutableMap(values[axis.value]);
-      final months = _mutableMap(item['months']);
-      final current = _mutableMap(months[month]);
+    for (final target in _dimensionTargets(month, axes)) {
+      final item = target.item;
+      final current = target.month;
       item['activePlaybackUs'] =
           (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
       item['mediaAdvanceUs'] =
@@ -719,77 +804,22 @@ abstract final class PlaybackStatsService {
       current['nominalMediaIncludingLongPressUs'] =
           (current['nominalMediaIncludingLongPressUs'] as num? ?? 0) +
           nominalMediaIncludingLongPressUs;
-      months[month] = current;
-      item['months'] = months;
-      values[axis.value] = item;
-      dimensions[axis.key] = values;
-      _markDimensionDirty(axis.key, axis.value);
+      _dirtyDimensions.add(target.dirtyKey);
     }
-    final uid = _videoUpUid;
-    if (speed != _crossSpeed ||
-        uid != _crossUpUid ||
-        _partitionId != _crossPartition ||
-        _orientation != _crossOrientation) {
-      _crossSpeed = speed;
-      _crossUpUid = uid;
-      _crossPartition = _partitionId;
-      _crossOrientation = _orientation;
-      _upSpeedKey = '${uid ?? 'unknown'}|$speed';
-      _partitionSpeedKey = '$_partitionId|$speed';
-      _orientationSpeedKey = '$_orientation|$speed';
+    for (final target in _crossTargets(speed, month)) {
+      final item = target.item;
+      final current = target.month;
+      item['activePlaybackUs'] =
+          (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      item['mediaAdvanceUs'] =
+          (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      current['activePlaybackUs'] =
+          (current['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
+      current['mediaAdvanceUs'] =
+          (current['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
+      _dirtyCrossDimensions.add(target.dirtyKey);
     }
-    final crosses = _map('crossDimensions');
-    _addCrossDimensionPlayback(
-      crosses,
-      'upSpeed',
-      _upSpeedKey,
-      month,
-      activePlaybackUs,
-      mediaAdvanceUs,
-    );
-    _addCrossDimensionPlayback(
-      crosses,
-      'partitionSpeed',
-      _partitionSpeedKey,
-      month,
-      activePlaybackUs,
-      mediaAdvanceUs,
-    );
-    _addCrossDimensionPlayback(
-      crosses,
-      'orientationSpeed',
-      _orientationSpeedKey,
-      month,
-      activePlaybackUs,
-      mediaAdvanceUs,
-    );
-  }
-
-  static void _addCrossDimensionPlayback(
-    Map<String, dynamic> crosses,
-    String axis,
-    String valueKey,
-    String monthKey,
-    int activePlaybackUs,
-    int mediaAdvanceUs,
-  ) {
-    final values = _mutableMap(crosses[axis]);
-    final item = _mutableMap(values[valueKey]);
-    final months = _mutableMap(item['months']);
-    final month = _mutableMap(months[monthKey]);
-    item['activePlaybackUs'] =
-        (item['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
-    item['mediaAdvanceUs'] =
-        (item['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
-    month['activePlaybackUs'] =
-        (month['activePlaybackUs'] as num? ?? 0) + activePlaybackUs;
-    month['mediaAdvanceUs'] =
-        (month['mediaAdvanceUs'] as num? ?? 0) + mediaAdvanceUs;
-    months[monthKey] = month;
-    item['months'] = months;
-    values[valueKey] = item;
-    crosses[axis] = values;
-    _markDimensionDirty(axis, valueKey, cross: true);
+    _dirty = true;
   }
 
   // Session outcomes have one final content identity. Keep them on dimensions
@@ -2163,6 +2193,8 @@ abstract final class PlaybackStatsService {
     _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
     final now = _clock.elapsedMicroseconds;
     _appLastWallUs = now;
     _pageLastWallUs = now;
@@ -2206,6 +2238,8 @@ abstract final class PlaybackStatsService {
     _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
     _writeChain = Future.value();
     final now = _clock.elapsedMicroseconds;
     _lastWallUs = now;
