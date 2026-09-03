@@ -134,13 +134,13 @@ class _PayCoinsPageState extends State<PayCoinsPage>
       Tween<Offset>(
         begin: Offset.zero,
         end: const Offset(0.0, -2.0),
-      ).chain(CurveTween(curve: const Interval(0.0, 2 / 3))),
+      ).chain(CurveTween(curve: const Interval(0.0, 0.6666666666666666))),
     );
     _coinFadeAnim = _coinController.drive(
       Tween<double>(
         begin: 1.0,
         end: 0.0,
-      ).chain(CurveTween(curve: const Interval(2 / 3, 1.0))),
+      ).chain(CurveTween(curve: const Interval(0.6666666666666666, 1.0))),
     );
     _boxAnimController = AnimationController(
       vsync: this,

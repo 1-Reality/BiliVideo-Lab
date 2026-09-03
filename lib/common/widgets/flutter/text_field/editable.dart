@@ -43,7 +43,7 @@ const Radius _kFloatingCursorRadius = Radius.circular(1.0);
 // it's not necessary to display both cursors at the same time.
 // This behavior is consistent with the one observed in iOS UITextField.
 const double _kShortestDistanceSquaredWithFloatingAndRegularCursors =
-    15.0 * 15.0;
+    225.0;
 
 /// The consecutive sequence of [TextPosition]s that the caret should move to
 /// when the user navigates the paragraph using the upward arrow key or the

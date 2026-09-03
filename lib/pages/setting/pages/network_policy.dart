@@ -738,8 +738,8 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
                     onPressed: () {
                       periods.add({
                         'enabled': true,
-                        'start': 19 * 60,
-                        'end': 23 * 60,
+                        'start': 1140,
+                        'end': 1380,
                         'scope': 0,
                       });
                       _save();

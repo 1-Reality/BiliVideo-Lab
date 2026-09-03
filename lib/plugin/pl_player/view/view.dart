@@ -955,7 +955,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   double _geometryWidth = -1;
   double _geometryHeight = -1;
   double _seekScalePerPixel = 0;
-  static const _oneThird = 1 / 3;
+  static const _oneThird = 0.3333333333333333;
 
   @override
   void didChangeDependencies() {
@@ -1264,7 +1264,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   StreamSubscription<bool>? _danmakuListener;
 
-  static const _inverseLongPressStep = -1 / 24;
+  static const _inverseLongPressStep = -0.041666666666666664;
   static const _kOffsetThreshold = 25.0;
   bool _isPositionAllowed(Offset offset) {
     if (offset.dx < _kOffsetThreshold ||
@@ -1619,9 +1619,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
                       Icon(
-                        _brightnessValue.value < 1.0 / 3.0
+                        _brightnessValue.value < 0.3333333333333333
                             ? Icons.brightness_low
-                            : _brightnessValue.value < 2.0 / 3.0
+                            : _brightnessValue.value < 0.6666666666666666
                             ? Icons.brightness_medium
                             : Icons.brightness_high,
                         color: Colors.white,

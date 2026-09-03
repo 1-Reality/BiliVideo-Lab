@@ -49,7 +49,7 @@ class DisabledIcon extends SingleChildRenderObjectWidget {
 }
 
 class RenderMaskedIcon extends RenderProxyBox {
-  static const _inverseStrokeScale = 1 / 12;
+  static const _inverseStrokeScale = 0.08333333333333333;
 
   RenderMaskedIcon({
     required this._disable,

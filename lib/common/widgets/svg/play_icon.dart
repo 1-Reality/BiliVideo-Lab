@@ -22,7 +22,7 @@ class PlayIcon extends LeafRenderObjectWidget {
 class RenderPlay extends RenderBox {
   RenderPlay(this._imgSize);
 
-  static const _inversePictureSize = 1 / 60;
+  static const _inversePictureSize = 0.016666666666666666;
 
   double _imgSize;
   set imgSize(double value) {
@@ -194,7 +194,7 @@ class RenderPlay extends RenderBox {
       ..close();
 
     final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3 * 0.8)
+      ..color = Colors.black.withValues(alpha: 0.24)
       ..maskFilter = const .blur(.normal, 1.0);
 
     // feOffset dy="2"
@@ -206,7 +206,7 @@ class RenderPlay extends RenderBox {
 
     // dy=0, blur=3.5
     paint
-      ..color = Colors.black.withValues(alpha: 0.2 * 0.8)
+      ..color = Colors.black.withValues(alpha: 0.16000000000000003)
       ..maskFilter = const .blur(.normal, 3.5);
 
     canvas.drawPath(path, paint);
