@@ -515,7 +515,7 @@ class ImageGridRenderObjectElement extends RenderObjectElement {
     if (length == 2) {
       imageWidth = imageHeight = (maxWidth - space) * 0.5;
     } else {
-      imageHeight = imageWidth = (maxWidth - 2 * space) / 3;
+      imageHeight = imageWidth = (maxWidth - 2 * space) * 0.3333333333333333;
       if (isSingle) {
         final img = picArr.first;
         final width = img.width;

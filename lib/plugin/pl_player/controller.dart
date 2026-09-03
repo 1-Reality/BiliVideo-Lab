@@ -2020,7 +2020,7 @@ class PlPlayerController with BlockConfigMixin {
               padding: const EdgeInsets.only(right: 12),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
+                  maxWidth: min(MediaQuery.widthOf(context) * 0.3333333333333333, 350),
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(

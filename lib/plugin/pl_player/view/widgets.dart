@@ -343,7 +343,7 @@ class _RenderDanmakuTip extends RenderProxyBox {
       return path;
     }
     final radius = size.height * 0.5;
-    const triangleBase = _triangleHeight * 2 / 3;
+    const triangleBase = _triangleHeight * 2 * 0.3333333333333333;
     final triangleCenterX = (size.width * 0.5 + _offset).clamp(
       radius + triangleBase,
       size.width - radius - triangleBase,

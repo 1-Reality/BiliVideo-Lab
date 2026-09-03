@@ -24,7 +24,7 @@ class PendantAvatar extends StatelessWidget {
     this.liveFontSize,
     this.onTap,
   }) : preferredSize = size,
-       badgeSize = badgeSize ?? size / 3,
+       badgeSize = badgeSize ?? size * 0.3333333333333333,
        badgeType = officialType == null || officialType < 0
            ? vipStatus != null && vipStatus > 0
                  ? .vip

@@ -2371,7 +2371,7 @@ class EditableTextState extends State<EditableText>
 
   Color get _cursorColor {
     final double effectiveOpacity = math.min(
-      widget.cursorColor.alpha / 255.0,
+      widget.cursorColor.alpha * 0.00392156862745098,
       _cursorBlinkOpacityController.value,
     );
     return widget.cursorColor.withValues(alpha: effectiveOpacity);
@@ -4836,7 +4836,7 @@ class EditableTextState extends State<EditableText>
 
   void _onCursorColorTick() {
     final double effectiveOpacity = math.min(
-      widget.cursorColor.alpha / 255.0,
+      widget.cursorColor.alpha * 0.00392156862745098,
       _cursorBlinkOpacityController.value,
     );
     renderEditable.cursorColor = widget.cursorColor.withValues(

@@ -69,7 +69,7 @@ class _SearchAllPanelState
                     )
                   : SizedBox(
                       height:
-                          Grid.smallCardWidth * 0.5 / 0.75 +
+                          Grid.smallCardWidth * 0.5 * 1.3333333333333333 +
                           MediaQuery.textScalerOf(context).scale(60),
                       child: ListView.builder(
                         padding: const EdgeInsets.only(bottom: 7),
