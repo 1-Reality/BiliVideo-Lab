@@ -141,6 +141,15 @@ abstract final class PlaybackStatsService {
   >? _crossTargetsCache;
   static int _crossTargetsVersion = -1;
   static String _crossTargetsMonth = '';
+  static Map<String, dynamic>? _monthValuesCache;
+  static String _monthValuesKey = '';
+  static final Map<String, String> _monthDirtyKeyCache = {};
+  static final Map<String, Map<String, dynamic>> _monthBucketCache = {};
+  static final Map<String, Map<String, dynamic>> _bucketMapCache = {};
+  static String? _videoUpCacheUid;
+  static String _videoUpCacheMonth = '';
+  static Map<String, dynamic>? _videoUpItemCache;
+  static Map<String, dynamic>? _videoUpMonthCache;
 
   static void initializeAppLifecycle() {
     _ensureInitialized();
@@ -349,9 +358,16 @@ abstract final class PlaybackStatsService {
     _dirtyKeys.add(key);
   }
 
-  static void _markMonthDirty(String field, [String? month]) {
+  static void _markMonthDirty(String field, String month) {
     _dirty = true;
-    _dirtyMonths.add('${month ?? _monthKey}:$field');
+    final cached = _monthDirtyKeyCache[field];
+    if (cached != null) {
+      _dirtyMonths.add(cached);
+      return;
+    }
+    final key = '$month:$field';
+    _monthDirtyKeyCache[field] = key;
+    _dirtyMonths.add(key);
   }
 
   static void _markVideoUpDirty(String uid) {
@@ -398,17 +414,36 @@ abstract final class PlaybackStatsService {
       '${now.year.toString().padLeft(4, '0')}-'
       '${now.month.toString().padLeft(2, '0')}';
 
+  static Map<String, dynamic> _monthValues(String monthKey) {
+    final cached = _monthValuesCache;
+    if (cached != null && _monthValuesKey == monthKey) return cached;
+    final months = _map('months');
+    final month = _mutableMap(months[monthKey]);
+    months[monthKey] = month;
+    _monthValuesCache = month;
+    _monthValuesKey = monthKey;
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    return month;
+  }
+
+  static Map<String, dynamic> _bucketMap(String key) {
+    final cached = _bucketMapCache[key];
+    if (cached != null) return cached;
+    final map = _map(key);
+    _bucketMapCache[key] = map;
+    return map;
+  }
+
   static void _addMonthValue(String key, num value) {
     if (value == 0 || key == 'months') return;
-    final months = _map('months');
     final monthKey = _monthKey;
-    final month = _mutableMap(months[monthKey]);
+    final month = _monthValues(monthKey);
     final current = month[key] as num? ?? 0;
     month[key] = value is double || current is double
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
-    months[monthKey] = month;
-    _markMonthDirty(key);
+    _markMonthDirty(key, monthKey);
   }
 
   static void _settleAppForeground(int now) {
@@ -517,62 +552,73 @@ abstract final class PlaybackStatsService {
 
   static void _addBucket(String key, String bucket, num value) {
     if (value == 0) return;
-    final map = _map(key);
+    final map = _bucketMap(key);
     final current = map[bucket] as num? ?? 0;
     map[bucket] = value is double || current is double
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
     _markDirty(key);
-    final months = _map('months');
     final monthKey = _monthKey;
-    final month = _mutableMap(months[monthKey]);
-    final monthBuckets = _mutableMap(month[key]);
+    final month = _monthValues(monthKey);
+    var monthBuckets = _monthBucketCache[key];
+    if (monthBuckets == null) {
+      monthBuckets = _mutableMap(month[key]);
+      month[key] = monthBuckets;
+      _monthBucketCache[key] = monthBuckets;
+    }
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
-    month[key] = monthBuckets;
+    _markMonthDirty(key, monthKey);
+  }
+
+  static bool _ensureVideoUpTarget() {
+    final uid = _videoUpUid;
+    if (uid == null) return false;
+    final monthKey = _monthKey;
+    if (_videoUpItemCache != null &&
+        _videoUpCacheUid == uid &&
+        _videoUpCacheMonth == monthKey) {
+      return true;
+    }
+    final byUid = _map('videoByUpUid');
+    final item = _mutableMap(byUid[uid]);
+    final months = _mutableMap(item['months']);
+    final month = _mutableMap(months[monthKey]);
     months[monthKey] = month;
-    _markMonthDirty(key);
+    item['months'] = months;
+    byUid[uid] = item;
+    _videoUpCacheUid = uid;
+    _videoUpCacheMonth = monthKey;
+    _videoUpItemCache = item;
+    _videoUpMonthCache = month;
+    return true;
   }
 
   static void _addVideoUp(String key, num value) {
     final uid = _videoUpUid;
-    if (uid == null || value == 0) return;
+    if (uid == null || value == 0 || !_ensureVideoUpTarget()) return;
+    final item = _videoUpItemCache!;
+    final month = _videoUpMonthCache!;
     final name = _videoUpName;
-    final byUid = _map('videoByUpUid');
-    final item = _mutableMap(byUid[uid]);
     if (name?.isNotEmpty == true) {
       item['name'] = name;
+      month['name'] = name;
     }
     item[key] = (item[key] as num? ?? 0) + value;
-    final months = _mutableMap(item['months']);
-    final monthKey = _monthKey;
-    final monthItem = _mutableMap(months[monthKey]);
-    monthItem[key] = (monthItem[key] as num? ?? 0) + value;
-    if (name?.isNotEmpty == true) {
-      monthItem['name'] = name;
-    }
-    months[monthKey] = monthItem;
-    item['months'] = months;
-    byUid[uid] = item;
+    month[key] = (month[key] as num? ?? 0) + value;
     _markVideoUpDirty(uid);
   }
 
   static void _addVideoUpBucket(String key, String bucket, num value) {
     final uid = _videoUpUid;
-    if (uid == null || value == 0) return;
-    final byUid = _map('videoByUpUid');
-    final item = _mutableMap(byUid[uid]);
+    if (uid == null || value == 0 || !_ensureVideoUpTarget()) return;
+    final item = _videoUpItemCache!;
+    final month = _videoUpMonthCache!;
     final buckets = _mutableMap(item[key]);
     buckets[bucket] = (buckets[bucket] as num? ?? 0) + value;
     item[key] = buckets;
-    final months = _mutableMap(item['months']);
-    final monthKey = _monthKey;
-    final monthItem = _mutableMap(months[monthKey]);
-    final monthBuckets = _mutableMap(monthItem[key]);
+    final monthBuckets = _mutableMap(month[key]);
     monthBuckets[bucket] = (monthBuckets[bucket] as num? ?? 0) + value;
-    monthItem[key] = monthBuckets;
-    months[monthKey] = monthItem;
-    item['months'] = months;
-    byUid[uid] = item;
+    month[key] = monthBuckets;
     _markVideoUpDirty(uid);
   }
 
@@ -2195,6 +2241,15 @@ abstract final class PlaybackStatsService {
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;
     _crossTargetsCache = null;
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
     final now = _clock.elapsedMicroseconds;
     _appLastWallUs = now;
     _pageLastWallUs = now;
@@ -2240,6 +2295,15 @@ abstract final class PlaybackStatsService {
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;
     _crossTargetsCache = null;
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
     _writeChain = Future.value();
     final now = _clock.elapsedMicroseconds;
     _lastWallUs = now;
