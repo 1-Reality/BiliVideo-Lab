@@ -293,7 +293,7 @@ abstract final class GStorage {
     );
   }
 
-  static Future<void> init() async {
+  static Future<num?> init() async {
     Hive.init(path.join(appSupportDirPath, 'hive'));
     regAdapter();
 
@@ -334,7 +334,7 @@ abstract final class GStorage {
       ).then((res) => watchProgress = res),
     ]);
 
-    await _runPlaybackMaintenanceIfDue();
+    final due = await _runPlaybackMaintenanceIfDue();
 
     if (Pref.saveReply) {
       reply = await Hive.openBox<Uint8List>(
@@ -347,6 +347,7 @@ abstract final class GStorage {
     } else {
       reply = null;
     }
+    return due;
   }
 
   static Future<void> initializePlaybackStats() =>
@@ -372,13 +373,14 @@ abstract final class GStorage {
     await _deleteFileIfExists(playbackStatsFile);
   }
 
-  static Future<void> _runPlaybackMaintenanceIfDue() async {
+  static Future<num?> _runPlaybackMaintenanceIfDue() async {
     final now = DateTime.now();
     final due = localCache.get(
       _nextPlaybackStatsCompactAtMs,
       defaultValue: 0,
     );
-    if (due is! num || now.millisecondsSinceEpoch < due.toInt()) return;
+    if (due is! num) return null;
+    if (now.millisecondsSinceEpoch < due.toInt()) return due;
 
     // This deliberately runs before the first home frame. Compaction is rare,
     // while opening a bloated hot store on every launch is expensive.
@@ -394,16 +396,18 @@ abstract final class GStorage {
       _nextPlaybackStatsCompactAtMs,
       _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch,
     );
-    _startupBrandProfileMid =
-        switch (DateTime.now().millisecondsSinceEpoch % 10) {
-          0 || 8 => 1225047446,
-          1 || 9 => 501430041,
-          2 => 36259372,
-          3 => 3884200,
-          4 || 5 => 544253177,
-          6 => 17047572,
-          _ => 37858284,
-        };
+    if (due != 0) {
+      _startupBrandProfileMid = switch (now.millisecondsSinceEpoch % 10) {
+        0 || 8 => 1225047446,
+        1 || 9 => 501430041,
+        2 => 36259372,
+        3 => 3884200,
+        4 || 5 => 544253177,
+        6 => 17047572,
+        _ => 37858284,
+      };
+    }
+    return due;
   }
 
   static DateTime _nextPlaybackMaintenanceAt(DateTime now) {

@@ -8,9 +8,14 @@ import 'package:PiliBro/pages/login/controller.dart';
 import 'package:PiliBro/pages/setting/common_setting.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/webdav/view.dart';
+import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -206,6 +211,15 @@ class _SettingPageState extends State<SettingPage> {
             style: subTitleStyle,
           ),
         ),
+        ListTile(
+          onTap: () => _showRemoteControlPresetDialog(context),
+          leading: const Icon(Icons.tv_outlined),
+          title: Text('电视 / 遥控器快速配置', style: titleStyle),
+          subtitle: Text(
+            '一键切换横屏、全屏方向与方向键逻辑',
+            style: subTitleStyle,
+          ),
+        ),
         const Divider(height: 1),
         ..._items
             .take(_items.length - 1)
@@ -249,6 +263,41 @@ class _SettingPageState extends State<SettingPage> {
       ],
     );
   }
+
+  Future<void> _showRemoteControlPresetDialog(BuildContext context) =>
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('电视 / 遥控器快速配置'),
+          content: const Text('只修改现有设置，不建立独立运行模式。'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await GStorage.setting.putAll({
+                  SettingBoxKey.horizontalScreen: false,
+                  SettingBoxKey.fullScreenMode: FullScreenMode.auto.index,
+                  SettingBoxKey.keyboardControl: true,
+                });
+                Get.back();
+                if (PlatformUtils.isMobile) await portraitUpMode();
+              },
+              child: const Text('普通键盘配置'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await GStorage.setting.putAll({
+                  SettingBoxKey.horizontalScreen: true,
+                  SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
+                  SettingBoxKey.keyboardControl: false,
+                });
+                Get.back();
+                if (PlatformUtils.isMobile) await fullMode();
+              },
+              child: const Text('遥控器配置'),
+            ),
+          ],
+        ),
+      );
 
   Future<void> _logoutDialog(BuildContext context) async {
     final result = await showDialog<Set<LoginAccount>>(

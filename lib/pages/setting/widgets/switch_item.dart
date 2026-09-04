@@ -146,6 +146,6 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       );
     }
 
-    return child(switchBtn);
+    return child(ExcludeFocus(child: switchBtn));
   }
 }
