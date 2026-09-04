@@ -219,6 +219,8 @@ class VideoDetailController extends GetxController
     return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
   }
 
+  String get currentStreamCodec => _codecDisplayName(currentDecodeFormats);
+
   String _codecDisplayName(VideoDecodeFormatType format) => switch (format) {
     VideoDecodeFormatType.AVC => 'H264',
     VideoDecodeFormatType.HEVC => 'h265',

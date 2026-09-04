@@ -351,7 +351,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '当前视频流：$metrics',
+                    '当前视频流：$metrics${alternatives.length < 2 ? ' · ${videoDetailCtr.currentStreamCodec}' : ''}',
                     style: TextStyle(fontSize: 13, color: colorScheme.outline),
                   ),
                   for (final row in alternatives)

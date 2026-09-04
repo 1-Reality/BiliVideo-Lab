@@ -334,7 +334,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前视频流：$metrics',
+                      '当前视频流：$metrics${alternatives.length < 2 ? ' · ${videoDetailCtr.currentStreamCodec}' : ''}',
                       style: TextStyle(fontSize: 12, color: colorScheme.outline),
                     ),
                     for (final row in alternatives)
