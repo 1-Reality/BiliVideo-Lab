@@ -19,6 +19,12 @@ on:
                 default: true
                 type: boolean
 
+            build_android_all_abis:
+                description: "Build all Android ABIs (armeabi-v7a, arm64-v8a, x86_64)"
+                required: false
+                default: false
+                type: boolean
+
             build_ios:
                 description: "Build iOS"
                 required: false
@@ -129,7 +135,12 @@ jobs:
 
             - name: Flutter Build Release Apk
               if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi --target-platform android-arm64 --dart-define-from-file=pili_release.json --no-pub
+              run: |
+                  if [ "${{ github.event.inputs.build_android_all_abis }}" = "true" ]; then
+                    flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64 --dart-define-from-file=pili_release.json --no-pub
+                  else
+                    flutter build apk --release --split-per-abi --target-platform android-arm64 --dart-define-from-file=pili_release.json --no-pub
+                  fi
 
             - name: Flutter Build Dev Apk
               if: ${{ github.event_name == 'pull_request' }}
@@ -144,12 +155,28 @@ jobs:
                   done
               shell: bash
 
-            - name: 上传
+            - name: 上传 Android arm64-v8a
               uses: actions/upload-artifact@v7
               with:
                   archive: false
                   name: Android_arm64-v8a
                   path: PiliBro_android_*_arm64-v8a.apk
+
+            - name: 上传 Android armeabi-v7a
+              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_android_all_abis == 'true' }}
+              uses: actions/upload-artifact@v7
+              with:
+                  archive: false
+                  name: Android_armeabi-v7a
+                  path: PiliBro_android_*_armeabi-v7a.apk
+
+            - name: 上传 Android x86_64
+              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_android_all_abis == 'true' }}
+              uses: actions/upload-artifact@v7
+              with:
+                  archive: false
+                  name: Android_x86_64
+                  path: PiliBro_android_*_x86_64.apk
 
 
     ios:
@@ -208,10 +235,11 @@ jobs:
             contents: write
         steps:
             - name: Download build artifacts
-              uses: actions/download-artifact@v7
+              uses: actions/download-artifact@v8
               with:
                   path: release-assets
                   merge-multiple: true
+                  skip-decompress: true
 
             - name: Publish Release
               uses: softprops/action-gh-release@v3
