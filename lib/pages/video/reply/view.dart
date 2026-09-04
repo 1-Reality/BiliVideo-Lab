@@ -15,8 +15,6 @@ import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliBro/pages/video/reply_reply/view.dart';
 import 'package:PiliBro/utils/feed_back.dart';
 import 'package:easy_debounce/easy_throttle.dart';
-import 'package:flutter/services.dart'
-    show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -27,14 +25,12 @@ class VideoReplyPanel extends StatefulWidget {
     required this.heroTag,
     required this.isNested,
     this.header,
-    this.directionalFocus = false,
   });
 
   final int replyLevel;
   final String heroTag;
   final bool isNested;
   final Widget? header;
-  final bool directionalFocus;
 
   @override
   State<VideoReplyPanel> createState() => _VideoReplyPanelState();
@@ -149,35 +145,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       child: refreshIndicator(
         onRefresh: _videoReplyController.onRefresh,
         isClampingScrollPhysics: widget.isNested,
-        child: widget.directionalFocus
-            ? Focus(
-                descendantsAreFocusable: false,
-                onKeyEvent: (_, event) {
-                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                    final delta = switch (event.logicalKey) {
-                      LogicalKeyboardKey.arrowUp => -120.0,
-                      LogicalKeyboardKey.arrowDown => 120.0,
-                      _ => 0.0,
-                    };
-                    if (delta != 0) {
-                      final controller =
-                          _videoReplyController.scrollController;
-                      controller.jumpTo(
-                        (controller.offset + delta)
-                            .clamp(
-                              0.0,
-                              controller.position.maxScrollExtent,
-                            )
-                            .toDouble(),
-                      );
-                      return .handled;
-                    }
-                  }
-                  return .ignored;
-                },
-                child: child,
-              )
-            : child,
+        child: child,
       ),
     );
   }
