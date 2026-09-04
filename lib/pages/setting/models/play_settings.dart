@@ -172,6 +172,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.keyboardControl,
     defaultVal: true,
   ),
+  const SwitchModel(
+    title: '播放器确认键进入全屏',
+    subtitle: '关闭时为播放/暂停；用于方向键或遥控器焦点操作',
+    leading: Icon(Icons.keyboard_return),
+    setKey: SettingBoxKey.playerConfirmFullscreen,
+    defaultVal: false,
+  ),
   NormalModel(
     title: 'SuperChat (醒目留言) 显示类型',
     leading: const Icon(Icons.live_tv),

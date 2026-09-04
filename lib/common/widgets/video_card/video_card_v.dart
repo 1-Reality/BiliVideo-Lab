@@ -139,10 +139,12 @@ class VideoCardV extends StatelessWidget {
             bottom: -2,
             width: 29,
             height: 29,
-            child: VideoPopupMenu(
+            child: ExcludeFocus(
+              child: VideoPopupMenu(
               iconSize: 17,
               videoItem: videoItem,
-              onRemove: onRemove,
+                onRemove: onRemove,
+              ),
             ),
           ),
       ],

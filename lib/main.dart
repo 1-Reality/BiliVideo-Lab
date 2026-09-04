@@ -10,6 +10,7 @@ import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
@@ -103,6 +104,62 @@ void _showStartupBrandProfileAfterFirstFrame() {
   });
 }
 
+Future<void> _applyRemoteControlPreset() async {
+  await GStorage.setting.putAll({
+    SettingBoxKey.horizontalScreen: true,
+    SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
+    SettingBoxKey.keyboardControl: false,
+  });
+  Get.back();
+}
+
+void _showRemoteControlPresetPrompt() {
+  showDialog<void>(
+    context: Get.context!,
+    barrierDismissible: false,
+    builder: (context) => Focus(
+      canRequestFocus: false,
+      onKeyEvent: (_, event) {
+        if (event is KeyDownEvent) {
+          unawaited(_applyRemoteControlPreset());
+          return .handled;
+        }
+        return .ignored;
+      },
+      child: AlertDialog(
+        insetPadding: const .all(24),
+        title: const Text(
+          '检测到横屏 Android 设备',
+          style: TextStyle(fontSize: 26),
+        ),
+        content: const SizedBox(
+          width: 520,
+          child: Text(
+            '是否应用电视 / 遥控器快速配置？\n\n'
+            '将启用横屏适配、全屏保持当前方向，并把方向键交还给界面焦点导航。'
+            '任意键盘或遥控器按键均视为确认。',
+            style: TextStyle(fontSize: 18, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Get.back();
+              if (!Pref.horizontalScreen) await portraitUpMode();
+            },
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            autofocus: true,
+            onPressed: _applyRemoteControlPreset,
+            child: const Text('启用'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(Future<void>(() async {
@@ -123,8 +180,9 @@ void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await _initAppPath();
+  late final num? due;
   try {
-    await GStorage.init();
+    due = await GStorage.init();
   } catch (e) {
     await Utils.copyText(e.toString());
     if (kDebugMode) debugPrint('GStorage init error: $e');
@@ -143,10 +201,29 @@ void main() async {
 
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
-    await Future.wait([
-      if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-      setupServiceLocator(),
-    ]);
+    if (Platform.isAndroid && due == 0) {
+      final size =
+          WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
+      if (size.width > size.height) {
+        await Future.wait([
+          ?fullMode(),
+          setupServiceLocator(),
+        ]);
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _showRemoteControlPresetPrompt(),
+        );
+      } else {
+        await Future.wait([
+          if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
+          setupServiceLocator(),
+        ]);
+      }
+    } else {
+      await Future.wait([
+        if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
+        setupServiceLocator(),
+      ]);
+    }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {
       webViewEnvironment = await WebViewEnvironment.create(

@@ -168,10 +168,12 @@ class VideoCardH extends StatelessWidget {
             right: 12,
             width: 29,
             height: 29,
-            child: VideoPopupMenu(
+            child: ExcludeFocus(
+              child: VideoPopupMenu(
               iconSize: 17,
               videoItem: videoItem,
-              onRemove: onRemove,
+                onRemove: onRemove,
+              ),
             ),
           ),
         ],

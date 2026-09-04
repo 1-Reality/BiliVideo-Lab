@@ -71,6 +71,7 @@ import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
+import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -616,7 +617,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                       children: [
                         videoIntro(isHorizontal: false, needCtr: false),
                         if (videoDetailController.showReply)
-                          videoReplyPanel(isNested: true),
+                          videoReplyPanel(
+                            isNested: true,
+                            header: _replyStreamMetrics,
+                          ),
                         if (_shouldShowSeasonPanel) seasonPanel,
                       ],
                     ),
@@ -1410,18 +1414,35 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         height: 45,
         child: Row(
           children: [
-            if (tabs.isEmpty)
-              const Spacer()
-            else
-              Expanded(
-                child: Align(
-                  alignment: .centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                    child: tabBar(),
+            Expanded(
+              child: Row(
+                children: [
+                  if (tabs.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
+                      child: tabBar(),
+                    ),
+                  Expanded(
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 38,
+                        child: IconButton(
+                          tooltip: '全屏',
+                          onPressed: () => videoDetailController
+                              .plPlayerController
+                              .triggerFullScreen(status: true),
+                          icon: Icon(
+                            Icons.fullscreen,
+                            size: 22,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+            ),
             SizedBox(
               height: 32,
               child: TextButton(
@@ -1483,7 +1504,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
-    return Stack(
+    final child = Stack(
       clipBehavior: Clip.none,
       children: [
         const Positioned.fill(
@@ -1636,6 +1657,41 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           },
         ),
       ],
+    );
+    if (videoDetailController.plPlayerController.keyboardControl) {
+      return child;
+    }
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent ||
+            (event.logicalKey != LogicalKeyboardKey.select &&
+                event.logicalKey != LogicalKeyboardKey.enter &&
+                event.logicalKey != LogicalKeyboardKey.numpadEnter &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonA &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonSelect)) {
+          return .ignored;
+        }
+        if (GStorage.setting.get(
+          SettingBoxKey.playerConfirmFullscreen,
+          defaultValue: false,
+        )) {
+          final controller = videoDetailController.plPlayerController;
+          if (isFullScreen && controller.controlsLock.value) {
+            controller
+              ..controlsLock.value = false
+              ..showControls.value = false;
+          }
+          controller.triggerFullScreen(status: !isFullScreen);
+        } else if (plPlayerController == null ||
+            videoDetailController.playedTime == null) {
+          handlePlay();
+        } else {
+          plPlayerController!.onDoubleTapCenter();
+        }
+        return .handled;
+      },
+      child: child,
     );
   }
 
@@ -1867,11 +1923,29 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     );
   }
 
-  Widget videoReplyPanel({bool isNested = false}) => VideoReplyPanel(
-    key: videoReplyPanelKey,
-    isNested: isNested,
-    heroTag: heroTag,
-  );
+  Widget get _replyStreamMetrics => Obx(() {
+    final current = videoDetailController.streamSizeAndBitrate;
+    final others = videoDetailController.otherStreamSizeAndBitrates;
+    if (current == null && others.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const .fromLTRB(12, 8, 12, 4),
+      child: Column(
+        crossAxisAlignment: .start,
+        children: [
+          if (current != null) Text(current),
+          for (final row in others) Text(row),
+        ],
+      ),
+    );
+  });
+
+  Widget videoReplyPanel({bool isNested = false, Widget? header}) =>
+      VideoReplyPanel(
+        key: videoReplyPanelKey,
+        isNested: isNested,
+        heroTag: heroTag,
+        header: header,
+      );
 
   // ai总结
   void showAiBottomSheet() {
