@@ -1414,18 +1414,35 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         height: 45,
         child: Row(
           children: [
-            if (tabs.isEmpty)
-              const Spacer()
-            else
-              Expanded(
-                child: Align(
-                  alignment: .centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                    child: tabBar(),
+            Expanded(
+              child: Row(
+                children: [
+                  if (tabs.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
+                      child: tabBar(),
+                    ),
+                  Expanded(
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 38,
+                        child: IconButton(
+                          tooltip: '全屏',
+                          onPressed: () => videoDetailController
+                              .plPlayerController
+                              .triggerFullScreen(status: true),
+                          icon: Icon(
+                            Icons.fullscreen,
+                            size: 22,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+            ),
             SizedBox(
               height: 32,
               child: TextButton(
@@ -1649,7 +1666,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       onKeyEvent: (_, event) {
         if (event is! KeyDownEvent ||
             (event.logicalKey != LogicalKeyboardKey.select &&
-                event.logicalKey != LogicalKeyboardKey.enter)) {
+                event.logicalKey != LogicalKeyboardKey.enter &&
+                event.logicalKey != LogicalKeyboardKey.numpadEnter &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonA &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonSelect)) {
           return .ignored;
         }
         if (GStorage.setting.get(
