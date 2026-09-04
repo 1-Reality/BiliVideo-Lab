@@ -68,6 +68,7 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
@@ -619,7 +620,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                         if (videoDetailController.showReply)
                           videoReplyPanel(
                             isNested: true,
-                            header: _replyStreamMetrics,
+                            header: Pref.defaultShowComment
+                                ? _replyStreamMetrics
+                                : null,
                           ),
                         if (_shouldShowSeasonPanel) seasonPanel,
                       ],
@@ -1932,7 +1935,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child: Column(
         crossAxisAlignment: .start,
         children: [
-          if (current != null) Text(current),
+          if (current != null)
+            Text(
+              '$current${others.length < 2 ? ' · ${videoDetailController.currentStreamCodec}' : ''}',
+            ),
           for (final row in others) Text(row),
         ],
       ),
