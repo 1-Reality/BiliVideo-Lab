@@ -540,6 +540,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   void _handoffLog(String event) {
     if (!_handoffLabEnabled) return;
+    OrientationHandoffLab.enabled = true;
     OrientationHandoffLab.log(
       '$event | preset=${_handoffExperiment.name}'
       ' fs=${isFullScreen.value}'

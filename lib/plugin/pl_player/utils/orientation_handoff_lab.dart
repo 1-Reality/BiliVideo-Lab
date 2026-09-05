@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 
 abstract final class OrientationHandoffLab {
+  static bool enabled = false;
   static final Stopwatch _clock = Stopwatch()..start();
   static final List<String> _lines = <String>[];
   static int _sequence = 0;
 
   static void log(String message) {
+    if (!enabled) return;
     final line =
         '${(++_sequence).toString().padLeft(3, '0')} +${_clock.elapsedMilliseconds}ms ${message}';
     _lines.add(line);
