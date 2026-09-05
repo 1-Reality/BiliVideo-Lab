@@ -349,7 +349,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             const Divider(),
             SetSwitchItem(
               title: '极高码率 H.264 自动切换 H.265',
-              subtitle: '仅桌面播放器执行；关闭后直接走原视频流选择路径。开启后仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
+              subtitle: '关闭后直接走原视频流选择路径。开启后仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
               setKey: SettingBoxKey.desktopHighBitrateHevc,
               defaultVal: highBitrateHevc,
               onChanged: (value) {

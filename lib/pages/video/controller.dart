@@ -1129,8 +1129,7 @@ class VideoDetailController extends GetxController
     VideoItem? preferredVideo;
     final currentCodes = currentDecodeFormats.codes;
 
-    if (PlatformUtils.isDesktop &&
-        Pref.desktopHighBitrateHevc &&
+    if (Pref.desktopHighBitrateHevc &&
         targetVideoQa >= Pref.desktopHighBitrateHevcQuality) {
       var streamCount = 0;
       VideoItem? avcVideo;
