@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
 import 'dart:math' show min;
@@ -525,6 +525,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   bool _observingSystemOrientation = false;
   int _fullScreenAllowedMask = OrientationMask.all;
   bool _entryDirectionApplied = false;
+  bool? _entryTargetLandscape;
+  bool _pendingSystemHandoff = false;
+  bool _pendingSystemHandoffIgnoreLock = false;
   FullscreenEntryCause _fullScreenEntryCause = FullscreenEntryCause.manual;
   StreamSubscription<OrientationParams>? _orientationListener;
   late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
@@ -537,6 +540,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   }
 
   bool get _needsSystemOrientation {
+    if (_pendingSystemHandoff) return true;
     final plan = _orientationPlan;
     if (isFullScreen.value) {
       return plan.triggerExit &&
@@ -601,6 +605,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   void didChangeMetrics() {
     if (!_observingSystemOrientation) return;
     final next = _currentSystemLandscape;
+    if (_pendingSystemHandoff) {
+      unawaited(_tryCompleteSystemHandoff(next));
+    }
     if (_systemLandscape == next) return;
     _systemLandscape = next;
     _evaluateOrientationTrigger();
@@ -1804,7 +1811,18 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       videoPlayerController?.state.position ?? Duration.zero,
     );
     updateSubtitleStyle();
+    if (!val) {
+      _pendingSystemHandoff = false;
+      _entryTargetLandscape = null;
+    }
     _updateOrientationInputs();
+    if (val && _pendingSystemHandoff) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pendingSystemHandoff) {
+          unawaited(_tryCompleteSystemHandoff());
+        }
+      });
+    }
   }
 
   double screenRatio = 0.0;
@@ -1847,6 +1865,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     EntryOrientationPolicy entryPolicy,
     DeviceOrientation? triggerOrientation,
   ) {
+    _entryTargetLandscape =
+        _entryAxisMask(entryPolicy, triggerOrientation) ==
+        OrientationMask.landscape;
     _fullScreenAllowedMask = switch (_orientationPlan.fullScreenAllowed) {
       FullScreenAllowedOrientation.all => OrientationMask.all,
       FullScreenAllowedOrientation.landscape => OrientationMask.landscape,
@@ -1933,6 +1954,52 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     };
   }
 
+  bool get _systemExitNeedsWindowRotation {
+    final plan = _orientationPlan;
+    return plan.triggerExit &&
+        plan.exitAllowsCause(_fullScreenEntryCause) &&
+        plan.sourceUsesSystem(plan.exitTriggerSource);
+  }
+
+  void _queueSystemHandoff({required bool ignoreSystemLock}) {
+    _pendingSystemHandoff = true;
+    _pendingSystemHandoffIgnoreLock = ignoreSystemLock;
+  }
+
+  Future<void> _tryCompleteSystemHandoff([bool? currentLandscape]) async {
+    if (!_pendingSystemHandoff || _fsProcessing || !isFullScreen.value) return;
+    final targetLandscape = _entryTargetLandscape;
+    if (targetLandscape != null &&
+        (currentLandscape ?? _currentSystemLandscape) != targetLandscape) {
+      return;
+    }
+
+    _pendingSystemHandoff = false;
+    final ignoreSystemLock = _pendingSystemHandoffIgnoreLock;
+    final allowed = _orientationPlan.filterMask(_fullScreenAllowedMask);
+    if (allowed == 0) {
+      _updateOrientationInputs();
+      return;
+    }
+
+    if (ignoreSystemLock) {
+      await OrientationPolicy.applySystemPolicy(
+        ignoreSystemLock: true,
+        allowedMask: allowed,
+        filterEnabled: allowed != OrientationMask.all,
+      );
+    } else if (allowed == OrientationMask.all) {
+      await (fullMode() ?? Future<void>.value());
+    } else {
+      await OrientationPolicy.applySystemPolicy(
+        ignoreSystemLock: false,
+        allowedMask: allowed,
+        filterEnabled: true,
+      );
+    }
+    _updateOrientationInputs();
+  }
+
   Future<void> _applyFullScreenRuntimePolicy() async {
     final plan = _orientationPlan;
     final allowed = plan.filterMask(_fullScreenAllowedMask);
@@ -1943,12 +2010,23 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
     switch (plan.fullScreenRotationSource) {
       case FullScreenRotationSource.keepCurrent:
+        if (!_entryDirectionApplied) {
+          await lockedMode();
+          return;
+        }
+        if (_systemExitNeedsWindowRotation &&
+            await OrientationPlatform.systemAutoRotate()) {
+          _queueSystemHandoff(ignoreSystemLock: false);
+        }
+        return;
       case FullScreenRotationSource.appGravity:
         if (!_entryDirectionApplied) await lockedMode();
         return;
       case FullScreenRotationSource.followSystem:
-        if (_entryDirectionApplied &&
-            !await OrientationPlatform.systemAutoRotate()) {
+        if (_entryDirectionApplied) {
+          if (await OrientationPlatform.systemAutoRotate()) {
+            _queueSystemHandoff(ignoreSystemLock: false);
+          }
           return;
         }
         await OrientationPolicy.applySystemPolicy(
@@ -1958,6 +2036,10 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         );
         return;
       case FullScreenRotationSource.alwaysAuto:
+        if (_entryDirectionApplied) {
+          _queueSystemHandoff(ignoreSystemLock: true);
+          return;
+        }
         await OrientationPolicy.applySystemPolicy(
           ignoreSystemLock: true,
           allowedMask: allowed,
@@ -2149,6 +2231,8 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       showSystemBar();
     }
     danmakuController = null;
+    _pendingSystemHandoff = false;
+    _entryTargetLandscape = null;
     if (_observingSystemOrientation) {
       WidgetsBinding.instance.removeObserver(this);
       _observingSystemOrientation = false;
