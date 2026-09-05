@@ -8,7 +8,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show DeviceOrientation;
-import 'package:flutter/widgets.dart' show WidgetsBinding;
+import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver;
 
 final class OrientationPlan {
   const OrientationPlan({
@@ -81,6 +81,7 @@ abstract final class OrientationPolicy {
   );
 
   static int _startupDirectionBit = OrientationMask.portraitUp;
+  static final _finalGuard = _FinalOrientationGuard();
 
   static OrientationPlan get plan => _plan;
 
@@ -116,6 +117,7 @@ abstract final class OrientationPolicy {
       finalDirectionMask: Pref.finalDirectionMask,
       systemAutoRotate: await OrientationPlatform.systemAutoRotate(),
     );
+    _finalGuard.update();
   }
 
   static Future<void> _initializeLegacyDefaults() async {
@@ -257,5 +259,74 @@ abstract final class OrientationPolicy {
       allowedMask,
       ignoreSystemLock: ignoreSystemLock,
     );
+  }
+}
+
+
+final class _FinalOrientationGuard with WidgetsBindingObserver {
+  bool _active = false;
+  bool _checking = false;
+
+  void update() {
+    final mask = OrientationPolicy.plan.finalDirectionMask;
+    final active =
+        Platform.isAndroid &&
+        mask != 0 &&
+        mask != OrientationMask.all;
+    if (active == _active) return;
+    _active = active;
+    if (active) {
+      WidgetsBinding.instance.addObserver(this);
+    } else {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_active || _checking) return;
+    _check();
+  }
+
+  Future<void> _check() async {
+    _checking = true;
+    try {
+      final current = await OrientationPlatform.currentOrientationBit();
+      if (current == null) return;
+      final mask = OrientationPolicy.plan.finalDirectionMask;
+      if (mask == 0 ||
+          mask == OrientationMask.all ||
+          mask & current != 0) {
+        return;
+      }
+      final axis = current & OrientationMask.portrait != 0
+          ? OrientationMask.portrait
+          : OrientationMask.landscape;
+      final sameAxis = mask & axis;
+      final target = sameAxis != 0
+          ? _firstBit(sameAxis)
+          : _firstBit(mask);
+      if (target != 0) {
+        await OrientationPolicy._applyDirectionBit(target);
+      }
+    } finally {
+      _checking = false;
+    }
+  }
+
+  int _firstBit(int mask) {
+    if (mask & OrientationMask.portraitUp != 0) {
+      return OrientationMask.portraitUp;
+    }
+    if (mask & OrientationMask.landscapeLeft != 0) {
+      return OrientationMask.landscapeLeft;
+    }
+    if (mask & OrientationMask.landscapeRight != 0) {
+      return OrientationMask.landscapeRight;
+    }
+    if (mask & OrientationMask.portraitDown != 0) {
+      return OrientationMask.portraitDown;
+    }
+    return 0;
   }
 }
