@@ -342,7 +342,7 @@ class VideoDetailController extends GetxController
   bool _needAnimOnDimensionChanged(bool isVertical) {
     if (isFullScreen) {
       if (PlatformUtils.isMobile) {
-        plPlayerController.changeOrientation(isVertical: isVertical);
+        plPlayerController.onVideoOrientationChanged(isVertical);
       }
       return false;
     }

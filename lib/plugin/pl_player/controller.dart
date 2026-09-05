@@ -1891,6 +1891,16 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     };
   }
 
+  void onVideoOrientationChanged(bool isVertical) {
+    _isVertical = isVertical;
+    if (!isFullScreen.value) return;
+    final policy = _orientationPlan.entryForCause(_fullScreenEntryCause);
+    if (policy == EntryOrientationPolicy.video ||
+        policy == EntryOrientationPolicy.ratio) {
+      changeOrientation(policy: policy);
+    }
+  }
+
   Future<void>? changeOrientation({
     required EntryOrientationPolicy policy,
     DeviceOrientation? triggerOrientation,
