@@ -2,7 +2,6 @@ import 'dart:async' show Timer, unawaited;
 
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliBro/pages/login/view.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
@@ -168,7 +167,7 @@ abstract final class TvRemoteSetup {
   }
 
   static Future<void> _openQrLogin() async {
-    await Get.to<void>(() => const LoginPage(initialIndex: 2));
+    await Get.toNamed('/loginPage');
   }
 
   static Future<void> _showExportMenu(BuildContext context) async {
