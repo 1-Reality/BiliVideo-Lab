@@ -154,7 +154,9 @@ void main() async {
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
     await Future.wait([
-      showFirstRunDeviceSetup ? fullMode() : OrientationPolicy.applyStartup(),
+      showFirstRunDeviceSetup
+          ? fullMode() ?? Future<void>.value()
+          : OrientationPolicy.applyStartup(),
       setupServiceLocator(),
     ]);
     if (showFirstRunDeviceSetup) {

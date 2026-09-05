@@ -626,7 +626,7 @@ class VideoDetailController extends GetxController
 
   bool isPortrait = true;
 
-  bool get horizontalScreen => plPlayerController.horizontalScreen;
+  bool get horizontalScreen => Pref.horizontalScreen;
 
   bool get showVideoSheet =>
       (!horizontalScreen && !isPortrait) || plPlayerController.isDesktopPip;
