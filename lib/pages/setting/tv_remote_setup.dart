@@ -10,7 +10,8 @@ import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
-import 'package:flutter/services.dart' show KeyDownEvent;
+import 'package:flutter/services.dart' show KeyDownEvent, KeyEvent;
+import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -219,6 +220,7 @@ class _RemoteOrientationCalibrationState
   @override
   void initState() {
     super.initState();
+    FocusManager.instance.addEarlyKeyEventHandler(_handleKeyEvent);
     final index = _directions.indexOf(widget.initialBit);
     _index = index < 0 ? 1 : index;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -234,8 +236,17 @@ class _RemoteOrientationCalibrationState
 
   @override
   void dispose() {
+    FocusManager.instance.removeEarlyKeyEventHandler(_handleKeyEvent);
     _timer?.cancel();
     super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      _rotate();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _rotate() {
@@ -278,37 +289,27 @@ class _RemoteOrientationCalibrationState
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
-    child: Focus(
-      autofocus: true,
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent) {
-          _rotate();
-          return .handled;
-        }
-        return .ignored;
-      },
-      child: AlertDialog(
-        insetPadding: const .all(24),
-        title: const Text('遥控器方向校准'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$_seconds',
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const Text('秒后完成'),
-              const SizedBox(height: 24),
-              const Text(
-                '按任意键旋转屏幕',
-                style: TextStyle(fontSize: 22),
-              ),
-              const SizedBox(height: 12),
-              Text('当前：$_directionLabel'),
-            ],
-          ),
+    child: AlertDialog(
+      insetPadding: const .all(24),
+      title: const Text('遥控器方向校准'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$_seconds',
+              style: Theme.of(context).textTheme.displayLarge,
+            ),
+            const Text('秒后完成'),
+            const SizedBox(height: 24),
+            const Text(
+              '按任意键旋转屏幕',
+              style: TextStyle(fontSize: 22),
+            ),
+            const SizedBox(height: 12),
+            Text('当前：$_directionLabel'),
+          ],
         ),
       ),
     ),
