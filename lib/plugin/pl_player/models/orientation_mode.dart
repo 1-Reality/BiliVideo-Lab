@@ -104,37 +104,23 @@ enum EntryOrientationPolicy {
   const EntryOrientationPolicy(this.desc);
 }
 
-enum OrientationAutoExitScope {
-  orientationOnly('仅方向触发进入的全屏'),
-  automatic('所有自动进入的全屏'),
-  all('所有全屏');
-
-  final String desc;
-  const OrientationAutoExitScope(this.desc);
-}
-
 enum FullscreenEntryCause {
   manual,
   playbackAuto,
   orientation,
 }
 
-enum OrientationHandoffExperiment {
-  off('关闭（正常逻辑）'),
-  currentImmediate('当前交权：立即'),
-  current5s('当前交权：延迟 5 秒'),
-  unspecifiedImmediate('UNSPECIFIED：立即'),
-  unspecified5s('UNSPECIFIED：延迟 5 秒'),
-  userImmediate('USER：立即'),
-  user5s('USER：延迟 5 秒'),
-  fullUserImmediate('FULL_USER：立即'),
-  fullUser5s('FULL_USER：延迟 5 秒'),
-  fullSensorImmediate('FULL_SENSOR：立即'),
-  fullSensor5s('FULL_SENSOR：延迟 5 秒'),
-  holdEntry('不交权：保持入场方向');
+abstract final class FullscreenEntryCauseMask {
+  static const int manual = 1;
+  static const int playbackAuto = 2;
+  static const int orientation = 4;
+  static const int all = manual | playbackAuto | orientation;
 
-  final String desc;
-  const OrientationHandoffExperiment(this.desc);
+  static int of(FullscreenEntryCause cause) => switch (cause) {
+    FullscreenEntryCause.manual => manual,
+    FullscreenEntryCause.playbackAuto => playbackAuto,
+    FullscreenEntryCause.orientation => orientation,
+  };
 }
 
 enum ExitOrientationMode {

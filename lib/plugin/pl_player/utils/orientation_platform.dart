@@ -1,9 +1,17 @@
+import 'dart:async' show Stream;
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 
 abstract final class OrientationPlatform {
   static const _channel = MethodChannel('pilibro/orientation');
+  static const _proposedRotationChannel =
+      EventChannel('pilibro/orientation_proposed');
+
+  static final Stream<int> proposedRotations = _proposedRotationChannel
+      .receiveBroadcastStream()
+      .where((value) => value is int)
+      .cast<int>();
 
   static Future<bool> systemAutoRotate() async {
     if (!Platform.isAndroid) return true;
@@ -32,7 +40,6 @@ abstract final class AndroidRequestedOrientation {
   static const int unspecified = -1;
   static const int landscape = 0;
   static const int portrait = 1;
-  static const int user = 2;
   static const int sensor = 4;
   static const int sensorLandscape = 6;
   static const int sensorPortrait = 7;

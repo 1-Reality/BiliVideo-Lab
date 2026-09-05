@@ -27,7 +27,8 @@ final class OrientationPlan {
     required this.exitTriggerSource,
     required this.triggerContent,
     required this.angleDegrees,
-    required this.autoExitScope,
+    required this.autoExitCauses,
+    required this.manualExitConfirmations,
     required this.exitMode,
     required this.controlsLockOrientation,
     required this.finalDirectionMask,
@@ -49,7 +50,8 @@ final class OrientationPlan {
   final OrientationTriggerSource exitTriggerSource;
   final OrientationTriggerContent triggerContent;
   final int angleDegrees;
-  final OrientationAutoExitScope autoExitScope;
+  final int autoExitCauses;
+  final int manualExitConfirmations;
   final ExitOrientationMode exitMode;
   final bool controlsLockOrientation;
   final int finalDirectionMask;
@@ -75,13 +77,13 @@ final class OrientationPlan {
     OrientationTriggerContent.portraitVideo => isVertical,
   };
 
-  bool exitAllowsCause(FullscreenEntryCause cause) => switch (autoExitScope) {
-    OrientationAutoExitScope.orientationOnly =>
-      cause == FullscreenEntryCause.orientation,
-    OrientationAutoExitScope.automatic =>
-      cause != FullscreenEntryCause.manual,
-    OrientationAutoExitScope.all => true,
-  };
+  bool exitAllowsCause(FullscreenEntryCause cause) =>
+      autoExitCauses & FullscreenEntryCauseMask.of(cause) != 0;
+
+  bool get manualExitConfirmationEnabled =>
+      manualExitConfirmations > 0 &&
+      triggerExit &&
+      exitAllowsCause(FullscreenEntryCause.manual);
 
   EntryOrientationPolicy entryForCause(FullscreenEntryCause cause) =>
       switch (cause) {
@@ -110,7 +112,8 @@ abstract final class OrientationPolicy {
     exitTriggerSource: OrientationTriggerSource.system,
     triggerContent: OrientationTriggerContent.all,
     angleDegrees: 30,
-    autoExitScope: OrientationAutoExitScope.all,
+    autoExitCauses: FullscreenEntryCauseMask.all,
+    manualExitConfirmations: 1,
     exitMode: ExitOrientationMode.restoreApp,
     controlsLockOrientation: true,
     finalDirectionMask: 0,
@@ -212,9 +215,12 @@ abstract final class OrientationPolicy {
         ? Pref.advancedTriggerContent
         : OrientationTriggerContent.all;
     final angleDegrees = advanced ? Pref.advancedAngleDegrees : Pref.angleDegrees;
-    final autoExitScope = advanced
-        ? Pref.advancedAutoExitScope
-        : OrientationAutoExitScope.all;
+    final autoExitCauses = advanced
+        ? Pref.advancedAutoExitCauses
+        : FullscreenEntryCauseMask.all;
+    final manualExitConfirmations = advanced
+        ? Pref.advancedManualExitConfirmations
+        : 1;
     final exitMode = advanced
         ? Pref.advancedExitOrientationMode
         : Pref.exitOrientationMode;
@@ -223,6 +229,7 @@ abstract final class OrientationPolicy {
         triggerEnter &&
             enterTriggerSource != OrientationTriggerSource.system ||
         triggerExit &&
+            autoExitCauses != 0 &&
             exitTriggerSource != OrientationTriggerSource.system ||
         fullScreenRotationSource == FullScreenRotationSource.appGravity &&
             fullScreenAllowed != FullScreenAllowedOrientation.entryExact;
@@ -246,7 +253,8 @@ abstract final class OrientationPolicy {
       exitTriggerSource: exitTriggerSource,
       triggerContent: triggerContent,
       angleDegrees: angleDegrees,
-      autoExitScope: autoExitScope,
+      autoExitCauses: autoExitCauses,
+      manualExitConfirmations: manualExitConfirmations,
       exitMode: exitMode,
       controlsLockOrientation: Pref.controlsLockOrientation,
       finalDirectionMask: Pref.finalDirectionMask,

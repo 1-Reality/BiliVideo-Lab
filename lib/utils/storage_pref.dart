@@ -246,12 +246,6 @@ abstract final class Pref {
   static bool get controlsLockOrientation =>
       _setting.get(SettingBoxKey.controlsLockOrientation, defaultValue: true);
 
-  static OrientationHandoffExperiment get orientationHandoffExperiment =>
-      OrientationHandoffExperiment.values[_setting.get(
-        SettingBoxKey.orientationHandoffExperiment,
-        defaultValue: OrientationHandoffExperiment.off.index,
-      )];
-
   static AppInitialOrientation get appInitialOrientation =>
       AppInitialOrientation.values[_setting.get(
         SettingBoxKey.appInitialOrientation,
@@ -380,11 +374,15 @@ abstract final class Pref {
   static int get advancedAngleDegrees =>
       _setting.get(SettingBoxKey.advancedAngleDegrees, defaultValue: 30);
 
-  static OrientationAutoExitScope get advancedAutoExitScope =>
-      OrientationAutoExitScope.values[_setting.get(
-        SettingBoxKey.advancedAutoExitScope,
-        defaultValue: OrientationAutoExitScope.orientationOnly.index,
-      )];
+  static int get advancedAutoExitCauses => _setting.get(
+    SettingBoxKey.advancedAutoExitCauses,
+    defaultValue: FullscreenEntryCauseMask.orientation,
+  );
+
+  static int get advancedManualExitConfirmations => _setting.get(
+    SettingBoxKey.advancedManualExitConfirmations,
+    defaultValue: 0,
+  );
 
   static ExitOrientationMode get advancedExitOrientationMode =>
       ExitOrientationMode.values[_setting.get(

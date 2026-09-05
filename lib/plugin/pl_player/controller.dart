@@ -33,7 +33,6 @@ import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliBro/plugin/pl_player/utils/orientation_handoff_lab.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -522,37 +521,22 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   DeviceOrientation? _orientation;
   bool? _systemLandscape;
+  bool? _proposedLandscape;
   bool? _gravityLandscape;
   bool _observingSystemOrientation = false;
   int _fullScreenAllowedMask = OrientationMask.all;
   bool _entryDirectionApplied = false;
-  bool? _entryTargetLandscape;
-  bool _pendingSystemHandoff = false;
-  bool _pendingSystemHandoffIgnoreLock = false;
+  bool _systemRuntimePending = false;
+  bool _systemRuntimeActivating = false;
+  int? _systemRuntimeBaselineRotation;
+  bool _gravityRuntimePending = false;
+  DeviceOrientation? _gravityRuntimeBaseline;
+  int _manualExitRemaining = 0;
+  bool? _manualExitTargetMatched;
   FullscreenEntryCause _fullScreenEntryCause = FullscreenEntryCause.manual;
   StreamSubscription<OrientationParams>? _orientationListener;
+  StreamSubscription<int>? _proposedRotationListener;
   late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
-  late final OrientationHandoffExperiment _handoffExperiment =
-      Pref.orientationHandoffExperiment;
-
-  bool get _handoffLabEnabled =>
-      _handoffExperiment != OrientationHandoffExperiment.off;
-
-  void _handoffLog(String event) {
-    if (!_handoffLabEnabled) return;
-    OrientationHandoffLab.enabled = true;
-    OrientationHandoffLab.log(
-      '$event | preset=${_handoffExperiment.name}'
-      ' fs=${isFullScreen.value}'
-      ' processing=$_fsProcessing'
-      ' window=${_currentSystemLandscape ? 'L' : 'P'}'
-      ' cached=${_systemLandscape == null ? '-' : (_systemLandscape! ? 'L' : 'P')}'
-      ' entryApplied=$_entryDirectionApplied'
-      ' target=${_entryTargetLandscape == null ? '-' : (_entryTargetLandscape! ? 'L' : 'P')}'
-      ' pending=$_pendingSystemHandoff'
-      ' ignoreLock=$_pendingSystemHandoffIgnoreLock',
-    );
-  }
 
   bool get _currentSystemLandscape {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -561,23 +545,54 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     return size.width > size.height;
   }
 
+  bool get _manualExitConfirmationActive =>
+      isFullScreen.value &&
+      _fullScreenEntryCause == FullscreenEntryCause.manual &&
+      _orientationPlan.manualExitConfirmationEnabled;
+
+  bool get _supportsProposedRotation =>
+      Platform.isAndroid && DeviceUtils.sdkInt >= 34;
+
+  bool get _manualConfirmationUsesProposedSystem =>
+      _supportsProposedRotation &&
+      _manualExitConfirmationActive &&
+      _orientationPlan.sourceUsesSystem(_orientationPlan.exitTriggerSource);
+
   bool get _needsSystemOrientation {
-    if (_pendingSystemHandoff) return true;
     final plan = _orientationPlan;
+    if (controlsLock.value) return false;
     if (isFullScreen.value) {
-      return plan.triggerExit &&
-          plan.exitAllowsCause(_fullScreenEntryCause) &&
-          plan.sourceUsesSystem(plan.exitTriggerSource);
+      if (_systemRuntimePending) return false;
+      if (!plan.triggerExit ||
+          !plan.exitAllowsCause(_fullScreenEntryCause) ||
+          !plan.sourceUsesSystem(plan.exitTriggerSource)) {
+        return false;
+      }
+      // Android manual confirmation deliberately has no pre-34 fallback.
+      if (_manualExitConfirmationActive && Platform.isAndroid) return false;
+      return true;
     }
     return plan.triggerEnter &&
         plan.sourceUsesSystem(plan.enterTriggerSource);
+  }
+
+  bool get _needsProposedRotation {
+    if (!_supportsProposedRotation || !isFullScreen.value) return false;
+    final plan = _orientationPlan;
+    final runtime =
+        _systemRuntimePending &&
+        (!controlsLock.value || !plan.controlsLockOrientation);
+    final confirmation =
+        !controlsLock.value && _manualConfirmationUsesProposedSystem;
+    return runtime || confirmation;
   }
 
   bool get _needsGravityOrientation {
     final plan = _orientationPlan;
     if (!plan.gravityAllowed) return false;
     if (isFullScreen.value) {
-      if (plan.triggerExit &&
+      if (!controlsLock.value &&
+          plan.triggerExit &&
           plan.exitAllowsCause(_fullScreenEntryCause) &&
           plan.sourceUsesGravity(plan.exitTriggerSource)) {
         return true;
@@ -603,6 +618,15 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     } else if (!needsSystem && _observingSystemOrientation) {
       WidgetsBinding.instance.removeObserver(this);
       _observingSystemOrientation = false;
+      _systemLandscape = null;
+    }
+
+    final needsProposed = _needsProposedRotation;
+    if (needsProposed && _proposedRotationListener == null) {
+      _proposedRotationListener =
+          OrientationPlatform.proposedRotations.listen(_onProposedRotation);
+    } else if (!needsProposed) {
+      _stopProposedRotationListener();
     }
 
     final needsGravity = _needsGravityOrientation;
@@ -618,6 +642,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
   }
 
+  void _stopProposedRotationListener() {
+    _proposedRotationListener?.cancel();
+    _proposedRotationListener = null;
+    _proposedLandscape = null;
+  }
+
   void _stopOrientationListener() {
     _orientationListener?.cancel();
     _orientationListener = null;
@@ -627,28 +657,104 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   void didChangeMetrics() {
     if (!_observingSystemOrientation) return;
     final next = _currentSystemLandscape;
-    _handoffLog('metrics next=${next ? 'L' : 'P'}');
-    if (_pendingSystemHandoff) {
-      unawaited(_tryCompleteSystemHandoff(next));
-    }
     if (_systemLandscape == next) return;
     _systemLandscape = next;
     _evaluateOrientationTrigger();
   }
 
+  void _onProposedRotation(int rotation) {
+    if (rotation < 0 || rotation > 3) return;
+    final next = rotation == 1 || rotation == 3;
+    final previous = _proposedLandscape;
+    _proposedLandscape = next;
+
+    var runtimeChanged = false;
+    if (_systemRuntimePending) {
+      final baseline = _systemRuntimeBaselineRotation;
+      if (baseline == null) {
+        _systemRuntimeBaselineRotation = rotation;
+      } else if (baseline != rotation) {
+        _systemRuntimeBaselineRotation = rotation;
+        runtimeChanged = true;
+      }
+    }
+
+    if (previous != next) _evaluateOrientationTrigger();
+    if (runtimeChanged && !_fsProcessing && isFullScreen.value) {
+      unawaited(_activateSystemRuntime());
+    }
+  }
+
+  Future<void> _activateSystemRuntime() async {
+    if (!_systemRuntimePending ||
+        _systemRuntimeActivating ||
+        !isFullScreen.value) {
+      return;
+    }
+    _systemRuntimeActivating = true;
+    try {
+      final plan = _orientationPlan;
+      final ignoreSystemLock =
+          plan.fullScreenRotationSource == FullScreenRotationSource.alwaysAuto;
+      if (!ignoreSystemLock &&
+          plan.fullScreenRotationSource ==
+              FullScreenRotationSource.followSystem &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _systemRuntimePending = false;
+        return;
+      }
+      if (_fsProcessing || !isFullScreen.value || !_systemRuntimePending) {
+        return;
+      }
+      final allowed = plan.filterMask(_fullScreenAllowedMask);
+      if (allowed == 0) {
+        _systemRuntimePending = false;
+        return;
+      }
+      _systemRuntimePending = false;
+      await OrientationPolicy.applySystemPolicy(
+        ignoreSystemLock: ignoreSystemLock,
+        allowedMask: allowed,
+        filterEnabled: allowed != OrientationMask.all,
+      );
+    } finally {
+      _systemRuntimeActivating = false;
+      _updateOrientationInputs();
+    }
+  }
+
   void _onOrientationChanged(OrientationParams param) {
     _orientation = param.orientation;
     if (Platform.isIOS && !visible) return;
+    final previousLandscape = _gravityLandscape;
     _gravityLandscape =
         param.orientation == DeviceOrientation.landscapeLeft ||
         param.orientation == DeviceOrientation.landscapeRight;
+
+    var applyRuntime = false;
     if (isFullScreen.value &&
         _orientationPlan.fullScreenRotationSource ==
             FullScreenRotationSource.appGravity &&
         (!controlsLock.value || !_orientationPlan.controlsLockOrientation)) {
+      if (_gravityRuntimePending) {
+        final baseline = _gravityRuntimeBaseline;
+        if (baseline == null) {
+          _gravityRuntimeBaseline = param.orientation;
+        } else if (baseline != param.orientation) {
+          _gravityRuntimePending = false;
+          applyRuntime = true;
+        }
+      } else {
+        applyRuntime = true;
+      }
+    }
+
+    if (previousLandscape != _gravityLandscape) {
+      _evaluateOrientationTrigger();
+    }
+    if (applyRuntime && !_fsProcessing && isFullScreen.value) {
       _applyGravityOrientation(param.orientation);
     }
-    _evaluateOrientationTrigger();
   }
 
   void _applyGravityOrientation(DeviceOrientation orientation) {
@@ -669,17 +775,34 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
   }
 
-  bool _triggerSourceMatches(
+  bool? _sameAxis(bool? value, bool landscape) =>
+      value == null ? null : value == landscape;
+
+  bool? _triggerSourceMatch(
     OrientationTriggerSource source,
-    bool landscape,
-  ) {
+    bool landscape, {
+    bool proposedSystem = false,
+  }) {
+    final system = _sameAxis(
+      proposedSystem ? _proposedLandscape : _systemLandscape,
+      landscape,
+    );
+    final gravity = _sameAxis(_gravityLandscape, landscape);
     return switch (source) {
-      OrientationTriggerSource.system => _systemLandscape == landscape,
-      OrientationTriggerSource.appGravity => _gravityLandscape == landscape,
+      OrientationTriggerSource.system => system,
+      OrientationTriggerSource.appGravity => gravity,
       OrientationTriggerSource.any =>
-        _systemLandscape == landscape || _gravityLandscape == landscape,
+        system == true || gravity == true
+            ? true
+            : system == false && gravity == false
+            ? false
+            : null,
       OrientationTriggerSource.both =>
-        _systemLandscape == landscape && _gravityLandscape == landscape,
+        system == false || gravity == false
+            ? false
+            : system == true && gravity == true
+            ? true
+            : null,
     };
   }
 
@@ -689,20 +812,42 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (!isFullScreen.value) {
       if (plan.triggerEnter &&
           plan.contentAllows(_isVertical) &&
-          _triggerSourceMatches(plan.enterTriggerSource, true)) {
+          _triggerSourceMatch(plan.enterTriggerSource, true) == true) {
         triggerFullScreen(cause: FullscreenEntryCause.orientation);
       }
       return;
     }
-    if (plan.triggerExit &&
-        plan.exitAllowsCause(_fullScreenEntryCause) &&
-        _triggerSourceMatches(plan.exitTriggerSource, false)) {
-      _handoffLog('trigger exit matched');
-      triggerFullScreen(
-        status: false,
-        cause: FullscreenEntryCause.orientation,
-      );
+    if (!plan.triggerExit || !plan.exitAllowsCause(_fullScreenEntryCause)) {
+      return;
     }
+
+    final confirmation = _manualExitConfirmationActive;
+    final match = _triggerSourceMatch(
+      plan.exitTriggerSource,
+      false,
+      proposedSystem: confirmation &&
+          _manualConfirmationUsesProposedSystem,
+    );
+    if (confirmation) {
+      if (match == null) return;
+      final previous = _manualExitTargetMatched;
+      if (previous == null) {
+        _manualExitTargetMatched = match;
+        return;
+      }
+      if (previous == match) return;
+      _manualExitTargetMatched = match;
+      if (!match) return;
+      if (_manualExitRemaining > 0) _manualExitRemaining--;
+      if (_manualExitRemaining > 0) return;
+    } else if (match != true) {
+      return;
+    }
+
+    triggerFullScreen(
+      status: false,
+      cause: FullscreenEntryCause.orientation,
+    );
   }
 
   // 添加一个私有构造函数
@@ -1835,18 +1980,21 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       videoPlayerController?.state.position ?? Duration.zero,
     );
     updateSubtitleStyle();
-    if (!val) {
-      _pendingSystemHandoff = false;
-      _entryTargetLandscape = null;
+    if (val) {
+      _manualExitRemaining = _manualExitConfirmationActive
+          ? _orientationPlan.manualExitConfirmations
+          : 0;
+      _manualExitTargetMatched = null;
+    } else {
+      _manualExitRemaining = 0;
+      _manualExitTargetMatched = null;
+      _systemRuntimePending = false;
+      _systemRuntimeActivating = false;
+      _systemRuntimeBaselineRotation = null;
+      _gravityRuntimePending = false;
+      _gravityRuntimeBaseline = null;
     }
     _updateOrientationInputs();
-    if (val && _pendingSystemHandoff) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_pendingSystemHandoff) {
-          unawaited(_tryCompleteSystemHandoff());
-        }
-      });
-    }
   }
 
   double screenRatio = 0.0;
@@ -1889,9 +2037,6 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     EntryOrientationPolicy entryPolicy,
     DeviceOrientation? triggerOrientation,
   ) {
-    _entryTargetLandscape =
-        _entryAxisMask(entryPolicy, triggerOrientation) ==
-        OrientationMask.landscape;
     _fullScreenAllowedMask = switch (_orientationPlan.fullScreenAllowed) {
       FullScreenAllowedOrientation.all => OrientationMask.all,
       FullScreenAllowedOrientation.landscape => OrientationMask.landscape,
@@ -1942,7 +2087,16 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     final policy = _orientationPlan.entryForCause(_fullScreenEntryCause);
     if (policy == EntryOrientationPolicy.video ||
         policy == EntryOrientationPolicy.ratio) {
-      changeOrientation(policy: policy);
+      final request = changeOrientation(policy: policy);
+      if (request != null) {
+        unawaited(
+          request.then((_) async {
+            if (isFullScreen.value) {
+              await _applyFullScreenRuntimePolicy(protectEntry: true);
+            }
+          }),
+        );
+      }
     }
   }
 
@@ -1978,170 +2132,39 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     };
   }
 
-  bool get _systemExitNeedsWindowRotation {
-    final plan = _orientationPlan;
-    return plan.triggerExit &&
-        plan.exitAllowsCause(_fullScreenEntryCause) &&
-        plan.sourceUsesSystem(plan.exitTriggerSource);
-  }
-
-  bool? get _windowedSystemHandoffIgnoreLock {
-    final plan = _orientationPlan;
-    return switch (plan.windowedRotation) {
-      WindowedPlayerRotationMode.keepCurrent => null,
-      WindowedPlayerRotationMode.followSystem => false,
-      WindowedPlayerRotationMode.alwaysAuto => true,
-      WindowedPlayerRotationMode.inheritApp => switch (plan.appRotation) {
-        AppRotationMode.lockInitial => null,
-        AppRotationMode.followSystem => false,
-        AppRotationMode.alwaysAuto => true,
-      },
-    };
-  }
-
-  void _queueSystemHandoff({required bool ignoreSystemLock}) {
-    _pendingSystemHandoff = true;
-    _pendingSystemHandoffIgnoreLock = ignoreSystemLock;
-    _handoffLog('queue handoff');
-  }
-
-  bool get _handoffExperimentDelayed => switch (_handoffExperiment) {
-    OrientationHandoffExperiment.current5s ||
-    OrientationHandoffExperiment.unspecified5s ||
-    OrientationHandoffExperiment.user5s ||
-    OrientationHandoffExperiment.fullUser5s ||
-    OrientationHandoffExperiment.fullSensor5s => true,
-    _ => false,
-  };
-
-  Future<void> _applyCompletedHandoff({
-    required bool ignoreSystemLock,
-    required int allowed,
+  Future<void> _applyFullScreenRuntimePolicy({
+    bool protectEntry = false,
   }) async {
-    switch (_handoffExperiment) {
-      case OrientationHandoffExperiment.holdEntry:
-        _handoffLog('apply HOLD_ENTRY: keep entry orientation');
-        return;
-      case OrientationHandoffExperiment.unspecifiedImmediate ||
-           OrientationHandoffExperiment.unspecified5s:
-        _handoffLog('apply UNSPECIFIED');
-        await (followSystemMode() ?? Future<void>.value());
-        return;
-      case OrientationHandoffExperiment.userImmediate ||
-           OrientationHandoffExperiment.user5s:
-        _handoffLog('apply USER');
-        await (userMode() ?? Future<void>.value());
-        return;
-      case OrientationHandoffExperiment.fullUserImmediate ||
-           OrientationHandoffExperiment.fullUser5s:
-        _handoffLog('apply FULL_USER');
-        await (fullMode() ?? Future<void>.value());
-        return;
-      case OrientationHandoffExperiment.fullSensorImmediate ||
-           OrientationHandoffExperiment.fullSensor5s:
-        _handoffLog('apply FULL_SENSOR');
-        await (fullSensorMode() ?? Future<void>.value());
-        return;
-      case OrientationHandoffExperiment.off ||
-           OrientationHandoffExperiment.currentImmediate ||
-           OrientationHandoffExperiment.current5s:
-        _handoffLog('apply CURRENT ignoreLock=$ignoreSystemLock allowed=$allowed');
-        if (ignoreSystemLock) {
-          await OrientationPolicy.applySystemPolicy(
-            ignoreSystemLock: true,
-            allowedMask: allowed,
-            filterEnabled: allowed != OrientationMask.all,
-          );
-        } else if (allowed == OrientationMask.all) {
-          await (followSystemMode() ?? Future<void>.value());
-        } else {
-          await OrientationPolicy.applySystemPolicy(
-            ignoreSystemLock: false,
-            allowedMask: allowed,
-            filterEnabled: true,
-          );
-        }
-        return;
-    }
-  }
-
-  Future<void> _tryCompleteSystemHandoff([bool? currentLandscape]) async {
-    if (!_pendingSystemHandoff || _fsProcessing || !isFullScreen.value) return;
-    final targetLandscape = _entryTargetLandscape;
-    final current = currentLandscape ?? _currentSystemLandscape;
-    _handoffLog('try handoff current=${current ? 'L' : 'P'}');
-    if (targetLandscape != null && current != targetLandscape) {
-      _handoffLog('handoff wait: target not reached');
-      return;
-    }
-
-    _pendingSystemHandoff = false;
-    final ignoreSystemLock = _pendingSystemHandoffIgnoreLock;
-    final allowed = _orientationPlan.filterMask(_fullScreenAllowedMask);
-    if (allowed == 0) {
-      _handoffLog('handoff abort: allowed=0');
-      _updateOrientationInputs();
-      return;
-    }
-
-    if (_handoffExperimentDelayed) {
-      _handoffLog('handoff delay 5000ms start');
-      await Future<void>.delayed(const Duration(seconds: 5));
-      _handoffLog('handoff delay 5000ms end');
-      if (!isFullScreen.value) {
-        _handoffLog('handoff abort after delay: fullscreen exited');
-        _updateOrientationInputs();
-        return;
-      }
-      if (targetLandscape != null &&
-          _currentSystemLandscape != targetLandscape) {
-        _handoffLog('handoff abort after delay: window left target before handoff');
-        _updateOrientationInputs();
-        return;
-      }
-    }
-
-    await _applyCompletedHandoff(
-      ignoreSystemLock: ignoreSystemLock,
-      allowed: allowed,
-    );
-    _handoffLog('handoff applied');
-    _updateOrientationInputs();
-  }
-
-  Future<void> _applyFullScreenRuntimePolicy() async {
     final plan = _orientationPlan;
     final allowed = plan.filterMask(_fullScreenAllowedMask);
+    _systemRuntimePending = false;
+    _systemRuntimeBaselineRotation = null;
+    _gravityRuntimePending = false;
+    _gravityRuntimeBaseline = null;
+
     if (plan.fullScreenAllowed == FullScreenAllowedOrientation.entryExact ||
         allowed == 0) {
       if (!_entryDirectionApplied) await lockedMode();
       return;
     }
+
     switch (plan.fullScreenRotationSource) {
       case FullScreenRotationSource.keepCurrent:
-        if (!_entryDirectionApplied) {
-          await lockedMode();
-          return;
-        }
-        if (_systemExitNeedsWindowRotation) {
-          final ignoreSystemLock = _windowedSystemHandoffIgnoreLock;
-          if (ignoreSystemLock == true) {
-            _queueSystemHandoff(ignoreSystemLock: true);
-          } else if (ignoreSystemLock == false &&
-              await OrientationPlatform.systemAutoRotate()) {
-            _queueSystemHandoff(ignoreSystemLock: false);
-          }
-        }
-        return;
-      case FullScreenRotationSource.appGravity:
         if (!_entryDirectionApplied) await lockedMode();
         return;
+      case FullScreenRotationSource.appGravity:
+        if (protectEntry) {
+          _gravityRuntimePending = true;
+        } else if (!_entryDirectionApplied) {
+          await lockedMode();
+        } else if (_orientation case final orientation?) {
+          _applyGravityOrientation(orientation);
+        }
+        return;
       case FullScreenRotationSource.followSystem:
-        if (_entryDirectionApplied) {
-          final autoRotate = await OrientationPlatform.systemAutoRotate();
-          _handoffLog('runtime followSystem autoRotate=$autoRotate');
-          if (autoRotate) {
-            _queueSystemHandoff(ignoreSystemLock: false);
+        if (protectEntry && _supportsProposedRotation) {
+          if (await OrientationPlatform.systemAutoRotate()) {
+            _systemRuntimePending = true;
           }
           return;
         }
@@ -2152,9 +2175,8 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         );
         return;
       case FullScreenRotationSource.alwaysAuto:
-        if (_entryDirectionApplied) {
-          _handoffLog('runtime alwaysAuto');
-          _queueSystemHandoff(ignoreSystemLock: true);
+        if (protectEntry && _supportsProposedRotation) {
+          _systemRuntimePending = true;
           return;
         }
         await OrientationPolicy.applySystemPolicy(
@@ -2179,7 +2201,6 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (_fsProcessing) return;
     _fsProcessing = true;
     isManualFS = cause == FullscreenEntryCause.manual;
-    _handoffLog('triggerFullScreen status=$status cause=${cause.name}');
     try {
       if (status) {
         _fullScreenEntryCause = cause;
@@ -2195,9 +2216,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
             policy: entryPolicy,
             triggerOrientation: triggerOrientation,
           );
-          _handoffLog('entry orientation requested policy=${entryPolicy.name}');
-          await _applyFullScreenRuntimePolicy();
-          _handoffLog('runtime policy processed source=${_orientationPlan.fullScreenRotationSource.name}');
+          await _applyFullScreenRuntimePolicy(
+            protectEntry: _entryDirectionApplied,
+          );
         } else {
           await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
@@ -2214,7 +2235,6 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     } finally {
       _setFullScreen(status);
       _fsProcessing = false;
-      _handoffLog('triggerFullScreen done status=$status');
     }
   }
 
@@ -2352,13 +2372,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       showSystemBar();
     }
     danmakuController = null;
-    _pendingSystemHandoff = false;
-    _entryTargetLandscape = null;
     if (_observingSystemOrientation) {
       WidgetsBinding.instance.removeObserver(this);
       _observingSystemOrientation = false;
     }
     _stopOrientationListener();
+    _stopProposedRotationListener();
     _disableAutoEnterPip();
     setPlayCallBack(null);
     dmState.clear();

@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
-import 'package:PiliBro/plugin/pl_player/utils/orientation_handoff_lab.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
@@ -41,31 +40,15 @@ Future<void>? _setPreferredOrientations(
   List<DeviceOrientation> orientations,
 ) {
   final key = 0x20000 | request;
-  if (_lastOrientationRequest == key) {
-    OrientationHandoffLab.log(
-      'orientation request SKIP SystemChrome key=$key orientations=$orientations',
-    );
-    return null;
-  }
+  if (_lastOrientationRequest == key) return null;
   _lastOrientationRequest = key;
-  OrientationHandoffLab.log(
-    'orientation request SystemChrome key=$key orientations=$orientations',
-  );
   return SystemChrome.setPreferredOrientations(orientations);
 }
 
 Future<void>? _setAndroidOrientation(int request) {
   final key = 0x10000 | (request & 0xFFFF);
-  if (_lastOrientationRequest == key) {
-    OrientationHandoffLab.log(
-      'orientation request SKIP Android requestedOrientation=$request key=$key',
-    );
-    return null;
-  }
+  if (_lastOrientationRequest == key) return null;
   _lastOrientationRequest = key;
-  OrientationHandoffLab.log(
-    'orientation request Android requestedOrientation=$request key=$key',
-  );
   return OrientationPlatform.setAndroidRequestedOrientation(request);
 }
 
@@ -105,13 +88,6 @@ Future<void>? fullMode() {
     OrientationMask.all,
     const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
   );
-}
-
-Future<void>? userMode() {
-  if (Platform.isAndroid) {
-    return _setAndroidOrientation(AndroidRequestedOrientation.user);
-  }
-  return fullMode();
 }
 
 Future<void>? followSystemMode() {
