@@ -182,19 +182,28 @@ abstract final class OrientationPolicy {
       return;
     }
 
-    final mask = plan.filterMask(
-      plan.appInitial == AppInitialOrientation.portrait
-          ? OrientationMask.portrait
-          : OrientationMask.landscape,
-    );
+    final requested = switch (plan.appInitial) {
+      AppInitialOrientation.system => 0,
+      AppInitialOrientation.portrait => OrientationMask.portrait,
+      AppInitialOrientation.landscape => OrientationMask.landscape,
+      AppInitialOrientation.portraitUp => OrientationMask.portraitUp,
+      AppInitialOrientation.portraitDown => OrientationMask.portraitDown,
+      AppInitialOrientation.landscapeLeft => OrientationMask.landscapeLeft,
+      AppInitialOrientation.landscapeRight => OrientationMask.landscapeRight,
+    };
+    final mask = plan.filterMask(requested);
     if (mask != 0) {
-      _startupDirectionBit = plan.appInitial == AppInitialOrientation.portrait
-          ? (mask == OrientationMask.portraitDown
-                ? OrientationMask.portraitDown
-                : OrientationMask.portraitUp)
-          : (mask == OrientationMask.landscapeRight
-                ? OrientationMask.landscapeRight
-                : OrientationMask.landscapeLeft);
+      _startupDirectionBit = switch (plan.appInitial) {
+        AppInitialOrientation.portrait =>
+          mask == OrientationMask.portraitDown
+              ? OrientationMask.portraitDown
+              : OrientationMask.portraitUp,
+        AppInitialOrientation.landscape =>
+          mask == OrientationMask.landscapeRight
+              ? OrientationMask.landscapeRight
+              : OrientationMask.landscapeLeft,
+        _ => mask & -mask,
+      };
       await _applyDirectionBit(_startupDirectionBit);
     }
     if (plan.appRotation == AppRotationMode.lockInitial) return;

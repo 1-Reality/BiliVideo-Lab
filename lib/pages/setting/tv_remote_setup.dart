@@ -137,10 +137,12 @@ abstract final class TvRemoteSetup {
     if (direction != null) {
       await GStorage.setting.put(
         SettingBoxKey.appInitialOrientation,
-        (direction & OrientationMask.portrait != 0
-                ? AppInitialOrientation.portrait
-                : AppInitialOrientation.landscape)
-            .index,
+        switch (direction) {
+          OrientationMask.portraitDown => AppInitialOrientation.portraitDown,
+          OrientationMask.landscapeLeft => AppInitialOrientation.landscapeLeft,
+          OrientationMask.landscapeRight => AppInitialOrientation.landscapeRight,
+          _ => AppInitialOrientation.portraitUp,
+        }.index,
       );
       OrientationPolicy.setStartupDirection(direction);
       await OrientationPolicy.compile();

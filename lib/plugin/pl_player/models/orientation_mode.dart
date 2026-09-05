@@ -1,7 +1,11 @@
 enum AppInitialOrientation {
   system('跟随系统当前方向'),
   portrait('竖屏'),
-  landscape('横屏');
+  landscape('横屏'),
+  portraitUp('正竖屏'),
+  portraitDown('倒竖屏'),
+  landscapeLeft('左横屏'),
+  landscapeRight('右横屏');
 
   final String desc;
   const AppInitialOrientation(this.desc);
