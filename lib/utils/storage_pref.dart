@@ -32,6 +32,7 @@ import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
@@ -235,6 +236,54 @@ abstract final class Pref {
     }
     return FullScreenMode.values[index];
   }
+
+  static AppInitialOrientation get appInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.appInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get appRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.appRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static FullScreenRotationSource get fullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.fullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.followSystem.index,
+      )];
+
+  static FullScreenAllowedOrientation get fullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.fullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get gravityFollowSystemLock =>
+      _setting.get(SettingBoxKey.gravityFollowSystemLock, defaultValue: true);
+
+  static OrientationFullscreenTrigger get orientationFullscreenTrigger =>
+      OrientationFullscreenTrigger.values[_setting.get(
+        SettingBoxKey.orientationFullscreenTrigger,
+        defaultValue: OrientationFullscreenTrigger.off.index,
+      )];
+
+  static OrientationTriggerSource get orientationTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.orientationTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static ExitOrientationMode get exitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.exitOrientationMode,
+        defaultValue: ExitOrientationMode.restoreApp.index,
+      )];
+
+  static int get finalDirectionMask =>
+      _setting.get(SettingBoxKey.finalDirectionMask, defaultValue: 0);
 
   static BtmProgressBehavior get btmProgressBehavior =>
       BtmProgressBehavior.values[_setting.get(

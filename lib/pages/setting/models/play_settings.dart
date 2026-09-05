@@ -45,13 +45,12 @@ List<SettingsModel> get playSettings => [
     title: '倍速设置',
     subtitle: '设置视频播放速度，高熵信息生活，节约时间就是延长生命！',
   ),
-  if (Platform.isAndroid)
-    NormalModel(
-      onTap: _showAngleDegreesDialog,
-      leading: const Icon(MdiIcons.angleAcute),
-      title: '倾斜角度阈值',
-      getSubtitle: () => '当前:角度制「${Pref.angleDegrees}°」',
-    ),
+  NormalModel(
+    onTap: (context, setState) => Get.toNamed('/orientationSettings'),
+    leading: const Icon(Icons.screen_rotation_outlined),
+    title: '方向（横竖屏）设置',
+    subtitle: '应用方向、全屏方向与方向感应',
+  ),
   const SwitchModel(
     title: '自动播放',
     subtitle: '进入详情页自动播放',
@@ -269,12 +268,6 @@ List<SettingsModel> get playSettings => [
     defaultVal: true,
   ),
   NormalModel(
-    title: '默认全屏方向',
-    leading: const Icon(Icons.open_with_outlined),
-    getSubtitle: () => '当前全屏方向：${Pref.fullScreenMode.desc}',
-    onTap: _showFullScreenModeDialog,
-  ),
-  NormalModel(
     title: '底部进度条展示',
     leading: const Icon(Icons.border_bottom_outlined),
     getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.desc}',
@@ -390,24 +383,6 @@ Future<void> _showSuperChatDialog(
   }
 }
 
-Future<void> _showFullScreenModeDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<FullScreenMode>(
-    context: context,
-    builder: (context) => SelectDialog<FullScreenMode>(
-      title: '默认全屏方向',
-      value: Pref.fullScreenMode,
-      values: FullScreenMode.values.map((e) => (e, e.desc)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.fullScreenMode, res.index);
-    setState();
-  }
-}
-
 Future<void> _showProgressBehaviorDialog(
   BuildContext context,
   VoidCallback setState,
@@ -425,28 +400,6 @@ Future<void> _showProgressBehaviorDialog(
       SettingBoxKey.btmProgressBehavior,
       res.index,
     );
-    setState();
-  }
-}
-
-Future<void> _showAngleDegreesDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('倾斜角度阈值'),
-      min: 10.0,
-      max: 90.0,
-      divisions: 90,
-      precise: 0,
-      value: Pref.angleDegrees.toDouble(),
-      suffix: '°',
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
     setState();
   }
 }
