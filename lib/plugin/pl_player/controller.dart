@@ -33,6 +33,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliBro/plugin/pl_player/utils/orientation_handoff_lab.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -531,6 +532,26 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   FullscreenEntryCause _fullScreenEntryCause = FullscreenEntryCause.manual;
   StreamSubscription<OrientationParams>? _orientationListener;
   late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
+  late final OrientationHandoffExperiment _handoffExperiment =
+      Pref.orientationHandoffExperiment;
+
+  bool get _handoffLabEnabled =>
+      _handoffExperiment != OrientationHandoffExperiment.off;
+
+  void _handoffLog(String event) {
+    if (!_handoffLabEnabled) return;
+    OrientationHandoffLab.log(
+      '$event | preset=${_handoffExperiment.name}'
+      ' fs=${isFullScreen.value}'
+      ' processing=$_fsProcessing'
+      ' window=${_currentSystemLandscape ? 'L' : 'P'}'
+      ' cached=${_systemLandscape == null ? '-' : (_systemLandscape! ? 'L' : 'P')}'
+      ' entryApplied=$_entryDirectionApplied'
+      ' target=${_entryTargetLandscape == null ? '-' : (_entryTargetLandscape! ? 'L' : 'P')}'
+      ' pending=$_pendingSystemHandoff'
+      ' ignoreLock=$_pendingSystemHandoffIgnoreLock',
+    );
+  }
 
   bool get _currentSystemLandscape {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -605,6 +626,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   void didChangeMetrics() {
     if (!_observingSystemOrientation) return;
     final next = _currentSystemLandscape;
+    _handoffLog('metrics next=${next ? 'L' : 'P'}');
     if (_pendingSystemHandoff) {
       unawaited(_tryCompleteSystemHandoff(next));
     }
@@ -674,6 +696,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (plan.triggerExit &&
         plan.exitAllowsCause(_fullScreenEntryCause) &&
         _triggerSourceMatches(plan.exitTriggerSource, false)) {
+      _handoffLog('trigger exit matched');
       triggerFullScreen(
         status: false,
         cause: FullscreenEntryCause.orientation,
@@ -1978,13 +2001,76 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   void _queueSystemHandoff({required bool ignoreSystemLock}) {
     _pendingSystemHandoff = true;
     _pendingSystemHandoffIgnoreLock = ignoreSystemLock;
+    _handoffLog('queue handoff');
+  }
+
+  bool get _handoffExperimentDelayed => switch (_handoffExperiment) {
+    OrientationHandoffExperiment.current5s ||
+    OrientationHandoffExperiment.unspecified5s ||
+    OrientationHandoffExperiment.user5s ||
+    OrientationHandoffExperiment.fullUser5s ||
+    OrientationHandoffExperiment.fullSensor5s => true,
+    _ => false,
+  };
+
+  Future<void> _applyCompletedHandoff({
+    required bool ignoreSystemLock,
+    required int allowed,
+  }) async {
+    switch (_handoffExperiment) {
+      case OrientationHandoffExperiment.holdEntry:
+        _handoffLog('apply HOLD_ENTRY: keep entry orientation');
+        return;
+      case OrientationHandoffExperiment.unspecifiedImmediate ||
+           OrientationHandoffExperiment.unspecified5s:
+        _handoffLog('apply UNSPECIFIED');
+        await (followSystemMode() ?? Future<void>.value());
+        return;
+      case OrientationHandoffExperiment.userImmediate ||
+           OrientationHandoffExperiment.user5s:
+        _handoffLog('apply USER');
+        await (userMode() ?? Future<void>.value());
+        return;
+      case OrientationHandoffExperiment.fullUserImmediate ||
+           OrientationHandoffExperiment.fullUser5s:
+        _handoffLog('apply FULL_USER');
+        await (fullMode() ?? Future<void>.value());
+        return;
+      case OrientationHandoffExperiment.fullSensorImmediate ||
+           OrientationHandoffExperiment.fullSensor5s:
+        _handoffLog('apply FULL_SENSOR');
+        await (fullSensorMode() ?? Future<void>.value());
+        return;
+      case OrientationHandoffExperiment.off ||
+           OrientationHandoffExperiment.currentImmediate ||
+           OrientationHandoffExperiment.current5s:
+        _handoffLog('apply CURRENT ignoreLock=$ignoreSystemLock allowed=$allowed');
+        if (ignoreSystemLock) {
+          await OrientationPolicy.applySystemPolicy(
+            ignoreSystemLock: true,
+            allowedMask: allowed,
+            filterEnabled: allowed != OrientationMask.all,
+          );
+        } else if (allowed == OrientationMask.all) {
+          await (followSystemMode() ?? Future<void>.value());
+        } else {
+          await OrientationPolicy.applySystemPolicy(
+            ignoreSystemLock: false,
+            allowedMask: allowed,
+            filterEnabled: true,
+          );
+        }
+        return;
+    }
   }
 
   Future<void> _tryCompleteSystemHandoff([bool? currentLandscape]) async {
     if (!_pendingSystemHandoff || _fsProcessing || !isFullScreen.value) return;
     final targetLandscape = _entryTargetLandscape;
-    if (targetLandscape != null &&
-        (currentLandscape ?? _currentSystemLandscape) != targetLandscape) {
+    final current = currentLandscape ?? _currentSystemLandscape;
+    _handoffLog('try handoff current=${current ? 'L' : 'P'}');
+    if (targetLandscape != null && current != targetLandscape) {
+      _handoffLog('handoff wait: target not reached');
       return;
     }
 
@@ -1992,25 +2078,33 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     final ignoreSystemLock = _pendingSystemHandoffIgnoreLock;
     final allowed = _orientationPlan.filterMask(_fullScreenAllowedMask);
     if (allowed == 0) {
+      _handoffLog('handoff abort: allowed=0');
       _updateOrientationInputs();
       return;
     }
 
-    if (ignoreSystemLock) {
-      await OrientationPolicy.applySystemPolicy(
-        ignoreSystemLock: true,
-        allowedMask: allowed,
-        filterEnabled: allowed != OrientationMask.all,
-      );
-    } else if (allowed == OrientationMask.all) {
-      await (followSystemMode() ?? Future<void>.value());
-    } else {
-      await OrientationPolicy.applySystemPolicy(
-        ignoreSystemLock: false,
-        allowedMask: allowed,
-        filterEnabled: true,
-      );
+    if (_handoffExperimentDelayed) {
+      _handoffLog('handoff delay 5000ms start');
+      await Future<void>.delayed(const Duration(seconds: 5));
+      _handoffLog('handoff delay 5000ms end');
+      if (!isFullScreen.value) {
+        _handoffLog('handoff abort after delay: fullscreen exited');
+        _updateOrientationInputs();
+        return;
+      }
+      if (targetLandscape != null &&
+          _currentSystemLandscape != targetLandscape) {
+        _handoffLog('handoff abort after delay: window left target before handoff');
+        _updateOrientationInputs();
+        return;
+      }
     }
+
+    await _applyCompletedHandoff(
+      ignoreSystemLock: ignoreSystemLock,
+      allowed: allowed,
+    );
+    _handoffLog('handoff applied');
     _updateOrientationInputs();
   }
 
@@ -2043,7 +2137,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         return;
       case FullScreenRotationSource.followSystem:
         if (_entryDirectionApplied) {
-          if (await OrientationPlatform.systemAutoRotate()) {
+          final autoRotate = await OrientationPlatform.systemAutoRotate();
+          _handoffLog('runtime followSystem autoRotate=$autoRotate');
+          if (autoRotate) {
             _queueSystemHandoff(ignoreSystemLock: false);
           }
           return;
@@ -2056,6 +2152,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         return;
       case FullScreenRotationSource.alwaysAuto:
         if (_entryDirectionApplied) {
+          _handoffLog('runtime alwaysAuto');
           _queueSystemHandoff(ignoreSystemLock: true);
           return;
         }
@@ -2081,6 +2178,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (_fsProcessing) return;
     _fsProcessing = true;
     isManualFS = cause == FullscreenEntryCause.manual;
+    _handoffLog('triggerFullScreen status=$status cause=${cause.name}');
     try {
       if (status) {
         _fullScreenEntryCause = cause;
@@ -2096,7 +2194,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
             policy: entryPolicy,
             triggerOrientation: triggerOrientation,
           );
+          _handoffLog('entry orientation requested policy=${entryPolicy.name}');
           await _applyFullScreenRuntimePolicy();
+          _handoffLog('runtime policy processed source=${_orientationPlan.fullScreenRotationSource.name}');
         } else {
           await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
@@ -2113,6 +2213,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     } finally {
       _setFullScreen(status);
       _fsProcessing = false;
+      _handoffLog('triggerFullScreen done status=$status');
     }
   }
 

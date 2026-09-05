@@ -119,6 +119,24 @@ enum FullscreenEntryCause {
   orientation,
 }
 
+enum OrientationHandoffExperiment {
+  off('关闭（正常逻辑）'),
+  currentImmediate('当前交权：立即'),
+  current5s('当前交权：延迟 5 秒'),
+  unspecifiedImmediate('UNSPECIFIED：立即'),
+  unspecified5s('UNSPECIFIED：延迟 5 秒'),
+  userImmediate('USER：立即'),
+  user5s('USER：延迟 5 秒'),
+  fullUserImmediate('FULL_USER：立即'),
+  fullUser5s('FULL_USER：延迟 5 秒'),
+  fullSensorImmediate('FULL_SENSOR：立即'),
+  fullSensor5s('FULL_SENSOR：延迟 5 秒'),
+  holdEntry('不交权：保持入场方向');
+
+  final String desc;
+  const OrientationHandoffExperiment(this.desc);
+}
+
 enum ExitOrientationMode {
   restoreApp('恢复当前页面方向策略'),
   keepPlayer('保持播放器方向，之后继续正常旋转'),

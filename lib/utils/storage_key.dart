@@ -44,6 +44,7 @@ abstract final class SettingBoxKey {
       orientationTriggerSource = 'orientationTriggerSource',
       exitOrientationMode = 'exitOrientationMode',
       finalDirectionMask = 'finalDirectionMask',
+      orientationHandoffExperiment = 'orientationHandoffExperiment',
       advancedAppInitialOrientation = 'advancedAppInitialOrientation',
       advancedAppRotationMode = 'advancedAppRotationMode',
       advancedWindowedPlayerRotationMode = 'advancedWindowedPlayerRotationMode',

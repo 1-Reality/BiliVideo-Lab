@@ -90,6 +90,13 @@ Future<void>? fullMode() {
   );
 }
 
+Future<void>? userMode() {
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.user);
+  }
+  return fullMode();
+}
+
 Future<void>? followSystemMode() {
   if (Platform.isAndroid) {
     return _setAndroidOrientation(AndroidRequestedOrientation.unspecified);

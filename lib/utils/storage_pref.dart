@@ -246,6 +246,12 @@ abstract final class Pref {
   static bool get controlsLockOrientation =>
       _setting.get(SettingBoxKey.controlsLockOrientation, defaultValue: true);
 
+  static OrientationHandoffExperiment get orientationHandoffExperiment =>
+      OrientationHandoffExperiment.values[_setting.get(
+        SettingBoxKey.orientationHandoffExperiment,
+        defaultValue: OrientationHandoffExperiment.off.index,
+      )];
+
   static AppInitialOrientation get appInitialOrientation =>
       AppInitialOrientation.values[_setting.get(
         SettingBoxKey.appInitialOrientation,

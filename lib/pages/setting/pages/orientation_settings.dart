@@ -8,11 +8,13 @@ import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
+import 'package:PiliBro/plugin/pl_player/utils/orientation_handoff_lab.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
@@ -115,6 +117,39 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     await GStorage.setting.put(SettingBoxKey.finalDirectionMask, res);
     await OrientationPolicy.compile();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _showOrientationLabLog() async {
+    final text = OrientationHandoffLab.text;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('方向交权实验日志（${OrientationHandoffLab.lineCount} 行）'),
+        content: SizedBox(
+          width: 720,
+          child: SingleChildScrollView(
+            child: SelectableText(text.isEmpty ? '暂无日志' : text),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              OrientationHandoffLab.clear();
+              Get.back();
+              if (mounted) setState(() {});
+            },
+            child: const Text('清空'),
+          ),
+          TextButton(
+            onPressed: () => Clipboard.setData(
+              ClipboardData(text: OrientationHandoffLab.text),
+            ),
+            child: const Text('复制'),
+          ),
+          TextButton(onPressed: Get.back, child: const Text('关闭')),
+        ],
+      ),
+    );
   }
 
   Widget _selectTile({
@@ -478,7 +513,33 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                       ].join('、'),
                 onTap: _showFinalDirectionMaskDialog,
               ),
-              const Divider(),
+              if (Platform.isAndroid) ...[
+                _section('方向交权实验'),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(
+                    '临时诊断功能。建议测试时使用“进入全屏强制横屏 + 全屏期间跟随系统 + 允许全部方向”；切换预设后重新进入播放器。',
+                  ),
+                ),
+                _selectTile(
+                  title: '交权实验预设',
+                  subtitle: Pref.orientationHandoffExperiment.desc,
+                  onTap: () => _select(
+                    title: '交权实验预设',
+                    value: Pref.orientationHandoffExperiment,
+                    values: OrientationHandoffExperiment.values,
+                    key: SettingBoxKey.orientationHandoffExperiment,
+                    label: (e) => e.desc,
+                  ),
+                ),
+                ListTile(
+                  title: const Text('查看实验日志'),
+                  subtitle: Text('当前 ${OrientationHandoffLab.lineCount} 行，可复制后直接发给 AI'),
+                  trailing: const Icon(Icons.article_outlined),
+                  onTap: _showOrientationLabLog,
+                ),
+                const Divider(),
+              ],
               _selectTile(
                 title: '方向配置模式',
                 subtitle: mode.desc,
