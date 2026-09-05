@@ -1149,6 +1149,12 @@ class VideoDetailController extends GetxController
             VideoDecodeFormatType.HEVC.codes.any(codecs.startsWith)) {
           hevcVideo = video;
         }
+        if (streamCount >= 3 &&
+            preferredVideo != null &&
+            avcVideo != null &&
+            hevcVideo != null) {
+          break;
+        }
       }
       final avcBandwidth = avcVideo?.bandWidth;
       if (streamCount >= 3 &&

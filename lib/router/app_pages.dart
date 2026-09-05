@@ -149,7 +149,7 @@ class Routes {
     // 系统消息
     GetPage(name: '/sysMsg', page: () => const SysMsgPage()),
     // 登录页面
-    GetPage(name: '/loginPage', page: () => const LoginPage(initialIndex: 2)),
+    GetPage(name: '/loginPage', page: () => const LoginPage()),
     // 用户动态
     GetPage(name: '/memberDynamics', page: () => const MemberDynamicsPage()),
     // 日志
