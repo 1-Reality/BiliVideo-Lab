@@ -43,9 +43,9 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   late final list = <({IconData icon, String title, VoidCallback onTap})>[
     (
-      icon: CustomIcons.folderDownloadOutline,
-      title: '离线缓存',
-      onTap: () => Get.toNamed('/download'),
+      icon: Icons.speed_outlined,
+      title: '倍速设置',
+      onTap: () => Get.toNamed('/playSpeedSet'),
     ),
     (
       icon: CustomIcons.history,

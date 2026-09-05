@@ -1,27 +1,42 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/user.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
+import 'package:PiliBro/pages/coin_log/controller.dart';
 import 'package:PiliBro/pages/common/common_page.dart';
+import 'package:PiliBro/pages/exp_log/controller.dart';
 import 'package:PiliBro/pages/home/view.dart';
+import 'package:PiliBro/pages/log_table/view.dart';
 import 'package:PiliBro/pages/login/controller.dart';
+import 'package:PiliBro/pages/login_devices/view.dart';
+import 'package:PiliBro/pages/login_log/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/pages/mine/widgets/item.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/bili_utils.dart';
+import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/utils.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
@@ -78,6 +93,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
+                    _buildQuickActions(secondary),
                     Obx(
                       () => controller.loadingState.value is Loading
                           ? const SizedBox.shrink()
@@ -93,38 +109,186 @@ class _MediaPageState extends CommonPageState<MinePage>
     );
   }
 
-  Widget _buildActions(Color primary) {
-    return Row(
-      mainAxisAlignment: .spaceEvenly,
-      children: controller.list
-          .map(
-            (e) => Flexible(
-              child: InkWell(
-                onTap: e.onTap,
-                borderRadius: Style.mdRadius,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 80),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: Column(
-                      spacing: 6,
-                      mainAxisSize: .min,
-                      mainAxisAlignment: .center,
-                      children: [
-                        Icon(e.icon, color: primary),
-                        Text(
-                          e.title,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+  Widget _actionBody(Widget icon, String title) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 80),
+    child: AspectRatio(
+      aspectRatio: 1,
+      child: Column(
+        spacing: 6,
+        mainAxisSize: .min,
+        mainAxisAlignment: .center,
+        children: [
+          icon,
+          Text(title, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
+    ),
+  );
+
+  Widget _actionButton({
+    required Widget icon,
+    required String title,
+    required VoidCallback onTap,
+  }) => Flexible(
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: Style.mdRadius,
+      child: _actionBody(icon, title),
+    ),
+  );
+
+  Widget _buildActions(Color primary) => Row(
+    mainAxisAlignment: .spaceEvenly,
+    children: controller.list
+        .map(
+          (e) => _actionButton(
+            icon: Icon(e.icon, color: primary),
+            title: e.title,
+            onTap: e.onTap,
+          ),
+        )
+        .toList(),
+  );
+
+  Widget _buildQuickActions(Color primary) => Row(
+    mainAxisAlignment: .spaceEvenly,
+    children: [
+      _actionButton(
+        icon: Icon(MdiIcons.cloudOutline, color: primary),
+        title: 'CDN设置',
+        onTap: () => Get.toNamed('/cdnSettings'),
+      ),
+      _actionButton(
+        icon: Icon(Icons.lan_outlined, color: primary),
+        title: '智能网优',
+        onTap: () => Get.toNamed('/networkPolicy'),
+      ),
+      _actionButton(
+        icon: Icon(Icons.screen_rotation_outlined, color: primary),
+        title: '屏幕旋转',
+        onTap: () => Get.toNamed('/orientationSettings'),
+      ),
+      Flexible(
+        child: PopupMenuButton<void>(
+          tooltip: '创作中心',
+          itemBuilder: (_) => _creatorMenuItems(),
+          child: _actionBody(
+            SvgPicture.asset(
+              'assets/images/creator_center.svg',
+              width: 24,
+              height: 24,
             ),
-          )
-          .toList(),
-    );
+            '创作中心',
+          ),
+        ),
+      ),
+    ],
+  );
+
+  PopupMenuItem<void> _creatorMenuItem(
+    Widget icon,
+    String title,
+    VoidCallback onTap,
+  ) => PopupMenuItem<void>(
+    onTap: onTap,
+    child: Row(
+      mainAxisSize: .min,
+      children: [
+        SizedBox(width: 24, child: Center(child: icon)),
+        const SizedBox(width: 10),
+        Text(title),
+      ],
+    ),
+  );
+
+  List<PopupMenuEntry<void>> _creatorMenuItems() {
+    final userInfo = controller.userInfo.value;
+    final mid = userInfo.mid;
+    final loggedIn = controller.accountService.isLogin.value;
+    return [
+      if (mid != null)
+        _creatorMenuItem(
+          const Icon(Icons.share_outlined, size: 19),
+          '分享我的主页',
+          _shareHomepage,
+        ),
+      if (PlatformUtils.isMobile && mid != null)
+        _creatorMenuItem(
+          const Icon(Icons.add_box_outlined, size: 19),
+          '添加至桌面',
+          _createShortcut,
+        ),
+      if (loggedIn) ...[
+        _creatorMenuItem(
+          const Icon(Icons.create_outlined, size: 19),
+          '创作中心',
+          () => _openInternalWeb(
+            'https://member.bilibili.com/platform/home',
+          ),
+        ),
+        if ((userInfo.vipStatus ?? 0) > 0)
+          _creatorMenuItem(
+            const Icon(Icons.upcoming_outlined, size: 19),
+            '大会员经验',
+            () => unawaited(_vipExpAdd()),
+          ),
+        _creatorMenuItem(
+          const Icon(Icons.devices, size: 18),
+          '登录设备',
+          () => Get.to(const LoginDevicesPage()),
+        ),
+        _creatorMenuItem(
+          const Icon(Icons.login, size: 18),
+          '登录记录',
+          () => Get.to(
+            const LogPage(),
+            arguments: LoginLogController(),
+          ),
+        ),
+        _creatorMenuItem(
+          const Icon(FontAwesomeIcons.b, size: 16),
+          '硬币记录',
+          () => Get.to(
+            const LogPage(),
+            arguments: CoinLogController(),
+          ),
+        ),
+        _creatorMenuItem(
+          const Icon(Icons.linear_scale, size: 18),
+          '经验记录',
+          () => Get.to(
+            const LogPage(),
+            arguments: ExpLogController(),
+          ),
+        ),
+        _creatorMenuItem(
+          const Icon(Icons.settings_outlined, size: 19),
+          '空间设置',
+          () => Get.toNamed('/spaceSetting'),
+        ),
+      ],
+      const PopupMenuDivider(),
+      _creatorMenuItem(
+        const Icon(Icons.search, size: 19),
+        '百度',
+        () => _openInternalWeb('https://www.baidu.com'),
+      ),
+      _creatorMenuItem(
+        const Icon(Icons.public, size: 19),
+        'Google',
+        () => _openInternalWeb('https://www.google.com'),
+      ),
+      _creatorMenuItem(
+        const Icon(FontAwesomeIcons.github, size: 18),
+        'GitHub',
+        () => _openInternalWeb('https://github.com'),
+      ),
+      _creatorMenuItem(
+        const Icon(Icons.language_outlined, size: 19),
+        '浏览器',
+        () => unawaited(_showBrowserDialog()),
+      ),
+    ];
   }
 
   Widget get _buildHeaderActions {
@@ -156,6 +320,14 @@ class _MediaPageState extends CommonPageState<MinePage>
           ),
           msgBadge(_mainController),
         ],
+        IconButton(
+          iconSize: iconSize,
+          padding: padding,
+          style: style,
+          tooltip: '离线缓存',
+          onPressed: () => Get.toNamed('/download'),
+          icon: const Icon(CustomIcons.folderDownloadOutline),
+        ),
         if (GStorage.reply != null)
           IconButton(
             iconSize: iconSize,
@@ -429,6 +601,99 @@ class _MediaPageState extends CommonPageState<MinePage>
         ),
       ),
     );
+  }
+
+  void _openInternalWeb(String url) => Get.toNamed(
+    '/webview',
+    parameters: {'url': url},
+  );
+
+  void _shareHomepage() {
+    final mid = controller.userInfo.value.mid;
+    if (mid != null) {
+      ShareUtils.shareText('https://space.bilibili.com/$mid');
+    }
+  }
+
+  void _createShortcut() {
+    final userInfo = controller.userInfo.value;
+    final mid = userInfo.mid;
+    if (mid == null) return;
+    if (Platform.isIOS) {
+      PageUtils.launchURL(
+        'https://www.bilibili.com/blackboard/disablelink/go-to-up-space.html?mid=$mid',
+      );
+    } else if (Platform.isAndroid) {
+      unawaited(_createShortcutAndroid());
+    }
+  }
+
+  Future<void> _createShortcutAndroid() async {
+    final userInfo = controller.userInfo.value;
+    final mid = userInfo.mid;
+    final face = userInfo.face;
+    final name = userInfo.uname;
+    if (mid == null || face == null || name == null) return;
+    SmartDialog.showLoading();
+    try {
+      final file = await CacheManager.manager.getSingleFile(
+        '$face@200w_200h.webp'.http2https,
+      );
+      PiliAndroidHelper.createShortcut(
+        mid.toString(),
+        'bilibili://space/$mid',
+        name,
+        file.path,
+      );
+    } catch (e) {
+      SmartDialog.showToast(e.toString());
+    } finally {
+      SmartDialog.dismiss();
+    }
+  }
+
+  Future<void> _vipExpAdd() async {
+    final res = await UserHttp.vipExpAdd();
+    if (res.isSuccess) {
+      SmartDialog.showToast('领取成功');
+    } else {
+      res.toast();
+    }
+  }
+
+  Future<void> _showBrowserDialog() async {
+    final controller = TextEditingController();
+    final input = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('浏览器'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            hintText: 'example.com 或 https://example.com',
+          ),
+          onSubmitted: (value) => Get.back(result: value.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text('取消')),
+          TextButton(
+            onPressed: () => Get.back(result: controller.text.trim()),
+            child: const Text('打开'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (input == null || input.isEmpty) return;
+    final url = RegExp(
+      r'^https?://',
+      caseSensitive: false,
+    ).hasMatch(input)
+        ? input
+        : 'https://$input';
+    _openInternalWeb(url);
   }
 
   void _autoRefresh() => Future.delayed(
