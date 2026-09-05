@@ -1,9 +1,13 @@
 package com.example.pilibro
 
+import android.app.UiModeManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
+import android.telephony.TelephonyManager
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Surface
@@ -33,6 +37,48 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/device")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "firstRunHints" -> result.success(firstRunDeviceHints())
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun firstRunDeviceHints(): Map<String, Boolean> {
+        val pm = packageManager
+        val hasTelephony = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+        val telephonyManager =
+            getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+        val voiceCapable = hasTelephony && telephonyManager?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                it.isDeviceVoiceCapable
+            } else {
+                it.isVoiceCapable
+            }
+        } == true
+        val telephonyCalling =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CALLING)
+        val televisionUiMode =
+            (getSystemService(Context.UI_MODE_SERVICE) as UiModeManager)
+                .currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+
+        return mapOf(
+            "leanback" to pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK),
+            "televisionUiMode" to televisionUiMode,
+            "touchscreen" to pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN),
+            "hingeAngle" to (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                    pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE)
+                ),
+            "telephony" to hasTelephony,
+            "telephonyCalling" to telephonyCalling,
+            "voiceCapable" to voiceCapable,
+        )
     }
 
     @Suppress("DEPRECATION")
