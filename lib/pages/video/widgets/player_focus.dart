@@ -34,24 +34,30 @@ class PlayerFocus extends StatelessWidget {
   final ValueGetter<bool>? onSkipSegment;
   final VoidCallback? onRefresh;
 
-  static bool _shouldHandle(LogicalKeyboardKey logicalKey) {
-    return logicalKey == LogicalKeyboardKey.tab ||
-        logicalKey == LogicalKeyboardKey.arrowLeft ||
-        logicalKey == LogicalKeyboardKey.arrowRight ||
-        logicalKey == LogicalKeyboardKey.arrowUp ||
-        logicalKey == LogicalKeyboardKey.arrowDown;
-  }
+  static bool _isArrow(LogicalKeyboardKey logicalKey) =>
+      logicalKey == LogicalKeyboardKey.arrowLeft ||
+      logicalKey == LogicalKeyboardKey.arrowRight ||
+      logicalKey == LogicalKeyboardKey.arrowUp ||
+      logicalKey == LogicalKeyboardKey.arrowDown;
+
+  static bool _shouldHandle(LogicalKeyboardKey logicalKey) =>
+      logicalKey == LogicalKeyboardKey.tab || _isArrow(logicalKey);
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
+      autofocus: !Platform.isAndroid,
       onKeyEvent: (node, event) {
         final handled = _handleKey(context, event);
-        if (handled || _shouldHandle(event.logicalKey)) {
-          return KeyEventResult.handled;
+        if (handled) return KeyEventResult.handled;
+        if (Platform.isAndroid &&
+            !isFullScreen &&
+            _isArrow(event.logicalKey)) {
+          return KeyEventResult.ignored;
         }
-        return KeyEventResult.ignored;
+        return _shouldHandle(event.logicalKey)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       },
       child: child,
     );
@@ -111,6 +117,42 @@ class PlayerFocus extends StatelessWidget {
       if (introController?.isTripling ?? false) {
         introController!.onCancelTriple();
       }
+    }
+
+    if (Platform.isAndroid && !isFullScreen && _isArrow(key)) {
+      return false;
+    }
+
+    if (Platform.isAndroid &&
+        isFullScreen &&
+        !plPlayerController.isLive &&
+        (key == LogicalKeyboardKey.arrowLeft ||
+            key == LogicalKeyboardKey.arrowRight)) {
+      final forward = key == LogicalKeyboardKey.arrowRight;
+      void seek() {
+        if (!hasPlayer) return;
+        if (forward) {
+          plPlayerController.onForward(
+            plPlayerController.fastForBackwardDuration,
+          );
+        } else {
+          plPlayerController.onBackward(
+            plPlayerController.fastForBackwardDuration,
+          );
+        }
+      }
+
+      if (event is KeyDownEvent) {
+        plPlayerController.cancelLongPressTimer();
+        seek();
+        plPlayerController.longPressTimer = Timer.periodic(
+          const Duration(milliseconds: 250),
+          (_) => seek(),
+        );
+      } else if (event is KeyUpEvent) {
+        plPlayerController.cancelLongPressTimer();
+      }
+      return true;
     }
 
     final isArrowUp = key == LogicalKeyboardKey.arrowUp;

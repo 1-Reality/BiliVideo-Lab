@@ -1397,8 +1397,15 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               );
             });
           } else {
+            final label = Text(
+              text,
+              softWrap: false,
+              overflow: .visible,
+            );
             return Tab(
-              child: Text(text, softWrap: false, overflow: .visible),
+              child: Platform.isAndroid && text == '相关视频'
+                  ? Focus(autofocus: true, child: label)
+                  : label,
             );
           }
         }).toList(),
@@ -1662,7 +1669,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ],
     );
     if (videoDetailController.plPlayerController.keyboardControl) {
-      return child;
+      return Platform.isAndroid && isFullScreen
+          ? Focus(autofocus: true, child: child)
+          : child;
     }
     return Focus(
       autofocus: true,
