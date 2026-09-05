@@ -10,7 +10,7 @@ import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/pages/setting/first_run_device_setup.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
@@ -28,6 +28,7 @@ import 'package:PiliBro/utils/extension/core_palettes_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/json_file_handler.dart';
 import 'package:PiliBro/utils/max_screen_size.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/request_utils.dart';
@@ -104,62 +105,6 @@ void _showStartupBrandProfileAfterFirstFrame() {
   });
 }
 
-Future<void> _applyRemoteControlPreset() async {
-  await GStorage.setting.putAll({
-    SettingBoxKey.horizontalScreen: true,
-    SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-    SettingBoxKey.keyboardControl: false,
-  });
-  Get.back();
-}
-
-void _showRemoteControlPresetPrompt() {
-  showDialog<void>(
-    context: Get.context!,
-    barrierDismissible: false,
-    builder: (context) => Focus(
-      canRequestFocus: false,
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent) {
-          unawaited(_applyRemoteControlPreset());
-          return .handled;
-        }
-        return .ignored;
-      },
-      child: AlertDialog(
-        insetPadding: const .all(24),
-        title: const Text(
-          '检测到横屏 Android 设备',
-          style: TextStyle(fontSize: 26),
-        ),
-        content: const SizedBox(
-          width: 520,
-          child: Text(
-            '是否应用电视 / 遥控器快速配置？\n\n'
-            '将启用横屏适配、全屏保持当前方向，并把方向键交还给界面焦点导航。'
-            '任意键盘或遥控器按键均视为确认。',
-            style: TextStyle(fontSize: 18, height: 1.45),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Get.back();
-              if (!Pref.horizontalScreen) await portraitUpMode();
-            },
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            autofocus: true,
-            onPressed: _applyRemoteControlPreset,
-            child: const Text('启用'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(Future<void>(() async {
@@ -189,6 +134,13 @@ void main() async {
     exit(0);
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
+  if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
+
+  var showFirstRunDeviceSetup = false;
+  if (Platform.isAndroid && due != null && due <= 0) {
+    showFirstRunDeviceSetup = await FirstRunDeviceSetup.prepare();
+  }
+
   await Future.wait([
     _initDownPath(),
     _initTmpPath(),
@@ -201,28 +153,17 @@ void main() async {
 
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
-    if (Platform.isAndroid && due == 0) {
-      final size =
-          WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
-      if (size.width > size.height) {
-        await Future.wait([
-          ?fullMode(),
-          setupServiceLocator(),
-        ]);
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _showRemoteControlPresetPrompt(),
-        );
-      } else {
-        await Future.wait([
-          if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-          setupServiceLocator(),
-        ]);
-      }
-    } else {
-      await Future.wait([
-        if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-        setupServiceLocator(),
-      ]);
+    await Future.wait([
+      showFirstRunDeviceSetup
+          ? fullMode() ?? Future<void>.value()
+          : OrientationPolicy.applyStartup(),
+      setupServiceLocator(),
+    ]);
+    if (showFirstRunDeviceSetup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = Get.context;
+        if (context != null) unawaited(FirstRunDeviceSetup.show(context));
+      });
     }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {

@@ -34,24 +34,67 @@ class PlayerFocus extends StatelessWidget {
   final ValueGetter<bool>? onSkipSegment;
   final VoidCallback? onRefresh;
 
-  static bool _shouldHandle(LogicalKeyboardKey logicalKey) {
-    return logicalKey == LogicalKeyboardKey.tab ||
-        logicalKey == LogicalKeyboardKey.arrowLeft ||
-        logicalKey == LogicalKeyboardKey.arrowRight ||
-        logicalKey == LogicalKeyboardKey.arrowUp ||
-        logicalKey == LogicalKeyboardKey.arrowDown;
+  static bool _isArrow(LogicalKeyboardKey logicalKey) =>
+      logicalKey == LogicalKeyboardKey.arrowLeft ||
+      logicalKey == LogicalKeyboardKey.arrowRight ||
+      logicalKey == LogicalKeyboardKey.arrowUp ||
+      logicalKey == LogicalKeyboardKey.arrowDown;
+
+  static bool _shouldHandle(LogicalKeyboardKey logicalKey) =>
+      logicalKey == LogicalKeyboardKey.tab || _isArrow(logicalKey);
+
+  static bool handleAndroidFullscreenSeek({
+    required PlPlayerController controller,
+    required KeyEvent event,
+    required bool isFullScreen,
+  }) {
+    final key = event.logicalKey;
+    if (!Platform.isAndroid ||
+        !isFullScreen ||
+        controller.isLive ||
+        (key != LogicalKeyboardKey.arrowLeft &&
+            key != LogicalKeyboardKey.arrowRight)) {
+      return false;
+    }
+
+    final forward = key == LogicalKeyboardKey.arrowRight;
+    void seek() {
+      if (controller.videoPlayerController == null) return;
+      if (forward) {
+        controller.onForward(controller.fastForBackwardDuration);
+      } else {
+        controller.onBackward(controller.fastForBackwardDuration);
+      }
+    }
+
+    if (event is KeyDownEvent) {
+      controller.cancelLongPressTimer();
+      seek();
+      controller.longPressTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => seek(),
+      );
+    } else if (event is KeyUpEvent) {
+      controller.cancelLongPressTimer();
+    }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
+      autofocus: !Platform.isAndroid,
       onKeyEvent: (node, event) {
         final handled = _handleKey(context, event);
-        if (handled || _shouldHandle(event.logicalKey)) {
-          return KeyEventResult.handled;
+        if (handled) return KeyEventResult.handled;
+        if (Platform.isAndroid &&
+            !isFullScreen &&
+            _isArrow(event.logicalKey)) {
+          return KeyEventResult.ignored;
         }
-        return KeyEventResult.ignored;
+        return _shouldHandle(event.logicalKey)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       },
       child: child,
     );
@@ -111,6 +154,18 @@ class PlayerFocus extends StatelessWidget {
       if (introController?.isTripling ?? false) {
         introController!.onCancelTriple();
       }
+    }
+
+    if (Platform.isAndroid && !isFullScreen && _isArrow(key)) {
+      return false;
+    }
+
+    if (handleAndroidFullscreenSeek(
+      controller: plPlayerController,
+      event: event,
+      isFullScreen: isFullScreen,
+    )) {
+      return true;
     }
 
     final isArrowUp = key == LogicalKeyboardKey.arrowUp;

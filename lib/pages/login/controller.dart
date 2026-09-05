@@ -22,6 +22,9 @@ import 'package:get/get.dart';
 
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
+  LoginPageController({this.initialIndex = 0});
+
+  final int initialIndex;
   final TextEditingController telTextController = TextEditingController();
   final TextEditingController usernameTextController = TextEditingController();
   final TextEditingController passwordTextController = TextEditingController();
@@ -51,8 +54,12 @@ class LoginPageController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    tabController = TabController(length: 4, vsync: this)
-      ..addListener(_handleTabChange);
+    tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: initialIndex,
+    )..addListener(_handleTabChange);
+    if (initialIndex == 2) unawaited(refreshQRCode());
   }
 
   @override

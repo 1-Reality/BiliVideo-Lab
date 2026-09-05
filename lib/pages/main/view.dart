@@ -26,6 +26,7 @@ import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show ExcludeFocus;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -492,6 +493,16 @@ class _MainAppState extends PopScopeState<MainApp>
     );
   }
 
+  List<Widget> _mainPages() => [
+    for (var index = 0; index < _mainController.navigationBars.length; index++)
+      Obx(
+        () => ExcludeFocus(
+          excluding: _mainController.selectedIndex.value != index,
+          child: _mainController.navigationBars[index].page,
+        ),
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     Widget child;
@@ -500,13 +511,13 @@ class _MainAppState extends PopScopeState<MainApp>
         controller: _mainController.controller,
         physics: const NeverScrollableScrollPhysics(),
         scrollDirection: _mainController.useBottomNav ? .horizontal : .vertical,
-        children: _mainController.navigationBars.map((i) => i.page).toList(),
+        children: _mainPages(),
       );
     } else {
       child = PageView(
         controller: _mainController.controller,
         physics: const NeverScrollableScrollPhysics(),
-        children: _mainController.navigationBars.map((i) => i.page).toList(),
+        children: _mainPages(),
       );
     }
 
