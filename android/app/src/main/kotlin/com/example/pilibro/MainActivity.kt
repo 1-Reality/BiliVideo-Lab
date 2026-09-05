@@ -4,13 +4,19 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.database.ContentObserver
+import android.hardware.SensorManager
+import android.hardware.display.DisplayManager
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.telephony.TelephonyManager
 import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -23,6 +29,11 @@ class MainActivity : AudioServiceActivity() {
     private var orientationProbeSink: EventChannel.EventSink? = null
     private var proposedRotationListener: IntConsumer? = null
     private var lastProposedRotation: Int? = null
+    private var physicalOrientationListener: OrientationEventListener? = null
+    private var lastPhysicalOrientationDegrees: Int? = null
+    private var lastPhysicalQuadrant: Int? = null
+    private var autoRotateObserver: ContentObserver? = null
+    private var displayListener: DisplayManager.DisplayListener? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -70,6 +81,7 @@ class MainActivity : AudioServiceActivity() {
         stopOrientationProbe()
         orientationProbeSink = events
         emitOrientationProbe("listenStarted")
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val listener = IntConsumer { rotation ->
                 lastProposedRotation = rotation
@@ -84,6 +96,58 @@ class MainActivity : AudioServiceActivity() {
         } else {
             emitOrientationProbe("proposedRotationUnsupported")
         }
+
+        physicalOrientationListener = object : OrientationEventListener(
+            this,
+            SensorManager.SENSOR_DELAY_NORMAL
+        ) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) {
+                    if (lastPhysicalOrientationDegrees != null) {
+                        lastPhysicalOrientationDegrees = null
+                        lastPhysicalQuadrant = null
+                        emitOrientationProbe("physicalOrientationUnknown")
+                    }
+                    return
+                }
+                lastPhysicalOrientationDegrees = orientation
+                val quadrant = ((orientation + 45) / 90) % 4
+                if (quadrant != lastPhysicalQuadrant) {
+                    lastPhysicalQuadrant = quadrant
+                    emitOrientationProbe("physicalOrientationQuadrant")
+                }
+            }
+        }.also { listener ->
+            if (listener.canDetectOrientation()) {
+                listener.enable()
+                emitOrientationProbe("physicalOrientationListenerEnabled")
+            } else {
+                emitOrientationProbe("physicalOrientationUnavailable")
+            }
+        }
+
+        autoRotateObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                emitOrientationProbe("systemAutoRotateChanged")
+            }
+        }.also {
+            contentResolver.registerContentObserver(
+                Settings.System.getUriFor(Settings.System.ACCELEROMETER_ROTATION),
+                false,
+                it
+            )
+        }
+
+        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayListener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) = Unit
+            override fun onDisplayRemoved(displayId: Int) = Unit
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId == display?.displayId) {
+                    emitOrientationProbe("displayChanged")
+                }
+            }
+        }.also { displayManager.registerDisplayListener(it, Handler(Looper.getMainLooper())) }
     }
 
     private fun stopOrientationProbe() {
@@ -96,6 +160,28 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         proposedRotationListener = null
+
+        physicalOrientationListener?.disable()
+        physicalOrientationListener = null
+        lastPhysicalOrientationDegrees = null
+        lastPhysicalQuadrant = null
+
+        autoRotateObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+            } catch (_: Throwable) {
+            }
+        }
+        autoRotateObserver = null
+
+        displayListener?.let {
+            try {
+                (getSystemService(Context.DISPLAY_SERVICE) as DisplayManager)
+                    .unregisterDisplayListener(it)
+            } catch (_: Throwable) {
+            }
+        }
+        displayListener = null
         orientationProbeSink = null
     }
 
@@ -109,6 +195,12 @@ class MainActivity : AudioServiceActivity() {
             display?.rotation
         } else {
             windowManager.defaultDisplay.rotation
+        }
+        val bounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics.bounds
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.run { android.graphics.Rect(0, 0, width, height) }
         }
         return mapOf(
             "event" to event,
@@ -124,6 +216,15 @@ class MainActivity : AudioServiceActivity() {
                     0
                 ) == 1
             ),
+            "systemUserRotation" to Settings.System.getInt(
+                contentResolver,
+                Settings.System.USER_ROTATION,
+                -1
+            ),
+            "physicalOrientationDegrees" to lastPhysicalOrientationDegrees,
+            "physicalQuadrant" to lastPhysicalQuadrant,
+            "windowWidth" to bounds.width(),
+            "windowHeight" to bounds.height(),
         )
     }
 
@@ -199,6 +300,13 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (orientationProbeSink != null) {
+            emitOrientationProbe(if (hasFocus) "windowFocusGained" else "windowFocusLost")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -208,6 +316,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        stopOrientationProbe()
         stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }

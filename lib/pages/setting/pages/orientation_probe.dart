@@ -32,6 +32,9 @@ class _OrientationProbePageState extends State<OrientationProbePage>
   void _log(String source, String value) {
     final line = '${_ms()} [$source] $value';
     _lines.add(line);
+    if (_lines.length > 1200) {
+      _lines.removeRange(0, _lines.length - 1200);
+    }
     if (mounted) setState(() {});
   }
 
@@ -48,6 +51,15 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     1 => 'PORTRAIT',
     2 => 'LANDSCAPE',
     0 => 'UNDEFINED',
+    null => '-',
+    _ => value.toString(),
+  };
+
+  String _physicalQuadrant(dynamic value) => switch (value) {
+    0 => '0°/自然正向',
+    1 => '90°',
+    2 => '180°',
+    3 => '270°',
     null => '-',
     _ => value.toString(),
   };
@@ -71,7 +83,11 @@ class _OrientationProbePageState extends State<OrientationProbePage>
       'display=${_rotation(raw['displayRotation'])} '
       'config=${_configuration(raw['configurationOrientation'])} '
       'requested=${raw['requestedOrientation']} '
-      'autoRotate=${raw['systemAutoRotate']}',
+      'autoRotate=${raw['systemAutoRotate']} '
+      'userRotation=${_rotation(raw['systemUserRotation'])} '
+      'physical=${raw['physicalOrientationDegrees'] ?? '-'}°/'
+      '${_physicalQuadrant(raw['physicalQuadrant'])} '
+      'window=${raw['windowWidth']}x${raw['windowHeight']}',
     );
   }
 
@@ -88,7 +104,7 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     }
   }
 
-  Future<void> _start({required bool forceLandscape}) async {
+  Future<void> _start() async {
     if (_running || !Platform.isAndroid) return;
     _lines.clear();
     _clock
@@ -98,11 +114,7 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     WidgetsBinding.instance.addObserver(this);
     if (mounted) setState(() {});
 
-    _log(
-      'TEST',
-      'start mode=${forceLandscape ? 'APP_FORCE_LANDSCAPE' : 'SYSTEM_NATURAL'}; '
-      'Flutter window=${_windowAxis()}',
-    );
+    _log('TEST', 'probe started; Flutter window=${_windowAxis()}');
 
     _nativeSubscription = _nativeEvents.receiveBroadcastStream().listen(
       _logNative,
@@ -122,20 +134,21 @@ class _OrientationProbePageState extends State<OrientationProbePage>
           onError: (Object error) => _log('PLUGIN/ERROR', error.toString()),
         );
 
-    await _snapshot(forceLandscape ? 'beforeAppForceLandscape' : 'beforeSystemNatural');
-    if (forceLandscape) {
-      await OrientationPlatform.setAndroidRequestedOrientation(
-        AndroidRequestedOrientation.landscape,
-      );
-      _log('COMMAND', 'requestedOrientation=LANDSCAPE(0)');
-      await _snapshot('afterAppForceLandscape');
-    } else {
-      await OrientationPlatform.setAndroidRequestedOrientation(
-        AndroidRequestedOrientation.unspecified,
-      );
-      _log('COMMAND', 'requestedOrientation=UNSPECIFIED(-1)');
-      await _snapshot('afterSystemNatural');
-    }
+    await _snapshot('initialSnapshot');
+  }
+
+  Future<void> _setRequested(String name, int value) async {
+    if (!_running) return;
+    _log('COMMAND', '$name requestedOrientation=$value');
+    await OrientationPlatform.setAndroidRequestedOrientation(value);
+    await _snapshot('after_$name');
+  }
+
+  Future<void> _restore() async {
+    if (!_running) return;
+    _log('COMMAND', 'restoreApp');
+    await OrientationPolicy.restoreApp();
+    await _snapshot('after_restoreApp');
   }
 
   Future<void> _stop({bool restore = true}) async {
@@ -154,6 +167,13 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     _clock.stop();
     if (mounted) setState(() {});
   }
+
+  Widget _modeButton(String label, int value) => OutlinedButton(
+    onPressed: _running ? () => _setRequested(label, value) : null,
+    child: Text(label),
+  );
+
+  void _mark(String value) => _log('MARK', value);
 
   @override
   void didChangeMetrics() {
@@ -174,12 +194,12 @@ class _OrientationProbePageState extends State<OrientationProbePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('方向事件探针')),
+      appBar: AppBar(title: const Text('方向事件总探针')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            '纯诊断页，提供两种完全不同的实验。系统自然模式不会把页面声明成固定横屏，适合复现“先自然转横，再手动打开系统旋转锁”的 ChatGPT 场景；APP 强制横屏模式则测试 Activity 自己锁横时 Android 还会报告什么。两种模式都分别记录系统建议旋转、实际 Display、Configuration、Flutter 窗口变化和现有设备方向插件回调。',
+            '一个 APK 覆盖全部关键实验。开始探针本身不改变页面方向；之后可随时切换 Activity 的方向声明，并同时观察系统建议旋转、原生物理方向、现有插件方向、Display、Configuration、Flutter 窗口、系统旋转锁与 USER_ROTATION。所有监听都是事件驱动，仅在本页测试期间开启。',
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -187,12 +207,8 @@ class _OrientationProbePageState extends State<OrientationProbePage>
             runSpacing: 8,
             children: [
               FilledButton(
-                onPressed: _running ? null : () => _start(forceLandscape: false),
-                child: const Text('开始：系统自然模式'),
-              ),
-              FilledButton(
-                onPressed: _running ? null : () => _start(forceLandscape: true),
-                child: const Text('开始：APP 强制横屏'),
+                onPressed: _running ? null : _start,
+                child: const Text('开始探针（不改方向）'),
               ),
               FilledButton.tonal(
                 onPressed: _running ? () => _stop() : null,
@@ -200,7 +216,11 @@ class _OrientationProbePageState extends State<OrientationProbePage>
               ),
               OutlinedButton(
                 onPressed: _running ? () => _snapshot('manualSnapshot') : null,
-                child: const Text('记录一次快照'),
+                child: const Text('记录快照'),
+              ),
+              OutlinedButton(
+                onPressed: _running ? _restore : null,
+                child: const Text('恢复 APP 正常策略'),
               ),
               OutlinedButton(
                 onPressed: _lines.isEmpty
@@ -218,12 +238,61 @@ class _OrientationProbePageState extends State<OrientationProbePage>
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            _running
-                ? '测试中。系统自然模式建议：先让页面自然转成横屏，再手动打开系统旋转锁，然后做“竖→横→竖”；APP 强制横屏模式则无需开系统锁。'
-                : '未运行。',
+          const SizedBox(height: 18),
+          const Text('关键方向声明'),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _modeButton('UNSPECIFIED 系统自然', -1),
+              _modeButton('LANDSCAPE 强制横屏', 0),
+              _modeButton('PORTRAIT 强制竖屏', 1),
+              _modeButton('USER', 2),
+              _modeButton('SENSOR', 4),
+              _modeButton('NO_SENSOR', 5),
+              _modeButton('SENSOR_LANDSCAPE', 6),
+              _modeButton('SENSOR_PORTRAIT', 7),
+              _modeButton('REVERSE_LANDSCAPE', 8),
+              _modeButton('REVERSE_PORTRAIT', 9),
+              _modeButton('FULL_SENSOR', 10),
+              _modeButton('USER_LANDSCAPE', 11),
+              _modeButton('USER_PORTRAIT', 12),
+              _modeButton('FULL_USER', 13),
+              _modeButton('LOCKED 锁当前', 14),
+            ],
           ),
+          const SizedBox(height: 18),
+          const Text('人工时间标记'),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: _running ? () => _mark('开始静止') : null,
+                child: const Text('标记：静止'),
+              ),
+              OutlinedButton(
+                onPressed: _running ? () => _mark('准备物理转横') : null,
+                child: const Text('标记：转横'),
+              ),
+              OutlinedButton(
+                onPressed: _running ? () => _mark('准备物理转竖') : null,
+                child: const Text('标记：转竖'),
+              ),
+              OutlinedButton(
+                onPressed: _running ? () => _mark('刚切换系统旋转锁') : null,
+                child: const Text('标记：旋转锁'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            '建议第一轮：开始探针 → UNSPECIFIED → 自然转横 → 打开系统旋转锁 → 静止 → 物理转竖 → 转横 → 再转竖。第二轮无需退出本页，直接点 LANDSCAPE 强制横屏，再重复同样动作。之后 USER / FULL_USER / FULL_SENSOR / LOCKED 等都可在同一轮日志里继续测试。',
+          ),
+          const SizedBox(height: 12),
+          Text(_running ? '测试中，当前 Flutter 窗口：${_windowAxis()}' : '未运行。'),
           const SizedBox(height: 12),
           SelectableText(
             _lines.isEmpty ? '暂无日志' : _lines.join('\n'),
