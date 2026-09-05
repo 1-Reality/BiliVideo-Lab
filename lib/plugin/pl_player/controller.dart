@@ -28,6 +28,7 @@ import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/duration.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/heart_beat_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
@@ -46,6 +47,7 @@ import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -57,6 +59,7 @@ import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
+import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -72,7 +75,7 @@ import 'package:window_manager/window_manager.dart';
 
 typedef PlayCallback = Future<void>? Function();
 
-class PlPlayerController with BlockConfigMixin {
+class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   Player? _videoPlayerController;
   VideoController? _videoController;
 
@@ -516,53 +519,138 @@ class PlPlayerController with BlockConfigMixin {
   bool visible = true;
 
   DeviceOrientation? _orientation;
-  late final checkIsAutoRotate = Platform.isAndroid && mode != .gravity;
+  bool? _systemLandscape;
+  bool? _gravityLandscape;
+  bool _observingSystemOrientation = false;
+  int _fullScreenAllowedMask = OrientationMask.all;
   StreamSubscription<OrientationParams>? _orientationListener;
+  late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
+
+  bool get _currentSystemLandscape {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return false;
+    final size = views.first.physicalSize;
+    return size.width > size.height;
+  }
+
+  bool get _needsSystemOrientation {
+    final plan = _orientationPlan;
+    if (!plan.triggerUsesSystem) return false;
+    return isFullScreen.value ? plan.triggerExit : plan.triggerEnter;
+  }
+
+  bool get _needsGravityOrientation {
+    final plan = _orientationPlan;
+    if (!plan.gravityAllowed) return false;
+    if (isFullScreen.value) {
+      if (plan.triggerExit && plan.triggerUsesGravity) return true;
+      return plan.fullScreenRotationSource ==
+              FullScreenRotationSource.appGravity &&
+          plan.fullScreenAllowed != FullScreenAllowedOrientation.entryExact &&
+          plan.filterMask(_fullScreenAllowedMask) != 0;
+    }
+    return plan.triggerEnter && plan.triggerUsesGravity;
+  }
+
+  void _updateOrientationInputs() {
+    if (!PlatformUtils.isMobile) return;
+
+    final needsSystem = _needsSystemOrientation;
+    if (needsSystem && !_observingSystemOrientation) {
+      _systemLandscape = _currentSystemLandscape;
+      WidgetsBinding.instance.addObserver(this);
+      _observingSystemOrientation = true;
+    } else if (!needsSystem && _observingSystemOrientation) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingSystemOrientation = false;
+    }
+
+    final needsGravity = _needsGravityOrientation;
+    if (needsGravity && _orientationListener == null) {
+      _orientationListener = NativeDeviceOrientationPlatform.instance
+          .onOrientationChanged(
+            checkIsAutoRotate: false,
+            angleDegrees: Platform.isAndroid ? _orientationPlan.angleDegrees : null,
+          )
+          .listen(_onOrientationChanged);
+    } else if (!needsGravity) {
+      _stopOrientationListener();
+    }
+  }
 
   void _stopOrientationListener() {
     _orientationListener?.cancel();
     _orientationListener = null;
   }
 
+  @override
+  void didChangeMetrics() {
+    if (!_observingSystemOrientation) return;
+    final next = _currentSystemLandscape;
+    if (_systemLandscape == next) return;
+    _systemLandscape = next;
+    _evaluateOrientationTrigger();
+  }
+
   void _onOrientationChanged(OrientationParams param) {
     _orientation = param.orientation;
     if (Platform.isIOS && !visible) return;
-    final orientation = param.orientation;
-    final isFullScreen = this.isFullScreen.value;
-    if (checkIsAutoRotate &&
-        param.isAutoRotate != true &&
-        (!isFullScreen ||
-            _isVertical ||
-            orientation == .portraitUp ||
-            orientation == .portraitDown)) {
+    _gravityLandscape =
+        param.orientation == DeviceOrientation.landscapeLeft ||
+        param.orientation == DeviceOrientation.landscapeRight;
+    if (isFullScreen.value &&
+        _orientationPlan.fullScreenRotationSource ==
+            FullScreenRotationSource.appGravity &&
+        !controlsLock.value) {
+      _applyGravityOrientation(param.orientation);
+    }
+    _evaluateOrientationTrigger();
+  }
+
+  void _applyGravityOrientation(DeviceOrientation orientation) {
+    final bit = OrientationPolicy.orientationBit(orientation);
+    if (_fullScreenAllowedMask & bit == 0 ||
+        _orientationPlan.filterMask(bit) == 0) {
       return;
     }
     switch (orientation) {
-      case .portraitUp:
-        if (!_isVertical && controlsLock.value) return;
-        if (!horizontalScreen && !_isVertical && isFullScreen) {
-          if (!isManualFS) {
-            triggerFullScreen(status: false, orientation: orientation);
-          }
-        } else {
-          portraitUpMode();
-        }
-      case .portraitDown:
-        if (!horizontalScreen) return;
-        if (!_isVertical && controlsLock.value) return;
+      case DeviceOrientation.portraitUp:
+        portraitUpMode();
+      case DeviceOrientation.portraitDown:
         portraitDownMode();
-      case .landscapeLeft:
-        if (!horizontalScreen && !isFullScreen) {
-          triggerFullScreen(orientation: orientation, isManualFS: false);
-        } else {
-          landscapeLeftMode();
-        }
-      case .landscapeRight:
-        if (!horizontalScreen && !isFullScreen) {
-          triggerFullScreen(orientation: orientation, isManualFS: false);
-        } else {
-          landscapeRightMode();
-        }
+      case DeviceOrientation.landscapeLeft:
+        landscapeLeftMode();
+      case DeviceOrientation.landscapeRight:
+        landscapeRightMode();
+    }
+  }
+
+  bool _triggerSourceMatches(bool landscape) {
+    final plan = _orientationPlan;
+    return switch (plan.triggerSource) {
+      OrientationTriggerSource.system => _systemLandscape == landscape,
+      OrientationTriggerSource.appGravity => _gravityLandscape == landscape,
+      OrientationTriggerSource.any =>
+        _systemLandscape == landscape || _gravityLandscape == landscape,
+      OrientationTriggerSource.both =>
+        _systemLandscape == landscape && _gravityLandscape == landscape,
+    };
+  }
+
+  void _evaluateOrientationTrigger() {
+    if (_fsProcessing) return;
+    final plan = _orientationPlan;
+    if (!isFullScreen.value && plan.triggerEnter && _triggerSourceMatches(true)) {
+      triggerFullScreen(
+        orientation: plan.triggerUsesGravity && _gravityLandscape == true
+            ? _orientation
+            : null,
+        isManualFS: false,
+      );
+    } else if (isFullScreen.value &&
+        plan.triggerExit &&
+        _triggerSourceMatches(false)) {
+      triggerFullScreen(status: false, isManualFS: false);
     }
   }
 
@@ -571,14 +659,7 @@ class PlPlayerController with BlockConfigMixin {
     _networkPolicySubscription = ConnectivityUtils.changes.listen((change) {
       onNetworkPolicyChanged?.call(change);
     });
-    if (PlatformUtils.isMobile) {
-      _orientationListener = NativeDeviceOrientationPlatform.instance
-          .onOrientationChanged(
-            checkIsAutoRotate: checkIsAutoRotate,
-            angleDegrees: Platform.isAndroid ? Pref.angleDegrees : null,
-          )
-          .listen(_onOrientationChanged);
-    }
+    _updateOrientationInputs();
 
     if (!Accounts.heartbeat.isLogin || Pref.historyPause) {
       enableHeart = false;
@@ -1675,6 +1756,13 @@ class PlPlayerController with BlockConfigMixin {
       showControls.refresh();
     }
     controls = !val;
+    if (PlatformUtils.isMobile && isFullScreen.value) {
+      if (val) {
+        lockedMode();
+      } else {
+        _applyFullScreenRuntimePolicy();
+      }
+    }
   }
 
   void _setFullScreen(bool val) {
@@ -1684,43 +1772,129 @@ class PlPlayerController with BlockConfigMixin {
       videoPlayerController?.state.position ?? Duration.zero,
     );
     updateSubtitleStyle();
+    _updateOrientationInputs();
   }
 
   double screenRatio = 0.0;
   bool isManualFS = true;
-  late final FullScreenMode mode = Pref.fullScreenMode;
-  late final horizontalScreen = Pref.horizontalScreen;
+  late final FullScreenMode mode = _orientationPlan.enterFullScreen;
   late final removeSafeArea = Pref.removeSafeArea;
+
+  int _entryAxisMask(DeviceOrientation? orientation) {
+    if (orientation != null) {
+      return orientation == DeviceOrientation.portraitUp ||
+              orientation == DeviceOrientation.portraitDown
+          ? OrientationMask.portrait
+          : OrientationMask.landscape;
+    }
+    return switch (mode) {
+      FullScreenMode.vertical => OrientationMask.portrait,
+      FullScreenMode.horizontal => OrientationMask.landscape,
+      FullScreenMode.auto =>
+        _isVertical ? OrientationMask.portrait : OrientationMask.landscape,
+      FullScreenMode.ratio =>
+        _isVertical || screenRatio < kScreenRatio
+            ? OrientationMask.portrait
+            : OrientationMask.landscape,
+      FullScreenMode.none || FullScreenMode.gravity =>
+        _currentSystemLandscape
+            ? OrientationMask.landscape
+            : OrientationMask.portrait,
+    };
+  }
+
+  void _compileFullScreenAllowedMask(DeviceOrientation? orientation) {
+    _fullScreenAllowedMask = switch (_orientationPlan.fullScreenAllowed) {
+      FullScreenAllowedOrientation.all => OrientationMask.all,
+      FullScreenAllowedOrientation.landscape => OrientationMask.landscape,
+      FullScreenAllowedOrientation.portrait => OrientationMask.portrait,
+      FullScreenAllowedOrientation.entryAxis => _entryAxisMask(orientation),
+      FullScreenAllowedOrientation.entryExact => 0,
+    };
+  }
+
+  Future<void>? _applyAxisOrientation(int mask) {
+    final filtered = _orientationPlan.filterMask(mask);
+    if (filtered == 0) return null;
+    if (mask == OrientationMask.portrait) {
+      return filtered == OrientationMask.portraitDown
+          ? portraitDownMode()
+          : portraitUpMode();
+    }
+    if (_orientation == DeviceOrientation.landscapeRight &&
+        filtered & OrientationMask.landscapeRight != 0) {
+      return landscapeRightMode();
+    }
+    return filtered == OrientationMask.landscapeRight
+        ? landscapeRightMode()
+        : landscapeLeftMode();
+  }
+
+  Future<void>? _applyConcreteOrientation(DeviceOrientation orientation) {
+    if (_orientationPlan.filterMask(
+          OrientationPolicy.orientationBit(orientation),
+        ) ==
+        0) {
+      return null;
+    }
+    return switch (orientation) {
+      DeviceOrientation.portraitUp => portraitUpMode(),
+      DeviceOrientation.portraitDown => portraitDownMode(),
+      DeviceOrientation.landscapeLeft => landscapeLeftMode(),
+      DeviceOrientation.landscapeRight => landscapeRightMode(),
+    };
+  }
 
   Future<void>? changeOrientation({
     required bool isVertical,
     DeviceOrientation? orientation,
   }) {
-    if (orientation == null && (mode == .none || mode == .gravity)) {
-      return null;
+    if (orientation != null) return _applyConcreteOrientation(orientation);
+    return switch (mode) {
+      FullScreenMode.none || FullScreenMode.gravity => null,
+      FullScreenMode.vertical => _applyAxisOrientation(OrientationMask.portrait),
+      FullScreenMode.horizontal =>
+        _applyAxisOrientation(OrientationMask.landscape),
+      FullScreenMode.auto => _applyAxisOrientation(
+          isVertical ? OrientationMask.portrait : OrientationMask.landscape,
+        ),
+      FullScreenMode.ratio => _applyAxisOrientation(
+          isVertical || screenRatio < kScreenRatio
+              ? OrientationMask.portrait
+              : OrientationMask.landscape,
+        ),
+    };
+  }
+
+  Future<void>? _applyFullScreenRuntimePolicy() {
+    final plan = _orientationPlan;
+    final allowed = plan.filterMask(_fullScreenAllowedMask);
+    if (plan.fullScreenAllowed == FullScreenAllowedOrientation.entryExact ||
+        allowed == 0) {
+      return lockedMode();
     }
-    if (orientation == null &&
-        (mode == .vertical ||
-            (mode == .auto && isVertical) ||
-            (mode == .ratio && (isVertical || screenRatio < kScreenRatio)))) {
-      return portraitUpMode();
-    } else {
-      // https://github.com/flutter/flutter/issues/73651
-      // https://github.com/flutter/flutter/issues/183708
-      if (Platform.isAndroid) {
-        if ((orientation ?? _orientation) == .landscapeRight) {
-          return landscapeRightMode();
-        } else {
-          return landscapeLeftMode();
-        }
-      } else {
-        if (orientation == .landscapeLeft) {
-          return landscapeLeftMode();
-        } else {
-          return landscapeRightMode();
-        }
-      }
-    }
+    return switch (plan.fullScreenRotationSource) {
+      FullScreenRotationSource.keepCurrent =>
+        mode == FullScreenMode.none || mode == FullScreenMode.gravity
+            ? lockedMode()
+            : null,
+      FullScreenRotationSource.followSystem =>
+        OrientationPolicy.applySystemPolicy(
+          ignoreSystemLock: false,
+          allowedMask: allowed,
+          filterEnabled: allowed != OrientationMask.all,
+        ),
+      FullScreenRotationSource.alwaysAuto =>
+        OrientationPolicy.applySystemPolicy(
+          ignoreSystemLock: true,
+          allowedMask: allowed,
+          filterEnabled: allowed != OrientationMask.all,
+        ),
+      FullScreenRotationSource.appGravity =>
+        mode == FullScreenMode.none || mode == FullScreenMode.gravity
+            ? lockedMode()
+            : null,
+    };
   }
 
   // 全屏
@@ -1741,10 +1915,12 @@ class PlPlayerController with BlockConfigMixin {
       if (status) {
         if (PlatformUtils.isMobile) {
           hideSystemBar();
+          _compileFullScreenAllowedMask(orientation);
           await changeOrientation(
             isVertical: isVertical,
             orientation: orientation,
           );
+          await _applyFullScreenRuntimePolicy();
         } else {
           await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
@@ -1752,9 +1928,6 @@ class PlPlayerController with BlockConfigMixin {
         if (PlatformUtils.isMobile) {
           if (!removeSafeArea) {
             showSystemBar();
-          }
-          if (orientation == null && mode == .none) {
-            return;
           }
           await resetScreenRotation();
         } else {
@@ -1867,11 +2040,11 @@ class PlPlayerController with BlockConfigMixin {
   bool get isCloseAll => _isCloseAll;
 
   Future<void>? resetScreenRotation() {
-    if (horizontalScreen) {
-      return fullMode();
-    } else {
-      return portraitUpMode();
-    }
+    return switch (_orientationPlan.exitMode) {
+      ExitOrientationMode.restoreApp => OrientationPolicy.applyAppRuntime(),
+      ExitOrientationMode.keepPlayer => null,
+      ExitOrientationMode.lockPlayer => lockedMode(),
+    };
   }
 
   void onCloseAll() {
@@ -1897,6 +2070,10 @@ class PlPlayerController with BlockConfigMixin {
       showSystemBar();
     }
     danmakuController = null;
+    if (_observingSystemOrientation) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingSystemOrientation = false;
+    }
     _stopOrientationListener();
     _disableAutoEnterPip();
     setPlayCallBack(null);
