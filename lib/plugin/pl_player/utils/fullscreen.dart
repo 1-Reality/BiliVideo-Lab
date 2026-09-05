@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
+import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
@@ -31,35 +33,147 @@ Future<void> exitDesktopFullScreen() async {
   }
 }
 
-List<DeviceOrientation>? _lastOrientation;
-Future<void>? _setPreferredOrientations(List<DeviceOrientation> orientations) {
-  if (_lastOrientation == orientations) {
-    return null;
-  }
-  _lastOrientation = orientations;
+int? _lastOrientationRequest;
+
+Future<void>? _setPreferredOrientations(
+  int request,
+  List<DeviceOrientation> orientations,
+) {
+  if (_lastOrientationRequest == request) return null;
+  _lastOrientationRequest = request;
   return SystemChrome.setPreferredOrientations(orientations);
 }
 
+Future<void>? _setAndroidOrientation(int request) {
+  if (_lastOrientationRequest == request) return null;
+  _lastOrientationRequest = request;
+  return OrientationPlatform.setAndroidRequestedOrientation(request);
+}
+
 Future<void>? portraitUpMode() {
-  return _setPreferredOrientations(const [.portraitUp]);
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.portrait);
+  }
+  return _setPreferredOrientations(1, const [.portraitUp]);
 }
 
 Future<void>? portraitDownMode() {
-  return _setPreferredOrientations(const [.portraitDown]);
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.reversePortrait);
+  }
+  return _setPreferredOrientations(2, const [.portraitDown]);
 }
 
 Future<void>? landscapeLeftMode() {
-  return _setPreferredOrientations(const [.landscapeLeft]);
+  if (Platform.isAndroid) {
+    return _setPreferredOrientations(4, const [.landscapeLeft]);
+  }
+  return _setPreferredOrientations(4, const [.landscapeLeft]);
 }
 
 Future<void>? landscapeRightMode() {
-  return _setPreferredOrientations(const [.landscapeRight]);
+  if (Platform.isAndroid) {
+    return _setPreferredOrientations(8, const [.landscapeRight]);
+  }
+  return _setPreferredOrientations(8, const [.landscapeRight]);
 }
 
 Future<void>? fullMode() {
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.fullUser);
+  }
   return _setPreferredOrientations(
+    OrientationMask.all,
     const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
   );
+}
+
+Future<void>? followSystemMode() {
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.unspecified);
+  }
+  return _setPreferredOrientations(16, const []);
+}
+
+Future<void>? fullSensorMode() {
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.fullSensor);
+  }
+  return fullMode();
+}
+
+Future<void>? lockedMode() {
+  if (Platform.isAndroid) {
+    return _setAndroidOrientation(AndroidRequestedOrientation.locked);
+  }
+  return null;
+}
+
+Future<void>? applyAutoOrientationMask(
+  int mask, {
+  required bool ignoreSystemLock,
+}) {
+  if (!Platform.isAndroid) {
+    final orientations = <DeviceOrientation>[
+      if (mask & OrientationMask.portraitUp != 0) .portraitUp,
+      if (mask & OrientationMask.portraitDown != 0) .portraitDown,
+      if (mask & OrientationMask.landscapeLeft != 0) .landscapeLeft,
+      if (mask & OrientationMask.landscapeRight != 0) .landscapeRight,
+    ];
+    return _setPreferredOrientations(32 | mask, orientations);
+  }
+
+  if (ignoreSystemLock) {
+    final request = switch (mask) {
+      OrientationMask.all => AndroidRequestedOrientation.fullSensor,
+      OrientationMask.portrait => AndroidRequestedOrientation.sensorPortrait,
+      OrientationMask.landscape => AndroidRequestedOrientation.sensorLandscape,
+      OrientationMask.portraitUp |
+      OrientationMask.landscape =>
+        AndroidRequestedOrientation.sensor,
+      OrientationMask.portraitUp => AndroidRequestedOrientation.portrait,
+      OrientationMask.portraitDown =>
+        AndroidRequestedOrientation.reversePortrait,
+      OrientationMask.landscapeLeft =>
+        AndroidRequestedOrientation.landscape,
+      OrientationMask.landscapeRight =>
+        AndroidRequestedOrientation.reverseLandscape,
+      _ => null,
+    };
+    return request == null ? null : _setAndroidOrientation(request);
+  }
+
+  final orientations = switch (mask) {
+    OrientationMask.portraitUp => const [DeviceOrientation.portraitUp],
+    OrientationMask.portraitDown => const [DeviceOrientation.portraitDown],
+    OrientationMask.landscapeLeft => const [DeviceOrientation.landscapeLeft],
+    OrientationMask.landscapeRight => const [DeviceOrientation.landscapeRight],
+    OrientationMask.portrait => const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ],
+    OrientationMask.landscape => const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ],
+    OrientationMask.portraitUp |
+    OrientationMask.landscape =>
+      const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ],
+    OrientationMask.all => const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ],
+    _ => null,
+  };
+  return orientations == null
+      ? null
+      : _setPreferredOrientations(64 | mask, orientations);
 }
 
 bool _showSystemBar = true;

@@ -32,6 +32,7 @@ abstract final class SettingBoxKey {
       fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
       playerConfirmFullscreen = 'playerConfirmFullscreen',
+      orientationConfigVersion = 'orientationConfigVersion',
       appInitialOrientation = 'appInitialOrientation',
       appRotationMode = 'appRotationMode',
       fullScreenRotationSource = 'fullScreenRotationSource',

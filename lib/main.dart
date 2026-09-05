@@ -28,6 +28,7 @@ import 'package:PiliBro/utils/extension/core_palettes_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/json_file_handler.dart';
 import 'package:PiliBro/utils/max_screen_size.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/request_utils.dart';
@@ -189,6 +190,7 @@ void main() async {
     exit(0);
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
+  if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
   await Future.wait([
     _initDownPath(),
     _initTmpPath(),
@@ -201,28 +203,18 @@ void main() async {
 
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
+    await Future.wait([
+      OrientationPolicy.applyStartup(),
+      setupServiceLocator(),
+    ]);
     if (Platform.isAndroid && due == 0) {
       final size =
           WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
       if (size.width > size.height) {
-        await Future.wait([
-          ?fullMode(),
-          setupServiceLocator(),
-        ]);
         WidgetsBinding.instance.addPostFrameCallback(
           (_) => _showRemoteControlPresetPrompt(),
         );
-      } else {
-        await Future.wait([
-          if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-          setupServiceLocator(),
-        ]);
       }
-    } else {
-      await Future.wait([
-        if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
-        setupServiceLocator(),
-      ]);
     }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {

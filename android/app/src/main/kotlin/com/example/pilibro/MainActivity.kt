@@ -1,13 +1,38 @@
 package com.example.pilibro
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/orientation")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "systemAutoRotate" -> result.success(
+                        Settings.System.getInt(
+                            contentResolver,
+                            Settings.System.ACCELEROMETER_ROTATION,
+                            0
+                        ) == 1
+                    )
+                    "setRequestedOrientation" -> {
+                        requestedOrientation = call.arguments as Int
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (AndroidHelper.isFoldable) {

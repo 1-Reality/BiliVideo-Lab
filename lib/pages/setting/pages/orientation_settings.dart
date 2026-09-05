@@ -8,6 +8,7 @@ import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
@@ -41,6 +42,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     );
     if (res != null) {
       await GStorage.setting.put(key, res.index);
+      await OrientationPolicy.compile();
       if (mounted) setState(() {});
     }
   }
@@ -60,6 +62,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     );
     if (res != null) {
       await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
+      await OrientationPolicy.compile();
       if (mounted) setState(() {});
     }
   }
@@ -109,6 +112,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     );
     if (res != null) {
       await GStorage.setting.put(SettingBoxKey.finalDirectionMask, res);
+      await OrientationPolicy.compile();
       if (mounted) setState(() {});
     }
   }
@@ -202,6 +206,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 title: 'APP 重力遵循系统方向锁定',
                 setKey: SettingBoxKey.gravityFollowSystemLock,
                 defaultVal: Pref.gravityFollowSystemLock,
+                onChanged: (_) => OrientationPolicy.compile(),
               ),
               _selectTile(
                 title: '方向触发全屏',

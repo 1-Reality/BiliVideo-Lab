@@ -25,7 +25,6 @@ import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/utils/extension/file_ext.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
