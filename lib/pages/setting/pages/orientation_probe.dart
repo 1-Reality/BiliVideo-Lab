@@ -88,7 +88,7 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _start({required bool forceLandscape}) async {
     if (_running || !Platform.isAndroid) return;
     _lines.clear();
     _clock
@@ -98,7 +98,11 @@ class _OrientationProbePageState extends State<OrientationProbePage>
     WidgetsBinding.instance.addObserver(this);
     if (mounted) setState(() {});
 
-    _log('TEST', 'start; Flutter window=${_windowAxis()}');
+    _log(
+      'TEST',
+      'start mode=${forceLandscape ? 'APP_FORCE_LANDSCAPE' : 'SYSTEM_NATURAL'}; '
+      'Flutter window=${_windowAxis()}',
+    );
 
     _nativeSubscription = _nativeEvents.receiveBroadcastStream().listen(
       _logNative,
@@ -118,12 +122,20 @@ class _OrientationProbePageState extends State<OrientationProbePage>
           onError: (Object error) => _log('PLUGIN/ERROR', error.toString()),
         );
 
-    await _snapshot('beforeLockLandscape');
-    await OrientationPlatform.setAndroidRequestedOrientation(
-      AndroidRequestedOrientation.landscape,
-    );
-    _log('COMMAND', 'requestedOrientation=LANDSCAPE(0)');
-    await _snapshot('afterLockLandscape');
+    await _snapshot(forceLandscape ? 'beforeAppForceLandscape' : 'beforeSystemNatural');
+    if (forceLandscape) {
+      await OrientationPlatform.setAndroidRequestedOrientation(
+        AndroidRequestedOrientation.landscape,
+      );
+      _log('COMMAND', 'requestedOrientation=LANDSCAPE(0)');
+      await _snapshot('afterAppForceLandscape');
+    } else {
+      await OrientationPlatform.setAndroidRequestedOrientation(
+        AndroidRequestedOrientation.unspecified,
+      );
+      _log('COMMAND', 'requestedOrientation=UNSPECIFIED(-1)');
+      await _snapshot('afterSystemNatural');
+    }
   }
 
   Future<void> _stop({bool restore = true}) async {
@@ -167,7 +179,7 @@ class _OrientationProbePageState extends State<OrientationProbePage>
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            '只做一件事：锁定整个页面为横屏，然后分别记录系统建议旋转、实际 Display、Configuration、Flutter 窗口变化，以及现有设备方向插件的回调。这里不会自动采纳旋转建议。',
+            '纯诊断页，提供两种完全不同的实验。系统自然模式不会把页面声明成固定横屏，适合复现“先自然转横，再手动打开系统旋转锁”的 ChatGPT 场景；APP 强制横屏模式则测试 Activity 自己锁横时 Android 还会报告什么。两种模式都分别记录系统建议旋转、实际 Display、Configuration、Flutter 窗口变化和现有设备方向插件回调。',
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -175,8 +187,12 @@ class _OrientationProbePageState extends State<OrientationProbePage>
             runSpacing: 8,
             children: [
               FilledButton(
-                onPressed: _running ? null : _start,
-                child: const Text('开始并锁定横屏'),
+                onPressed: _running ? null : () => _start(forceLandscape: false),
+                child: const Text('开始：系统自然模式'),
+              ),
+              FilledButton(
+                onPressed: _running ? null : () => _start(forceLandscape: true),
+                child: const Text('开始：APP 强制横屏'),
               ),
               FilledButton.tonal(
                 onPressed: _running ? () => _stop() : null,
@@ -205,7 +221,7 @@ class _OrientationProbePageState extends State<OrientationProbePage>
           const SizedBox(height: 12),
           Text(
             _running
-                ? '测试中。现在可以保持静止、转横、转竖，也可以切换系统旋转锁。'
+                ? '测试中。系统自然模式建议：先让页面自然转成横屏，再手动打开系统旋转锁，然后做“竖→横→竖”；APP 强制横屏模式则无需开系统锁。'
                 : '未运行。',
           ),
           const SizedBox(height: 12),
