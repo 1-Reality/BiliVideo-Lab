@@ -3,8 +3,7 @@ import 'package:PiliBro/utils/device_form_factor_platform.dart';
 import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:flutter/services.dart'
-    show KeyDownEvent, KeyEvent, LogicalKeyboardKey, PlatformException;
+import 'package:flutter/services.dart' show KeyEvent, PlatformException;
 import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:material_ui/material_ui.dart';
 
@@ -89,11 +88,11 @@ abstract final class FirstRunDeviceSetup {
     }
 
     KeyEventResult handleKey(KeyEvent event) {
-      if (event is KeyDownEvent && event.deviceType.name != 'keyboard') {
-        select(DeviceFormFactor.television);
-        return KeyEventResult.handled;
+      if (!TvRemoteSetup.isRemoteIntentKey(event)) {
+        return KeyEventResult.ignored;
       }
-      return KeyEventResult.ignored;
+      select(DeviceFormFactor.television);
+      return KeyEventResult.handled;
     }
 
     FocusManager.instance.addEarlyKeyEventHandler(handleKey);
@@ -171,10 +170,7 @@ abstract final class FirstRunDeviceSetup {
 
     KeyEventResult handleTvKey(KeyEvent event) {
       if (form != DeviceFormFactor.television ||
-          event is! KeyDownEvent ||
-          event.deviceType.name == 'keyboard' ||
-          event.logicalKey == LogicalKeyboardKey.goBack ||
-          event.logicalKey == LogicalKeyboardKey.escape) {
+          !TvRemoteSetup.isRemoteIntentKey(event)) {
         return KeyEventResult.ignored;
       }
       accept();

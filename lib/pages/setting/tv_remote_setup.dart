@@ -9,66 +9,105 @@ import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
-import 'package:flutter/services.dart' show KeyDownEvent, KeyEvent;
+import 'package:flutter/services.dart'
+    show KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class TvRemoteSetup {
+  static bool isRemoteIntentKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.escape) {
+      return false;
+    }
+    return key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.gameButtonA;
+  }
+
   static Future<void> showMenu(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('电视机快速登录与遥控器配置'),
-        content: SizedBox(
-          width: 560,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.of(dialogContext).pop();
-                  await DevicePresets.restoreTabletDefaults();
+    BuildContext? dialogContext;
+    var closing = false;
+
+    void configure() {
+      final current = dialogContext;
+      if (closing || current == null) return;
+      closing = true;
+      Navigator.of(current).pop();
+      unawaited(configureAndLogin(context));
+    }
+
+    KeyEventResult handleRemoteKey(KeyEvent event) {
+      if (!isRemoteIntentKey(event)) return KeyEventResult.ignored;
+      configure();
+      return KeyEventResult.handled;
+    }
+
+    FocusManager.instance.addEarlyKeyEventHandler(handleRemoteKey);
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (current) {
+          dialogContext = current;
+          return AlertDialog(
+            title: const Text('电视机快速登录与遥控器配置'),
+            content: SizedBox(
+              width: 560,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(current).pop();
+                      await DevicePresets.restoreTabletDefaults();
+                    },
+                    icon: const Icon(Icons.restore),
+                    label: const Text('恢复默认设置（平板预设）'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(current).pop(),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(current).pop();
+                  unawaited(_showExportMenu(context));
                 },
-                icon: const Icon(Icons.restore),
-                label: const Text('恢复默认设置（平板预设）'),
+                child: const Text('导出设置'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(current).pop();
+                  unawaited(_openQrLogin());
+                },
+                child: const Text('仅登录'),
+              ),
+              FilledButton(
+                onPressed: configure,
+                child: const Text('配置遥控器并登录'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              unawaited(_showExportMenu(context));
-            },
-            child: const Text('导出设置'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              unawaited(_openQrLogin());
-            },
-            child: const Text('仅登录'),
-          ),
-          FilledButton(
-            autofocus: true,
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              unawaited(configureAndLogin(context));
-            },
-            child: const Text('配置遥控器并登录'),
-          ),
-        ],
-      ),
-    );
+          );
+        },
+      );
+    } finally {
+      FocusManager.instance.removeEarlyKeyEventHandler(handleRemoteKey);
+    }
   }
 
   static Future<void> configureAndLogin(

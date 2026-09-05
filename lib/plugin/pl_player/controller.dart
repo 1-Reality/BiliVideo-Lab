@@ -1961,6 +1961,20 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         plan.sourceUsesSystem(plan.exitTriggerSource);
   }
 
+  bool? get _windowedSystemHandoffIgnoreLock {
+    final plan = _orientationPlan;
+    return switch (plan.windowedRotation) {
+      WindowedPlayerRotationMode.keepCurrent => null,
+      WindowedPlayerRotationMode.followSystem => false,
+      WindowedPlayerRotationMode.alwaysAuto => true,
+      WindowedPlayerRotationMode.inheritApp => switch (plan.appRotation) {
+        AppRotationMode.lockInitial => null,
+        AppRotationMode.followSystem => false,
+        AppRotationMode.alwaysAuto => true,
+      },
+    };
+  }
+
   void _queueSystemHandoff({required bool ignoreSystemLock}) {
     _pendingSystemHandoff = true;
     _pendingSystemHandoffIgnoreLock = ignoreSystemLock;
@@ -2014,9 +2028,14 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           await lockedMode();
           return;
         }
-        if (_systemExitNeedsWindowRotation &&
-            await OrientationPlatform.systemAutoRotate()) {
-          _queueSystemHandoff(ignoreSystemLock: false);
+        if (_systemExitNeedsWindowRotation) {
+          final ignoreSystemLock = _windowedSystemHandoffIgnoreLock;
+          if (ignoreSystemLock == true) {
+            _queueSystemHandoff(ignoreSystemLock: true);
+          } else if (ignoreSystemLock == false &&
+              await OrientationPlatform.systemAutoRotate()) {
+            _queueSystemHandoff(ignoreSystemLock: false);
+          }
         }
         return;
       case FullScreenRotationSource.appGravity:
