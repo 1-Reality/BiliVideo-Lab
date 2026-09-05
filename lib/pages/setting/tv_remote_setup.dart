@@ -62,6 +62,7 @@ abstract final class TvRemoteSetup {
               actions: [
                 TextButton(
                   onPressed: () async {
+                    starting = true;
                     Navigator.of(current).pop();
                     await OrientationPolicy.applyStartup();
                   },
