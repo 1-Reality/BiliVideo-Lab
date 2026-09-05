@@ -837,6 +837,14 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       }
       // 初始化全屏方向
       _isVertical = isVertical ?? false;
+      if (PlatformUtils.isMobile &&
+          !isFullScreen.value &&
+          _orientationPlan.windowedRotation !=
+              WindowedPlayerRotationMode.inheritApp) {
+        await OrientationPolicy.applyWindowedRuntime(
+          _orientationPlan.windowedRotation,
+        );
+      }
       _aid = aid;
       _bvid = bvid;
       this.cid = cid;
@@ -2098,9 +2106,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   Future<void>? resetScreenRotation() {
     return switch (_orientationPlan.exitMode) {
-      ExitOrientationMode.restoreApp => OrientationPolicy.applyWindowedRuntime(
-          _orientationPlan.windowedRotation,
-        ),
+      ExitOrientationMode.restoreApp => OrientationPolicy.restoreApp(),
       ExitOrientationMode.keepPlayer => OrientationPolicy.applyWindowedRuntime(
           _orientationPlan.windowedRotation,
         ),

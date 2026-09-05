@@ -170,16 +170,16 @@ abstract final class OrientationPolicy {
     final windowedRotation = advanced
         ? Pref.advancedWindowedPlayerRotationMode
         : WindowedPlayerRotationMode.inheritApp;
-    final simpleEntry = _simpleEntry(Pref.fullScreenMode);
+    final simpleEntry = advanced ? null : _simpleEntry(Pref.fullScreenMode);
     final manualEntry = advanced
         ? Pref.advancedManualEntryOrientation
-        : simpleEntry;
+        : simpleEntry!;
     final autoEntry = advanced
         ? Pref.advancedAutoEntryOrientation
-        : simpleEntry;
+        : simpleEntry!;
     final orientationEntry = advanced
         ? Pref.advancedOrientationEntryOrientation
-        : simpleEntry;
+        : simpleEntry!;
     final fullScreenRotationSource = advanced
         ? Pref.advancedFullScreenRotationSource
         : Pref.fullScreenRotationSource;
