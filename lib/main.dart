@@ -10,7 +10,7 @@ import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
-import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
+import 'package:PiliBro/pages/setting/first_run_device_setup.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
@@ -135,6 +135,12 @@ void main() async {
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
+
+  var showFirstRunDeviceSetup = false;
+  if (Platform.isAndroid && due != null && due <= 0) {
+    showFirstRunDeviceSetup = await FirstRunDeviceSetup.prepare();
+  }
+
   await Future.wait([
     _initDownPath(),
     _initTmpPath(),
@@ -147,21 +153,15 @@ void main() async {
 
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
-    final firstLandscapeAndroid = Platform.isAndroid &&
-        due == 0 &&
-        (() {
-          final size =
-              WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
-          return size.width > size.height;
-        })();
     await Future.wait([
-      if (firstLandscapeAndroid) ?fullMode() else OrientationPolicy.applyStartup(),
+      showFirstRunDeviceSetup ? fullMode() : OrientationPolicy.applyStartup(),
       setupServiceLocator(),
     ]);
-    if (firstLandscapeAndroid) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => TvRemoteSetup.showStartupPrompt(Get.context!),
-      );
+    if (showFirstRunDeviceSetup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = Get.context;
+        if (context != null) unawaited(FirstRunDeviceSetup.show(context));
+      });
     }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {

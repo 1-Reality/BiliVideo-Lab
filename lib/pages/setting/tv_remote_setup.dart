@@ -2,10 +2,10 @@ import 'dart:async' show Timer, unawaited;
 
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
@@ -15,80 +15,30 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class TvRemoteSetup {
-  static Future<void> showStartupPrompt(BuildContext context) async {
-    var starting = false;
-    BuildContext? dialogContext;
-
-    void start() {
-      final current = dialogContext;
-      if (starting || current == null) return;
-      starting = true;
-      Navigator.of(current).pop();
-      unawaited(configureAndLogin(context));
-    }
-
-    KeyEventResult handleKey(KeyEvent event) {
-      if (event is KeyDownEvent) {
-        start();
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
-    }
-
-    FocusManager.instance.addEarlyKeyEventHandler(handleKey);
-    try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (current) {
-          dialogContext = current;
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              insetPadding: const .all(24),
-              title: const Text(
-                '检测到横屏 Android 设备',
-                style: TextStyle(fontSize: 26),
-              ),
-              content: const SizedBox(
-                width: 560,
-                child: Text(
-                  '如果这是电视或主要使用遥控器，可以应用遥控器配置并扫码登录。'
-                  '配置后会进行 10 秒方向校准。\n\n'
-                  '任意键盘或遥控器按键均视为确认。',
-                  style: TextStyle(fontSize: 18, height: 1.45),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    starting = true;
-                    Navigator.of(current).pop();
-                    await OrientationPolicy.applyStartup();
-                  },
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  autofocus: true,
-                  onPressed: start,
-                  child: const Text('配置遥控器并登录'),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } finally {
-      FocusManager.instance.removeEarlyKeyEventHandler(handleKey);
-    }
-  }
-
   static Future<void> showMenu(BuildContext context) async {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('电视机快速登录与遥控器配置'),
-        content: const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+        content: SizedBox(
+          width: 560,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  await DevicePresets.applyTablet();
+                },
+                icon: const Icon(Icons.restore),
+                label: const Text('恢复默认设置（平板预设）'),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -121,52 +71,43 @@ abstract final class TvRemoteSetup {
     );
   }
 
-  static Future<void> configureAndLogin(BuildContext context) async {
-    await _applyPreset();
+  static Future<void> configureAndLogin(
+    BuildContext context, {
+    bool completeFirstRun = false,
+  }) async {
+    await DevicePresets.applyTelevision();
     await lockedMode();
     if (!context.mounted) return;
+
     final initialBit =
         await OrientationPlatform.currentOrientationBit() ??
         OrientationMask.landscapeLeft;
     if (!context.mounted) return;
+
     final direction = await showDialog<int>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _RemoteOrientationCalibration(initialBit: initialBit),
     );
-    if (direction != null) {
-      await GStorage.setting.put(
-        SettingBoxKey.appInitialOrientation,
-        switch (direction) {
-          OrientationMask.portraitDown => AppInitialOrientation.portraitDown,
-          OrientationMask.landscapeLeft => AppInitialOrientation.landscapeLeft,
-          OrientationMask.landscapeRight => AppInitialOrientation.landscapeRight,
-          _ => AppInitialOrientation.portraitUp,
-        }.index,
-      );
-      OrientationPolicy.setStartupDirection(direction);
-      await OrientationPolicy.compile();
-      await lockedMode();
+    if (direction == null) return;
+
+    await GStorage.setting.put(
+      SettingBoxKey.appInitialOrientation,
+      switch (direction) {
+        OrientationMask.portraitDown => AppInitialOrientation.portraitDown,
+        OrientationMask.landscapeLeft => AppInitialOrientation.landscapeLeft,
+        OrientationMask.landscapeRight => AppInitialOrientation.landscapeRight,
+        _ => AppInitialOrientation.portraitUp,
+      }.index,
+    );
+    OrientationPolicy.setStartupDirection(direction);
+    await OrientationPolicy.compile();
+    await lockedMode();
+
+    if (completeFirstRun) {
+      await GStorage.completeFirstRunDeviceSetup();
     }
     if (context.mounted) await _openQrLogin();
-  }
-
-  static Future<void> _applyPreset() async {
-    await GStorage.setting.putAll({
-      SettingBoxKey.horizontalScreen: true,
-      SettingBoxKey.keyboardControl: false,
-      SettingBoxKey.appInitialOrientation: AppInitialOrientation.landscape.index,
-      SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
-      SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-      SettingBoxKey.fullScreenRotationSource:
-          FullScreenRotationSource.keepCurrent.index,
-      SettingBoxKey.fullScreenAllowedOrientation:
-          FullScreenAllowedOrientation.entryExact.index,
-      SettingBoxKey.orientationFullscreenTrigger:
-          OrientationFullscreenTrigger.off.index,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
-    });
-    await OrientationPolicy.compile();
   }
 
   static Future<void> _openQrLogin() async {
@@ -299,7 +240,7 @@ class _RemoteOrientationCalibrationState
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     child: AlertDialog(
-      insetPadding: const .all(24),
+      insetPadding: const EdgeInsets.all(24),
       title: const Text('遥控器方向校准'),
       content: SizedBox(
         width: 520,
