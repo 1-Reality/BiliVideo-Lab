@@ -75,6 +75,7 @@ class _LoginPageState extends State<LoginPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton.icon(
+              autofocus: widget.initialIndex == 2,
               onPressed: _loginPageCtr.refreshQRCode,
               icon: const Icon(Icons.refresh),
               label: const Text('刷新二维码'),

@@ -76,43 +76,44 @@ abstract final class TvRemoteSetup {
   static Future<void> showMenu(BuildContext context) async {
     await showDialog<void>(
       context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('电视机快速登录与遥控器配置'),
-      content: const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            unawaited(_showExportMenu(context));
-          },
-          child: const Text('导出设置'),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            unawaited(_openQrLogin());
-          },
-          child: const Text('仅登录'),
-        ),
-        FilledButton(
-          autofocus: true,
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            unawaited(configureAndLogin(context));
-          },
-          child: const Text('配置遥控器并登录'),
-        ),
-      ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('电视机快速登录与遥控器配置'),
+        content: const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              unawaited(_showExportMenu(context));
+            },
+            child: const Text('导出设置'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              unawaited(_openQrLogin());
+            },
+            child: const Text('仅登录'),
+          ),
+          FilledButton(
+            autofocus: true,
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              unawaited(configureAndLogin(context));
+            },
+            child: const Text('配置遥控器并登录'),
+          ),
+        ],
       ),
     );
   }
 
   static Future<void> configureAndLogin(BuildContext context) async {
     await _applyPreset();
+    await lockedMode();
     if (!context.mounted) return;
     final initialBit =
         await OrientationPlatform.currentOrientationBit() ??
@@ -133,6 +134,7 @@ abstract final class TvRemoteSetup {
       );
       OrientationPolicy.setStartupDirection(direction);
       await OrientationPolicy.compile();
+      await lockedMode();
     }
     if (context.mounted) await _openQrLogin();
   }
@@ -162,27 +164,27 @@ abstract final class TvRemoteSetup {
   static Future<void> _showExportMenu(BuildContext context) async {
     await showDialog<void>(
       context: context,
-    builder: (dialogContext) => SimpleDialog(
-      title: const Text('导出设置'),
-      children: [
-        DialogOption(
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            exportToClipBoard(onExport: GStorage.exportPortableSettings);
-          },
-          child: const Text('导出至剪贴板'),
-        ),
-        DialogOption(
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            exportToLocalFile(
-              onExport: GStorage.exportPortableSettings,
-              localFileName: () => 'setting_tv',
-            );
-          },
-          child: const Text('导出文件至本地'),
-        ),
-      ],
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('导出设置'),
+        children: [
+          DialogOption(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              exportToClipBoard(onExport: GStorage.exportPortableSettings);
+            },
+            child: const Text('导出至剪贴板'),
+          ),
+          DialogOption(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              exportToLocalFile(
+                onExport: GStorage.exportPortableSettings,
+                localFileName: () => 'setting_tv',
+              );
+            },
+            child: const Text('导出文件至本地'),
+          ),
+        ],
       ),
     );
   }
@@ -210,6 +212,7 @@ class _RemoteOrientationCalibrationState
   late int _index;
   int _seconds = 10;
   Timer? _timer;
+  bool _finishing = false;
 
   int get _direction => _directions[_index];
 
@@ -222,7 +225,7 @@ class _RemoteOrientationCalibrationState
       if (!mounted) return;
       if (_seconds <= 1) {
         _timer?.cancel();
-        Navigator.of(context).pop(_direction);
+        unawaited(_finish());
       } else {
         setState(() => _seconds--);
       }
@@ -236,11 +239,20 @@ class _RemoteOrientationCalibrationState
   }
 
   void _rotate() {
+    if (_finishing) return;
     setState(() {
       _index = (_index + 1) & 3;
       _seconds = 10;
     });
     unawaited(_applyDirection(_direction));
+  }
+
+  Future<void> _finish() async {
+    if (_finishing) return;
+    _finishing = true;
+    final actual =
+        await OrientationPlatform.currentOrientationBit() ?? _direction;
+    if (mounted) Navigator.of(context).pop(actual);
   }
 
   Future<void> _applyDirection(int direction) async {
