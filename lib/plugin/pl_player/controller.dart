@@ -544,7 +544,8 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (!plan.gravityAllowed) return false;
     if (isFullScreen.value) {
       if (plan.triggerExit && plan.triggerUsesGravity) return true;
-      return plan.fullScreenRotationSource ==
+      return !controlsLock.value &&
+          plan.fullScreenRotationSource ==
               FullScreenRotationSource.appGravity &&
           plan.fullScreenAllowed != FullScreenAllowedOrientation.entryExact &&
           plan.filterMask(_fullScreenAllowedMask) != 0;
@@ -1762,6 +1763,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       } else {
         _applyFullScreenRuntimePolicy();
       }
+      _updateOrientationInputs();
     }
   }
 
@@ -2041,7 +2043,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   Future<void>? resetScreenRotation() {
     return switch (_orientationPlan.exitMode) {
-      ExitOrientationMode.restoreApp => OrientationPolicy.applyAppRuntime(),
+      ExitOrientationMode.restoreApp => OrientationPolicy.restoreApp(),
       ExitOrientationMode.keepPlayer => null,
       ExitOrientationMode.lockPlayer => lockedMode(),
     };

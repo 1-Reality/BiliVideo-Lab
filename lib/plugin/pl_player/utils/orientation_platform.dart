@@ -12,10 +12,19 @@ abstract final class OrientationPlatform {
 
   static Future<void> setAndroidRequestedOrientation(int value) async {
     if (!Platform.isAndroid) return;
-    await _channel.invokeMethod<void>(
-      'setRequestedOrientation',
-      value,
-    );
+    await _channel.invokeMethod<void>('setRequestedOrientation', value);
+  }
+
+  static Future<int?> currentOrientationBit() async {
+    if (!Platform.isAndroid) return null;
+    final value = await _channel.invokeMethod<int>('currentOrientation');
+    return switch (value) {
+      AndroidRequestedOrientation.portrait => 1,
+      AndroidRequestedOrientation.reversePortrait => 2,
+      AndroidRequestedOrientation.landscape => 4,
+      AndroidRequestedOrientation.reverseLandscape => 8,
+      _ => null,
+    };
   }
 }
 

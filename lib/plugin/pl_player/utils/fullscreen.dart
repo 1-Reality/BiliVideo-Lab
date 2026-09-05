@@ -130,9 +130,7 @@ Future<void>? applyAutoOrientationMask(
       OrientationMask.all => AndroidRequestedOrientation.fullSensor,
       OrientationMask.portrait => AndroidRequestedOrientation.sensorPortrait,
       OrientationMask.landscape => AndroidRequestedOrientation.sensorLandscape,
-      OrientationMask.portraitUp |
-      OrientationMask.landscape =>
-        AndroidRequestedOrientation.sensor,
+      13 => AndroidRequestedOrientation.sensor,
       OrientationMask.portraitUp => AndroidRequestedOrientation.portrait,
       OrientationMask.portraitDown =>
         AndroidRequestedOrientation.reversePortrait,
@@ -142,7 +140,9 @@ Future<void>? applyAutoOrientationMask(
         AndroidRequestedOrientation.reverseLandscape,
       _ => null,
     };
-    return request == null ? null : _setAndroidOrientation(request);
+    return request == null
+        ? fullSensorMode()
+        : _setAndroidOrientation(request);
   }
 
   final orientations = switch (mask) {
@@ -158,9 +158,7 @@ Future<void>? applyAutoOrientationMask(
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ],
-    OrientationMask.portraitUp |
-    OrientationMask.landscape =>
-      const [
+    13 => const [
         DeviceOrientation.portraitUp,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
@@ -174,7 +172,7 @@ Future<void>? applyAutoOrientationMask(
     _ => null,
   };
   return orientations == null
-      ? null
+      ? followSystemMode()
       : _setPreferredOrientations(64 | mask, orientations);
 }
 

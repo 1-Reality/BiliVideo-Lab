@@ -8,6 +8,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show DeviceOrientation;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 final class OrientationPlan {
   const OrientationPlan({
@@ -79,11 +80,25 @@ abstract final class OrientationPolicy {
     systemAutoRotate: true,
   );
 
+  static int _startupDirectionBit = OrientationMask.portraitUp;
+
   static OrientationPlan get plan => _plan;
 
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
+    _startupDirectionBit =
+        await OrientationPlatform.currentOrientationBit() ??
+        _currentWindowAxisBit();
     await compile();
+  }
+
+  static int _currentWindowAxisBit() {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return OrientationMask.portraitUp;
+    final size = views.first.physicalSize;
+    return size.width > size.height
+        ? OrientationMask.landscapeLeft
+        : OrientationMask.portraitUp;
   }
 
   static Future<void> compile() async {
@@ -138,6 +153,8 @@ abstract final class OrientationPolicy {
           OrientationTriggerSource.appGravity.index,
       SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
       SettingBoxKey.finalDirectionMask: 0,
+      if (oldMode == FullScreenMode.gravity)
+        SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
     });
   }
 
@@ -150,48 +167,55 @@ abstract final class OrientationPolicy {
 
   static Future<void> applyStartup() async {
     final plan = _plan;
-    if (!Platform.isAndroid) {
-      switch (plan.appInitial) {
-        case AppInitialOrientation.system:
-          break;
-        case AppInitialOrientation.portrait:
-          await portraitUpMode();
-        case AppInitialOrientation.landscape:
-          await landscapeLeftMode();
+    if (plan.appInitial == AppInitialOrientation.system) {
+      if (plan.appRotation == AppRotationMode.lockInitial) {
+        await _applyDirectionBit(_startupDirectionBit);
+      } else {
+        await applyAppRuntime();
       }
-      await applyAppRuntime();
       return;
     }
 
-    switch (plan.appInitial) {
-      case AppInitialOrientation.system:
-        if (plan.appRotation == AppRotationMode.lockInitial) {
-          await lockedMode();
-          return;
-        }
-        break;
-      case AppInitialOrientation.portrait:
-        final mask = plan.filterMask(OrientationMask.portrait);
-        if (mask == 0) break;
-        if (mask == OrientationMask.portraitDown) {
-          await portraitDownMode();
-        } else {
-          await portraitUpMode();
-        }
-        if (plan.appRotation == AppRotationMode.lockInitial) return;
-        break;
-      case AppInitialOrientation.landscape:
-        final mask = plan.filterMask(OrientationMask.landscape);
-        if (mask == 0) break;
-        if (mask == OrientationMask.landscapeRight) {
-          await landscapeRightMode();
-        } else {
-          await landscapeLeftMode();
-        }
-        if (plan.appRotation == AppRotationMode.lockInitial) return;
-        break;
+    final mask = plan.filterMask(
+      plan.appInitial == AppInitialOrientation.portrait
+          ? OrientationMask.portrait
+          : OrientationMask.landscape,
+    );
+    if (mask != 0) {
+      _startupDirectionBit = plan.appInitial == AppInitialOrientation.portrait
+          ? (mask == OrientationMask.portraitDown
+                ? OrientationMask.portraitDown
+                : OrientationMask.portraitUp)
+          : (mask == OrientationMask.landscapeRight
+                ? OrientationMask.landscapeRight
+                : OrientationMask.landscapeLeft);
+      await _applyDirectionBit(_startupDirectionBit);
     }
-    await applyAppRuntime();
+    if (plan.appRotation == AppRotationMode.lockInitial) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      applyAppRuntime();
+    });
+  }
+
+  static Future<void> restoreApp() async {
+    if (_plan.appRotation == AppRotationMode.lockInitial) {
+      await _applyDirectionBit(_startupDirectionBit);
+    } else {
+      await applyAppRuntime();
+    }
+  }
+
+  static Future<void> _applyDirectionBit(int bit) async {
+    switch (bit) {
+      case OrientationMask.portraitDown:
+        await portraitDownMode();
+      case OrientationMask.landscapeLeft:
+        await landscapeLeftMode();
+      case OrientationMask.landscapeRight:
+        await landscapeRightMode();
+      default:
+        await portraitUpMode();
+    }
   }
 
   static Future<void> applyAppRuntime() async {
