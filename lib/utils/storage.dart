@@ -504,6 +504,8 @@ abstract final class GStorage {
         meta is Map && meta['includePlaybackStats'] == false;
     final keepDiagnostics =
         meta is Map && meta['includeCdnDiagnostics'] == false;
+    final keepTraffic =
+        meta is Map && meta['includeTrafficStats'] == false;
 
     final importedSettings = Map<dynamic, dynamic>.from(
       map[setting.name] as Map? ?? const {},
@@ -545,9 +547,10 @@ abstract final class GStorage {
             }
           },
         ),
-      importedTraffic is Map
-          ? writeJsonFile(trafficStatsFile, importedTraffic)
-          : _deleteFileIfExists(trafficStatsFile),
+      if (!keepTraffic)
+        importedTraffic is Map
+            ? writeJsonFile(trafficStatsFile, importedTraffic)
+            : _deleteFileIfExists(trafficStatsFile),
       if (!keepDiagnostics)
         replaceCdnDiagnostics([
           for (final entry in importedLatestDiagnostics.entries)

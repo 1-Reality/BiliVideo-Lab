@@ -15,7 +15,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class TvRemoteSetup {
-  static Future<void> showStartupPrompt(BuildContext context) {
+  static Future<void> showStartupPrompt(BuildContext context) async {
     var starting = false;
     void start(BuildContext dialogContext) {
       if (starting) return;
@@ -24,7 +24,7 @@ abstract final class TvRemoteSetup {
       unawaited(configureAndLogin(context));
     }
 
-    return showDialog<void>(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => PopScope(
@@ -73,8 +73,9 @@ abstract final class TvRemoteSetup {
     );
   }
 
-  static Future<void> showMenu(BuildContext context) => showDialog<void>(
-    context: context,
+  static Future<void> showMenu(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('电视机快速登录与遥控器配置'),
       content: const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
@@ -106,8 +107,9 @@ abstract final class TvRemoteSetup {
           child: const Text('配置遥控器并登录'),
         ),
       ],
-    ),
-  );
+      ),
+    );
+  }
 
   static Future<void> configureAndLogin(BuildContext context) async {
     await _applyPreset();
@@ -153,11 +155,13 @@ abstract final class TvRemoteSetup {
     await OrientationPolicy.compile();
   }
 
-  static Future<void> _openQrLogin() =>
-      Get.to<void>(() => const LoginPage(initialIndex: 2));
+  static Future<void> _openQrLogin() async {
+    await Get.to<void>(() => const LoginPage(initialIndex: 2));
+  }
 
-  static Future<void> _showExportMenu(BuildContext context) => showDialog<void>(
-    context: context,
+  static Future<void> _showExportMenu(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
     builder: (dialogContext) => SimpleDialog(
       title: const Text('导出设置'),
       children: [
@@ -179,8 +183,9 @@ abstract final class TvRemoteSetup {
           child: const Text('导出文件至本地'),
         ),
       ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _RemoteOrientationCalibration extends StatefulWidget {
