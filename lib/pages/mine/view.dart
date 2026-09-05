@@ -22,6 +22,7 @@ import 'package:PiliBro/pages/login_log/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/pages/mine/widgets/item.dart';
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/bili_utils.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -203,8 +204,12 @@ class _MediaPageState extends CommonPageState<MinePage>
 
   List<PopupMenuEntry<void>> _creatorMenuItems() {
     final userInfo = controller.userInfo.value;
-    final mid = userInfo.mid;
-    final loggedIn = controller.accountService.isLogin.value;
+    final mainAccount = Accounts.main;
+    final loggedIn =
+        mainAccount.isLogin ||
+        userInfo.isLogin == true ||
+        controller.accountService.isLogin.value;
+    final mid = userInfo.mid ?? (mainAccount.isLogin ? mainAccount.mid : null);
     return [
       if (mid != null)
         _creatorMenuItem(
@@ -274,7 +279,7 @@ class _MediaPageState extends CommonPageState<MinePage>
         () => _openInternalWeb('https://www.baidu.com'),
       ),
       _creatorMenuItem(
-        const Icon(Icons.public, size: 19),
+        const Icon(FontAwesomeIcons.google, size: 18),
         '谷歌',
         () => _openInternalWeb('https://www.google.com'),
       ),
@@ -608,16 +613,22 @@ class _MediaPageState extends CommonPageState<MinePage>
     parameters: {'url': url},
   );
 
-  void _shareHomepage() {
+  int? get _ownerMid {
     final mid = controller.userInfo.value.mid;
+    if (mid != null) return mid;
+    final account = Accounts.main;
+    return account.isLogin ? account.mid : null;
+  }
+
+  void _shareHomepage() {
+    final mid = _ownerMid;
     if (mid != null) {
       ShareUtils.shareText('https://space.bilibili.com/$mid');
     }
   }
 
   void _createShortcut() {
-    final userInfo = controller.userInfo.value;
-    final mid = userInfo.mid;
+    final mid = _ownerMid;
     if (mid == null) return;
     if (Platform.isIOS) {
       PageUtils.launchURL(
@@ -630,7 +641,7 @@ class _MediaPageState extends CommonPageState<MinePage>
 
   Future<void> _createShortcutAndroid() async {
     final userInfo = controller.userInfo.value;
-    final mid = userInfo.mid;
+    final mid = _ownerMid;
     final face = userInfo.face;
     final name = userInfo.uname;
     if (mid == null || face == null || name == null) return;
