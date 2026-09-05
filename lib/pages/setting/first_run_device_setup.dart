@@ -44,34 +44,36 @@ abstract final class FirstRunDeviceSetup {
   }
 
   static Future<void> show(BuildContext context) async {
-    final selected = await _choose(context);
-    if (selected == null || !context.mounted) return;
+    while (context.mounted) {
+      final selected = await _choose(context);
+      if (selected == null || !context.mounted) return;
 
-    if (selected == DeviceFormFactor.phone) {
-      await DevicePresets.applyPhone();
-      await GStorage.completeFirstRunDeviceSetup();
-      return;
-    }
-
-    if (!await _confirm(context, selected) || !context.mounted) return;
-
-    switch (selected) {
-      case DeviceFormFactor.phone:
-        return;
-      case DeviceFormFactor.foldable:
-        await DevicePresets.applyFoldable();
+      if (selected == DeviceFormFactor.phone) {
+        await DevicePresets.applyPhone();
         await GStorage.completeFirstRunDeviceSetup();
         return;
-      case DeviceFormFactor.tablet:
-        await DevicePresets.applyTablet();
-        await GStorage.completeFirstRunDeviceSetup();
-        return;
-      case DeviceFormFactor.television:
-        await TvRemoteSetup.configureAndLogin(
-          context,
-          completeFirstRun: true,
-        );
-        return;
+      }
+
+      if (!await _confirm(context, selected) || !context.mounted) continue;
+
+      switch (selected) {
+        case DeviceFormFactor.phone:
+          return;
+        case DeviceFormFactor.foldable:
+          await DevicePresets.applyFoldable();
+          await GStorage.completeFirstRunDeviceSetup();
+          return;
+        case DeviceFormFactor.tablet:
+          await DevicePresets.applyTablet();
+          await GStorage.completeFirstRunDeviceSetup();
+          return;
+        case DeviceFormFactor.television:
+          await TvRemoteSetup.configureAndLogin(
+            context,
+            completeFirstRun: true,
+          );
+          return;
+      }
     }
   }
 
