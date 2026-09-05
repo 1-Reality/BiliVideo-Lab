@@ -89,6 +89,11 @@ abstract final class OrientationPolicy {
     _startupDirectionBit = directionBit;
   }
 
+  static Future<void> applyDirection(int directionBit) async {
+    if (_plan.filterMask(directionBit) == 0) return;
+    await _applyDirectionBit(directionBit);
+  }
+
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
     _startupDirectionBit =

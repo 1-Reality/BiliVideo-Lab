@@ -285,18 +285,8 @@ class _RemoteOrientationCalibrationState
     if (mounted) Navigator.of(context).pop(actual);
   }
 
-  Future<void> _applyDirection(int direction) async {
-    switch (direction) {
-      case OrientationMask.portraitUp:
-        await portraitUpMode();
-      case OrientationMask.landscapeLeft:
-        await landscapeLeftMode();
-      case OrientationMask.portraitDown:
-        await portraitDownMode();
-      case OrientationMask.landscapeRight:
-        await landscapeRightMode();
-    }
-  }
+  Future<void> _applyDirection(int direction) =>
+      OrientationPolicy.applyDirection(direction);
 
   String get _directionLabel => switch (_direction) {
     OrientationMask.portraitUp => '正竖屏',
