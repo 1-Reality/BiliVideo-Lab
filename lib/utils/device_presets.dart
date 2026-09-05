@@ -7,6 +7,7 @@ import 'package:PiliBro/utils/storage_key.dart';
 abstract final class DevicePresets {
   static Future<void> applyPhone({bool applyNow = true}) => _apply(
     {
+      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: false,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.followSystem.index,
@@ -29,6 +30,7 @@ abstract final class DevicePresets {
 
   static Future<void> applyTablet({bool applyNow = true}) => _apply(
     {
+      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: true,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.alwaysAuto.index,
@@ -51,6 +53,7 @@ abstract final class DevicePresets {
 
   static Future<void> applyFoldable({bool applyNow = true}) => _apply(
     {
+      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: true,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
@@ -78,6 +81,7 @@ abstract final class DevicePresets {
 
   static Future<void> applyTelevision() => _apply(
     {
+      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: true,
       SettingBoxKey.keyboardControl: false,
       SettingBoxKey.appInitialOrientation:

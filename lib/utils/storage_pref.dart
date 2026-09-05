@@ -237,6 +237,15 @@ abstract final class Pref {
     return FullScreenMode.values[index];
   }
 
+  static OrientationPolicyMode get orientationPolicyMode =>
+      OrientationPolicyMode.values[_setting.get(
+        SettingBoxKey.orientationPolicyMode,
+        defaultValue: OrientationPolicyMode.simple.index,
+      )];
+
+  static bool get controlsLockOrientation =>
+      _setting.get(SettingBoxKey.controlsLockOrientation, defaultValue: true);
+
   static AppInitialOrientation get appInitialOrientation =>
       AppInitialOrientation.values[_setting.get(
         SettingBoxKey.appInitialOrientation,
@@ -284,6 +293,98 @@ abstract final class Pref {
 
   static int get finalDirectionMask =>
       _setting.get(SettingBoxKey.finalDirectionMask, defaultValue: 0);
+
+  static AppInitialOrientation get advancedAppInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.advancedAppInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get advancedAppRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.advancedAppRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static WindowedPlayerRotationMode get advancedWindowedPlayerRotationMode =>
+      WindowedPlayerRotationMode.values[_setting.get(
+        SettingBoxKey.advancedWindowedPlayerRotationMode,
+        defaultValue: WindowedPlayerRotationMode.inheritApp.index,
+      )];
+
+  static bool get advancedLandscapeEnter =>
+      _setting.get(SettingBoxKey.advancedLandscapeEnter, defaultValue: false);
+
+  static bool get advancedPortraitExit =>
+      _setting.get(SettingBoxKey.advancedPortraitExit, defaultValue: false);
+
+  static OrientationTriggerSource get advancedEnterTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedEnterTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerSource get advancedExitTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedExitTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerContent get advancedTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.advancedTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static EntryOrientationPolicy get advancedManualEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedManualEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedAutoEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedAutoEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedOrientationEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedOrientationEntryOrientation,
+        defaultValue: EntryOrientationPolicy.triggerDirection.index,
+      )];
+
+  static FullScreenRotationSource get advancedFullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.advancedFullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.keepCurrent.index,
+      )];
+
+  static FullScreenAllowedOrientation get advancedFullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.advancedFullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get advancedGravityFollowSystemLock => _setting.get(
+    SettingBoxKey.advancedGravityFollowSystemLock,
+    defaultValue: true,
+  );
+
+  static int get advancedAngleDegrees =>
+      _setting.get(SettingBoxKey.advancedAngleDegrees, defaultValue: 30);
+
+  static OrientationAutoExitScope get advancedAutoExitScope =>
+      OrientationAutoExitScope.values[_setting.get(
+        SettingBoxKey.advancedAutoExitScope,
+        defaultValue: OrientationAutoExitScope.orientationOnly.index,
+      )];
+
+  static ExitOrientationMode get advancedExitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.advancedExitOrientationMode,
+        defaultValue: ExitOrientationMode.keepPlayer.index,
+      )];
 
   static BtmProgressBehavior get btmProgressBehavior =>
       BtmProgressBehavior.values[_setting.get(

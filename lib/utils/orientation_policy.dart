@@ -14,28 +14,44 @@ final class OrientationPlan {
   const OrientationPlan({
     required this.appInitial,
     required this.appRotation,
-    required this.enterFullScreen,
+    required this.windowedRotation,
+    required this.manualEntry,
+    required this.autoEntry,
+    required this.orientationEntry,
     required this.fullScreenRotationSource,
     required this.fullScreenAllowed,
     required this.gravityFollowSystemLock,
-    required this.fullScreenTrigger,
-    required this.triggerSource,
+    required this.triggerEnter,
+    required this.triggerExit,
+    required this.enterTriggerSource,
+    required this.exitTriggerSource,
+    required this.triggerContent,
     required this.angleDegrees,
+    required this.autoExitScope,
     required this.exitMode,
+    required this.controlsLockOrientation,
     required this.finalDirectionMask,
     required this.systemAutoRotate,
   });
 
   final AppInitialOrientation appInitial;
   final AppRotationMode appRotation;
-  final FullScreenMode enterFullScreen;
+  final WindowedPlayerRotationMode windowedRotation;
+  final EntryOrientationPolicy manualEntry;
+  final EntryOrientationPolicy autoEntry;
+  final EntryOrientationPolicy orientationEntry;
   final FullScreenRotationSource fullScreenRotationSource;
   final FullScreenAllowedOrientation fullScreenAllowed;
   final bool gravityFollowSystemLock;
-  final OrientationFullscreenTrigger fullScreenTrigger;
-  final OrientationTriggerSource triggerSource;
+  final bool triggerEnter;
+  final bool triggerExit;
+  final OrientationTriggerSource enterTriggerSource;
+  final OrientationTriggerSource exitTriggerSource;
+  final OrientationTriggerContent triggerContent;
   final int angleDegrees;
+  final OrientationAutoExitScope autoExitScope;
   final ExitOrientationMode exitMode;
+  final bool controlsLockOrientation;
   final int finalDirectionMask;
   final bool systemAutoRotate;
 
@@ -47,19 +63,32 @@ final class OrientationPlan {
   bool get gravityAllowed =>
       !gravityFollowSystemLock || systemAutoRotate;
 
-  bool get triggerEnter =>
-      fullScreenTrigger == OrientationFullscreenTrigger.landscapeEnter ||
-      fullScreenTrigger == OrientationFullscreenTrigger.both;
+  bool sourceUsesGravity(OrientationTriggerSource source) =>
+      source != OrientationTriggerSource.system;
 
-  bool get triggerExit =>
-      fullScreenTrigger == OrientationFullscreenTrigger.portraitExit ||
-      fullScreenTrigger == OrientationFullscreenTrigger.both;
+  bool sourceUsesSystem(OrientationTriggerSource source) =>
+      source != OrientationTriggerSource.appGravity;
 
-  bool get triggerUsesGravity =>
-      triggerSource != OrientationTriggerSource.system;
+  bool contentAllows(bool isVertical) => switch (triggerContent) {
+    OrientationTriggerContent.all => true,
+    OrientationTriggerContent.landscapeVideo => !isVertical,
+    OrientationTriggerContent.portraitVideo => isVertical,
+  };
 
-  bool get triggerUsesSystem =>
-      triggerSource != OrientationTriggerSource.appGravity;
+  bool exitAllowsCause(FullscreenEntryCause cause) => switch (autoExitScope) {
+    OrientationAutoExitScope.orientationOnly =>
+      cause == FullscreenEntryCause.orientation,
+    OrientationAutoExitScope.automatic =>
+      cause != FullscreenEntryCause.manual,
+    OrientationAutoExitScope.all => true,
+  };
+
+  EntryOrientationPolicy entryForCause(FullscreenEntryCause cause) =>
+      switch (cause) {
+        FullscreenEntryCause.manual => manualEntry,
+        FullscreenEntryCause.playbackAuto => autoEntry,
+        FullscreenEntryCause.orientation => orientationEntry,
+      };
 
   int filterMask(int mask) => mask & effectiveFinalMask;
 }
@@ -68,14 +97,22 @@ abstract final class OrientationPolicy {
   static OrientationPlan _plan = const OrientationPlan(
     appInitial: AppInitialOrientation.system,
     appRotation: AppRotationMode.followSystem,
-    enterFullScreen: FullScreenMode.auto,
+    windowedRotation: WindowedPlayerRotationMode.inheritApp,
+    manualEntry: EntryOrientationPolicy.video,
+    autoEntry: EntryOrientationPolicy.video,
+    orientationEntry: EntryOrientationPolicy.video,
     fullScreenRotationSource: FullScreenRotationSource.followSystem,
     fullScreenAllowed: FullScreenAllowedOrientation.all,
     gravityFollowSystemLock: true,
-    fullScreenTrigger: OrientationFullscreenTrigger.off,
-    triggerSource: OrientationTriggerSource.system,
+    triggerEnter: false,
+    triggerExit: false,
+    enterTriggerSource: OrientationTriggerSource.system,
+    exitTriggerSource: OrientationTriggerSource.system,
+    triggerContent: OrientationTriggerContent.all,
     angleDegrees: 30,
+    autoExitScope: OrientationAutoExitScope.all,
     exitMode: ExitOrientationMode.restoreApp,
+    controlsLockOrientation: true,
     finalDirectionMask: 0,
     systemAutoRotate: true,
   );
@@ -111,20 +148,105 @@ abstract final class OrientationPolicy {
         : OrientationMask.portraitUp;
   }
 
+  static EntryOrientationPolicy _simpleEntry(FullScreenMode mode) =>
+      switch (mode) {
+        FullScreenMode.none || FullScreenMode.gravity =>
+          EntryOrientationPolicy.keepCurrent,
+        FullScreenMode.vertical => EntryOrientationPolicy.portrait,
+        FullScreenMode.horizontal => EntryOrientationPolicy.landscape,
+        FullScreenMode.auto => EntryOrientationPolicy.video,
+        FullScreenMode.ratio => EntryOrientationPolicy.ratio,
+      };
+
   static Future<void> compile() async {
+    final advanced = Pref.orientationPolicyMode == OrientationPolicyMode.advanced;
+
+    final appInitial = advanced
+        ? Pref.advancedAppInitialOrientation
+        : Pref.appInitialOrientation;
+    final appRotation = advanced
+        ? Pref.advancedAppRotationMode
+        : Pref.appRotationMode;
+    final windowedRotation = advanced
+        ? Pref.advancedWindowedPlayerRotationMode
+        : WindowedPlayerRotationMode.inheritApp;
+    final simpleEntry = _simpleEntry(Pref.fullScreenMode);
+    final manualEntry = advanced
+        ? Pref.advancedManualEntryOrientation
+        : simpleEntry;
+    final autoEntry = advanced
+        ? Pref.advancedAutoEntryOrientation
+        : simpleEntry;
+    final orientationEntry = advanced
+        ? Pref.advancedOrientationEntryOrientation
+        : simpleEntry;
+    final fullScreenRotationSource = advanced
+        ? Pref.advancedFullScreenRotationSource
+        : Pref.fullScreenRotationSource;
+    final fullScreenAllowed = advanced
+        ? Pref.advancedFullScreenAllowedOrientation
+        : Pref.fullScreenAllowedOrientation;
+    final gravityFollowSystemLock = advanced
+        ? Pref.advancedGravityFollowSystemLock
+        : Pref.gravityFollowSystemLock;
+    final simpleTrigger = Pref.orientationFullscreenTrigger;
+    final triggerEnter = advanced
+        ? Pref.advancedLandscapeEnter
+        : simpleTrigger == OrientationFullscreenTrigger.landscapeEnter ||
+              simpleTrigger == OrientationFullscreenTrigger.both;
+    final triggerExit = advanced
+        ? Pref.advancedPortraitExit
+        : simpleTrigger == OrientationFullscreenTrigger.portraitExit ||
+              simpleTrigger == OrientationFullscreenTrigger.both;
+    final enterTriggerSource = advanced
+        ? Pref.advancedEnterTriggerSource
+        : Pref.orientationTriggerSource;
+    final exitTriggerSource = advanced
+        ? Pref.advancedExitTriggerSource
+        : Pref.orientationTriggerSource;
+    final triggerContent = advanced
+        ? Pref.advancedTriggerContent
+        : OrientationTriggerContent.all;
+    final angleDegrees = advanced ? Pref.advancedAngleDegrees : Pref.angleDegrees;
+    final autoExitScope = advanced
+        ? Pref.advancedAutoExitScope
+        : OrientationAutoExitScope.all;
+    final exitMode = advanced
+        ? Pref.advancedExitOrientationMode
+        : Pref.exitOrientationMode;
+
+    final gravityNeeded =
+        triggerEnter &&
+            enterTriggerSource != OrientationTriggerSource.system ||
+        triggerExit &&
+            exitTriggerSource != OrientationTriggerSource.system ||
+        fullScreenRotationSource == FullScreenRotationSource.appGravity &&
+            fullScreenAllowed != FullScreenAllowedOrientation.entryExact;
+    final systemAutoRotate = gravityFollowSystemLock && gravityNeeded
+        ? await OrientationPlatform.systemAutoRotate()
+        : true;
+
     _plan = OrientationPlan(
-      appInitial: Pref.appInitialOrientation,
-      appRotation: Pref.appRotationMode,
-      enterFullScreen: Pref.fullScreenMode,
-      fullScreenRotationSource: Pref.fullScreenRotationSource,
-      fullScreenAllowed: Pref.fullScreenAllowedOrientation,
-      gravityFollowSystemLock: Pref.gravityFollowSystemLock,
-      fullScreenTrigger: Pref.orientationFullscreenTrigger,
-      triggerSource: Pref.orientationTriggerSource,
-      angleDegrees: Pref.angleDegrees,
-      exitMode: Pref.exitOrientationMode,
+      appInitial: appInitial,
+      appRotation: appRotation,
+      windowedRotation: windowedRotation,
+      manualEntry: manualEntry,
+      autoEntry: autoEntry,
+      orientationEntry: orientationEntry,
+      fullScreenRotationSource: fullScreenRotationSource,
+      fullScreenAllowed: fullScreenAllowed,
+      gravityFollowSystemLock: gravityFollowSystemLock,
+      triggerEnter: triggerEnter,
+      triggerExit: triggerExit,
+      enterTriggerSource: enterTriggerSource,
+      exitTriggerSource: exitTriggerSource,
+      triggerContent: triggerContent,
+      angleDegrees: angleDegrees,
+      autoExitScope: autoExitScope,
+      exitMode: exitMode,
+      controlsLockOrientation: Pref.controlsLockOrientation,
       finalDirectionMask: Pref.finalDirectionMask,
-      systemAutoRotate: await OrientationPlatform.systemAutoRotate(),
+      systemAutoRotate: systemAutoRotate,
     );
     _finalGuard.update();
   }
@@ -137,6 +259,7 @@ abstract final class OrientationPolicy {
     final oldMode = Pref.fullScreenMode;
     await GStorage.setting.putAll({
       SettingBoxKey.orientationConfigVersion: 1,
+      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.appInitialOrientation:
           (horizontal
                   ? AppInitialOrientation.system
@@ -225,6 +348,31 @@ abstract final class OrientationPolicy {
     }
   }
 
+  static Future<void> applyWindowedRuntime(
+    WindowedPlayerRotationMode mode,
+  ) async {
+    switch (mode) {
+      case WindowedPlayerRotationMode.inheritApp:
+        await restoreApp();
+      case WindowedPlayerRotationMode.keepCurrent:
+        await lockedMode();
+      case WindowedPlayerRotationMode.followSystem:
+        await applySystemPolicy(
+          ignoreSystemLock: false,
+          allowedMask: _plan.effectiveFinalMask,
+          filterEnabled: _plan.finalDirectionMask != 0 &&
+              _plan.finalDirectionMask != OrientationMask.all,
+        );
+      case WindowedPlayerRotationMode.alwaysAuto:
+        await applySystemPolicy(
+          ignoreSystemLock: true,
+          allowedMask: _plan.effectiveFinalMask,
+          filterEnabled: _plan.finalDirectionMask != 0 &&
+              _plan.finalDirectionMask != OrientationMask.all,
+        );
+    }
+  }
+
   static Future<void> _applyDirectionBit(int bit) async {
     switch (bit) {
       case OrientationMask.portraitDown:
@@ -279,7 +427,6 @@ abstract final class OrientationPolicy {
     );
   }
 }
-
 
 final class _FinalOrientationGuard with WidgetsBindingObserver {
   bool _active = false;
