@@ -2003,7 +2003,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         filterEnabled: allowed != OrientationMask.all,
       );
     } else if (allowed == OrientationMask.all) {
-      await (fullMode() ?? Future<void>.value());
+      await (followSystemMode() ?? Future<void>.value());
     } else {
       await OrientationPolicy.applySystemPolicy(
         ignoreSystemLock: false,
