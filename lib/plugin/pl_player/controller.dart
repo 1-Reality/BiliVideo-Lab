@@ -525,6 +525,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   bool _observingSystemOrientation = false;
   int _fullScreenAllowedMask = OrientationMask.all;
   bool _entryDirectionApplied = false;
+  FullscreenEntryCause _fullScreenEntryCause = FullscreenEntryCause.manual;
   StreamSubscription<OrientationParams>? _orientationListener;
   late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
 
@@ -537,22 +538,32 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   bool get _needsSystemOrientation {
     final plan = _orientationPlan;
-    if (!plan.triggerUsesSystem) return false;
-    return isFullScreen.value ? plan.triggerExit : plan.triggerEnter;
+    if (isFullScreen.value) {
+      return plan.triggerExit &&
+          plan.exitAllowsCause(_fullScreenEntryCause) &&
+          plan.sourceUsesSystem(plan.exitTriggerSource);
+    }
+    return plan.triggerEnter &&
+        plan.sourceUsesSystem(plan.enterTriggerSource);
   }
 
   bool get _needsGravityOrientation {
     final plan = _orientationPlan;
     if (!plan.gravityAllowed) return false;
     if (isFullScreen.value) {
-      if (plan.triggerExit && plan.triggerUsesGravity) return true;
-      return !controlsLock.value &&
+      if (plan.triggerExit &&
+          plan.exitAllowsCause(_fullScreenEntryCause) &&
+          plan.sourceUsesGravity(plan.exitTriggerSource)) {
+        return true;
+      }
+      return (!controlsLock.value || !plan.controlsLockOrientation) &&
           plan.fullScreenRotationSource ==
               FullScreenRotationSource.appGravity &&
           plan.fullScreenAllowed != FullScreenAllowedOrientation.entryExact &&
           plan.filterMask(_fullScreenAllowedMask) != 0;
     }
-    return plan.triggerEnter && plan.triggerUsesGravity;
+    return plan.triggerEnter &&
+        plan.sourceUsesGravity(plan.enterTriggerSource);
   }
 
   void _updateOrientationInputs() {
@@ -604,7 +615,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (isFullScreen.value &&
         _orientationPlan.fullScreenRotationSource ==
             FullScreenRotationSource.appGravity &&
-        !controlsLock.value) {
+        (!controlsLock.value || !_orientationPlan.controlsLockOrientation)) {
       _applyGravityOrientation(param.orientation);
     }
     _evaluateOrientationTrigger();
@@ -628,9 +639,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
   }
 
-  bool _triggerSourceMatches(bool landscape) {
-    final plan = _orientationPlan;
-    return switch (plan.triggerSource) {
+  bool _triggerSourceMatches(
+    OrientationTriggerSource source,
+    bool landscape,
+  ) {
+    return switch (source) {
       OrientationTriggerSource.system => _systemLandscape == landscape,
       OrientationTriggerSource.appGravity => _gravityLandscape == landscape,
       OrientationTriggerSource.any =>
@@ -643,17 +656,21 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   void _evaluateOrientationTrigger() {
     if (_fsProcessing || controlsLock.value) return;
     final plan = _orientationPlan;
-    if (!isFullScreen.value && plan.triggerEnter && _triggerSourceMatches(true)) {
+    if (!isFullScreen.value) {
+      if (plan.triggerEnter &&
+          plan.contentAllows(_isVertical) &&
+          _triggerSourceMatches(plan.enterTriggerSource, true)) {
+        triggerFullScreen(cause: FullscreenEntryCause.orientation);
+      }
+      return;
+    }
+    if (plan.triggerExit &&
+        plan.exitAllowsCause(_fullScreenEntryCause) &&
+        _triggerSourceMatches(plan.exitTriggerSource, false)) {
       triggerFullScreen(
-        orientation: plan.triggerUsesGravity && _gravityLandscape == true
-            ? _orientation
-            : null,
-        isManualFS: false,
+        status: false,
+        cause: FullscreenEntryCause.orientation,
       );
-    } else if (isFullScreen.value &&
-        plan.triggerExit &&
-        _triggerSourceMatches(false)) {
-      triggerFullScreen(status: false, isManualFS: false);
     }
   }
 
@@ -895,7 +912,10 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       dataStatus.value = .loaded;
 
       if (autoFullScreenFlag && autoEnterFullScreen) {
-        triggerFullScreen(status: true);
+        triggerFullScreen(
+          status: true,
+          cause: FullscreenEntryCause.playbackAuto,
+        );
       }
 
       await _initializePlayer();
@@ -1760,9 +1780,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
     controls = !val;
     if (PlatformUtils.isMobile && isFullScreen.value) {
-      if (val) {
+      if (val && _orientationPlan.controlsLockOrientation) {
         lockedMode();
-      } else {
+      } else if (!val && _orientationPlan.controlsLockOrientation) {
         _applyFullScreenRuntimePolicy();
       }
       _updateOrientationInputs();
@@ -1781,38 +1801,50 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   double screenRatio = 0.0;
   bool isManualFS = true;
-  late final FullScreenMode mode = _orientationPlan.enterFullScreen;
   late final removeSafeArea = Pref.removeSafeArea;
 
-  int _entryAxisMask(DeviceOrientation? orientation) {
-    if (orientation != null) {
-      return orientation == DeviceOrientation.portraitUp ||
-              orientation == DeviceOrientation.portraitDown
+  int _entryAxisMask(
+    EntryOrientationPolicy policy,
+    DeviceOrientation? triggerOrientation,
+  ) {
+    if (policy == EntryOrientationPolicy.triggerDirection &&
+        triggerOrientation != null) {
+      return triggerOrientation == DeviceOrientation.portraitUp ||
+              triggerOrientation == DeviceOrientation.portraitDown
           ? OrientationMask.portrait
           : OrientationMask.landscape;
     }
-    return switch (mode) {
-      FullScreenMode.vertical => OrientationMask.portrait,
-      FullScreenMode.horizontal => OrientationMask.landscape,
-      FullScreenMode.auto =>
+    return switch (policy) {
+      EntryOrientationPolicy.portrait ||
+      EntryOrientationPolicy.portraitUp ||
+      EntryOrientationPolicy.portraitDown => OrientationMask.portrait,
+      EntryOrientationPolicy.landscape ||
+      EntryOrientationPolicy.landscapeLeft ||
+      EntryOrientationPolicy.landscapeRight => OrientationMask.landscape,
+      EntryOrientationPolicy.video =>
         _isVertical ? OrientationMask.portrait : OrientationMask.landscape,
-      FullScreenMode.ratio =>
+      EntryOrientationPolicy.ratio =>
         _isVertical || screenRatio < kScreenRatio
             ? OrientationMask.portrait
             : OrientationMask.landscape,
-      FullScreenMode.none || FullScreenMode.gravity =>
+      EntryOrientationPolicy.keepCurrent ||
+      EntryOrientationPolicy.triggerDirection =>
         _currentSystemLandscape
             ? OrientationMask.landscape
             : OrientationMask.portrait,
     };
   }
 
-  void _compileFullScreenAllowedMask(DeviceOrientation? orientation) {
+  void _compileFullScreenAllowedMask(
+    EntryOrientationPolicy entryPolicy,
+    DeviceOrientation? triggerOrientation,
+  ) {
     _fullScreenAllowedMask = switch (_orientationPlan.fullScreenAllowed) {
       FullScreenAllowedOrientation.all => OrientationMask.all,
       FullScreenAllowedOrientation.landscape => OrientationMask.landscape,
       FullScreenAllowedOrientation.portrait => OrientationMask.portrait,
-      FullScreenAllowedOrientation.entryAxis => _entryAxisMask(orientation),
+      FullScreenAllowedOrientation.entryAxis =>
+        _entryAxisMask(entryPolicy, triggerOrientation),
       FullScreenAllowedOrientation.entryExact => 0,
     };
   }
@@ -1852,23 +1884,34 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   }
 
   Future<void>? changeOrientation({
-    required bool isVertical,
-    DeviceOrientation? orientation,
+    required EntryOrientationPolicy policy,
+    DeviceOrientation? triggerOrientation,
   }) {
-    if (orientation != null) return _applyConcreteOrientation(orientation);
-    return switch (mode) {
-      FullScreenMode.none || FullScreenMode.gravity => null,
-      FullScreenMode.vertical => _applyAxisOrientation(OrientationMask.portrait),
-      FullScreenMode.horizontal =>
-        _applyAxisOrientation(OrientationMask.landscape),
-      FullScreenMode.auto => _applyAxisOrientation(
-          isVertical ? OrientationMask.portrait : OrientationMask.landscape,
+    return switch (policy) {
+      EntryOrientationPolicy.keepCurrent => null,
+      EntryOrientationPolicy.video => _applyAxisOrientation(
+          _isVertical ? OrientationMask.portrait : OrientationMask.landscape,
         ),
-      FullScreenMode.ratio => _applyAxisOrientation(
-          isVertical || screenRatio < kScreenRatio
+      EntryOrientationPolicy.portrait =>
+        _applyAxisOrientation(OrientationMask.portrait),
+      EntryOrientationPolicy.landscape =>
+        _applyAxisOrientation(OrientationMask.landscape),
+      EntryOrientationPolicy.ratio => _applyAxisOrientation(
+          _isVertical || screenRatio < kScreenRatio
               ? OrientationMask.portrait
               : OrientationMask.landscape,
         ),
+      EntryOrientationPolicy.portraitUp =>
+        _applyConcreteOrientation(DeviceOrientation.portraitUp),
+      EntryOrientationPolicy.portraitDown =>
+        _applyConcreteOrientation(DeviceOrientation.portraitDown),
+      EntryOrientationPolicy.landscapeLeft =>
+        _applyConcreteOrientation(DeviceOrientation.landscapeLeft),
+      EntryOrientationPolicy.landscapeRight =>
+        _applyConcreteOrientation(DeviceOrientation.landscapeRight),
+      EntryOrientationPolicy.triggerDirection => triggerOrientation == null
+          ? null
+          : _applyConcreteOrientation(triggerOrientation),
     };
   }
 
@@ -1911,24 +1954,28 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   Future<void> triggerFullScreen({
     bool status = true,
     bool inAppFullScreen = false,
-    DeviceOrientation? orientation,
-    bool isManualFS = true,
+    FullscreenEntryCause cause = FullscreenEntryCause.manual,
   }) async {
     if (isDesktopPip) return;
     if (isFullScreen.value == status) return;
 
     if (_fsProcessing) return;
     _fsProcessing = true;
-    this.isManualFS = isManualFS;
+    isManualFS = cause == FullscreenEntryCause.manual;
     try {
       if (status) {
+        _fullScreenEntryCause = cause;
         if (PlatformUtils.isMobile) {
           hideSystemBar();
           _entryDirectionApplied = false;
-          _compileFullScreenAllowedMask(orientation);
+          final entryPolicy = _orientationPlan.entryForCause(cause);
+          final triggerOrientation = cause == FullscreenEntryCause.orientation
+              ? _orientation
+              : null;
+          _compileFullScreenAllowedMask(entryPolicy, triggerOrientation);
           await changeOrientation(
-            isVertical: isVertical,
-            orientation: orientation,
+            policy: entryPolicy,
+            triggerOrientation: triggerOrientation,
           );
           await _applyFullScreenRuntimePolicy();
         } else {
@@ -2051,8 +2098,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   Future<void>? resetScreenRotation() {
     return switch (_orientationPlan.exitMode) {
-      ExitOrientationMode.restoreApp => OrientationPolicy.restoreApp(),
-      ExitOrientationMode.keepPlayer => null,
+      ExitOrientationMode.restoreApp => OrientationPolicy.applyWindowedRuntime(
+          _orientationPlan.windowedRotation,
+        ),
+      ExitOrientationMode.keepPlayer => OrientationPolicy.applyWindowedRuntime(
+          _orientationPlan.windowedRotation,
+        ),
       ExitOrientationMode.lockPlayer => lockedMode(),
     };
   }
