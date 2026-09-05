@@ -18,60 +18,69 @@ import 'package:material_ui/material_ui.dart';
 abstract final class TvRemoteSetup {
   static Future<void> showStartupPrompt(BuildContext context) async {
     var starting = false;
-    void start(BuildContext dialogContext) {
-      if (starting) return;
+    BuildContext? dialogContext;
+
+    void start() {
+      final current = dialogContext;
+      if (starting || current == null) return;
       starting = true;
-      Navigator.of(dialogContext).pop();
+      Navigator.of(current).pop();
       unawaited(configureAndLogin(context));
     }
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: Focus(
-          autofocus: true,
-          onKeyEvent: (_, event) {
-            if (event is KeyDownEvent) {
-              start(dialogContext);
-              return .handled;
-            }
-            return .ignored;
-          },
-          child: AlertDialog(
-            insetPadding: const .all(24),
-            title: const Text(
-              '检测到横屏 Android 设备',
-              style: TextStyle(fontSize: 26),
+    KeyEventResult handleKey(KeyEvent event) {
+      if (event is KeyDownEvent) {
+        start();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    FocusManager.instance.addEarlyKeyEventHandler(handleKey);
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (current) {
+          dialogContext = current;
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              insetPadding: const .all(24),
+              title: const Text(
+                '检测到横屏 Android 设备',
+                style: TextStyle(fontSize: 26),
+              ),
+              content: const SizedBox(
+                width: 560,
+                child: Text(
+                  '如果这是电视或主要使用遥控器，可以应用遥控器配置并扫码登录。'
+                  '配置后会进行 10 秒方向校准。\n\n'
+                  '任意键盘或遥控器按键均视为确认。',
+                  style: TextStyle(fontSize: 18, height: 1.45),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(current).pop();
+                    await OrientationPolicy.applyStartup();
+                  },
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  autofocus: true,
+                  onPressed: start,
+                  child: const Text('配置遥控器并登录'),
+                ),
+              ],
             ),
-            content: const SizedBox(
-              width: 560,
-              child: Text(
-                '如果这是电视或主要使用遥控器，可以应用遥控器配置并扫码登录。'
-                '配置后会进行 10 秒方向校准。\n\n'
-                '任意键盘或遥控器按键均视为确认。',
-                style: TextStyle(fontSize: 18, height: 1.45),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  Navigator.of(dialogContext).pop();
-                  await OrientationPolicy.applyStartup();
-                },
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                autofocus: true,
-                onPressed: () => start(dialogContext),
-                child: const Text('配置遥控器并登录'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+          );
+        },
+      );
+    } finally {
+      FocusManager.instance.removeEarlyKeyEventHandler(handleKey);
+    }
   }
 
   static Future<void> showMenu(BuildContext context) async {
@@ -214,13 +223,15 @@ class _RemoteOrientationCalibrationState
   int _seconds = 10;
   Timer? _timer;
   bool _finishing = false;
+  late final KeyEventResult Function(KeyEvent) _keyHandler;
 
   int get _direction => _directions[_index];
 
   @override
   void initState() {
     super.initState();
-    FocusManager.instance.addEarlyKeyEventHandler(_handleKeyEvent);
+    _keyHandler = _handleKeyEvent;
+    FocusManager.instance.addEarlyKeyEventHandler(_keyHandler);
     final index = _directions.indexOf(widget.initialBit);
     _index = index < 0 ? 1 : index;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -236,7 +247,7 @@ class _RemoteOrientationCalibrationState
 
   @override
   void dispose() {
-    FocusManager.instance.removeEarlyKeyEventHandler(_handleKeyEvent);
+    FocusManager.instance.removeEarlyKeyEventHandler(_keyHandler);
     _timer?.cancel();
     super.dispose();
   }
