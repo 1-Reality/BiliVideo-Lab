@@ -39,14 +39,16 @@ Future<void>? _setPreferredOrientations(
   int request,
   List<DeviceOrientation> orientations,
 ) {
-  if (_lastOrientationRequest == request) return null;
-  _lastOrientationRequest = request;
+  final key = 0x20000 | request;
+  if (_lastOrientationRequest == key) return null;
+  _lastOrientationRequest = key;
   return SystemChrome.setPreferredOrientations(orientations);
 }
 
 Future<void>? _setAndroidOrientation(int request) {
-  if (_lastOrientationRequest == request) return null;
-  _lastOrientationRequest = request;
+  final key = 0x10000 | (request & 0xFFFF);
+  if (_lastOrientationRequest == key) return null;
+  _lastOrientationRequest = key;
   return OrientationPlatform.setAndroidRequestedOrientation(request);
 }
 

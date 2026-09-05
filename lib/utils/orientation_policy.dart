@@ -169,6 +169,7 @@ abstract final class OrientationPolicy {
           await lockedMode();
           return;
         }
+        break;
       case AppInitialOrientation.portrait:
         final mask = plan.filterMask(OrientationMask.portrait);
         if (mask == 0) break;
@@ -178,6 +179,7 @@ abstract final class OrientationPolicy {
           await portraitUpMode();
         }
         if (plan.appRotation == AppRotationMode.lockInitial) return;
+        break;
       case AppInitialOrientation.landscape:
         final mask = plan.filterMask(OrientationMask.landscape);
         if (mask == 0) break;
@@ -187,6 +189,7 @@ abstract final class OrientationPolicy {
           await landscapeLeftMode();
         }
         if (plan.appRotation == AppRotationMode.lockInitial) return;
+        break;
     }
     await applyAppRuntime();
   }
