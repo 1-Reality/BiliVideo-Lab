@@ -71,6 +71,11 @@ abstract final class DevicePresets {
     applyNow: applyNow,
   );
 
+  static Future<void> restoreTabletDefaults() async {
+    await GStorage.setting.delete(SettingBoxKey.keyboardControl);
+    await applyTablet();
+  }
+
   static Future<void> applyTelevision() => _apply(
     {
       SettingBoxKey.horizontalScreen: true,

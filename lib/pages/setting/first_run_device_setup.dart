@@ -61,14 +61,17 @@ abstract final class FirstRunDeviceSetup {
       case DeviceFormFactor.foldable:
         await DevicePresets.applyFoldable();
         await GStorage.completeFirstRunDeviceSetup();
+        return;
       case DeviceFormFactor.tablet:
         await DevicePresets.applyTablet();
         await GStorage.completeFirstRunDeviceSetup();
+        return;
       case DeviceFormFactor.television:
         await TvRemoteSetup.configureAndLogin(
           context,
           completeFirstRun: true,
         );
+        return;
     }
   }
 
@@ -185,9 +188,12 @@ abstract final class FirstRunDeviceSetup {
             barrierDismissible: false,
             builder: (current) {
               dialogContext = current;
+              final television = form == DeviceFormFactor.television;
               return AlertDialog(
                 insetPadding: const EdgeInsets.all(24),
-                title: const Text('确认设备形态'),
+                title: Text(
+                  television ? '确认电视 / 遥控器设备' : '确认设备形态',
+                ),
                 content: SizedBox(
                   width: 600,
                   child: Column(
@@ -197,24 +203,34 @@ abstract final class FirstRunDeviceSetup {
                       Text.rich(
                         TextSpan(
                           children: [
-                            const TextSpan(text: '您确认当前设备形态是 '),
                             TextSpan(
-                              text: '【${form.label}】',
+                              text: television
+                                  ? '您确认当前设备是 '
+                                  : '您确认当前设备形态是 ',
+                            ),
+                            TextSpan(
+                              text: television
+                                  ? '【电视 / 投影 / 大屏设备】'
+                                  : '【${form.label}】',
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const TextSpan(text: ' 吗？'),
+                            TextSpan(
+                              text: television
+                                  ? '，并主要使用遥控器操作吗？'
+                                  : ' 吗？',
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 14),
                       const Text(
                         '若不是，请立即返回。\n'
-                        '若误入且无法返回，请将该 APP 杀后台。',
+                        '若误入，请将该 APP 杀后台后重新打开。',
                       ),
-                      if (form == DeviceFormFactor.television) ...[
+                      if (television) ...[
                         const SizedBox(height: 14),
                         const Text(
                           '若确认无误，请按遥控器【OK】或除返回键外的任意键继续。',

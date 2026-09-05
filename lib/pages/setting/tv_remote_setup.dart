@@ -31,7 +31,7 @@ abstract final class TvRemoteSetup {
               OutlinedButton.icon(
                 onPressed: () async {
                   Navigator.of(dialogContext).pop();
-                  await DevicePresets.applyTablet();
+                  await DevicePresets.restoreTabletDefaults();
                 },
                 icon: const Icon(Icons.restore),
                 label: const Text('恢复默认设置（平板预设）'),
