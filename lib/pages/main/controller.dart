@@ -22,6 +22,7 @@ import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/update.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_throttle.dart';
+import 'package:flutter/widgets.dart' show FocusScopeNode, UnfocusDisposition;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -38,6 +39,9 @@ class MainController extends GetxController
   late final barHideType = Pref.barHideType;
   bool useBottomNav = false;
   late dynamic controller;
+  final mainContentFocusNode = FocusScopeNode(
+    debugLabel: 'PiliBroMainContent',
+  );
   final RxInt selectedIndex = 0.obs;
 
   final RxInt dynCount = 0.obs;
@@ -274,6 +278,12 @@ class MainController extends GetxController
 
     final currentNav = navigationBars[value];
     if (value != selectedIndex.value) {
+      // Only clear focus inside the page content being hidden. Navigation
+      // rails/drawers live outside this scope, so keyboard/remote focus on the
+      // navigation control itself is preserved.
+      mainContentFocusNode.unfocus(
+        disposition: UnfocusDisposition.scope,
+      );
       selectedIndex.value = value;
       if (mainTabBarView) {
         controller.animateTo(value);
@@ -330,6 +340,7 @@ class MainController extends GetxController
   @override
   void onClose() {
     barOffset?.close();
+    mainContentFocusNode.dispose();
     controller.dispose();
     super.onClose();
   }
