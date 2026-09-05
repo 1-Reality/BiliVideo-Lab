@@ -275,7 +275,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       _creatorMenuItem(
         const Icon(Icons.public, size: 19),
-        'Google',
+        '谷歌',
         () => _openInternalWeb('https://www.google.com'),
       ),
       _creatorMenuItem(
