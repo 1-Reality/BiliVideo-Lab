@@ -389,6 +389,22 @@ abstract final class Pref {
   static int get wifiMinLinkSpeed =>
       _setting.get(SettingBoxKey.wifiMinLinkSpeed, defaultValue: 100);
 
+  static bool get desktopHighBitrateHevc => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevc,
+    defaultValue: false,
+  );
+
+  static int get desktopHighBitrateHevcQuality => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcQuality,
+    defaultValue: VideoQuality.high1080plus.code,
+  );
+
+  // Bilibili DASH bandwidth is kept in its raw bit/s unit.
+  static int get desktopHighBitrateHevcThresholdBps => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+    defaultValue: 114514000,
+  );
+
   static List<Map<String, dynamic>> get networkPeakPeriods =>
       (_setting.get(SettingBoxKey.networkPeakPeriods) as List?)
           ?.whereType<Map>()

@@ -6,11 +6,13 @@ import 'package:PiliBro/common/widgets/time_picker.dart' as pili;
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -37,6 +39,10 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
   late int wifiMode = Pref.wifiNetworkPolicyMode;
   late int rssi = Pref.wifiRssiThreshold;
   late int wifiSpeed = Pref.wifiMinLinkSpeed;
+  late bool highBitrateHevc = Pref.desktopHighBitrateHevc;
+  late int highBitrateHevcQuality = Pref.desktopHighBitrateHevcQuality;
+  late int highBitrateHevcThresholdBps =
+      Pref.desktopHighBitrateHevcThresholdBps;
   late int cellularMode = Pref.cellularQualityMode;
   late int cellularJudgeMode = Pref.cellularQualityJudgeMode;
   late String cellularMatch = Pref.cellularQualityMatch;
@@ -199,6 +205,42 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
     }
   }
 
+  Future<void> _setHighBitrateHevcQuality() async {
+    final value = await showDialog<int>(
+      context: context,
+      builder: (context) => SelectDialog<int>(
+        title: '画质门限',
+        value: highBitrateHevcQuality,
+        values: [
+          for (final quality in VideoQuality.values)
+            (quality.code, quality.desc),
+        ],
+      ),
+    );
+    if (value == null) return;
+    highBitrateHevcQuality = value;
+    await GStorage.setting.put(
+      SettingBoxKey.desktopHighBitrateHevcQuality,
+      value,
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setHighBitrateHevcThreshold() async {
+    final value = await _inputInt(
+      title: 'H.264 码率门限',
+      value: highBitrateHevcThresholdBps ~/ 1000,
+      suffix: 'Kbps',
+    );
+    if (value == null) return;
+    highBitrateHevcThresholdBps = value * 1000;
+    await GStorage.setting.put(
+      SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+      highBitrateHevcThresholdBps,
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _showHelp() {
     return showDialog<void>(
       context: context,
@@ -305,6 +347,37 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Get.toNamed('/trafficStats'),
             ),
+            if (PlatformUtils.isDesktop) ...[
+              const Divider(),
+              SetSwitchItem(
+                title: '极高码率 H.264 自动切换 H.265',
+                subtitle: '仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
+                setKey: SettingBoxKey.desktopHighBitrateHevc,
+                defaultVal: highBitrateHevc,
+                onChanged: (value) {
+                  highBitrateHevc = value;
+                  setState(() {});
+                },
+              ),
+              if (highBitrateHevc) ...[
+                ListTile(
+                  title: const Text('画质门限'),
+                  subtitle: Text(
+                    '画质不低于 ${VideoQuality.fromCode(highBitrateHevcQuality).desc} 时参与判断',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _setHighBitrateHevcQuality,
+                ),
+                ListTile(
+                  title: const Text('码率门限'),
+                  subtitle: Text(
+                    'H.264 码率大于 ${highBitrateHevcThresholdBps ~/ 1000} Kbps 时参与判断',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _setHighBitrateHevcThreshold,
+                ),
+              ],
+            ],
             const Divider(),
             SetSwitchItem(
               title: '电脑有线状态判断',
