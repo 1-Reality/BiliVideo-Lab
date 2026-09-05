@@ -9,7 +9,6 @@ import 'package:PiliBro/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';

@@ -523,6 +523,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   bool? _gravityLandscape;
   bool _observingSystemOrientation = false;
   int _fullScreenAllowedMask = OrientationMask.all;
+  bool _entryDirectionApplied = false;
   StreamSubscription<OrientationParams>? _orientationListener;
   late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
 
@@ -1818,6 +1819,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   Future<void>? _applyAxisOrientation(int mask) {
     final filtered = _orientationPlan.filterMask(mask);
     if (filtered == 0) return null;
+    _entryDirectionApplied = true;
     if (mask == OrientationMask.portrait) {
       return filtered == OrientationMask.portraitDown
           ? portraitDownMode()
@@ -1839,6 +1841,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         0) {
       return null;
     }
+    _entryDirectionApplied = true;
     return switch (orientation) {
       DeviceOrientation.portraitUp => portraitUpMode(),
       DeviceOrientation.portraitDown => portraitDownMode(),
@@ -1873,13 +1876,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     final allowed = plan.filterMask(_fullScreenAllowedMask);
     if (plan.fullScreenAllowed == FullScreenAllowedOrientation.entryExact ||
         allowed == 0) {
-      return lockedMode();
+      return _entryDirectionApplied ? null : lockedMode();
     }
     return switch (plan.fullScreenRotationSource) {
       FullScreenRotationSource.keepCurrent =>
-        mode == FullScreenMode.none || mode == FullScreenMode.gravity
-            ? lockedMode()
-            : null,
+        _entryDirectionApplied ? null : lockedMode(),
       FullScreenRotationSource.followSystem =>
         OrientationPolicy.applySystemPolicy(
           ignoreSystemLock: false,
@@ -1893,9 +1894,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           filterEnabled: allowed != OrientationMask.all,
         ),
       FullScreenRotationSource.appGravity =>
-        mode == FullScreenMode.none || mode == FullScreenMode.gravity
-            ? lockedMode()
-            : null,
+        _entryDirectionApplied ? null : lockedMode(),
     };
   }
 
@@ -1917,6 +1916,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       if (status) {
         if (PlatformUtils.isMobile) {
           hideSystemBar();
+          _entryDirectionApplied = false;
           _compileFullScreenAllowedMask(orientation);
           await changeOrientation(
             isVertical: isVertical,

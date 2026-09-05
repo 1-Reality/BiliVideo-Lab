@@ -111,6 +111,7 @@ Future<void> _applyRemoteControlPreset() async {
     SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
     SettingBoxKey.keyboardControl: false,
   });
+  await OrientationPolicy.compile();
   Get.back();
 }
 

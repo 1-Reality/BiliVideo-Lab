@@ -14,6 +14,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
@@ -65,12 +66,12 @@ class _SettingPageState extends State<SettingPage> {
     ),
     _SettingsModel(
       type: SettingType.playSetting,
-      subtitle: '双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
+      subtitle: '方向、双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
       icon: Icon(Icons.touch_app_outlined),
     ),
     _SettingsModel(
       type: SettingType.styleSetting,
-      subtitle: '横屏适配（平板）、侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
+      subtitle: '侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
       icon: Icon(Icons.style_outlined),
     ),
     _SettingsModel(
@@ -278,6 +279,7 @@ class _SettingPageState extends State<SettingPage> {
                   SettingBoxKey.fullScreenMode: FullScreenMode.auto.index,
                   SettingBoxKey.keyboardControl: true,
                 });
+                await OrientationPolicy.compile();
                 Get.back();
                 if (PlatformUtils.isMobile) await portraitUpMode();
               },
@@ -290,6 +292,7 @@ class _SettingPageState extends State<SettingPage> {
                   SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
                   SettingBoxKey.keyboardControl: false,
                 });
+                await OrientationPolicy.compile();
                 Get.back();
                 if (PlatformUtils.isMobile) await fullMode();
               },
