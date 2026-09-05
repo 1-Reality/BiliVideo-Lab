@@ -640,7 +640,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   }
 
   void _evaluateOrientationTrigger() {
-    if (_fsProcessing) return;
+    if (_fsProcessing || controlsLock.value) return;
     final plan = _orientationPlan;
     if (!isFullScreen.value && plan.triggerEnter && _triggerSourceMatches(true)) {
       triggerFullScreen(

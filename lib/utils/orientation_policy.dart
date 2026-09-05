@@ -269,10 +269,16 @@ final class _FinalOrientationGuard with WidgetsBindingObserver {
 
   void update() {
     final mask = OrientationPolicy.plan.finalDirectionMask;
-    final active =
-        Platform.isAndroid &&
-        mask != 0 &&
-        mask != OrientationMask.all;
+    final nativeMask =
+        mask == OrientationMask.portraitUp ||
+        mask == OrientationMask.portraitDown ||
+        mask == OrientationMask.landscapeLeft ||
+        mask == OrientationMask.landscapeRight ||
+        mask == OrientationMask.portrait ||
+        mask == OrientationMask.landscape ||
+        mask == 13 ||
+        mask == OrientationMask.all;
+    final active = Platform.isAndroid && mask != 0 && !nativeMask;
     if (active == _active) return;
     _active = active;
     if (active) {

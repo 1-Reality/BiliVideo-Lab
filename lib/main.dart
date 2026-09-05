@@ -112,6 +112,7 @@ Future<void> _applyRemoteControlPreset() async {
     SettingBoxKey.keyboardControl: false,
   });
   await OrientationPolicy.compile();
+  await fullMode();
   Get.back();
 }
 
@@ -147,7 +148,7 @@ void _showRemoteControlPresetPrompt() {
           TextButton(
             onPressed: () async {
               Get.back();
-              if (!Pref.horizontalScreen) await portraitUpMode();
+              await OrientationPolicy.applyStartup();
             },
             child: const Text('取消'),
           ),
@@ -204,18 +205,21 @@ void main() async {
 
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
+    final firstLandscapeAndroid = Platform.isAndroid &&
+        due == 0 &&
+        (() {
+          final size =
+              WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
+          return size.width > size.height;
+        })();
     await Future.wait([
-      OrientationPolicy.applyStartup(),
+      if (firstLandscapeAndroid) ?fullMode() else OrientationPolicy.applyStartup(),
       setupServiceLocator(),
     ]);
-    if (Platform.isAndroid && due == 0) {
-      final size =
-          WidgetsBinding.instance.platformDispatcher.views.first.physicalSize;
-      if (size.width > size.height) {
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _showRemoteControlPresetPrompt(),
-        );
-      }
+    if (firstLandscapeAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showRemoteControlPresetPrompt(),
+      );
     }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {
