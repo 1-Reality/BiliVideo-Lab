@@ -234,15 +234,7 @@ class _RemoteOrientationCalibrationState
     FocusManager.instance.addEarlyKeyEventHandler(_keyHandler);
     final index = _directions.indexOf(widget.initialBit);
     _index = index < 0 ? 1 : index;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      if (_seconds <= 1) {
-        _timer?.cancel();
-        unawaited(_finish());
-      } else {
-        setState(() => _seconds--);
-      }
-    });
+    _startTimer();
   }
 
   @override
@@ -260,12 +252,26 @@ class _RemoteOrientationCalibrationState
     return KeyEventResult.ignored;
   }
 
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_seconds <= 1) {
+        _timer?.cancel();
+        unawaited(_finish());
+      } else {
+        setState(() => _seconds--);
+      }
+    });
+  }
+
   void _rotate() {
     if (_finishing) return;
     setState(() {
       _index = (_index + 1) & 3;
       _seconds = 10;
     });
+    _startTimer();
     unawaited(_applyDirection(_direction));
   }
 
