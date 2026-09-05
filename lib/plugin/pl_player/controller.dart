@@ -48,6 +48,7 @@ import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
+import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -1871,33 +1872,35 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     };
   }
 
-  Future<void>? _applyFullScreenRuntimePolicy() {
+  Future<void> _applyFullScreenRuntimePolicy() async {
     final plan = _orientationPlan;
     final allowed = plan.filterMask(_fullScreenAllowedMask);
     if (plan.fullScreenAllowed == FullScreenAllowedOrientation.entryExact ||
         allowed == 0) {
-      return _entryDirectionApplied ? null : lockedMode();
+      if (!_entryDirectionApplied) await lockedMode();
+      return;
     }
-    return switch (plan.fullScreenRotationSource) {
-      FullScreenRotationSource.keepCurrent =>
-        _entryDirectionApplied ? null : lockedMode(),
-      FullScreenRotationSource.followSystem =>
-        !plan.systemAutoRotate && _entryDirectionApplied
-            ? null
-            : OrientationPolicy.applySystemPolicy(
-                ignoreSystemLock: false,
-                allowedMask: allowed,
-                filterEnabled: allowed != OrientationMask.all,
-              ),
-      FullScreenRotationSource.alwaysAuto =>
-        OrientationPolicy.applySystemPolicy(
+    switch (plan.fullScreenRotationSource) {
+      case FullScreenRotationSource.keepCurrent:
+      case FullScreenRotationSource.appGravity:
+        if (!_entryDirectionApplied) await lockedMode();
+      case FullScreenRotationSource.followSystem:
+        if (_entryDirectionApplied &&
+            !await OrientationPlatform.systemAutoRotate()) {
+          return;
+        }
+        await OrientationPolicy.applySystemPolicy(
+          ignoreSystemLock: false,
+          allowedMask: allowed,
+          filterEnabled: allowed != OrientationMask.all,
+        );
+      case FullScreenRotationSource.alwaysAuto:
+        await OrientationPolicy.applySystemPolicy(
           ignoreSystemLock: true,
           allowedMask: allowed,
           filterEnabled: allowed != OrientationMask.all,
-        ),
-      FullScreenRotationSource.appGravity =>
-        _entryDirectionApplied ? null : lockedMode(),
-    };
+        );
+    }
   }
 
   // 全屏
