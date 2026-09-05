@@ -12,7 +12,6 @@ import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
-import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -347,37 +346,33 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Get.toNamed('/trafficStats'),
             ),
-            if (PlatformUtils.isDesktop) ...[
-              const Divider(),
-              SetSwitchItem(
-                title: '极高码率 H.264 自动切换 H.265',
-                subtitle: '仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
-                setKey: SettingBoxKey.desktopHighBitrateHevc,
-                defaultVal: highBitrateHevc,
-                onChanged: (value) {
-                  highBitrateHevc = value;
-                  setState(() {});
-                },
+            const Divider(),
+            SetSwitchItem(
+              title: '极高码率 H.264 自动切换 H.265',
+              subtitle: '仅桌面播放器执行；关闭后直接走原视频流选择路径。开启后仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
+              setKey: SettingBoxKey.desktopHighBitrateHevc,
+              defaultVal: highBitrateHevc,
+              onChanged: (value) {
+                highBitrateHevc = value;
+                setState(() {});
+              },
+            ),
+            ListTile(
+              title: const Text('画质门限'),
+              subtitle: Text(
+                '${highBitrateHevc ? "" : "当前功能关闭；"}画质不低于 ${VideoQuality.fromCode(highBitrateHevcQuality).desc} 时参与判断',
               ),
-              if (highBitrateHevc) ...[
-                ListTile(
-                  title: const Text('画质门限'),
-                  subtitle: Text(
-                    '画质不低于 ${VideoQuality.fromCode(highBitrateHevcQuality).desc} 时参与判断',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _setHighBitrateHevcQuality,
-                ),
-                ListTile(
-                  title: const Text('码率门限'),
-                  subtitle: Text(
-                    'H.264 码率大于 ${highBitrateHevcThresholdBps ~/ 1000} Kbps 时参与判断',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _setHighBitrateHevcThreshold,
-                ),
-              ],
-            ],
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _setHighBitrateHevcQuality,
+            ),
+            ListTile(
+              title: const Text('码率门限'),
+              subtitle: Text(
+                '${highBitrateHevc ? "" : "当前功能关闭；"}H.264 码率大于 ${highBitrateHevcThresholdBps ~/ 1000} Kbps 时参与判断',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _setHighBitrateHevcThreshold,
+            ),
             const Divider(),
             SetSwitchItem(
               title: '电脑有线状态判断',

@@ -1882,11 +1882,13 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       FullScreenRotationSource.keepCurrent =>
         _entryDirectionApplied ? null : lockedMode(),
       FullScreenRotationSource.followSystem =>
-        OrientationPolicy.applySystemPolicy(
-          ignoreSystemLock: false,
-          allowedMask: allowed,
-          filterEnabled: allowed != OrientationMask.all,
-        ),
+        !plan.systemAutoRotate && _entryDirectionApplied
+            ? null
+            : OrientationPolicy.applySystemPolicy(
+                ignoreSystemLock: false,
+                allowedMask: allowed,
+                filterEnabled: allowed != OrientationMask.all,
+              ),
       FullScreenRotationSource.alwaysAuto =>
         OrientationPolicy.applySystemPolicy(
           ignoreSystemLock: true,
