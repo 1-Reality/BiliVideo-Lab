@@ -43,6 +43,43 @@ class PlayerFocus extends StatelessWidget {
   static bool _shouldHandle(LogicalKeyboardKey logicalKey) =>
       logicalKey == LogicalKeyboardKey.tab || _isArrow(logicalKey);
 
+  static bool handleAndroidFullscreenSeek({
+    required PlPlayerController controller,
+    required KeyEvent event,
+    required bool isFullScreen,
+  }) {
+    final key = event.logicalKey;
+    if (!Platform.isAndroid ||
+        !isFullScreen ||
+        controller.isLive ||
+        (key != LogicalKeyboardKey.arrowLeft &&
+            key != LogicalKeyboardKey.arrowRight)) {
+      return false;
+    }
+
+    final forward = key == LogicalKeyboardKey.arrowRight;
+    void seek() {
+      if (controller.videoPlayerController == null) return;
+      if (forward) {
+        controller.onForward(controller.fastForBackwardDuration);
+      } else {
+        controller.onBackward(controller.fastForBackwardDuration);
+      }
+    }
+
+    if (event is KeyDownEvent) {
+      controller.cancelLongPressTimer();
+      seek();
+      controller.longPressTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => seek(),
+      );
+    } else if (event is KeyUpEvent) {
+      controller.cancelLongPressTimer();
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -123,35 +160,11 @@ class PlayerFocus extends StatelessWidget {
       return false;
     }
 
-    if (Platform.isAndroid &&
-        isFullScreen &&
-        !plPlayerController.isLive &&
-        (key == LogicalKeyboardKey.arrowLeft ||
-            key == LogicalKeyboardKey.arrowRight)) {
-      final forward = key == LogicalKeyboardKey.arrowRight;
-      void seek() {
-        if (!hasPlayer) return;
-        if (forward) {
-          plPlayerController.onForward(
-            plPlayerController.fastForBackwardDuration,
-          );
-        } else {
-          plPlayerController.onBackward(
-            plPlayerController.fastForBackwardDuration,
-          );
-        }
-      }
-
-      if (event is KeyDownEvent) {
-        plPlayerController.cancelLongPressTimer();
-        seek();
-        plPlayerController.longPressTimer = Timer.periodic(
-          const Duration(milliseconds: 250),
-          (_) => seek(),
-        );
-      } else if (event is KeyUpEvent) {
-        plPlayerController.cancelLongPressTimer();
-      }
+    if (handleAndroidFullscreenSeek(
+      controller: plPlayerController,
+      event: event,
+      isFullScreen: isFullScreen,
+    )) {
       return true;
     }
 
