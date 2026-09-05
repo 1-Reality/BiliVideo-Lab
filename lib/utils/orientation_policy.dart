@@ -133,10 +133,13 @@ abstract final class OrientationPolicy {
 
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
-    _startupDirectionBit =
-        await OrientationPlatform.currentOrientationBit() ??
-        _currentWindowAxisBit();
     await compile();
+    if (_plan.appInitial == AppInitialOrientation.system &&
+        _plan.appRotation == AppRotationMode.lockInitial) {
+      _startupDirectionBit =
+          await OrientationPlatform.currentOrientationBit() ??
+          _currentWindowAxisBit();
+    }
   }
 
   static int _currentWindowAxisBit() {
@@ -189,7 +192,8 @@ abstract final class OrientationPolicy {
     final gravityFollowSystemLock = advanced
         ? Pref.advancedGravityFollowSystemLock
         : Pref.gravityFollowSystemLock;
-    final simpleTrigger = Pref.orientationFullscreenTrigger;
+    final simpleTrigger =
+        advanced ? null : Pref.orientationFullscreenTrigger;
     final triggerEnter = advanced
         ? Pref.advancedLandscapeEnter
         : simpleTrigger == OrientationFullscreenTrigger.landscapeEnter ||

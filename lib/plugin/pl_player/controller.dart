@@ -2122,8 +2122,10 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   }
 
   void dispose() {
-    // 每次减1，最后销毁
-    resetScreenRotation();
+    // 离开播放器后统一恢复 APP 运行方向，避免视频窗口策略泄漏到其他页面。
+    if (PlatformUtils.isMobile) {
+      OrientationPolicy.restoreApp();
+    }
     cancelLongPressTimer();
     _cancelSubForSeek();
     if (!_isCloseAll && _playerCount > 1) {
