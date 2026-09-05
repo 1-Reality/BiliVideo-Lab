@@ -4,6 +4,7 @@ import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliBro/pages/setting/pages/orientation_probe.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
@@ -520,6 +521,12 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                   child: Text(
                     '临时诊断功能。建议测试时使用“进入全屏强制横屏 + 全屏期间跟随系统 + 允许全部方向”；切换预设后重新进入播放器。',
                   ),
+                ),
+                ListTile(
+                  title: const Text('方向事件探针'),
+                  subtitle: const Text('锁横屏后分别记录系统建议、实际窗口和现有设备方向回调'),
+                  trailing: const Icon(Icons.science_outlined),
+                  onTap: () => Get.to(() => const OrientationProbePage()),
                 ),
                 _selectTile(
                   title: '交权实验预设',

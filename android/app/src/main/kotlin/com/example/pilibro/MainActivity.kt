@@ -9,14 +9,21 @@ import android.content.res.Configuration
 import android.os.Build
 import android.telephony.TelephonyManager
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Surface
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.util.function.IntConsumer
 
 class MainActivity : AudioServiceActivity() {
+    private var orientationProbeSink: EventChannel.EventSink? = null
+    private var proposedRotationListener: IntConsumer? = null
+    private var lastProposedRotation: Int? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/orientation")
@@ -34,9 +41,21 @@ class MainActivity : AudioServiceActivity() {
                         result.success(null)
                     }
                     "currentOrientation" -> result.success(currentOrientationRequest())
+                    "orientationProbeSnapshot" -> result.success(orientationProbeSnapshot("manualSnapshot"))
                     else -> result.notImplemented()
                 }
             }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/orientation_probe")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                    startOrientationProbe(events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    stopOrientationProbe()
+                }
+            })
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/device")
             .setMethodCallHandler { call, result ->
@@ -45,6 +64,67 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun startOrientationProbe(events: EventChannel.EventSink) {
+        stopOrientationProbe()
+        orientationProbeSink = events
+        emitOrientationProbe("listenStarted")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val listener = IntConsumer { rotation ->
+                lastProposedRotation = rotation
+                emitOrientationProbe("proposedRotation")
+            }
+            proposedRotationListener = listener
+            try {
+                windowManager.addProposedRotationListener(mainExecutor, listener)
+            } catch (error: Throwable) {
+                events.error("PROPOSED_ROTATION", error.toString(), null)
+            }
+        } else {
+            emitOrientationProbe("proposedRotationUnsupported")
+        }
+    }
+
+    private fun stopOrientationProbe() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            proposedRotationListener?.let { listener ->
+                try {
+                    windowManager.removeProposedRotationListener(listener)
+                } catch (_: Throwable) {
+                }
+            }
+        }
+        proposedRotationListener = null
+        orientationProbeSink = null
+    }
+
+    private fun emitOrientationProbe(event: String) {
+        orientationProbeSink?.success(orientationProbeSnapshot(event))
+    }
+
+    @Suppress("DEPRECATION")
+    private fun orientationProbeSnapshot(event: String): Map<String, Any?> {
+        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.rotation
+        } else {
+            windowManager.defaultDisplay.rotation
+        }
+        return mapOf(
+            "event" to event,
+            "elapsedRealtimeMs" to SystemClock.elapsedRealtime(),
+            "proposedRotation" to lastProposedRotation,
+            "displayRotation" to rotation,
+            "configurationOrientation" to resources.configuration.orientation,
+            "requestedOrientation" to requestedOrientation,
+            "systemAutoRotate" to (
+                Settings.System.getInt(
+                    contentResolver,
+                    Settings.System.ACCELEROMETER_ROTATION,
+                    0
+                ) == 1
+            ),
+        )
     }
 
     @Suppress("DEPRECATION")
@@ -113,6 +193,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        emitOrientationProbe("configurationChanged")
         if (AndroidHelper.isFoldable) {
             AndroidHelper.ToDart.onConfigurationChanged?.run()
         }
