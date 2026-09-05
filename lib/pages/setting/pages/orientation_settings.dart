@@ -40,31 +40,32 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         values: values.map((e) => (e, label(e))).toList(),
       ),
     );
-    if (res != null) {
-      await GStorage.setting.put(key, res.index);
-      await OrientationPolicy.compile();
-      if (mounted) setState(() {});
-    }
+    if (res == null) return;
+    await GStorage.setting.put(key, res.index);
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
   }
 
-  Future<void> _showAngleDegreesDialog() async {
+  Future<void> _showAngleDegreesDialog({
+    required String key,
+    required int value,
+  }) async {
     final res = await showDialog<double>(
       context: context,
       builder: (context) => SliderDialog(
-        title: const Text('倾斜角度阈值'),
+        title: const Text('APP 重力倾斜角度阈值'),
         min: 10,
         max: 90,
         divisions: 80,
         precise: 0,
-        value: Pref.angleDegrees.toDouble(),
+        value: value.toDouble(),
         suffix: '°',
       ),
     );
-    if (res != null) {
-      await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
-      await OrientationPolicy.compile();
-      if (mounted) setState(() {});
-    }
+    if (res == null) return;
+    await GStorage.setting.put(key, res.toInt());
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
   }
 
   Future<void> _showFinalDirectionMaskDialog() async {
@@ -110,11 +111,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         },
       ),
     );
-    if (res != null) {
-      await GStorage.setting.put(SettingBoxKey.finalDirectionMask, res);
-      await OrientationPolicy.compile();
-      if (mounted) setState(() {});
-    }
+    if (res == null) return;
+    await GStorage.setting.put(SettingBoxKey.finalDirectionMask, res);
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
   }
 
   Widget _selectTile({
@@ -128,8 +128,310 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     onTap: onTap,
   );
 
+  Widget _section(String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+    child: Text(
+      text,
+      style: TextStyle(color: Theme.of(context).colorScheme.primary),
+    ),
+  );
+
+  List<Widget> _simpleSettings() => [
+    _section('简单配置'),
+    _selectTile(
+      title: 'APP 初始方向',
+      subtitle: Pref.appInitialOrientation.desc,
+      onTap: () => _select(
+        title: 'APP 初始方向',
+        value: Pref.appInitialOrientation,
+        values: AppInitialOrientation.values,
+        key: SettingBoxKey.appInitialOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: 'APP 运行期间方向变化',
+      subtitle: Pref.appRotationMode.desc,
+      onTap: () => _select(
+        title: 'APP 运行期间方向变化',
+        value: Pref.appRotationMode,
+        values: AppRotationMode.values,
+        key: SettingBoxKey.appRotationMode,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '进入全屏时方向',
+      subtitle: Pref.fullScreenMode.desc,
+      onTap: () => _select(
+        title: '进入全屏时方向',
+        value: Pref.fullScreenMode,
+        values: FullScreenMode.values
+            .where((e) => e != FullScreenMode.gravity)
+            .toList(growable: false),
+        key: SettingBoxKey.fullScreenMode,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '全屏期间方向来源',
+      subtitle: Pref.fullScreenRotationSource.desc,
+      onTap: () => _select(
+        title: '全屏期间方向来源',
+        value: Pref.fullScreenRotationSource,
+        values: FullScreenRotationSource.values,
+        key: SettingBoxKey.fullScreenRotationSource,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '全屏期间允许方向',
+      subtitle: Pref.fullScreenAllowedOrientation.desc,
+      onTap: () => _select(
+        title: '全屏期间允许方向',
+        value: Pref.fullScreenAllowedOrientation,
+        values: FullScreenAllowedOrientation.values,
+        key: SettingBoxKey.fullScreenAllowedOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    SetSwitchItem(
+      title: 'APP 重力遵循系统方向锁定',
+      setKey: SettingBoxKey.gravityFollowSystemLock,
+      defaultVal: Pref.gravityFollowSystemLock,
+      onChanged: (_) => OrientationPolicy.compile(),
+    ),
+    _selectTile(
+      title: '方向触发全屏',
+      subtitle: Pref.orientationFullscreenTrigger.desc,
+      onTap: () => _select(
+        title: '方向触发全屏',
+        value: Pref.orientationFullscreenTrigger,
+        values: OrientationFullscreenTrigger.values,
+        key: SettingBoxKey.orientationFullscreenTrigger,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '方向触发依据',
+      subtitle: Pref.orientationTriggerSource.desc,
+      onTap: () => _select(
+        title: '方向触发依据',
+        value: Pref.orientationTriggerSource,
+        values: OrientationTriggerSource.values,
+        key: SettingBoxKey.orientationTriggerSource,
+        label: (e) => e.desc,
+      ),
+    ),
+    if (Platform.isAndroid)
+      _selectTile(
+        title: 'APP 重力倾斜角度阈值',
+        subtitle: '当前：${Pref.angleDegrees}°',
+        onTap: () => _showAngleDegreesDialog(
+          key: SettingBoxKey.angleDegrees,
+          value: Pref.angleDegrees,
+        ),
+      ),
+    _selectTile(
+      title: '退出全屏后的方向',
+      subtitle: Pref.exitOrientationMode.desc,
+      onTap: () => _select(
+        title: '退出全屏后的方向',
+        value: Pref.exitOrientationMode,
+        values: ExitOrientationMode.values,
+        key: SettingBoxKey.exitOrientationMode,
+        label: (e) => e.desc,
+      ),
+    ),
+  ];
+
+  List<Widget> _advancedSettings() => [
+    _section('高级配置'),
+    const Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Text(
+        '高级配置与简单配置分别保存，不互相翻译。部分设置会在重新进入播放器或下次启动后生效。',
+      ),
+    ),
+    _selectTile(
+      title: 'APP 初始方向',
+      subtitle: Pref.advancedAppInitialOrientation.desc,
+      onTap: () => _select(
+        title: 'APP 初始方向',
+        value: Pref.advancedAppInitialOrientation,
+        values: AppInitialOrientation.values,
+        key: SettingBoxKey.advancedAppInitialOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: 'APP 运行期间方向变化',
+      subtitle: Pref.advancedAppRotationMode.desc,
+      onTap: () => _select(
+        title: 'APP 运行期间方向变化',
+        value: Pref.advancedAppRotationMode,
+        values: AppRotationMode.values,
+        key: SettingBoxKey.advancedAppRotationMode,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '视频非全屏时方向变化',
+      subtitle: Pref.advancedWindowedPlayerRotationMode.desc,
+      onTap: () => _select(
+        title: '视频非全屏时方向变化',
+        value: Pref.advancedWindowedPlayerRotationMode,
+        values: WindowedPlayerRotationMode.values,
+        key: SettingBoxKey.advancedWindowedPlayerRotationMode,
+        label: (e) => e.desc,
+      ),
+    ),
+    SetSwitchItem(
+      title: '横置时自动进入全屏',
+      setKey: SettingBoxKey.advancedLandscapeEnter,
+      defaultVal: Pref.advancedLandscapeEnter,
+      onChanged: (_) => OrientationPolicy.compile(),
+    ),
+    SetSwitchItem(
+      title: '竖置时自动退出全屏',
+      setKey: SettingBoxKey.advancedPortraitExit,
+      defaultVal: Pref.advancedPortraitExit,
+      onChanged: (_) => OrientationPolicy.compile(),
+    ),
+    _selectTile(
+      title: '进入全屏触发依据',
+      subtitle: Pref.advancedEnterTriggerSource.desc,
+      onTap: () => _select(
+        title: '进入全屏触发依据',
+        value: Pref.advancedEnterTriggerSource,
+        values: OrientationTriggerSource.values,
+        key: SettingBoxKey.advancedEnterTriggerSource,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '退出全屏触发依据',
+      subtitle: Pref.advancedExitTriggerSource.desc,
+      onTap: () => _select(
+        title: '退出全屏触发依据',
+        value: Pref.advancedExitTriggerSource,
+        values: OrientationTriggerSource.values,
+        key: SettingBoxKey.advancedExitTriggerSource,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '方向触发适用视频',
+      subtitle: Pref.advancedTriggerContent.desc,
+      onTap: () => _select(
+        title: '方向触发适用视频',
+        value: Pref.advancedTriggerContent,
+        values: OrientationTriggerContent.values,
+        key: SettingBoxKey.advancedTriggerContent,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '手动进入全屏时方向',
+      subtitle: Pref.advancedManualEntryOrientation.desc,
+      onTap: () => _select(
+        title: '手动进入全屏时方向',
+        value: Pref.advancedManualEntryOrientation,
+        values: EntryOrientationPolicy.values
+            .where((e) => e != EntryOrientationPolicy.triggerDirection)
+            .toList(growable: false),
+        key: SettingBoxKey.advancedManualEntryOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '播放自动进入全屏时方向',
+      subtitle: Pref.advancedAutoEntryOrientation.desc,
+      onTap: () => _select(
+        title: '播放自动进入全屏时方向',
+        value: Pref.advancedAutoEntryOrientation,
+        values: EntryOrientationPolicy.values
+            .where((e) => e != EntryOrientationPolicy.triggerDirection)
+            .toList(growable: false),
+        key: SettingBoxKey.advancedAutoEntryOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '方向触发进入全屏时方向',
+      subtitle: Pref.advancedOrientationEntryOrientation.desc,
+      onTap: () => _select(
+        title: '方向触发进入全屏时方向',
+        value: Pref.advancedOrientationEntryOrientation,
+        values: EntryOrientationPolicy.values,
+        key: SettingBoxKey.advancedOrientationEntryOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '全屏期间方向来源',
+      subtitle: Pref.advancedFullScreenRotationSource.desc,
+      onTap: () => _select(
+        title: '全屏期间方向来源',
+        value: Pref.advancedFullScreenRotationSource,
+        values: FullScreenRotationSource.values,
+        key: SettingBoxKey.advancedFullScreenRotationSource,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '全屏期间允许方向',
+      subtitle: Pref.advancedFullScreenAllowedOrientation.desc,
+      onTap: () => _select(
+        title: '全屏期间允许方向',
+        value: Pref.advancedFullScreenAllowedOrientation,
+        values: FullScreenAllowedOrientation.values,
+        key: SettingBoxKey.advancedFullScreenAllowedOrientation,
+        label: (e) => e.desc,
+      ),
+    ),
+    SetSwitchItem(
+      title: 'APP 重力遵循系统方向锁定',
+      setKey: SettingBoxKey.advancedGravityFollowSystemLock,
+      defaultVal: Pref.advancedGravityFollowSystemLock,
+      onChanged: (_) => OrientationPolicy.compile(),
+    ),
+    if (Platform.isAndroid)
+      _selectTile(
+        title: 'APP 重力倾斜角度阈值',
+        subtitle: '当前：${Pref.advancedAngleDegrees}°',
+        onTap: () => _showAngleDegreesDialog(
+          key: SettingBoxKey.advancedAngleDegrees,
+          value: Pref.advancedAngleDegrees,
+        ),
+      ),
+    _selectTile(
+      title: '方向自动退出全屏适用范围',
+      subtitle: Pref.advancedAutoExitScope.desc,
+      onTap: () => _select(
+        title: '方向自动退出全屏适用范围',
+        value: Pref.advancedAutoExitScope,
+        values: OrientationAutoExitScope.values,
+        key: SettingBoxKey.advancedAutoExitScope,
+        label: (e) => e.desc,
+      ),
+    ),
+    _selectTile(
+      title: '退出全屏后的方向',
+      subtitle: Pref.advancedExitOrientationMode.desc,
+      onTap: () => _select(
+        title: '退出全屏后的方向',
+        value: Pref.advancedExitOrientationMode,
+        values: ExitOrientationMode.values,
+        key: SettingBoxKey.advancedExitOrientationMode,
+        label: (e) => e.desc,
+      ),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final mode = Pref.orientationPolicyMode;
     return SimpleScaffold(
       appBar: AppBar(title: const Text('方向（横竖屏）设置')),
       body: ViewSafeArea(
@@ -145,107 +447,12 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
               defaultVal: Pref.horizontalScreen,
             ),
             if (PlatformUtils.isMobile) ...[
-              _selectTile(
-                title: 'APP 初始方向',
-                subtitle: Pref.appInitialOrientation.desc,
-                onTap: () => _select(
-                  title: 'APP 初始方向',
-                  value: Pref.appInitialOrientation,
-                  values: AppInitialOrientation.values,
-                  key: SettingBoxKey.appInitialOrientation,
-                  label: (e) => e.desc,
-                ),
-              ),
-              _selectTile(
-                title: 'APP 运行期间方向变化',
-                subtitle: Pref.appRotationMode.desc,
-                onTap: () => _select(
-                  title: 'APP 运行期间方向变化',
-                  value: Pref.appRotationMode,
-                  values: AppRotationMode.values,
-                  key: SettingBoxKey.appRotationMode,
-                  label: (e) => e.desc,
-                ),
-              ),
-              _selectTile(
-                title: '进入全屏时方向',
-                subtitle: Pref.fullScreenMode.desc,
-                onTap: () => _select(
-                  title: '进入全屏时方向',
-                  value: Pref.fullScreenMode,
-                  values: FullScreenMode.values
-                      .where((e) => e != FullScreenMode.gravity)
-                      .toList(growable: false),
-                  key: SettingBoxKey.fullScreenMode,
-                  label: (e) => e.desc,
-                ),
-              ),
-              _selectTile(
-                title: '全屏期间方向来源',
-                subtitle: Pref.fullScreenRotationSource.desc,
-                onTap: () => _select(
-                  title: '全屏期间方向来源',
-                  value: Pref.fullScreenRotationSource,
-                  values: FullScreenRotationSource.values,
-                  key: SettingBoxKey.fullScreenRotationSource,
-                  label: (e) => e.desc,
-                ),
-              ),
-              _selectTile(
-                title: '全屏期间允许方向',
-                subtitle: Pref.fullScreenAllowedOrientation.desc,
-                onTap: () => _select(
-                  title: '全屏期间允许方向',
-                  value: Pref.fullScreenAllowedOrientation,
-                  values: FullScreenAllowedOrientation.values,
-                  key: SettingBoxKey.fullScreenAllowedOrientation,
-                  label: (e) => e.desc,
-                ),
-              ),
               SetSwitchItem(
-                title: 'APP 重力遵循系统方向锁定',
-                setKey: SettingBoxKey.gravityFollowSystemLock,
-                defaultVal: Pref.gravityFollowSystemLock,
+                title: '播放器控件锁同时锁定方向',
+                subtitle: '关闭后，锁定播放器控件不会禁止屏幕继续旋转',
+                setKey: SettingBoxKey.controlsLockOrientation,
+                defaultVal: Pref.controlsLockOrientation,
                 onChanged: (_) => OrientationPolicy.compile(),
-              ),
-              _selectTile(
-                title: '方向触发全屏',
-                subtitle: Pref.orientationFullscreenTrigger.desc,
-                onTap: () => _select(
-                  title: '方向触发全屏',
-                  value: Pref.orientationFullscreenTrigger,
-                  values: OrientationFullscreenTrigger.values,
-                  key: SettingBoxKey.orientationFullscreenTrigger,
-                  label: (e) => e.desc,
-                ),
-              ),
-              _selectTile(
-                title: '方向触发依据',
-                subtitle: Pref.orientationTriggerSource.desc,
-                onTap: () => _select(
-                  title: '方向触发依据',
-                  value: Pref.orientationTriggerSource,
-                  values: OrientationTriggerSource.values,
-                  key: SettingBoxKey.orientationTriggerSource,
-                  label: (e) => e.desc,
-                ),
-              ),
-              if (Platform.isAndroid)
-                _selectTile(
-                  title: '倾斜角度阈值',
-                  subtitle: '当前：${Pref.angleDegrees}°',
-                  onTap: _showAngleDegreesDialog,
-                ),
-              _selectTile(
-                title: '退出全屏后的方向',
-                subtitle: Pref.exitOrientationMode.desc,
-                onTap: () => _select(
-                  title: '退出全屏后的方向',
-                  value: Pref.exitOrientationMode,
-                  values: ExitOrientationMode.values,
-                  key: SettingBoxKey.exitOrientationMode,
-                  label: (e) => e.desc,
-                ),
               ),
               _selectTile(
                 title: '最终方向许可',
@@ -271,6 +478,22 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                       ].join('、'),
                 onTap: _showFinalDirectionMaskDialog,
               ),
+              const Divider(),
+              _selectTile(
+                title: '方向配置模式',
+                subtitle: mode.desc,
+                onTap: () => _select(
+                  title: '方向配置模式',
+                  value: mode,
+                  values: OrientationPolicyMode.values,
+                  key: SettingBoxKey.orientationPolicyMode,
+                  label: (e) => e.desc,
+                ),
+              ),
+              const Divider(),
+              ...(mode == OrientationPolicyMode.simple
+                  ? _simpleSettings()
+                  : _advancedSettings()),
             ],
           ],
         ),
