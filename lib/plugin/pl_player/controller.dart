@@ -1884,6 +1884,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       case FullScreenRotationSource.keepCurrent:
       case FullScreenRotationSource.appGravity:
         if (!_entryDirectionApplied) await lockedMode();
+        return;
       case FullScreenRotationSource.followSystem:
         if (_entryDirectionApplied &&
             !await OrientationPlatform.systemAutoRotate()) {
@@ -1894,12 +1895,14 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           allowedMask: allowed,
           filterEnabled: allowed != OrientationMask.all,
         );
+        return;
       case FullScreenRotationSource.alwaysAuto:
         await OrientationPolicy.applySystemPolicy(
           ignoreSystemLock: true,
           allowedMask: allowed,
           filterEnabled: allowed != OrientationMask.all,
         );
+        return;
     }
   }
 
