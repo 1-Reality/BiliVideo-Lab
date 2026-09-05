@@ -372,6 +372,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   late final showFsLockBtn = Pref.showFsLockBtn;
   late final keyboardControl = Pref.keyboardControl;
   late final uiScale = Pref.uiScale;
+  void Function()? onFullscreenExited;
 
   late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
@@ -1995,6 +1996,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       _gravityRuntimeBaseline = null;
     }
     _updateOrientationInputs();
+    if (!val) onFullscreenExited?.call();
   }
 
   double screenRatio = 0.0;
