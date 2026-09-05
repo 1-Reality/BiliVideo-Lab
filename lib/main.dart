@@ -10,7 +10,7 @@ import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
@@ -105,64 +105,6 @@ void _showStartupBrandProfileAfterFirstFrame() {
   });
 }
 
-Future<void> _applyRemoteControlPreset() async {
-  await GStorage.setting.putAll({
-    SettingBoxKey.horizontalScreen: true,
-    SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-    SettingBoxKey.keyboardControl: false,
-  });
-  await OrientationPolicy.compile();
-  await fullMode();
-  Get.back();
-}
-
-void _showRemoteControlPresetPrompt() {
-  showDialog<void>(
-    context: Get.context!,
-    barrierDismissible: false,
-    builder: (context) => Focus(
-      canRequestFocus: false,
-      onKeyEvent: (_, event) {
-        if (event is KeyDownEvent) {
-          unawaited(_applyRemoteControlPreset());
-          return .handled;
-        }
-        return .ignored;
-      },
-      child: AlertDialog(
-        insetPadding: const .all(24),
-        title: const Text(
-          '检测到横屏 Android 设备',
-          style: TextStyle(fontSize: 26),
-        ),
-        content: const SizedBox(
-          width: 520,
-          child: Text(
-            '是否应用电视 / 遥控器快速配置？\n\n'
-            '将启用横屏适配、全屏保持当前方向，并把方向键交还给界面焦点导航。'
-            '任意键盘或遥控器按键均视为确认。',
-            style: TextStyle(fontSize: 18, height: 1.45),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Get.back();
-              await OrientationPolicy.applyStartup();
-            },
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            autofocus: true,
-            onPressed: _applyRemoteControlPreset,
-            child: const Text('启用'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(Future<void>(() async {
@@ -218,7 +160,7 @@ void main() async {
     ]);
     if (firstLandscapeAndroid) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _showRemoteControlPresetPrompt(),
+        (_) => TvRemoteSetup.showStartupPrompt(Get.context!),
       );
     }
   } else if (Platform.isWindows) {

@@ -85,6 +85,10 @@ abstract final class OrientationPolicy {
 
   static OrientationPlan get plan => _plan;
 
+  static void setStartupDirection(int directionBit) {
+    _startupDirectionBit = directionBit;
+  }
+
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
     _startupDirectionBit =

@@ -419,6 +419,28 @@ abstract final class GStorage {
     return DateTime(nextMonth.year, nextMonth.month, 8);
   }
 
+  static String exportPortableSettings() {
+    final videoData = Map<dynamic, dynamic>.from(video.toMap())
+      ..remove(VideoBoxKey.playbackStats)
+      ..remove(VideoBoxKey.trafficStats)
+      ..removeWhere(
+        (key, _) =>
+            key is String &&
+            (key.startsWith(_legacyCdnDiagnosticPrefix) ||
+                key.startsWith(_cdnDiagnosticLatestExportPrefix) ||
+                key.startsWith(_cdnDiagnosticHistoryExportPrefix)),
+      );
+    return Utils.jsonEncoder.convert({
+      'backupMeta': {
+        'includePlaybackStats': false,
+        'includeCdnDiagnostics': false,
+        'includeTrafficStats': false,
+      },
+      setting.name: setting.toMap(),
+      video.name: videoData,
+    });
+  }
+
   static String exportAllSettings({
     bool includePlaybackStats = true,
     bool includeCdnDiagnostics = true,

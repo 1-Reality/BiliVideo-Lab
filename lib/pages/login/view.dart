@@ -27,17 +27,27 @@ final _noWhitespaceFormatters = [
 ];
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final LoginPageController _loginPageCtr = Get.put(LoginPageController());
+  late final LoginPageController _loginPageCtr;
   // 二维码生成时间
   bool showPassword = false;
   GlobalKey globalKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loginPageCtr = Get.put(
+      LoginPageController(initialIndex: widget.initialIndex),
+    );
+  }
 
   @override
   void didChangeDependencies() {
