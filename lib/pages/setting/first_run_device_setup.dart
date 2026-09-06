@@ -175,7 +175,7 @@ abstract final class FirstRunDeviceSetup {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const TextSpan(text: ' 吗？\n\n若选择错误，请返回重新选择。'),
+                  const TextSpan(\n                    text:\n                        ' 吗？\\n\\n若选择错误，请立即返回！\\n\\n若误入被困，请直接将 APP 杀后台重开。',\n                  ),
                 ],
               ),
             ),
