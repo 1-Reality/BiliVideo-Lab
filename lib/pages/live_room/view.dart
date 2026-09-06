@@ -73,6 +73,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
+  bool _removeSafeArea = false;
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
   final GlobalKey pageKey = GlobalKey();
@@ -91,9 +92,6 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(plPlayerController.play);
-    if (plPlayerController.removeSafeArea) {
-      hideSystemBar();
-    }
   }
 
   @override
@@ -104,9 +102,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     maxHeight = size.height;
     isPortrait = size.isPortrait;
     plPlayerController.screenRatio = maxHeight / maxWidth;
-    padding = plPlayerController.removeSafeAreaFor(portrait: isPortrait)
-        ? .zero
-        : MediaQuery.viewPaddingOf(context);
+    final nextRemoveSafeArea = plPlayerController.removeSafeAreaFor(
+      portrait: isPortrait,
+    );
+    if (nextRemoveSafeArea != _removeSafeArea) {
+      _removeSafeArea = nextRemoveSafeArea;
+      if (_removeSafeArea) {
+        hideSystemBar();
+      } else if (!isFullScreen) {
+        showSystemBar();
+      }
+    }
+    padding = _removeSafeArea ? .zero : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * plPlayerController.uiScale,
       height: maxHeight * plPlayerController.uiScale,
@@ -177,6 +184,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
     }
     PlPlayerController.setPlayCallBack(null);
+    if (_removeSafeArea) showSystemBar();
     plPlayerController
       ..removeStatusLister(playerListener)
       ..dispose();

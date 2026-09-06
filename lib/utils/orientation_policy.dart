@@ -308,7 +308,6 @@ abstract final class OrientationPolicy {
 
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
-    await _initializeSafeAreaDefaults();
     await compile();
     if (isBrotherTech) {
       _startupDirectionBit =
@@ -511,59 +510,70 @@ abstract final class OrientationPolicy {
     );
   }
 
-  static Future<void> _initializeSafeAreaDefaults() async {
-    final hasPortrait =
-        GStorage.setting.containsKey(SettingBoxKey.removeSafeAreaPortrait);
-    final hasLandscape =
-        GStorage.setting.containsKey(SettingBoxKey.removeSafeAreaLandscape);
-    if (hasPortrait && hasLandscape) return;
-
-    final legacy = Pref.removeSafeArea;
-    await GStorage.setting.putAll({
-      if (!hasPortrait) SettingBoxKey.removeSafeAreaPortrait: legacy,
-      if (!hasLandscape) SettingBoxKey.removeSafeAreaLandscape: legacy,
-    });
-  }
-
   static Future<void> _initializeLegacyDefaults() async {
-    if (GStorage.setting.containsKey(SettingBoxKey.orientationConfigVersion)) {
-      return;
+    final version = GStorage.setting.get(
+      SettingBoxKey.orientationConfigVersion,
+      defaultValue: 0,
+    ) as int;
+    if (version >= 2) return;
+
+    final updates = <String, Object>{};
+    if (version < 1) {
+      final horizontal = Pref.horizontalScreen;
+      final oldMode = Pref.fullScreenMode;
+      updates.addAll({
+        SettingBoxKey.orientationPolicyMode:
+            OrientationPolicyMode.simple.index,
+        SettingBoxKey.appInitialOrientation:
+            (horizontal
+                    ? AppInitialOrientation.system
+                    : AppInitialOrientation.portrait)
+                .index,
+        SettingBoxKey.appRotationMode:
+            (horizontal
+                    ? AppRotationMode.followSystem
+                    : AppRotationMode.lockInitial)
+                .index,
+        SettingBoxKey.fullScreenRotationSource:
+            (oldMode == FullScreenMode.gravity || !horizontal
+                    ? FullScreenRotationSource.appGravity
+                    : FullScreenRotationSource.followSystem)
+                .index,
+        SettingBoxKey.fullScreenAllowedOrientation:
+            FullScreenAllowedOrientation.all.index,
+        SettingBoxKey.gravityFollowSystemLock:
+            oldMode != FullScreenMode.gravity,
+        SettingBoxKey.orientationFullscreenTrigger:
+            (horizontal
+                    ? OrientationFullscreenTrigger.off
+                    : OrientationFullscreenTrigger.both)
+                .index,
+        SettingBoxKey.orientationTriggerSource:
+            OrientationTriggerSource.appGravity.index,
+        SettingBoxKey.exitOrientationMode:
+            ExitOrientationMode.restoreApp.index,
+        SettingBoxKey.finalDirectionMask: 0,
+        if (oldMode == FullScreenMode.gravity)
+          SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
+      });
     }
-    final horizontal = Pref.horizontalScreen;
-    final oldMode = Pref.fullScreenMode;
-    await GStorage.setting.putAll({
-      SettingBoxKey.orientationConfigVersion: 1,
-      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
-      SettingBoxKey.appInitialOrientation:
-          (horizontal
-                  ? AppInitialOrientation.system
-                  : AppInitialOrientation.portrait)
-              .index,
-      SettingBoxKey.appRotationMode:
-          (horizontal
-                  ? AppRotationMode.followSystem
-                  : AppRotationMode.lockInitial)
-              .index,
-      SettingBoxKey.fullScreenRotationSource:
-          (oldMode == FullScreenMode.gravity || !horizontal
-                  ? FullScreenRotationSource.appGravity
-                  : FullScreenRotationSource.followSystem)
-              .index,
-      SettingBoxKey.fullScreenAllowedOrientation:
-          FullScreenAllowedOrientation.all.index,
-      SettingBoxKey.gravityFollowSystemLock: oldMode != FullScreenMode.gravity,
-      SettingBoxKey.orientationFullscreenTrigger:
-          (horizontal
-                  ? OrientationFullscreenTrigger.off
-                  : OrientationFullscreenTrigger.both)
-              .index,
-      SettingBoxKey.orientationTriggerSource:
-          OrientationTriggerSource.appGravity.index,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
-      SettingBoxKey.finalDirectionMask: 0,
-      if (oldMode == FullScreenMode.gravity)
-        SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-    });
+
+    if (version < 2) {
+      final legacySafeArea = Pref.removeSafeArea;
+      if (!GStorage.setting.containsKey(
+        SettingBoxKey.removeSafeAreaPortrait,
+      )) {
+        updates[SettingBoxKey.removeSafeAreaPortrait] = legacySafeArea;
+      }
+      if (!GStorage.setting.containsKey(
+        SettingBoxKey.removeSafeAreaLandscape,
+      )) {
+        updates[SettingBoxKey.removeSafeAreaLandscape] = legacySafeArea;
+      }
+    }
+
+    updates[SettingBoxKey.orientationConfigVersion] = 2;
+    await GStorage.setting.putAll(updates);
   }
 
   static int orientationBit(DeviceOrientation orientation) => switch (orientation) {
