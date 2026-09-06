@@ -488,12 +488,6 @@ abstract final class Pref {
         defaultValue: BrotherDirectionAction.triggerDirection.index,
       )];
 
-  static BrotherRuntimeMode get brotherWindowedResumeRuntimeMode =>
-      BrotherRuntimeMode.values[_setting.get(
-        SettingBoxKey.brotherWindowedResumeRuntimeMode,
-        defaultValue: BrotherRuntimeMode.inheritRequest.index,
-      )];
-
   static bool get brotherLandscapeEnter =>
       _setting.get(SettingBoxKey.brotherLandscapeEnter, defaultValue: false);
 
@@ -1565,6 +1559,16 @@ abstract final class Pref {
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+
+  static bool get removeSafeAreaPortrait => _setting.get(
+    SettingBoxKey.removeSafeAreaPortrait,
+    defaultValue: removeSafeArea,
+  );
+
+  static bool get removeSafeAreaLandscape => _setting.get(
+    SettingBoxKey.removeSafeAreaLandscape,
+    defaultValue: removeSafeArea,
+  );
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);

@@ -73,7 +73,6 @@ abstract final class SettingBoxKey {
       brotherWindowedManualResume = 'brotherWindowedManualResume',
       brotherWindowedPlaybackResume = 'brotherWindowedPlaybackResume',
       brotherWindowedOrientationResume = 'brotherWindowedOrientationResume',
-      brotherWindowedResumeRuntimeMode = 'brotherWindowedResumeRuntimeMode',
       brotherLandscapeEnter = 'brotherLandscapeEnter',
       brotherPortraitExit = 'brotherPortraitExit',
       brotherEnterSignalMask = 'brotherEnterSignalMask',
@@ -217,6 +216,8 @@ abstract final class SettingBoxKey {
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
       removeSafeArea = 'removeSafeArea',
+      removeSafeAreaPortrait = 'removeSafeAreaPortrait',
+      removeSafeAreaLandscape = 'removeSafeAreaLandscape',
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream';
 

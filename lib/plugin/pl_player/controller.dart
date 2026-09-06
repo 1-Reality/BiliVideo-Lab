@@ -2261,7 +2261,14 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   double screenRatio = 0.0;
   bool isManualFS = true;
-  late final removeSafeArea = Pref.removeSafeArea;
+  late final bool removeSafeAreaPortrait = Pref.removeSafeAreaPortrait;
+  late final bool removeSafeAreaLandscape = Pref.removeSafeAreaLandscape;
+
+  bool removeSafeAreaFor({required bool portrait}) =>
+      portrait ? removeSafeAreaPortrait : removeSafeAreaLandscape;
+
+  bool get anyRemoveSafeArea =>
+      removeSafeAreaPortrait || removeSafeAreaLandscape;
 
   int _entryAxisMask(
     EntryOrientationPolicy policy,
@@ -2611,7 +2618,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         }
       } else {
         if (PlatformUtils.isMobile) {
-          if (!removeSafeArea) {
+          if (!removeSafeAreaFor(portrait: !_currentSystemLandscape)) {
             showSystemBar();
           }
           await resetScreenRotation(exitCause: exitCause);
@@ -2768,7 +2775,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
 
     _playerCount = 0;
-    if (removeSafeArea) {
+    if (anyRemoveSafeArea) {
       showSystemBar();
     }
     danmakuController = null;
