@@ -1,5 +1,5 @@
 import 'dart:async' show FutureOr;
-import 'dart:convert' show utf8, jsonDecode;
+import 'dart:convert' show utf8, jsonDecode, jsonEncode;
 
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
@@ -13,6 +13,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/base16/github.dart';
@@ -35,6 +36,67 @@ void exportToLocalFile({
         '${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}.json',
     bytes: res,
     allowedExtensions: const ['json'],
+  );
+}
+
+Future<void> exportToQrCode(
+  BuildContext context, {
+  required ValueGetter<String> onExport,
+}) async {
+  final data = jsonEncode(jsonDecode(onExport()));
+  final bytes = utf8.encode(data).length;
+  if (bytes > 2200) {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置内容过多'),
+        content: Text(
+          '当前便携设置压缩后为 $bytes 字节，超过单张二维码的安全容量。'
+          '请改用剪贴板或文件导出。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('设置二维码'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 340,
+              height: 340,
+              color: Colors.white,
+              padding: const EdgeInsets.all(12),
+              child: PrettyQrView.data(data: data),
+            ),
+            const SizedBox(height: 12),
+            const Text('扫描后得到完整设置 JSON，可粘贴到 PiliBro 的“输入”中导入。'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Utils.copyText(data),
+          child: const Text('复制'),
+        ),
+        TextButton(
+          onPressed: Get.back,
+          child: const Text('关闭'),
+        ),
+      ],
+    ),
   );
 }
 

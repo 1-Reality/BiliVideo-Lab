@@ -16,6 +16,13 @@ import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+enum _TvRemoteMenuAction {
+  configure,
+  exportSettings,
+  login,
+  restoreDefaults,
+}
+
 abstract final class TvRemoteSetup {
   static bool isRemoteIntentKey(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
@@ -38,23 +45,23 @@ abstract final class TvRemoteSetup {
     BuildContext? dialogContext;
     var closing = false;
 
-    void configure() {
+    void select(_TvRemoteMenuAction action) {
       final current = dialogContext;
       if (closing || current == null) return;
       closing = true;
-      Navigator.of(current).pop();
-      unawaited(configureAndLogin(context));
+      Navigator.of(current).pop(action);
     }
 
     KeyEventResult handleRemoteKey(KeyEvent event) {
       if (!isRemoteIntentKey(event)) return KeyEventResult.ignored;
-      configure();
+      select(_TvRemoteMenuAction.configure);
       return KeyEventResult.handled;
     }
 
     FocusManager.instance.addEarlyKeyEventHandler(handleRemoteKey);
+    final _TvRemoteMenuAction? action;
     try {
-      await showDialog<void>(
+      action = await showDialog<_TvRemoteMenuAction>(
         context: context,
         builder: (current) {
           dialogContext = current;
@@ -69,10 +76,8 @@ abstract final class TvRemoteSetup {
                   const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
                   const SizedBox(height: 18),
                   OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(current).pop();
-                      await DevicePresets.restoreTabletDefaults();
-                    },
+                    onPressed: () =>
+                        select(_TvRemoteMenuAction.restoreDefaults),
                     icon: const Icon(Icons.restore),
                     label: const Text('恢复默认设置（平板预设）'),
                   ),
@@ -85,21 +90,15 @@ abstract final class TvRemoteSetup {
                 child: const Text('取消'),
               ),
               TextButton(
-                onPressed: () {
-                  Navigator.of(current).pop();
-                  unawaited(_showExportMenu(context));
-                },
+                onPressed: () => select(_TvRemoteMenuAction.exportSettings),
                 child: const Text('导出设置'),
               ),
               TextButton(
-                onPressed: () {
-                  Navigator.of(current).pop();
-                  unawaited(_openQrLogin());
-                },
+                onPressed: () => select(_TvRemoteMenuAction.login),
                 child: const Text('仅登录'),
               ),
               FilledButton(
-                onPressed: configure,
+                onPressed: () => select(_TvRemoteMenuAction.configure),
                 child: const Text('配置遥控器并登录'),
               ),
             ],
@@ -109,27 +108,43 @@ abstract final class TvRemoteSetup {
     } finally {
       FocusManager.instance.removeEarlyKeyEventHandler(handleRemoteKey);
     }
+
+    if (!context.mounted) return;
+    switch (action) {
+      case _TvRemoteMenuAction.configure:
+        await configureAndLogin(context);
+      case _TvRemoteMenuAction.exportSettings:
+        await _showExportMenu(context);
+      case _TvRemoteMenuAction.login:
+        await _openQrLogin();
+      case _TvRemoteMenuAction.restoreDefaults:
+        await DevicePresets.restoreTabletDefaults();
+      case null:
+        return;
+    }
   }
 
-  static Future<void> configureAndLogin(
+  static Future<bool> configureAndLogin(
     BuildContext context, {
     bool completeFirstRun = false,
   }) async {
+    if (!await _confirmRemoteSetup(context) || !context.mounted) return false;
+
     await DevicePresets.applyTelevision();
     await lockedMode();
-    if (!context.mounted) return;
+    if (!context.mounted) return false;
 
     final initialBit =
         await OrientationPlatform.currentOrientationBit() ??
         OrientationMask.landscapeLeft;
-    if (!context.mounted) return;
+    if (!context.mounted) return false;
 
     final direction = await showDialog<int>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _RemoteOrientationCalibration(initialBit: initialBit),
     );
-    if (direction == null) return;
+    if (direction == null) return false;
 
     await GStorage.setting.put(
       SettingBoxKey.appInitialOrientation,
@@ -148,6 +163,81 @@ abstract final class TvRemoteSetup {
       await GStorage.completeFirstRunDeviceSetup();
     }
     if (context.mounted) await _openQrLogin();
+    return true;
+  }
+
+  static Future<bool> _confirmRemoteSetup(BuildContext context) async {
+    BuildContext? dialogContext;
+    var closing = false;
+
+    void accept() {
+      final current = dialogContext;
+      if (closing || current == null) return;
+      closing = true;
+      Navigator.of(current).pop(true);
+    }
+
+    KeyEventResult handleRemoteKey(KeyEvent event) {
+      if (!isRemoteIntentKey(event)) return KeyEventResult.ignored;
+      accept();
+      return KeyEventResult.handled;
+    }
+
+    FocusManager.instance.addEarlyKeyEventHandler(handleRemoteKey);
+    try {
+      return await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (current) {
+              dialogContext = current;
+              return AlertDialog(
+                insetPadding: const EdgeInsets.all(24),
+                title: const Text('确认配置遥控器'),
+                content: SizedBox(
+                  width: 600,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: '您确认当前设备是 '),
+                            TextSpan(
+                              text: '【电视 / 投影 / 大屏设备】',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const TextSpan(text: '，并主要使用遥控器操作吗？'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('确认后才会写入电视预设并进入遥控器方向校准；若不是，请返回。'),
+                      const SizedBox(height: 14),
+                      const Text('若确认无误，请按遥控器【OK】或除返回键外的任意键继续。'),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(current).pop(false),
+                    child: const Text('返回'),
+                  ),
+                  FilledButton(
+                    onPressed: accept,
+                    child: const Text('确定'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+    } finally {
+      FocusManager.instance.removeEarlyKeyEventHandler(handleRemoteKey);
+    }
   }
 
   static Future<void> _openQrLogin() async {
@@ -166,6 +256,18 @@ abstract final class TvRemoteSetup {
               exportToClipBoard(onExport: GStorage.exportPortableSettings);
             },
             child: const Text('导出至剪贴板'),
+          ),
+          DialogOption(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              unawaited(
+                exportToQrCode(
+                  context,
+                  onExport: GStorage.exportPortableSettings,
+                ),
+              );
+            },
+            child: const Text('导出为二维码'),
           ),
           DialogOption(
             onPressed: () {
