@@ -188,7 +188,7 @@ class _SettingPageState extends State<SettingPage> {
             leading: const Icon(Icons.tv_outlined),
             title: Text('电视机快速登录与遥控器配置', style: titleStyle),
             subtitle: Text(
-              '遥控器、屏幕方向校准、扫码登录与设置导出',
+              '折叠屏、大平板等特殊屏幕配置，屏幕方向校准，登录、设置导出',
               style: subTitleStyle,
             ),
           ),

@@ -20,7 +20,9 @@ enum _TvRemoteMenuAction {
   configure,
   exportSettings,
   login,
-  restoreDefaults,
+  phonePreset,
+  tabletPreset,
+  foldablePreset,
 }
 
 abstract final class TvRemoteSetup {
@@ -52,62 +54,74 @@ abstract final class TvRemoteSetup {
       Navigator.of(current).pop(action);
     }
 
-    KeyEventResult handleRemoteKey(KeyEvent event) {
-      if (!isRemoteIntentKey(event)) return KeyEventResult.ignored;
-      select(_TvRemoteMenuAction.configure);
-      return KeyEventResult.handled;
-    }
-
-    FocusManager.instance.addEarlyKeyEventHandler(handleRemoteKey);
-    final _TvRemoteMenuAction? action;
-    try {
-      action = await showDialog<_TvRemoteMenuAction>(
-        context: context,
-        builder: (current) {
-          dialogContext = current;
-          return AlertDialog(
-            title: const Text('电视机快速登录与遥控器配置'),
-            content: SizedBox(
-              width: 560,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-                  const SizedBox(height: 18),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        select(_TvRemoteMenuAction.restoreDefaults),
-                    icon: const Icon(Icons.restore),
-                    label: const Text('恢复默认设置（平板预设）'),
-                  ),
-                ],
-              ),
+    final action = await showDialog<_TvRemoteMenuAction>(
+      context: context,
+      builder: (current) {
+        dialogContext = current;
+        return AlertDialog(
+          title: const Text('电视机快速登录与遥控器配置'),
+          content: SizedBox(
+            width: 560,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+                const SizedBox(height: 18),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: () => select(_TvRemoteMenuAction.login),
+                      child: const Text('仅登录'),
+                    ),
+                    FilledButton(
+                      onPressed: () => select(_TvRemoteMenuAction.configure),
+                      child: const Text('配置遥控器并登录'),
+                    ),
+                    TextButton(
+                      onPressed: () => select(_TvRemoteMenuAction.exportSettings),
+                      child: const Text('导出设置'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(current).pop(),
+                      child: const Text('取消'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                const Divider(),
+                const SizedBox(height: 12),
+                Text(
+                  '恢复默认预设',
+                  style: Theme.of(current).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => select(_TvRemoteMenuAction.phonePreset),
+                  icon: const Icon(Icons.smartphone),
+                  label: const Text('应用手机预设'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => select(_TvRemoteMenuAction.tabletPreset),
+                  icon: const Icon(Icons.tablet),
+                  label: const Text('应用平板预设'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => select(_TvRemoteMenuAction.foldablePreset),
+                  icon: const Icon(Icons.devices),
+                  label: const Text('应用折叠屏预设'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(current).pop(),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => select(_TvRemoteMenuAction.exportSettings),
-                child: const Text('导出设置'),
-              ),
-              TextButton(
-                onPressed: () => select(_TvRemoteMenuAction.login),
-                child: const Text('仅登录'),
-              ),
-              FilledButton(
-                onPressed: () => select(_TvRemoteMenuAction.configure),
-                child: const Text('配置遥控器并登录'),
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      FocusManager.instance.removeEarlyKeyEventHandler(handleRemoteKey);
-    }
+          ),
+        );
+      },
+    );
 
     if (!context.mounted) return;
     switch (action) {
@@ -117,8 +131,12 @@ abstract final class TvRemoteSetup {
         await _showExportMenu(context);
       case _TvRemoteMenuAction.login:
         await _openQrLogin();
-      case _TvRemoteMenuAction.restoreDefaults:
-        await DevicePresets.restoreTabletDefaults();
+      case _TvRemoteMenuAction.phonePreset:
+        await DevicePresets.applyPhone();
+      case _TvRemoteMenuAction.tabletPreset:
+        await DevicePresets.applyTablet();
+      case _TvRemoteMenuAction.foldablePreset:
+        await DevicePresets.applyFoldable();
       case null:
         return;
     }
@@ -229,6 +247,14 @@ abstract final class TvRemoteSetup {
                       ),
                       const SizedBox(height: 8),
                       const Text('若程序卡住退出失败，请将 APP 杀后台重开！'),
+                      const SizedBox(height: 30),
+                      const Text(
+                        '若确定要进入 TV 模式，请按除返回外的任意键即可［例如按 OK］',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),

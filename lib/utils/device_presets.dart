@@ -9,6 +9,8 @@ abstract final class DevicePresets {
     {
       SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: false,
+      SettingBoxKey.keyboardControl: true,
+      SettingBoxKey.enableAutoEnter: false,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.followSystem.index,
       SettingBoxKey.fullScreenMode: FullScreenMode.auto.index,
@@ -32,6 +34,8 @@ abstract final class DevicePresets {
     {
       SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: true,
+      SettingBoxKey.keyboardControl: true,
+      SettingBoxKey.enableAutoEnter: false,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.alwaysAuto.index,
       SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
@@ -55,6 +59,8 @@ abstract final class DevicePresets {
     {
       SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
       SettingBoxKey.horizontalScreen: true,
+      SettingBoxKey.keyboardControl: true,
+      SettingBoxKey.enableAutoEnter: false,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
       SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
       SettingBoxKey.fullScreenMode: FullScreenMode.ratio.index,

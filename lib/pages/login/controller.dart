@@ -659,6 +659,20 @@ class LoginPageController extends GetxController
       ),
     };
     bool quickSelect = selectAccount.every((e) => e == selectAccount.first);
+
+    void submit() {
+      Get.back();
+      for (final type in AccountType.values) {
+        final index = type.index;
+        final account = quickSelect
+            ? selectAccount.first
+            : selectAccount[index];
+        if (account != Accounts.accountMode[index]) {
+          Accounts.set(type, account);
+        }
+      }
+    }
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -702,10 +716,11 @@ class LoginPageController extends GetxController
             child: quickSelect
                 ? Builder(
                     builder: (context) => RadioGroup<Account>(
-                      groupValue: selectAccount[0],
+                      groupValue: null,
                       onChanged: (v) {
+                        if (v == null) return;
                         selectAccount.fillRange(0, selectAccount.length, v);
-                        (context as Element).markNeedsBuild();
+                        submit();
                       },
                       child: Column(
                         crossAxisAlignment: .start,
@@ -752,18 +767,7 @@ class LoginPageController extends GetxController
             child: Text('取消', style: TextStyle(color: colorScheme.outline)),
           ),
           TextButton(
-            onPressed: () {
-              Get.back();
-              for (final type in AccountType.values) {
-                final index = type.index;
-                final account = quickSelect
-                    ? selectAccount.first
-                    : selectAccount[index];
-                if (account != Accounts.accountMode[index]) {
-                  Accounts.set(type, account);
-                }
-              }
-            },
+            onPressed: submit,
             child: const Text('确定'),
           ),
         ],
