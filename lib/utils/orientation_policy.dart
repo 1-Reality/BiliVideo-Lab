@@ -706,12 +706,20 @@ abstract final class OrientationPolicy {
     int allowedMask,
   ) {
     if (allowedMask == 0 || allowedMask == OrientationMask.all) return false;
+    final nativeMask =
+        allowedMask == OrientationMask.portraitUp ||
+        allowedMask == OrientationMask.portraitDown ||
+        allowedMask == OrientationMask.landscapeLeft ||
+        allowedMask == OrientationMask.landscapeRight ||
+        allowedMask == OrientationMask.portrait ||
+        allowedMask == OrientationMask.landscape ||
+        allowedMask == 13 ||
+        allowedMask == OrientationMask.all;
     return switch (phase.runtimeMode) {
+      BrotherRuntimeMode.appGravity || BrotherRuntimeMode.locked => false,
       BrotherRuntimeMode.followSystemAllowed ||
       BrotherRuntimeMode.alwaysAutoAllowed ||
-      BrotherRuntimeMode.systemGate ||
-      BrotherRuntimeMode.appGravity ||
-      BrotherRuntimeMode.locked => false,
+      BrotherRuntimeMode.systemGate => !nativeMask,
       _ => true,
     };
   }
