@@ -46,6 +46,13 @@ abstract final class GStorage {
 
   static int? get startupBrandProfileMid => _startupBrandProfileMid;
 
+  static Future<void> completeFirstRunDeviceSetup() async {
+    final due = localCache.get(_nextPlaybackStatsCompactAtMs);
+    if (due is num && due < 0) {
+      await localCache.put(_nextPlaybackStatsCompactAtMs, -due.toInt());
+    }
+  }
+
   static File get playbackStatsFile =>
       File(path.join(appSupportDirPath, 'playback_stats.json'));
 
@@ -380,6 +387,9 @@ abstract final class GStorage {
       defaultValue: 0,
     );
     if (due is! num) return null;
+    // A negative future timestamp means the one-time maintenance already ran,
+    // while the Android first-run device wizard still needs to finish.
+    if (due < 0) return due;
     if (now.millisecondsSinceEpoch < due.toInt()) return due;
 
     // This deliberately runs before the first home frame. Compaction is rare,
@@ -392,9 +402,11 @@ abstract final class GStorage {
       await localCache.delete(LocalCacheKey.updateIgnore);
     }
 
+    final nextMaintenance =
+        _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch;
     await localCache.put(
       _nextPlaybackStatsCompactAtMs,
-      _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch,
+      Platform.isAndroid && due == 0 ? -nextMaintenance : nextMaintenance,
     );
     if (due != 0) {
       _startupBrandProfileMid = switch (now.millisecondsSinceEpoch % 10) {
@@ -417,6 +429,28 @@ abstract final class GStorage {
     }
     final nextMonth = DateTime(now.year, now.month + 1);
     return DateTime(nextMonth.year, nextMonth.month, 8);
+  }
+
+  static String exportPortableSettings() {
+    final videoData = Map<dynamic, dynamic>.from(video.toMap())
+      ..remove(VideoBoxKey.playbackStats)
+      ..remove(VideoBoxKey.trafficStats)
+      ..removeWhere(
+        (key, _) =>
+            key is String &&
+            (key.startsWith(_legacyCdnDiagnosticPrefix) ||
+                key.startsWith(_cdnDiagnosticLatestExportPrefix) ||
+                key.startsWith(_cdnDiagnosticHistoryExportPrefix)),
+      );
+    return Utils.jsonEncoder.convert({
+      'backupMeta': {
+        'includePlaybackStats': false,
+        'includeCdnDiagnostics': false,
+        'includeTrafficStats': false,
+      },
+      setting.name: setting.toMap(),
+      video.name: videoData,
+    });
   }
 
   static String exportAllSettings({
@@ -482,6 +516,8 @@ abstract final class GStorage {
         meta is Map && meta['includePlaybackStats'] == false;
     final keepDiagnostics =
         meta is Map && meta['includeCdnDiagnostics'] == false;
+    final keepTraffic =
+        meta is Map && meta['includeTrafficStats'] == false;
 
     final importedSettings = Map<dynamic, dynamic>.from(
       map[setting.name] as Map? ?? const {},
@@ -523,9 +559,10 @@ abstract final class GStorage {
             }
           },
         ),
-      importedTraffic is Map
-          ? writeJsonFile(trafficStatsFile, importedTraffic)
-          : _deleteFileIfExists(trafficStatsFile),
+      if (!keepTraffic)
+        importedTraffic is Map
+            ? writeJsonFile(trafficStatsFile, importedTraffic)
+            : _deleteFileIfExists(trafficStatsFile),
       if (!keepDiagnostics)
         replaceCdnDiagnostics([
           for (final entry in importedLatestDiagnostics.entries)

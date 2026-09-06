@@ -60,6 +60,7 @@ import 'package:PiliBro/pages/setting/pages/display_mode.dart';
 import 'package:PiliBro/pages/setting/pages/font_setting.dart';
 import 'package:PiliBro/pages/setting/pages/logs.dart';
 import 'package:PiliBro/pages/setting/pages/network_policy.dart';
+import 'package:PiliBro/pages/setting/pages/orientation_settings.dart';
 import 'package:PiliBro/pages/setting/pages/playback_stats.dart';
 import 'package:PiliBro/pages/setting/pages/play_speed_set.dart';
 import 'package:PiliBro/pages/setting/pages/traffic_stats.dart';
@@ -126,6 +127,7 @@ class Routes {
     GetPage(name: '/cdnSettings', page: () => const CdnSettingsPage()),
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     GetPage(name: '/networkPolicy', page: () => const NetworkPolicyPage()),
+    GetPage(name: '/orientationSettings', page: () => const OrientationSettingsPage()),
     GetPage(name: '/playbackStats', page: () => const PlaybackStatsPage()),
     GetPage(name: '/trafficStats', page: () => const TrafficStatsPage()),
     // 收藏搜索

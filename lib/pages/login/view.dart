@@ -27,17 +27,27 @@ final _noWhitespaceFormatters = [
 ];
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final LoginPageController _loginPageCtr = Get.put(LoginPageController());
+  late final LoginPageController _loginPageCtr;
   // 二维码生成时间
   bool showPassword = false;
   GlobalKey globalKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loginPageCtr = Get.put(
+      LoginPageController(initialIndex: widget.initialIndex),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -65,6 +75,7 @@ class _LoginPageState extends State<LoginPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton.icon(
+              autofocus: widget.initialIndex == 2,
               onPressed: _loginPageCtr.refreshQRCode,
               icon: const Icon(Icons.refresh),
               label: const Text('刷新二维码'),

@@ -32,6 +32,7 @@ import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
@@ -236,6 +237,159 @@ abstract final class Pref {
     return FullScreenMode.values[index];
   }
 
+  static OrientationPolicyMode get orientationPolicyMode =>
+      OrientationPolicyMode.values[_setting.get(
+        SettingBoxKey.orientationPolicyMode,
+        defaultValue: OrientationPolicyMode.simple.index,
+      )];
+
+  static bool get controlsLockOrientation =>
+      _setting.get(SettingBoxKey.controlsLockOrientation, defaultValue: true);
+
+  static AppInitialOrientation get appInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.appInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get appRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.appRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static FullScreenRotationSource get fullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.fullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.followSystem.index,
+      )];
+
+  static FullScreenAllowedOrientation get fullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.fullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get gravityFollowSystemLock =>
+      _setting.get(SettingBoxKey.gravityFollowSystemLock, defaultValue: true);
+
+  static OrientationFullscreenTrigger get orientationFullscreenTrigger =>
+      OrientationFullscreenTrigger.values[_setting.get(
+        SettingBoxKey.orientationFullscreenTrigger,
+        defaultValue: OrientationFullscreenTrigger.off.index,
+      )];
+
+  static OrientationTriggerSource get orientationTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.orientationTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static ExitOrientationMode get exitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.exitOrientationMode,
+        defaultValue: ExitOrientationMode.restoreApp.index,
+      )];
+
+  static int get finalDirectionMask =>
+      _setting.get(SettingBoxKey.finalDirectionMask, defaultValue: 0);
+
+  static AppInitialOrientation get advancedAppInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.advancedAppInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get advancedAppRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.advancedAppRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static WindowedPlayerRotationMode get advancedWindowedPlayerRotationMode =>
+      WindowedPlayerRotationMode.values[_setting.get(
+        SettingBoxKey.advancedWindowedPlayerRotationMode,
+        defaultValue: WindowedPlayerRotationMode.inheritApp.index,
+      )];
+
+  static bool get advancedLandscapeEnter =>
+      _setting.get(SettingBoxKey.advancedLandscapeEnter, defaultValue: false);
+
+  static bool get advancedPortraitExit =>
+      _setting.get(SettingBoxKey.advancedPortraitExit, defaultValue: false);
+
+  static OrientationTriggerSource get advancedEnterTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedEnterTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerSource get advancedExitTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedExitTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerContent get advancedTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.advancedTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static EntryOrientationPolicy get advancedManualEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedManualEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedAutoEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedAutoEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedOrientationEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedOrientationEntryOrientation,
+        defaultValue: EntryOrientationPolicy.triggerDirection.index,
+      )];
+
+  static FullScreenRotationSource get advancedFullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.advancedFullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.keepCurrent.index,
+      )];
+
+  static FullScreenAllowedOrientation get advancedFullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.advancedFullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get advancedGravityFollowSystemLock => _setting.get(
+    SettingBoxKey.advancedGravityFollowSystemLock,
+    defaultValue: true,
+  );
+
+  static int get advancedAngleDegrees =>
+      _setting.get(SettingBoxKey.advancedAngleDegrees, defaultValue: 30);
+
+  static int get advancedAutoExitCauses => _setting.get(
+    SettingBoxKey.advancedAutoExitCauses,
+    defaultValue: FullscreenEntryCauseMask.orientation,
+  );
+
+  static int get advancedManualExitConfirmations => _setting.get(
+    SettingBoxKey.advancedManualExitConfirmations,
+    defaultValue: 0,
+  );
+
+  static ExitOrientationMode get advancedExitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.advancedExitOrientationMode,
+        defaultValue: ExitOrientationMode.keepPlayer.index,
+      )];
+
   static BtmProgressBehavior get btmProgressBehavior =>
       BtmProgressBehavior.values[_setting.get(
         SettingBoxKey.btmProgressBehavior,
@@ -339,6 +493,22 @@ abstract final class Pref {
 
   static int get wifiMinLinkSpeed =>
       _setting.get(SettingBoxKey.wifiMinLinkSpeed, defaultValue: 100);
+
+  static bool get desktopHighBitrateHevc => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevc,
+    defaultValue: false,
+  );
+
+  static int get desktopHighBitrateHevcQuality => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcQuality,
+    defaultValue: VideoQuality.high1080plus.code,
+  );
+
+  // Bilibili DASH bandwidth is kept in its raw bit/s unit.
+  static int get desktopHighBitrateHevcThresholdBps => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+    defaultValue: 114514000,
+  );
 
   static List<Map<String, dynamic>> get networkPeakPeriods =>
       (_setting.get(SettingBoxKey.networkPeakPeriods) as List?)

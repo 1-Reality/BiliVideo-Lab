@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
@@ -6,16 +8,12 @@ import 'package:PiliBro/models/common/setting_type.dart';
 import 'package:PiliBro/pages/about/view.dart';
 import 'package:PiliBro/pages/login/controller.dart';
 import 'package:PiliBro/pages/setting/common_setting.dart';
+import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/webdav/view.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
-import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
-import 'package:PiliBro/utils/platform_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -65,12 +63,12 @@ class _SettingPageState extends State<SettingPage> {
     ),
     _SettingsModel(
       type: SettingType.playSetting,
-      subtitle: '双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
+      subtitle: '方向、双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
       icon: Icon(Icons.touch_app_outlined),
     ),
     _SettingsModel(
       type: SettingType.styleSetting,
-      subtitle: '横屏适配（平板）、侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
+      subtitle: '侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
       icon: Icon(Icons.style_outlined),
     ),
     _SettingsModel(
@@ -184,42 +182,16 @@ class _SettingPageState extends State<SettingPage> {
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
         _buildSearchItem(theme),
-        ListTile(
-          onTap: () => Get.toNamed('/playSpeedSet'),
-          leading: const Icon(Icons.speed_outlined),
-          title: Text('倍速设置', style: titleStyle),
-          subtitle: Text(
-            '默认/长按倍速、滑动临时倍速与倍速统计',
-            style: subTitleStyle,
+        if (Platform.isAndroid)
+          ListTile(
+            onTap: () => TvRemoteSetup.showMenu(context),
+            leading: const Icon(Icons.tv_outlined),
+            title: Text('电视机快速登录与遥控器配置', style: titleStyle),
+            subtitle: Text(
+              '遥控器、屏幕方向校准、扫码登录与设置导出',
+              style: subTitleStyle,
+            ),
           ),
-        ),
-        ListTile(
-          onTap: () => Get.toNamed('/cdnSettings'),
-          leading: const Icon(MdiIcons.cloudOutline),
-          title: Text('CDN 设置', style: titleStyle),
-          subtitle: Text(
-            '宽带/蜂窝优先级、测速与工程网络诊断',
-            style: subTitleStyle,
-          ),
-        ),
-        ListTile(
-          onTap: () => Get.toNamed('/networkPolicy'),
-          leading: const Icon(Icons.lan_outlined),
-          title: Text('PC 网络联动状态', style: titleStyle),
-          subtitle: Text(
-            '当前网卡、链路、RSSI、运营商与等效网络判定',
-            style: subTitleStyle,
-          ),
-        ),
-        ListTile(
-          onTap: () => _showRemoteControlPresetDialog(context),
-          leading: const Icon(Icons.tv_outlined),
-          title: Text('电视 / 遥控器快速配置', style: titleStyle),
-          subtitle: Text(
-            '一键切换横屏、全屏方向与方向键逻辑',
-            style: subTitleStyle,
-          ),
-        ),
         const Divider(height: 1),
         ..._items
             .take(_items.length - 1)
@@ -263,41 +235,6 @@ class _SettingPageState extends State<SettingPage> {
       ],
     );
   }
-
-  Future<void> _showRemoteControlPresetDialog(BuildContext context) =>
-      showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('电视 / 遥控器快速配置'),
-          content: const Text('只修改现有设置，不建立独立运行模式。'),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                await GStorage.setting.putAll({
-                  SettingBoxKey.horizontalScreen: false,
-                  SettingBoxKey.fullScreenMode: FullScreenMode.auto.index,
-                  SettingBoxKey.keyboardControl: true,
-                });
-                Get.back();
-                if (PlatformUtils.isMobile) await portraitUpMode();
-              },
-              child: const Text('普通键盘配置'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                await GStorage.setting.putAll({
-                  SettingBoxKey.horizontalScreen: true,
-                  SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-                  SettingBoxKey.keyboardControl: false,
-                });
-                Get.back();
-                if (PlatformUtils.isMobile) await fullMode();
-              },
-              child: const Text('遥控器配置'),
-            ),
-          ],
-        ),
-      );
 
   Future<void> _logoutDialog(BuildContext context) async {
     final result = await showDialog<Set<LoginAccount>>(
