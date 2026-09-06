@@ -624,7 +624,7 @@ abstract final class OrientationPolicy {
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    setBrotherActiveAllowedMask(allowed);
+    setBrotherActiveAllowedMask(allowed, phase);
     await applyBrotherRuntime(phase, allowedMask: allowed);
   }
 
@@ -701,8 +701,29 @@ abstract final class OrientationPolicy {
     return target;
   }
 
-  static void setBrotherActiveAllowedMask(int mask) {
-    if (_brotherEnabled) _brotherGuard.update(mask);
+  static bool brotherRuntimeNeedsGuard(
+    BrotherPhaseConfig phase,
+    int allowedMask,
+  ) {
+    if (allowedMask == 0 || allowedMask == OrientationMask.all) return false;
+    return switch (phase.runtimeMode) {
+      BrotherRuntimeMode.followSystemAllowed ||
+      BrotherRuntimeMode.alwaysAutoAllowed ||
+      BrotherRuntimeMode.systemGate ||
+      BrotherRuntimeMode.appGravity ||
+      BrotherRuntimeMode.locked => false,
+      _ => true,
+    };
+  }
+
+  static void setBrotherActiveAllowedMask(
+    int mask,
+    BrotherPhaseConfig phase,
+  ) {
+    if (!_brotherEnabled) return;
+    _brotherGuard.update(
+      brotherRuntimeNeedsGuard(phase, mask) ? mask : 0,
+    );
   }
 
   static Future<void> applyBrotherRuntime(

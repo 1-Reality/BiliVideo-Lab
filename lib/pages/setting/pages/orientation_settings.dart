@@ -948,8 +948,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
           phase.runtimeMode != BrotherRuntimeMode.locked) {
         listeners.add('系统建议方向');
       }
-      if (phase.allowedBasis != BrotherAllowedBasis.fixed ||
-          phase.allowedMask != OrientationMask.all) {
+      final diagnosticMask = phase.allowedBasis == BrotherAllowedBasis.fixed
+          ? phase.allowedMask
+          : OrientationMask.landscape;
+      if (OrientationPolicy.brotherRuntimeNeedsGuard(
+        phase,
+        diagnosticMask,
+      )) {
         listeners.add('方向许可Metrics守卫');
       }
       return '$name：${phase.runtimeMode.desc}；许可=${phase.allowedBasis == BrotherAllowedBasis.fixed ? _directionMaskLabel(phase.allowedMask) : phase.allowedBasis.desc}；运行监听=${listeners.isEmpty ? '0' : listeners.join('、')}';

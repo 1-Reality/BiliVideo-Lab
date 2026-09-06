@@ -2384,7 +2384,10 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    OrientationPolicy.setBrotherActiveAllowedMask(_brotherAllowedMask);
+    OrientationPolicy.setBrotherActiveAllowedMask(
+      _brotherAllowedMask,
+      phase,
+    );
     if (_brotherAllowedMask == 0) return;
 
     if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
