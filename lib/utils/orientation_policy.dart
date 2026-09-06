@@ -922,6 +922,13 @@ final class _FinalOrientationGuard with WidgetsBindingObserver {
 
   void update() {
     final mask = OrientationPolicy.finalDirectionMask;
+    if (OrientationPolicy.isBrotherTech) {
+      if (_active) {
+        _active = false;
+        WidgetsBinding.instance.removeObserver(this);
+      }
+      return;
+    }
     final nativeMask =
         mask == OrientationMask.portraitUp ||
         mask == OrientationMask.portraitDown ||
