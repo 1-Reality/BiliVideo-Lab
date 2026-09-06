@@ -40,12 +40,17 @@ abstract final class AndroidRequestedOrientation {
   static const int unspecified = -1;
   static const int landscape = 0;
   static const int portrait = 1;
+  static const int user = 2;
+  static const int behind = 3;
   static const int sensor = 4;
+  static const int noSensor = 5;
   static const int sensorLandscape = 6;
   static const int sensorPortrait = 7;
   static const int reverseLandscape = 8;
   static const int reversePortrait = 9;
   static const int fullSensor = 10;
+  static const int userLandscape = 11;
+  static const int userPortrait = 12;
   static const int fullUser = 13;
   static const int locked = 14;
 }
