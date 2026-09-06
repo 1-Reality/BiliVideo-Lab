@@ -597,17 +597,15 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         subtitle: phase.allowedBasis.desc,
         onTap: _editBrotherAllowedBasis,
       ),
-      if (phase.allowedBasis == BrotherAllowedBasis.fixed)
-        _selectTile(
-          title: '固定运行旋转允许方向',
-          subtitle: _directionMaskLabel(phase.allowedMask),
-          onTap: _editBrotherAllowedMask,
-        ),
-      if (_brotherPhase != BrotherOrientationPhase.app &&
-          phase.runtimeMode == BrotherRuntimeMode.appGravity) ...[
+      _selectTile(
+        title: '固定运行旋转允许方向',
+        subtitle: '${_directionMaskLabel(phase.allowedMask)}${phase.allowedBasis == BrotherAllowedBasis.fixed ? '' : '（当前基准不使用）'}',
+        onTap: _editBrotherAllowedMask,
+      ),
+      if (_brotherPhase != BrotherOrientationPhase.app) ...[
         SwitchListTile(
           title: const Text('APP 重力遵循系统方向锁定'),
-          subtitle: const Text('仅决定 APP 重力源是否服从系统自动旋转开关'),
+          subtitle: const Text('运行或触发使用 APP 重力时生效'),
           value: phase.gravityFollowSystemLock,
           onChanged: (value) => _writeBrotherPhase(
             phase.copyWith(gravityFollowSystemLock: value),
@@ -676,44 +674,42 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         onChanged: (value) =>
             _writeBrotherValue(SettingBoxKey.brotherLandscapeEnter, value),
       ),
-      if (Pref.brotherLandscapeEnter) ...[
-        _selectTile(
-          title: '进入全屏触发信号',
-          subtitle: _signalMaskLabel(Pref.brotherEnterSignalMask),
-          onTap: () => _editSignalMask(
-            SettingBoxKey.brotherEnterSignalMask,
-            Pref.brotherEnterSignalMask,
-            '进入全屏触发信号',
-          ),
+      _selectTile(
+        title: '进入全屏触发信号',
+        subtitle: _signalMaskLabel(Pref.brotherEnterSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherEnterSignalMask,
+          Pref.brotherEnterSignalMask,
+          '进入全屏触发信号',
         ),
-        _selectTile(
-          title: '进入触发最少满足信号数',
-          subtitle: '${Pref.brotherEnterSignalRequired}',
-          onTap: () => _editRequiredCount(
-            SettingBoxKey.brotherEnterSignalRequired,
-            Pref.brotherEnterSignalRequired,
-            '进入触发最少满足信号数',
-          ),
+      ),
+      _selectTile(
+        title: '进入触发最少满足信号数',
+        subtitle: '${Pref.brotherEnterSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherEnterSignalRequired,
+          Pref.brotherEnterSignalRequired,
+          '进入触发最少满足信号数',
         ),
-        _selectTile(
-          title: '进入触发适用视频',
-          subtitle: Pref.brotherEnterTriggerContent.desc,
-          onTap: () async {
-            final res = await _pickEnum(
-              title: '进入触发适用视频',
-              value: Pref.brotherEnterTriggerContent,
-              values: OrientationTriggerContent.values,
-              label: (e) => e.desc,
+      ),
+      _selectTile(
+        title: '进入触发适用视频',
+        subtitle: Pref.brotherEnterTriggerContent.desc,
+        onTap: () async {
+          final res = await _pickEnum(
+            title: '进入触发适用视频',
+            value: Pref.brotherEnterTriggerContent,
+            values: OrientationTriggerContent.values,
+            label: (e) => e.desc,
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherEnterTriggerContent,
+              res.index,
             );
-            if (res != null) {
-              await _writeBrotherValue(
-                SettingBoxKey.brotherEnterTriggerContent,
-                res.index,
-              );
-            }
-          },
-        ),
-      ],
+          }
+        },
+      ),
       const Divider(),
       const Padding(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -725,48 +721,45 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         current: overrideMask,
         bit: FullscreenExitCauseMask.manual,
       ),
-      if (overrideMask & FullscreenExitCauseMask.manual != 0)
-        _selectTile(
-          title: '手动退出全屏返回方向',
-          subtitle: Pref.brotherWindowedManualResume.desc,
-          onTap: () => _editBrotherResumeOverride(
-            FullscreenExitCause.manual,
-            Pref.brotherWindowedManualResume,
-            '手动退出全屏返回方向',
-          ),
+      _selectTile(
+        title: '手动退出全屏返回方向',
+        subtitle: '${Pref.brotherWindowedManualResume.desc}${overrideMask & FullscreenExitCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.manual,
+          Pref.brotherWindowedManualResume,
+          '手动退出全屏返回方向',
         ),
+      ),
       _brotherBitSwitch(
         title: '播放自动退出使用独立返回方向',
         key: SettingBoxKey.brotherWindowedResumeOverrideMask,
         current: overrideMask,
         bit: FullscreenExitCauseMask.playbackAuto,
       ),
-      if (overrideMask & FullscreenExitCauseMask.playbackAuto != 0)
-        _selectTile(
-          title: '播放自动退出返回方向',
-          subtitle: Pref.brotherWindowedPlaybackResume.desc,
-          onTap: () => _editBrotherResumeOverride(
-            FullscreenExitCause.playbackAuto,
-            Pref.brotherWindowedPlaybackResume,
-            '播放自动退出返回方向',
-          ),
+      _selectTile(
+        title: '播放自动退出返回方向',
+        subtitle: '${Pref.brotherWindowedPlaybackResume.desc}${overrideMask & FullscreenExitCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.playbackAuto,
+          Pref.brotherWindowedPlaybackResume,
+          '播放自动退出返回方向',
         ),
+      ),
       _brotherBitSwitch(
         title: '方向触发退出使用独立返回方向',
         key: SettingBoxKey.brotherWindowedResumeOverrideMask,
         current: overrideMask,
         bit: FullscreenExitCauseMask.orientation,
       ),
-      if (overrideMask & FullscreenExitCauseMask.orientation != 0)
-        _selectTile(
-          title: '方向触发退出返回方向',
-          subtitle: Pref.brotherWindowedOrientationResume.desc,
-          onTap: () => _editBrotherResumeOverride(
-            FullscreenExitCause.orientation,
-            Pref.brotherWindowedOrientationResume,
-            '方向触发退出返回方向',
-          ),
+      _selectTile(
+        title: '方向触发退出返回方向',
+        subtitle: '${Pref.brotherWindowedOrientationResume.desc}${overrideMask & FullscreenExitCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.orientation,
+          Pref.brotherWindowedOrientationResume,
+          '方向触发退出返回方向',
         ),
+      ),
     ];
   }
 
@@ -785,48 +778,45 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         current: enterMask,
         bit: FullscreenEntryCauseMask.manual,
       ),
-      if (enterMask & FullscreenEntryCauseMask.manual != 0)
-        _selectTile(
-          title: '手动进入全屏时方向',
-          subtitle: Pref.brotherFullscreenManualEnter.desc,
-          onTap: () => _editBrotherEntryOverride(
-            FullscreenEntryCause.manual,
-            Pref.brotherFullscreenManualEnter,
-            '手动进入全屏时方向',
-          ),
+      _selectTile(
+        title: '手动进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenManualEnter.desc}${enterMask & FullscreenEntryCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.manual,
+          Pref.brotherFullscreenManualEnter,
+          '手动进入全屏时方向',
         ),
+      ),
       _brotherBitSwitch(
         title: '播放自动进入使用独立方向',
         key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
         current: enterMask,
         bit: FullscreenEntryCauseMask.playbackAuto,
       ),
-      if (enterMask & FullscreenEntryCauseMask.playbackAuto != 0)
-        _selectTile(
-          title: '播放自动进入全屏时方向',
-          subtitle: Pref.brotherFullscreenPlaybackEnter.desc,
-          onTap: () => _editBrotherEntryOverride(
-            FullscreenEntryCause.playbackAuto,
-            Pref.brotherFullscreenPlaybackEnter,
-            '播放自动进入全屏时方向',
-          ),
+      _selectTile(
+        title: '播放自动进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenPlaybackEnter.desc}${enterMask & FullscreenEntryCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.playbackAuto,
+          Pref.brotherFullscreenPlaybackEnter,
+          '播放自动进入全屏时方向',
         ),
+      ),
       _brotherBitSwitch(
         title: '方向触发进入使用独立方向',
         key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
         current: enterMask,
         bit: FullscreenEntryCauseMask.orientation,
       ),
-      if (enterMask & FullscreenEntryCauseMask.orientation != 0)
-        _selectTile(
-          title: '方向触发进入全屏时方向',
-          subtitle: Pref.brotherFullscreenOrientationEnter.desc,
-          onTap: () => _editBrotherEntryOverride(
-            FullscreenEntryCause.orientation,
-            Pref.brotherFullscreenOrientationEnter,
-            '方向触发进入全屏时方向',
-          ),
+      _selectTile(
+        title: '方向触发进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenOrientationEnter.desc}${enterMask & FullscreenEntryCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.orientation,
+          Pref.brotherFullscreenOrientationEnter,
+          '方向触发进入全屏时方向',
         ),
+      ),
       const Divider(),
       SwitchListTile(
         title: const Text('竖置时自动退出全屏'),
@@ -834,105 +824,101 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         onChanged: (value) =>
             _writeBrotherValue(SettingBoxKey.brotherPortraitExit, value),
       ),
-      if (Pref.brotherPortraitExit) ...[
-        _selectTile(
-          title: '自动退出触发信号',
-          subtitle: _signalMaskLabel(Pref.brotherExitSignalMask),
-          onTap: () => _editSignalMask(
-            SettingBoxKey.brotherExitSignalMask,
-            Pref.brotherExitSignalMask,
-            '自动退出触发信号',
-          ),
+      _selectTile(
+        title: '自动退出触发信号',
+        subtitle: _signalMaskLabel(Pref.brotherExitSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherExitSignalMask,
+          Pref.brotherExitSignalMask,
+          '自动退出触发信号',
         ),
-        _selectTile(
-          title: '自动退出最少满足信号数',
-          subtitle: '${Pref.brotherExitSignalRequired}',
-          onTap: () => _editRequiredCount(
-            SettingBoxKey.brotherExitSignalRequired,
-            Pref.brotherExitSignalRequired,
-            '自动退出最少满足信号数',
-          ),
+      ),
+      _selectTile(
+        title: '自动退出最少满足信号数',
+        subtitle: '${Pref.brotherExitSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherExitSignalRequired,
+          Pref.brotherExitSignalRequired,
+          '自动退出最少满足信号数',
         ),
-        _selectTile(
-          title: '退出触发适用视频',
-          subtitle: Pref.brotherExitTriggerContent.desc,
-          onTap: () async {
-            final res = await _pickEnum(
-              title: '退出触发适用视频',
-              value: Pref.brotherExitTriggerContent,
-              values: OrientationTriggerContent.values,
-              label: (e) => e.desc,
+      ),
+      _selectTile(
+        title: '退出触发适用视频',
+        subtitle: Pref.brotherExitTriggerContent.desc,
+        onTap: () async {
+          final res = await _pickEnum(
+            title: '退出触发适用视频',
+            value: Pref.brotherExitTriggerContent,
+            values: OrientationTriggerContent.values,
+            label: (e) => e.desc,
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherExitTriggerContent,
+              res.index,
             );
-            if (res != null) {
-              await _writeBrotherValue(
-                SettingBoxKey.brotherExitTriggerContent,
-                res.index,
-              );
-            }
-          },
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
-          child: Text('方向自动退出适用于哪些“进入全屏来源”：'),
-        ),
-        _brotherBitSwitch(
-          title: '手动进入的全屏',
-          key: SettingBoxKey.brotherAutoExitCauses,
-          current: exitCauses,
-          bit: FullscreenEntryCauseMask.manual,
-        ),
-        _brotherBitSwitch(
-          title: '播放自动进入的全屏',
-          key: SettingBoxKey.brotherAutoExitCauses,
-          current: exitCauses,
-          bit: FullscreenEntryCauseMask.playbackAuto,
-        ),
-        _brotherBitSwitch(
-          title: '方向触发进入的全屏',
-          key: SettingBoxKey.brotherAutoExitCauses,
-          current: exitCauses,
-          bit: FullscreenEntryCauseMask.orientation,
-        ),
-        _selectTile(
-          title: '手动全屏退出确认次数',
-          subtitle: Pref.brotherManualExitConfirmations == 0
-              ? '关闭'
-              : '${Pref.brotherManualExitConfirmations} 次',
-          onTap: () async {
-            final res = await _nonNegativeIntDialog(
-              title: '手动全屏退出确认次数',
-              initial: Pref.brotherManualExitConfirmations,
-              helper: '0 = 关闭；不设上限',
+          }
+        },
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
+        child: Text('方向自动退出适用于哪些“进入全屏来源”：'),
+      ),
+      _brotherBitSwitch(
+        title: '手动进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.manual,
+      ),
+      _brotherBitSwitch(
+        title: '播放自动进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.playbackAuto,
+      ),
+      _brotherBitSwitch(
+        title: '方向触发进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.orientation,
+      ),
+      _selectTile(
+        title: '手动全屏退出确认次数',
+        subtitle: Pref.brotherManualExitConfirmations == 0
+            ? '关闭'
+            : '${Pref.brotherManualExitConfirmations} 次',
+        onTap: () async {
+          final res = await _nonNegativeIntDialog(
+            title: '手动全屏退出确认次数',
+            initial: Pref.brotherManualExitConfirmations,
+            helper: '0 = 关闭；不设上限',
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherManualExitConfirmations,
+              res,
             );
-            if (res != null) {
-              await _writeBrotherValue(
-                SettingBoxKey.brotherManualExitConfirmations,
-                res,
-              );
-            }
-          },
+          }
+        },
+      ),
+      _selectTile(
+        title: '手动退出确认信号',
+        subtitle: _signalMaskLabel(Pref.brotherManualExitSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherManualExitSignalMask,
+          Pref.brotherManualExitSignalMask,
+          '手动退出确认信号',
         ),
-        if (Pref.brotherManualExitConfirmations > 0) ...[
-          _selectTile(
-            title: '手动退出确认信号',
-            subtitle: _signalMaskLabel(Pref.brotherManualExitSignalMask),
-            onTap: () => _editSignalMask(
-              SettingBoxKey.brotherManualExitSignalMask,
-              Pref.brotherManualExitSignalMask,
-              '手动退出确认信号',
-            ),
-          ),
-          _selectTile(
-            title: '手动退出确认最少满足信号数',
-            subtitle: '${Pref.brotherManualExitSignalRequired}',
-            onTap: () => _editRequiredCount(
-              SettingBoxKey.brotherManualExitSignalRequired,
-              Pref.brotherManualExitSignalRequired,
-              '手动退出确认最少满足信号数',
-            ),
-          ),
-        ],
-      ],
+      ),
+      _selectTile(
+        title: '手动退出确认最少满足信号数',
+        subtitle: '${Pref.brotherManualExitSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherManualExitSignalRequired,
+          Pref.brotherManualExitSignalRequired,
+          '手动退出确认最少满足信号数',
+        ),
+      ),
     ];
   }
 
