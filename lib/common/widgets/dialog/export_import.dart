@@ -7,7 +7,9 @@ import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/storage_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/services.dart'\n    show Clipboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;\nimport 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
+import 'package:flutter/services.dart'
+    show Clipboard, KeyDownEvent, KeyEvent, LogicalKeyboardKey;
+import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
