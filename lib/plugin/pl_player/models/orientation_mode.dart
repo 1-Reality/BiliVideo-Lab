@@ -189,11 +189,21 @@ enum BrotherRuntimeMode {
   userPortrait('用户竖屏（USER_PORTRAIT）'),
   fullUser('完整遵循用户设置（FULL_USER）'),
   locked('锁定当前（LOCKED）'),
+  followSystemAllowed('遵循系统旋转并应用方向许可'),
+  alwaysAutoAllowed('忽略系统锁定并应用方向许可'),
   systemGate('仅读取系统旋转开关（关=LOCKED，开=FULL_SENSOR）'),
   appGravity('APP 重力传感器');
 
   final String desc;
   const BrotherRuntimeMode(this.desc);
+}
+
+enum BrotherRuntimeActivation {
+  immediate('立即接管'),
+  afterSourceChange('等待运行方向源首次变化后接管');
+
+  final String desc;
+  const BrotherRuntimeActivation(this.desc);
 }
 
 enum BrotherAllowedBasis {
@@ -210,6 +220,7 @@ final class BrotherPhaseConfig {
     required this.enterAction,
     required this.resumeAction,
     required this.runtimeMode,
+    required this.runtimeActivation,
     required this.allowedBasis,
     required this.allowedMask,
     required this.gravityFollowSystemLock,
@@ -219,6 +230,7 @@ final class BrotherPhaseConfig {
   final BrotherDirectionAction enterAction;
   final BrotherDirectionAction resumeAction;
   final BrotherRuntimeMode runtimeMode;
+  final BrotherRuntimeActivation runtimeActivation;
   final BrotherAllowedBasis allowedBasis;
   final int allowedMask;
   final bool gravityFollowSystemLock;
@@ -228,6 +240,7 @@ final class BrotherPhaseConfig {
     BrotherDirectionAction? enterAction,
     BrotherDirectionAction? resumeAction,
     BrotherRuntimeMode? runtimeMode,
+    BrotherRuntimeActivation? runtimeActivation,
     BrotherAllowedBasis? allowedBasis,
     int? allowedMask,
     bool? gravityFollowSystemLock,
@@ -236,6 +249,7 @@ final class BrotherPhaseConfig {
     enterAction: enterAction ?? this.enterAction,
     resumeAction: resumeAction ?? this.resumeAction,
     runtimeMode: runtimeMode ?? this.runtimeMode,
+    runtimeActivation: runtimeActivation ?? this.runtimeActivation,
     allowedBasis: allowedBasis ?? this.allowedBasis,
     allowedMask: allowedMask ?? this.allowedMask,
     gravityFollowSystemLock:
@@ -247,6 +261,7 @@ final class BrotherPhaseConfig {
     enterAction.index,
     resumeAction.index,
     runtimeMode.index,
+    runtimeActivation.index,
     allowedBasis.index,
     allowedMask,
     gravityFollowSystemLock,
@@ -262,6 +277,7 @@ final class BrotherPhaseConfig {
         index is int && index >= 0 && index < values.length
             ? values[index]
             : orElse;
+    final v2 = raw.length >= 8;
     return BrotherPhaseConfig(
       enterAction: value(
         BrotherDirectionAction.values,
@@ -278,18 +294,29 @@ final class BrotherPhaseConfig {
         raw[2],
         fallback.runtimeMode,
       ),
+      runtimeActivation: v2
+          ? value(
+              BrotherRuntimeActivation.values,
+              raw[3],
+              fallback.runtimeActivation,
+            )
+          : fallback.runtimeActivation,
       allowedBasis: value(
         BrotherAllowedBasis.values,
-        raw[3],
+        raw[v2 ? 4 : 3],
         fallback.allowedBasis,
       ),
-      allowedMask: raw[4] is int ? raw[4] as int : fallback.allowedMask,
-      gravityFollowSystemLock:
-          raw[5] is bool ? raw[5] as bool : fallback.gravityFollowSystemLock,
-      angleDegrees: raw[6] is int ? raw[6] as int : fallback.angleDegrees,
+      allowedMask: raw[v2 ? 5 : 4] is int
+          ? raw[v2 ? 5 : 4] as int
+          : fallback.allowedMask,
+      gravityFollowSystemLock: raw[v2 ? 6 : 5] is bool
+          ? raw[v2 ? 6 : 5] as bool
+          : fallback.gravityFollowSystemLock,
+      angleDegrees: raw[v2 ? 7 : 6] is int
+          ? raw[v2 ? 7 : 6] as int
+          : fallback.angleDegrees,
     );
-  }
-}
+  }}
 
 abstract final class BrotherOrientationSignalMask {
   static const int window = 1;
