@@ -2391,6 +2391,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (_brotherAllowedMask == 0) return;
 
     if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
+      if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
+        await lockedMode();
+        _updateOrientationInputs();
+        return;
+      }
       if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
         _gravityRuntimePending = true;
       } else if (_orientation case final orientation?) {
@@ -2404,6 +2409,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         _supportsProposedRotation &&
         phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
         phase.runtimeMode != BrotherRuntimeMode.locked) {
+      if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _updateOrientationInputs();
+        return;
+      }
       _systemRuntimePending = true;
       _updateOrientationInputs();
       return;
@@ -2424,6 +2434,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     if (_brotherAllowedMask == 0) return;
 
     if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
+      if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
+        await lockedMode();
+        _updateOrientationInputs();
+        return;
+      }
       if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
         _gravityRuntimePending = true;
       } else if (_orientation case final orientation?) {
@@ -2437,6 +2452,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         _supportsProposedRotation &&
         phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
         phase.runtimeMode != BrotherRuntimeMode.locked) {
+      if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _updateOrientationInputs();
+        return;
+      }
       _systemRuntimePending = true;
       _updateOrientationInputs();
       return;
