@@ -229,6 +229,7 @@ abstract final class OrientationPolicy {
 
   static int _startupDirectionBit = OrientationMask.portraitUp;
   static final _finalGuard = _FinalOrientationGuard();
+  static final _brotherGuard = _BrotherOrientationGuard();
   static bool _brotherEnabled = false;
   static BrotherOrientationPlan _brotherPlan = const BrotherOrientationPlan(
     app: BrotherPhaseConfig(
@@ -349,6 +350,7 @@ abstract final class OrientationPolicy {
       _finalGuard.update();
       return;
     }
+    _brotherGuard.update(0);
     final advanced = mode == OrientationPolicyMode.advanced;
 
     final appInitial = advanced
@@ -619,6 +621,7 @@ abstract final class OrientationPolicy {
       resume ? phase.resumeAction : phase.enterAction,
     );
     final allowed = await resolveBrotherAllowedMask(phase);
+    setBrotherActiveAllowedMask(allowed);
     await applyBrotherRuntime(phase, allowedMask: allowed);
   }
 
@@ -694,6 +697,10 @@ abstract final class OrientationPolicy {
     } else {
       await _applyDirectionBit(filtered & -filtered);
     }
+  }
+
+  static void setBrotherActiveAllowedMask(int mask) {
+    if (_brotherEnabled) _brotherGuard.update(mask);
   }
 
   static Future<void> applyBrotherRuntime(
@@ -846,6 +853,66 @@ abstract final class OrientationPolicy {
       allowedMask,
       ignoreSystemLock: ignoreSystemLock,
     );
+  }
+}
+
+
+final class _BrotherOrientationGuard with WidgetsBindingObserver {
+  int _mask = OrientationMask.all;
+  bool _active = false;
+  bool _checking = false;
+
+  void update(int mask) {
+    _mask = mask;
+    final active =
+        Platform.isAndroid &&
+        mask != 0 &&
+        mask != OrientationMask.all;
+    if (active == _active) return;
+    _active = active;
+    if (active) {
+      WidgetsBinding.instance.addObserver(this);
+    } else {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_active || _checking) return;
+    _check();
+  }
+
+  Future<void> _check() async {
+    _checking = true;
+    try {
+      final current = await OrientationPlatform.currentOrientationBit();
+      if (current == null || _mask & current != 0) return;
+      final axis = current & OrientationMask.portrait != 0
+          ? OrientationMask.portrait
+          : OrientationMask.landscape;
+      final sameAxis = _mask & axis;
+      final target = _firstBit(sameAxis != 0 ? sameAxis : _mask);
+      if (target != 0) await OrientationPolicy._applyDirectionBit(target);
+    } finally {
+      _checking = false;
+    }
+  }
+
+  int _firstBit(int mask) {
+    if (mask & OrientationMask.portraitUp != 0) {
+      return OrientationMask.portraitUp;
+    }
+    if (mask & OrientationMask.landscapeLeft != 0) {
+      return OrientationMask.landscapeLeft;
+    }
+    if (mask & OrientationMask.landscapeRight != 0) {
+      return OrientationMask.landscapeRight;
+    }
+    if (mask & OrientationMask.portraitDown != 0) {
+      return OrientationMask.portraitDown;
+    }
+    return 0;
   }
 }
 
