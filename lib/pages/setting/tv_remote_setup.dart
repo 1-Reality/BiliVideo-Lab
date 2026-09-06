@@ -235,7 +235,7 @@ abstract final class TvRemoteSetup {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(current).pop(false),
-                    child: const Text('返回'),
+                    child: const Text('返回、取消'),
                   ),
                   FilledButton(
                     onPressed: accept,
