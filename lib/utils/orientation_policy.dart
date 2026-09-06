@@ -617,10 +617,13 @@ abstract final class OrientationPolicy {
 
   static Future<void> applyBrotherApp({required bool resume}) async {
     final phase = _brotherPlan.app;
-    await applyBrotherDirectionAction(
+    final entryDirectionBit = await applyBrotherDirectionAction(
       resume ? phase.resumeAction : phase.enterAction,
     );
-    final allowed = await resolveBrotherAllowedMask(phase);
+    final allowed = await resolveBrotherAllowedMask(
+      phase,
+      entryDirectionBit: entryDirectionBit,
+    );
     setBrotherActiveAllowedMask(allowed);
     await applyBrotherRuntime(phase, allowedMask: allowed);
   }
@@ -648,21 +651,24 @@ abstract final class OrientationPolicy {
     return base & effectiveFinalMask;
   }
 
-  static Future<void> applyBrotherDirectionAction(
+  static Future<int> applyBrotherDirectionAction(
     BrotherDirectionAction action, {
     bool? videoVertical,
     double? screenRatio,
     DeviceOrientation? triggerOrientation,
   }) async {
+    final current =
+        await OrientationPlatform.currentOrientationBit() ??
+        _currentWindowAxisBit();
     final requested = switch (action) {
       BrotherDirectionAction.keepCurrent => 0,
-      BrotherDirectionAction.systemCurrent =>
-        await OrientationPlatform.currentOrientationBit() ??
-            _currentWindowAxisBit(),
+      BrotherDirectionAction.systemCurrent => current,
       BrotherDirectionAction.startupDirection => _startupDirectionBit,
       BrotherDirectionAction.video => videoVertical == null
           ? 0
-          : (videoVertical ? OrientationMask.portrait : OrientationMask.landscape),
+          : (videoVertical
+                ? OrientationMask.portrait
+                : OrientationMask.landscape),
       BrotherDirectionAction.ratio =>
         videoVertical == null || screenRatio == null
             ? 0
@@ -679,24 +685,20 @@ abstract final class OrientationPolicy {
           ? 0
           : orientationBit(triggerOrientation),
     };
-    if (requested == 0) return;
+    if (requested == 0) return current;
+
     final filtered = requested & effectiveFinalMask;
-    if (filtered == 0) return;
-    if (requested == OrientationMask.portrait) {
-      await _applyDirectionBit(
-        filtered == OrientationMask.portraitDown
-            ? OrientationMask.portraitDown
-            : OrientationMask.portraitUp,
-      );
-    } else if (requested == OrientationMask.landscape) {
-      await _applyDirectionBit(
-        filtered == OrientationMask.landscapeRight
-            ? OrientationMask.landscapeRight
-            : OrientationMask.landscapeLeft,
-      );
+    if (filtered == 0) return current;
+
+    final int target;
+    if (requested == OrientationMask.portrait ||
+        requested == OrientationMask.landscape) {
+      target = current & filtered != 0 ? current : filtered & -filtered;
     } else {
-      await _applyDirectionBit(filtered & -filtered);
+      target = filtered & -filtered;
     }
+    await _applyDirectionBit(target);
+    return target;
   }
 
   static void setBrotherActiveAllowedMask(int mask) {
