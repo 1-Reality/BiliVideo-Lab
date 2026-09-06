@@ -99,20 +99,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (plPlayerController.removeSafeArea) {
-      padding = .zero;
-    } else {
-      padding = MediaQuery.viewPaddingOf(context);
-    }
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
     maxHeight = size.height;
+    isPortrait = size.isPortrait;
+    plPlayerController.screenRatio = maxHeight / maxWidth;
+    padding = plPlayerController.removeSafeAreaFor(portrait: isPortrait)
+        ? .zero
+        : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * plPlayerController.uiScale,
       height: maxHeight * plPlayerController.uiScale,
     );
-    isPortrait = size.isPortrait;
-    plPlayerController.screenRatio = maxHeight / maxWidth;
   }
 
   @override

@@ -2498,8 +2498,6 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    _isVertical = isVertical;
-    if (!isFullScreen.value) return;
     final policy = _orientationPlan.entryForCause(_fullScreenEntryCause);
     if (policy == EntryOrientationPolicy.video ||
         policy == EntryOrientationPolicy.ratio) {
