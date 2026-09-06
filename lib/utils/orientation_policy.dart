@@ -229,39 +229,66 @@ abstract final class OrientationPolicy {
 
   static int _startupDirectionBit = OrientationMask.portraitUp;
   static final _finalGuard = _FinalOrientationGuard();
-  static BrotherOrientationPlan _brotherPlan = BrotherOrientationPlan(
-    app: Pref.brotherAppPhase,
-    windowed: Pref.brotherWindowedPhase,
-    fullscreen: Pref.brotherFullscreenPhase,
-    fullscreenEnterOverrideMask: Pref.brotherFullscreenEnterOverrideMask,
-    fullscreenManualEnter: Pref.brotherFullscreenManualEnter,
-    fullscreenPlaybackEnter: Pref.brotherFullscreenPlaybackEnter,
-    fullscreenOrientationEnter: Pref.brotherFullscreenOrientationEnter,
-    windowedResumeOverrideMask: Pref.brotherWindowedResumeOverrideMask,
-    windowedManualResume: Pref.brotherWindowedManualResume,
-    windowedPlaybackResume: Pref.brotherWindowedPlaybackResume,
-    windowedOrientationResume: Pref.brotherWindowedOrientationResume,
-    landscapeEnter: Pref.brotherLandscapeEnter,
-    portraitExit: Pref.brotherPortraitExit,
-    enterSignalMask: Pref.brotherEnterSignalMask,
-    enterSignalRequired: Pref.brotherEnterSignalRequired,
-    exitSignalMask: Pref.brotherExitSignalMask,
-    exitSignalRequired: Pref.brotherExitSignalRequired,
-    manualExitSignalMask: Pref.brotherManualExitSignalMask,
-    manualExitSignalRequired: Pref.brotherManualExitSignalRequired,
-    enterTriggerContent: Pref.brotherEnterTriggerContent,
-    exitTriggerContent: Pref.brotherExitTriggerContent,
-    autoExitCauses: Pref.brotherAutoExitCauses,
-    manualExitConfirmations: Pref.brotherManualExitConfirmations,
-    controlsLockOrientation: Pref.controlsLockOrientation,
-    finalDirectionMask: Pref.finalDirectionMask,
+  static bool _brotherEnabled = false;
+  static BrotherOrientationPlan _brotherPlan = const BrotherOrientationPlan(
+    app: BrotherPhaseConfig(
+      enterAction: BrotherDirectionAction.systemCurrent,
+      resumeAction: BrotherDirectionAction.keepCurrent,
+      runtimeMode: BrotherRuntimeMode.unspecified,
+      runtimeActivation: BrotherRuntimeActivation.immediate,
+      allowedBasis: BrotherAllowedBasis.fixed,
+      allowedMask: OrientationMask.all,
+      gravityFollowSystemLock: true,
+      angleDegrees: 30,
+    ),
+    windowed: BrotherPhaseConfig(
+      enterAction: BrotherDirectionAction.keepCurrent,
+      resumeAction: BrotherDirectionAction.keepCurrent,
+      runtimeMode: BrotherRuntimeMode.inheritRequest,
+      runtimeActivation: BrotherRuntimeActivation.immediate,
+      allowedBasis: BrotherAllowedBasis.fixed,
+      allowedMask: OrientationMask.all,
+      gravityFollowSystemLock: true,
+      angleDegrees: 30,
+    ),
+    fullscreen: BrotherPhaseConfig(
+      enterAction: BrotherDirectionAction.video,
+      resumeAction: BrotherDirectionAction.keepCurrent,
+      runtimeMode: BrotherRuntimeMode.locked,
+      runtimeActivation: BrotherRuntimeActivation.immediate,
+      allowedBasis: BrotherAllowedBasis.fixed,
+      allowedMask: OrientationMask.all,
+      gravityFollowSystemLock: true,
+      angleDegrees: 30,
+    ),
+    fullscreenEnterOverrideMask: FullscreenEntryCauseMask.all,
+    fullscreenManualEnter: BrotherDirectionAction.video,
+    fullscreenPlaybackEnter: BrotherDirectionAction.video,
+    fullscreenOrientationEnter: BrotherDirectionAction.triggerDirection,
+    windowedResumeOverrideMask: 0,
+    windowedManualResume: BrotherDirectionAction.keepCurrent,
+    windowedPlaybackResume: BrotherDirectionAction.keepCurrent,
+    windowedOrientationResume: BrotherDirectionAction.triggerDirection,
+    landscapeEnter: false,
+    portraitExit: false,
+    enterSignalMask: BrotherOrientationSignalMask.window,
+    enterSignalRequired: 1,
+    exitSignalMask: BrotherOrientationSignalMask.window,
+    exitSignalRequired: 1,
+    manualExitSignalMask: BrotherOrientationSignalMask.proposedSystem,
+    manualExitSignalRequired: 1,
+    enterTriggerContent: OrientationTriggerContent.all,
+    exitTriggerContent: OrientationTriggerContent.all,
+    autoExitCauses: FullscreenEntryCauseMask.orientation,
+    manualExitConfirmations: 0,
+    controlsLockOrientation: true,
+    finalDirectionMask: 0,
     systemAutoRotate: true,
   );
 
   static OrientationPlan get plan => _plan;
   static BrotherOrientationPlan get brotherPlan => _brotherPlan;
-  static bool get isBrotherTech =>
-      Pref.orientationPolicyMode == OrientationPolicyMode.brotherTech;
+  static bool get isBrotherTech => _brotherEnabled;
   static int get finalDirectionMask =>
       isBrotherTech ? _brotherPlan.finalDirectionMask : _plan.finalDirectionMask;
   static int get effectiveFinalMask =>
@@ -315,12 +342,14 @@ abstract final class OrientationPolicy {
       };
 
   static Future<void> compile() async {
-    if (Pref.orientationPolicyMode == OrientationPolicyMode.brotherTech) {
+    final mode = Pref.orientationPolicyMode;
+    _brotherEnabled = mode == OrientationPolicyMode.brotherTech;
+    if (_brotherEnabled) {
       await _compileBrotherTech();
       _finalGuard.update();
       return;
     }
-    final advanced = Pref.orientationPolicyMode == OrientationPolicyMode.advanced;
+    final advanced = mode == OrientationPolicyMode.advanced;
 
     final appInitial = advanced
         ? Pref.advancedAppInitialOrientation
