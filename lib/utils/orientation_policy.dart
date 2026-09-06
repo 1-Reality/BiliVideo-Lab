@@ -308,6 +308,7 @@ abstract final class OrientationPolicy {
 
   static Future<void> initialize() async {
     await _initializeLegacyDefaults();
+    await _initializeSafeAreaDefaults();
     await compile();
     if (isBrotherTech) {
       _startupDirectionBit =
@@ -508,6 +509,20 @@ abstract final class OrientationPolicy {
       finalDirectionMask: Pref.finalDirectionMask,
       systemAutoRotate: systemAutoRotate,
     );
+  }
+
+  static Future<void> _initializeSafeAreaDefaults() async {
+    final hasPortrait =
+        GStorage.setting.containsKey(SettingBoxKey.removeSafeAreaPortrait);
+    final hasLandscape =
+        GStorage.setting.containsKey(SettingBoxKey.removeSafeAreaLandscape);
+    if (hasPortrait && hasLandscape) return;
+
+    final legacy = Pref.removeSafeArea;
+    await GStorage.setting.putAll({
+      if (!hasPortrait) SettingBoxKey.removeSafeAreaPortrait: legacy,
+      if (!hasLandscape) SettingBoxKey.removeSafeAreaLandscape: legacy,
+    });
   }
 
   static Future<void> _initializeLegacyDefaults() async {
