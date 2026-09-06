@@ -1088,7 +1088,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
     triggerFullScreen(
       status: false,
-      cause: FullscreenEntryCause.orientation,
+      exitCause: FullscreenExitCause.orientation,
     );
   
   }
@@ -2215,10 +2215,17 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
     controls = !val;
     if (PlatformUtils.isMobile && isFullScreen.value) {
-      if (val && _orientationPlan.controlsLockOrientation) {
+      final lockOrientation = _brotherMode
+          ? _brotherPlan.controlsLockOrientation
+          : _orientationPlan.controlsLockOrientation;
+      if (val && lockOrientation) {
         lockedMode();
-      } else if (!val && _orientationPlan.controlsLockOrientation) {
-        _applyFullScreenRuntimePolicy();
+      } else if (!val && lockOrientation) {
+        if (_brotherMode) {
+          _rearmBrotherRuntime(_brotherPlan.fullscreen);
+        } else {
+          _applyFullScreenRuntimePolicy();
+        }
       }
       _updateOrientationInputs();
     }
@@ -2233,7 +2240,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     updateSubtitleStyle();
     if (val) {
       _manualExitRemaining = _manualExitConfirmationActive
-          ? _orientationPlan.manualExitConfirmations
+          ? (_brotherMode
+                ? _brotherPlan.manualExitConfirmations
+                : _orientationPlan.manualExitConfirmations)
           : 0;
       _manualExitTargetMatched = null;
     } else {
@@ -2393,7 +2402,56 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     _updateOrientationInputs();
   }
 
+  Future<void> _rearmBrotherRuntime(BrotherPhaseConfig phase) async {
+    _systemRuntimePending = false;
+    _systemRuntimeBaselineRotation = null;
+    _gravityRuntimePending = false;
+    _gravityRuntimeBaseline = null;
+    if (_brotherAllowedMask == 0) return;
+
+    if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
+      if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
+        _gravityRuntimePending = true;
+      } else if (_orientation case final orientation?) {
+        _applyBrotherGravityOrientation(orientation);
+      }
+      _updateOrientationInputs();
+      return;
+    }
+
+    if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        _supportsProposedRotation &&
+        phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        phase.runtimeMode != BrotherRuntimeMode.locked) {
+      _systemRuntimePending = true;
+      _updateOrientationInputs();
+      return;
+    }
+    await OrientationPolicy.applyBrotherRuntime(
+      phase,
+      allowedMask: _brotherAllowedMask,
+    );
+    _updateOrientationInputs();
+  }
+
+
   void onVideoOrientationChanged(bool isVertical) {
+    _isVertical = isVertical;
+    if (!isFullScreen.value) return;
+    if (_brotherMode) {
+      final action = _brotherPlan.fullscreenEntryFor(_fullScreenEntryCause);
+      if (action == BrotherDirectionAction.video ||
+          action == BrotherDirectionAction.ratio) {
+        unawaited(
+          _activateBrotherPhase(
+            _brotherPlan.fullscreen,
+            action: action,
+          ),
+        );
+      }
+      return;
+    }
+
     _isVertical = isVertical;
     if (!isFullScreen.value) return;
     final policy = _orientationPlan.entryForCause(_fullScreenEntryCause);
@@ -2410,6 +2468,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         );
       }
     }
+  
   }
 
   Future<void>? changeOrientation({
@@ -2506,31 +2565,46 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     bool status = true,
     bool inAppFullScreen = false,
     FullscreenEntryCause cause = FullscreenEntryCause.manual,
+    FullscreenExitCause exitCause = FullscreenExitCause.manual,
   }) async {
     if (isDesktopPip) return;
     if (isFullScreen.value == status) return;
 
     if (_fsProcessing) return;
     _fsProcessing = true;
-    isManualFS = cause == FullscreenEntryCause.manual;
+    isManualFS = status
+        ? cause == FullscreenEntryCause.manual
+        : exitCause == FullscreenExitCause.manual;
     try {
       if (status) {
         _fullScreenEntryCause = cause;
         if (PlatformUtils.isMobile) {
           hideSystemBar();
-          _entryDirectionApplied = false;
-          final entryPolicy = _orientationPlan.entryForCause(cause);
-          final triggerOrientation = cause == FullscreenEntryCause.orientation
-              ? _orientation
-              : null;
-          _compileFullScreenAllowedMask(entryPolicy, triggerOrientation);
-          await changeOrientation(
-            policy: entryPolicy,
-            triggerOrientation: triggerOrientation,
-          );
-          await _applyFullScreenRuntimePolicy(
-            protectEntry: _entryDirectionApplied,
-          );
+          if (_brotherMode) {
+            final triggerOrientation =
+                cause == FullscreenEntryCause.orientation
+                ? _brotherAxisOrientation(true)
+                : null;
+            await _activateBrotherPhase(
+              _brotherPlan.fullscreen,
+              action: _brotherPlan.fullscreenEntryFor(cause),
+              triggerOrientation: triggerOrientation,
+            );
+          } else {
+            _entryDirectionApplied = false;
+            final entryPolicy = _orientationPlan.entryForCause(cause);
+            final triggerOrientation = cause == FullscreenEntryCause.orientation
+                ? _orientation
+                : null;
+            _compileFullScreenAllowedMask(entryPolicy, triggerOrientation);
+            await changeOrientation(
+              policy: entryPolicy,
+              triggerOrientation: triggerOrientation,
+            );
+            await _applyFullScreenRuntimePolicy(
+              protectEntry: _entryDirectionApplied,
+            );
+          }
         } else {
           await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
@@ -2539,7 +2613,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           if (!removeSafeArea) {
             showSystemBar();
           }
-          await resetScreenRotation();
+          await resetScreenRotation(exitCause: exitCause);
         } else {
           await exitDesktopFullScreen();
         }
@@ -2649,13 +2723,26 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   bool _isCloseAll = false;
   bool get isCloseAll => _isCloseAll;
 
-  Future<void>? resetScreenRotation() {
-    return switch (_orientationPlan.exitMode) {
+  Future<void> resetScreenRotation({
+    FullscreenExitCause exitCause = FullscreenExitCause.manual,
+  }) async {
+    if (_brotherMode) {
+      final triggerOrientation = exitCause == FullscreenExitCause.orientation
+          ? _brotherAxisOrientation(false)
+          : null;
+      await _activateBrotherPhase(
+        _brotherPlan.windowed,
+        action: _brotherPlan.windowedResumeFor(exitCause),
+        triggerOrientation: triggerOrientation,
+      );
+      return;
+    }
+    await switch (_orientationPlan.exitMode) {
       ExitOrientationMode.restoreApp => OrientationPolicy.restoreApp(),
       ExitOrientationMode.keepPlayer => OrientationPolicy.applyWindowedRuntime(
           _orientationPlan.windowedRotation,
         ),
-      ExitOrientationMode.lockPlayer => lockedMode(),
+      ExitOrientationMode.lockPlayer => lockedMode() ?? Future<void>.value(),
     };
   }
 
