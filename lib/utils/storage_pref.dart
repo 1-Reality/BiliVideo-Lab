@@ -390,6 +390,165 @@ abstract final class Pref {
         defaultValue: ExitOrientationMode.keepPlayer.index,
       )];
 
+
+  static const _brotherAppFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.systemCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.unspecified,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static const _brotherWindowedFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.keepCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.inheritRequest,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static const _brotherFullscreenFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.video,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.locked,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static BrotherPhaseConfig get brotherAppPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherAppPhase),
+        fallback: _brotherAppFallback,
+      );
+
+  static BrotherPhaseConfig get brotherWindowedPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherWindowedPhase),
+        fallback: _brotherWindowedFallback,
+      );
+
+  static BrotherPhaseConfig get brotherFullscreenPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherFullscreenPhase),
+        fallback: _brotherFullscreenFallback,
+      );
+
+  static int get brotherFullscreenEnterOverrideMask => _setting.get(
+    SettingBoxKey.brotherFullscreenEnterOverrideMask,
+    defaultValue: FullscreenEntryCauseMask.all,
+  );
+
+  static BrotherDirectionAction get brotherFullscreenManualEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenManualEnter,
+        defaultValue: BrotherDirectionAction.video.index,
+      )];
+
+  static BrotherDirectionAction get brotherFullscreenPlaybackEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenPlaybackEnter,
+        defaultValue: BrotherDirectionAction.video.index,
+      )];
+
+  static BrotherDirectionAction get brotherFullscreenOrientationEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenOrientationEnter,
+        defaultValue: BrotherDirectionAction.triggerDirection.index,
+      )];
+
+  static int get brotherWindowedResumeOverrideMask => _setting.get(
+    SettingBoxKey.brotherWindowedResumeOverrideMask,
+    defaultValue: 0,
+  );
+
+  static BrotherDirectionAction get brotherWindowedManualResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedManualResume,
+        defaultValue: BrotherDirectionAction.keepCurrent.index,
+      )];
+
+  static BrotherDirectionAction get brotherWindowedPlaybackResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedPlaybackResume,
+        defaultValue: BrotherDirectionAction.keepCurrent.index,
+      )];
+
+  static BrotherDirectionAction get brotherWindowedOrientationResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedOrientationResume,
+        defaultValue: BrotherDirectionAction.triggerDirection.index,
+      )];
+
+  static BrotherRuntimeMode get brotherWindowedResumeRuntimeMode =>
+      BrotherRuntimeMode.values[_setting.get(
+        SettingBoxKey.brotherWindowedResumeRuntimeMode,
+        defaultValue: BrotherRuntimeMode.inheritRequest.index,
+      )];
+
+  static bool get brotherLandscapeEnter =>
+      _setting.get(SettingBoxKey.brotherLandscapeEnter, defaultValue: false);
+
+  static bool get brotherPortraitExit =>
+      _setting.get(SettingBoxKey.brotherPortraitExit, defaultValue: false);
+
+  static int get brotherEnterSignalMask => _setting.get(
+    SettingBoxKey.brotherEnterSignalMask,
+    defaultValue: BrotherOrientationSignalMask.window,
+  );
+
+  static int get brotherEnterSignalRequired => _setting.get(
+    SettingBoxKey.brotherEnterSignalRequired,
+    defaultValue: 1,
+  );
+
+  static int get brotherExitSignalMask => _setting.get(
+    SettingBoxKey.brotherExitSignalMask,
+    defaultValue: BrotherOrientationSignalMask.window,
+  );
+
+  static int get brotherExitSignalRequired => _setting.get(
+    SettingBoxKey.brotherExitSignalRequired,
+    defaultValue: 1,
+  );
+
+  static int get brotherManualExitSignalMask => _setting.get(
+    SettingBoxKey.brotherManualExitSignalMask,
+    defaultValue: BrotherOrientationSignalMask.proposedSystem,
+  );
+
+  static int get brotherManualExitSignalRequired => _setting.get(
+    SettingBoxKey.brotherManualExitSignalRequired,
+    defaultValue: 1,
+  );
+
+  static OrientationTriggerContent get brotherEnterTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.brotherEnterTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static OrientationTriggerContent get brotherExitTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.brotherExitTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static int get brotherAutoExitCauses => _setting.get(
+    SettingBoxKey.brotherAutoExitCauses,
+    defaultValue: FullscreenEntryCauseMask.orientation,
+  );
+
+  static int get brotherManualExitConfirmations => _setting.get(
+    SettingBoxKey.brotherManualExitConfirmations,
+    defaultValue: 0,
+  );
+
   static BtmProgressBehavior get btmProgressBehavior =>
       BtmProgressBehavior.values[_setting.get(
         SettingBoxKey.btmProgressBehavior,

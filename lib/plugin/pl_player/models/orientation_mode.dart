@@ -1,6 +1,7 @@
 enum OrientationPolicyMode {
   simple('简单配置'),
-  advanced('高级配置');
+  advanced('高级配置'),
+  brotherTech('哥哥科技模式');
 
   final String desc;
   const OrientationPolicyMode(this.desc);
@@ -140,4 +141,178 @@ abstract final class OrientationMask {
   static const int portrait = portraitUp | portraitDown;
   static const int landscape = landscapeLeft | landscapeRight;
   static const int all = portrait | landscape;
+}
+
+
+enum BrotherOrientationPhase {
+  app('APP 普通页面'),
+  windowed('视频非全屏'),
+  fullscreen('视频全屏');
+
+  final String desc;
+  const BrotherOrientationPhase(this.desc);
+}
+
+enum BrotherDirectionAction {
+  keepCurrent('保持当前，不发送方向请求'),
+  systemCurrent('读取并采用系统当前方向'),
+  startupDirection('采用 APP 启动方向'),
+  video('按视频横竖方向'),
+  ratio('按视频与屏幕比例判断'),
+  portrait('竖屏'),
+  landscape('横屏'),
+  portraitUp('正竖屏'),
+  portraitDown('倒竖屏'),
+  landscapeLeft('左横屏'),
+  landscapeRight('右横屏'),
+  triggerDirection('采用触发方向');
+
+  final String desc;
+  const BrotherDirectionAction(this.desc);
+}
+
+enum BrotherRuntimeMode {
+  inheritRequest('保持当前底层方向请求'),
+  unspecified('系统自行决定（UNSPECIFIED）'),
+  landscape('横屏（LANDSCAPE）'),
+  portrait('竖屏（PORTRAIT）'),
+  user('用户方向（USER）'),
+  behind('继承后层（BEHIND）'),
+  sensor('传感器（SENSOR）'),
+  noSensor('禁用传感器（NOSENSOR）'),
+  sensorLandscape('横屏传感器（SENSOR_LANDSCAPE）'),
+  sensorPortrait('竖屏传感器（SENSOR_PORTRAIT）'),
+  reverseLandscape('反向横屏（REVERSE_LANDSCAPE）'),
+  reversePortrait('反向竖屏（REVERSE_PORTRAIT）'),
+  fullSensor('全方向传感器（FULL_SENSOR）'),
+  userLandscape('用户横屏（USER_LANDSCAPE）'),
+  userPortrait('用户竖屏（USER_PORTRAIT）'),
+  fullUser('完整遵循用户设置（FULL_USER）'),
+  locked('锁定当前（LOCKED）'),
+  systemGate('仅读取系统旋转开关（关=LOCKED，开=FULL_SENSOR）'),
+  appGravity('APP 重力传感器');
+
+  final String desc;
+  const BrotherRuntimeMode(this.desc);
+}
+
+enum BrotherAllowedBasis {
+  fixed('固定许可集合'),
+  entryAxis('进入时横竖轴'),
+  entryExact('进入时具体方向');
+
+  final String desc;
+  const BrotherAllowedBasis(this.desc);
+}
+
+final class BrotherPhaseConfig {
+  const BrotherPhaseConfig({
+    required this.enterAction,
+    required this.resumeAction,
+    required this.runtimeMode,
+    required this.allowedBasis,
+    required this.allowedMask,
+    required this.gravityFollowSystemLock,
+    required this.angleDegrees,
+  });
+
+  final BrotherDirectionAction enterAction;
+  final BrotherDirectionAction resumeAction;
+  final BrotherRuntimeMode runtimeMode;
+  final BrotherAllowedBasis allowedBasis;
+  final int allowedMask;
+  final bool gravityFollowSystemLock;
+  final int angleDegrees;
+
+  BrotherPhaseConfig copyWith({
+    BrotherDirectionAction? enterAction,
+    BrotherDirectionAction? resumeAction,
+    BrotherRuntimeMode? runtimeMode,
+    BrotherAllowedBasis? allowedBasis,
+    int? allowedMask,
+    bool? gravityFollowSystemLock,
+    int? angleDegrees,
+  }) => BrotherPhaseConfig(
+    enterAction: enterAction ?? this.enterAction,
+    resumeAction: resumeAction ?? this.resumeAction,
+    runtimeMode: runtimeMode ?? this.runtimeMode,
+    allowedBasis: allowedBasis ?? this.allowedBasis,
+    allowedMask: allowedMask ?? this.allowedMask,
+    gravityFollowSystemLock:
+        gravityFollowSystemLock ?? this.gravityFollowSystemLock,
+    angleDegrees: angleDegrees ?? this.angleDegrees,
+  );
+
+  List<Object> toStorage() => [
+    enterAction.index,
+    resumeAction.index,
+    runtimeMode.index,
+    allowedBasis.index,
+    allowedMask,
+    gravityFollowSystemLock,
+    angleDegrees,
+  ];
+
+  static BrotherPhaseConfig fromStorage(
+    Object? raw, {
+    required BrotherPhaseConfig fallback,
+  }) {
+    if (raw is! List || raw.length < 7) return fallback;
+    T value<T extends Enum>(List<T> values, Object? index, T orElse) =>
+        index is int && index >= 0 && index < values.length
+            ? values[index]
+            : orElse;
+    return BrotherPhaseConfig(
+      enterAction: value(
+        BrotherDirectionAction.values,
+        raw[0],
+        fallback.enterAction,
+      ),
+      resumeAction: value(
+        BrotherDirectionAction.values,
+        raw[1],
+        fallback.resumeAction,
+      ),
+      runtimeMode: value(
+        BrotherRuntimeMode.values,
+        raw[2],
+        fallback.runtimeMode,
+      ),
+      allowedBasis: value(
+        BrotherAllowedBasis.values,
+        raw[3],
+        fallback.allowedBasis,
+      ),
+      allowedMask: raw[4] is int ? raw[4] as int : fallback.allowedMask,
+      gravityFollowSystemLock:
+          raw[5] is bool ? raw[5] as bool : fallback.gravityFollowSystemLock,
+      angleDegrees: raw[6] is int ? raw[6] as int : fallback.angleDegrees,
+    );
+  }
+}
+
+abstract final class BrotherOrientationSignalMask {
+  static const int window = 1;
+  static const int proposedSystem = 2;
+  static const int appGravity = 4;
+  static const int all = window | proposedSystem | appGravity;
+}
+
+enum FullscreenExitCause {
+  manual,
+  playbackAuto,
+  orientation,
+}
+
+abstract final class FullscreenExitCauseMask {
+  static const int manual = 1;
+  static const int playbackAuto = 2;
+  static const int orientation = 4;
+  static const int all = manual | playbackAuto | orientation;
+
+  static int of(FullscreenExitCause cause) => switch (cause) {
+    FullscreenExitCause.manual => manual,
+    FullscreenExitCause.playbackAuto => playbackAuto,
+    FullscreenExitCause.orientation => orientation,
+  };
 }
