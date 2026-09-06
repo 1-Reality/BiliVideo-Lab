@@ -20,6 +20,7 @@ import 'package:PiliBro/pages/login/controller.dart';
 import 'package:PiliBro/pages/login_devices/view.dart';
 import 'package:PiliBro/pages/login_log/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
+import 'package:PiliBro/pages/member_video_web/archive/view.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/pages/mine/widgets/item.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -207,6 +208,11 @@ class _MediaPageState extends CommonPageState<MinePage>
       const Icon(Icons.share_outlined, size: 19),
       '分享我的主页',
       _shareHomepage,
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.extension_outlined, size: 19),
+      '网页投稿',
+      _openWebArchive,
     ),
     _creatorMenuItem(
       const Icon(Icons.add_box_outlined, size: 19),
@@ -611,6 +617,15 @@ class _MediaPageState extends CommonPageState<MinePage>
     if (mid != null) {
       ShareUtils.shareText('https://space.bilibili.com/$mid');
     }
+  }
+
+  void _openWebArchive() {
+    final mid = _ownerMid;
+    if (mid == null) return;
+    MemberVideoWeb.toMemberVideoWeb(
+      mid: mid,
+      name: controller.userInfo.value.uname ?? '',
+    );
   }
 
   void _createShortcut() {

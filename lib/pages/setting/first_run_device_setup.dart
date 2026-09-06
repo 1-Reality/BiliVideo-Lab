@@ -47,30 +47,28 @@ abstract final class FirstRunDeviceSetup {
       final selected = await _choose(context);
       if (selected == null || !context.mounted) return;
 
-      if (selected == DeviceFormFactor.phone) {
-        await DevicePresets.applyPhone();
-        await GStorage.completeFirstRunDeviceSetup();
-        return;
-      }
-
-      if (!await _confirm(context, selected) || !context.mounted) continue;
-
       switch (selected) {
         case DeviceFormFactor.phone:
-          return;
-        case DeviceFormFactor.foldable:
-          await DevicePresets.applyFoldable();
-          await GStorage.completeFirstRunDeviceSetup();
-          return;
-        case DeviceFormFactor.tablet:
-          await DevicePresets.applyTablet();
+          await DevicePresets.applyPhone();
           await GStorage.completeFirstRunDeviceSetup();
           return;
         case DeviceFormFactor.television:
-          await TvRemoteSetup.configureAndLogin(
+          if (await TvRemoteSetup.configureAndLogin(
             context,
             completeFirstRun: true,
-          );
+          )) {
+            return;
+          }
+          continue;
+        case DeviceFormFactor.foldable:
+        case DeviceFormFactor.tablet:
+          if (!await _confirm(context, selected) || !context.mounted) continue;
+          if (selected == DeviceFormFactor.foldable) {
+            await DevicePresets.applyFoldable();
+          } else {
+            await DevicePresets.applyTablet();
+          }
+          await GStorage.completeFirstRunDeviceSetup();
           return;
       }
     }
@@ -157,104 +155,43 @@ abstract final class FirstRunDeviceSetup {
   static Future<bool> _confirm(
     BuildContext context,
     DeviceFormFactor form,
-  ) async {
-    BuildContext? dialogContext;
-    var closing = false;
-
-    void accept() {
-      final current = dialogContext;
-      if (closing || current == null) return;
-      closing = true;
-      Navigator.of(current).pop(true);
-    }
-
-    KeyEventResult handleTvKey(KeyEvent event) {
-      if (form != DeviceFormFactor.television ||
-          !TvRemoteSetup.isRemoteIntentKey(event)) {
-        return KeyEventResult.ignored;
-      }
-      accept();
-      return KeyEventResult.handled;
-    }
-
-    if (form == DeviceFormFactor.television) {
-      FocusManager.instance.addEarlyKeyEventHandler(handleTvKey);
-    }
-    try {
-      return await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (current) {
-              dialogContext = current;
-              final television = form == DeviceFormFactor.television;
-              return AlertDialog(
-                insetPadding: const EdgeInsets.all(24),
-                title: Text(
-                  television ? '确认电视 / 遥控器设备' : '确认设备形态',
-                ),
-                content: SizedBox(
-                  width: 600,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: television
-                                  ? '您确认当前设备是 '
-                                  : '您确认当前设备形态是 ',
-                            ),
-                            TextSpan(
-                              text: television
-                                  ? '【电视 / 投影 / 大屏设备】'
-                                  : '【${form.label}】',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            TextSpan(
-                              text: television
-                                  ? '，并主要使用遥控器操作吗？'
-                                  : ' 吗？',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        '若不是，请立即返回。\n'
-                        '若误入，请将该 APP 杀后台后重新打开。',
-                      ),
-                      if (television) ...[
-                        const SizedBox(height: 14),
-                        const Text(
-                          '若确认无误，请按遥控器【OK】或除返回键外的任意键继续。',
-                        ),
-                      ],
-                    ],
+  ) async =>
+      await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          insetPadding: const EdgeInsets.all(24),
+          title: const Text('确认设备形态'),
+          content: SizedBox(
+            width: 600,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: '您确认当前设备形态是 '),
+                  TextSpan(
+                    text: '【${form.label}】',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(current).pop(false),
-                    child: const Text('返回'),
-                  ),
-                  FilledButton(
-                    onPressed: accept,
-                    child: const Text('确定'),
-                  ),
+                  const TextSpan(text: ' 吗？\n\n若选择错误，请返回重新选择。'),
                 ],
-              );
-            },
-          ) ??
-          false;
-    } finally {
-      if (form == DeviceFormFactor.television) {
-        FocusManager.instance.removeEarlyKeyEventHandler(handleTvKey);
-      }
-    }
-  }
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('返回'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+
 }
