@@ -861,13 +861,6 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    _orientation = param.orientation;
-    if (Platform.isIOS && !visible) return;
-    final previousLandscape = _gravityLandscape;
-    _gravityLandscape =
-        param.orientation == DeviceOrientation.landscapeLeft ||
-        param.orientation == DeviceOrientation.landscapeRight;
-
     var applyRuntime = false;
     if (isFullScreen.value &&
         _orientationPlan.fullScreenRotationSource ==
@@ -2267,6 +2260,10 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   bool removeSafeAreaFor({required bool portrait}) =>
       portrait ? removeSafeAreaPortrait : removeSafeAreaLandscape;
 
+  bool get removeSafeArea => removeSafeAreaFor(
+    portrait: screenRatio > 0 ? screenRatio >= 1 : !_currentSystemLandscape,
+  );
+
   bool get anyRemoveSafeArea =>
       removeSafeAreaPortrait || removeSafeAreaLandscape;
 
@@ -2411,9 +2408,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
 
     if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-        _supportsProposedRotation &&
         phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
         phase.runtimeMode != BrotherRuntimeMode.locked) {
+      if (!_supportsProposedRotation) {
+        _updateOrientationInputs();
+        return;
+      }
       if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
           !await OrientationPlatform.systemAutoRotate()) {
         _updateOrientationInputs();
@@ -2458,9 +2458,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
 
     if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-        _supportsProposedRotation &&
         phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
         phase.runtimeMode != BrotherRuntimeMode.locked) {
+      if (!_supportsProposedRotation) {
+        _updateOrientationInputs();
+        return;
+      }
       if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
           !await OrientationPlatform.systemAutoRotate()) {
         _updateOrientationInputs();
