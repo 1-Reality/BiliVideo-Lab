@@ -202,99 +202,85 @@ class _MediaPageState extends CommonPageState<MinePage>
     ),
   );
 
-  List<PopupMenuEntry<void>> _creatorMenuItems() {
-    final userInfo = controller.userInfo.value;
-    final mainAccount = Accounts.main;
-    final loggedIn =
-        mainAccount.isLogin ||
-        userInfo.isLogin == true ||
-        controller.accountService.isLogin.value;
-    final mid = userInfo.mid ?? (mainAccount.isLogin ? mainAccount.mid : null);
-    return [
-      if (mid != null)
-        _creatorMenuItem(
-          const Icon(Icons.share_outlined, size: 19),
-          '分享我的主页',
-          _shareHomepage,
-        ),
-      if (PlatformUtils.isMobile && mid != null)
-        _creatorMenuItem(
-          const Icon(Icons.add_box_outlined, size: 19),
-          '添加至桌面',
-          _createShortcut,
-        ),
-      if (loggedIn) ...[
-        _creatorMenuItem(
-          const Icon(Icons.create_outlined, size: 19),
-          '创作中心',
-          () => _openInternalWeb(
-            'https://member.bilibili.com/platform/home',
-          ),
-        ),
-        if ((userInfo.vipStatus ?? 0) > 0)
-          _creatorMenuItem(
-            const Icon(Icons.upcoming_outlined, size: 19),
-            '大会员经验',
-            () => unawaited(_vipExpAdd()),
-          ),
-        _creatorMenuItem(
-          const Icon(Icons.devices, size: 18),
-          '登录设备',
-          () => Get.to(const LoginDevicesPage()),
-        ),
-        _creatorMenuItem(
-          const Icon(Icons.login, size: 18),
-          '登录记录',
-          () => Get.to(
-            const LogPage(),
-            arguments: LoginLogController(),
-          ),
-        ),
-        _creatorMenuItem(
-          const Icon(FontAwesomeIcons.b, size: 16),
-          '硬币记录',
-          () => Get.to(
-            const LogPage(),
-            arguments: CoinLogController(),
-          ),
-        ),
-        _creatorMenuItem(
-          const Icon(Icons.linear_scale, size: 18),
-          '经验记录',
-          () => Get.to(
-            const LogPage(),
-            arguments: ExpLogController(),
-          ),
-        ),
-        _creatorMenuItem(
-          const Icon(Icons.settings_outlined, size: 19),
-          '空间设置',
-          () => Get.toNamed('/spaceSetting'),
-        ),
-      ],
-      const PopupMenuDivider(),
-      _creatorMenuItem(
-        const Icon(Icons.search, size: 19),
-        '百度',
-        () => _openInternalWeb('https://www.baidu.com'),
+  List<PopupMenuEntry<void>> _creatorMenuItems() => [
+    _creatorMenuItem(
+      const Icon(Icons.share_outlined, size: 19),
+      '分享我的主页',
+      _shareHomepage,
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.add_box_outlined, size: 19),
+      '添加至桌面',
+      _createShortcut,
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.create_outlined, size: 19),
+      '创作中心',
+      () => _openInternalWeb(
+        'https://member.bilibili.com/platform/home',
       ),
-      _creatorMenuItem(
-        const Icon(FontAwesomeIcons.google, size: 18),
-        '谷歌',
-        () => _openInternalWeb('https://www.google.com'),
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.upcoming_outlined, size: 19),
+      '大会员经验',
+      () => unawaited(_vipExpAdd()),
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.devices, size: 18),
+      '登录设备',
+      () => Get.to(const LoginDevicesPage()),
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.login, size: 18),
+      '登录记录',
+      () => Get.to(
+        const LogPage(),
+        arguments: LoginLogController(),
       ),
-      _creatorMenuItem(
-        const Icon(FontAwesomeIcons.github, size: 18),
-        'GitHub',
-        () => _openInternalWeb('https://github.com'),
+    ),
+    _creatorMenuItem(
+      const Icon(FontAwesomeIcons.b, size: 16),
+      '硬币记录',
+      () => Get.to(
+        const LogPage(),
+        arguments: CoinLogController(),
       ),
-      _creatorMenuItem(
-        const Icon(Icons.language_outlined, size: 19),
-        '浏览器',
-        () => unawaited(_showBrowserDialog()),
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.linear_scale, size: 18),
+      '经验记录',
+      () => Get.to(
+        const LogPage(),
+        arguments: ExpLogController(),
       ),
-    ];
-  }
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.settings_outlined, size: 19),
+      '空间设置',
+      () => Get.toNamed('/spaceSetting'),
+    ),
+    const PopupMenuDivider(),
+    _creatorMenuItem(
+      const Icon(Icons.search, size: 19),
+      '百度',
+      () => _openInternalWeb('https://www.baidu.com'),
+    ),
+    _creatorMenuItem(
+      const Icon(FontAwesomeIcons.google, size: 18),
+      '谷歌',
+      () => _openInternalWeb('https://www.google.com'),
+    ),
+    _creatorMenuItem(
+      const Icon(FontAwesomeIcons.github, size: 18),
+      'GitHub',
+      () => _openInternalWeb('https://github.com'),
+    ),
+    _creatorMenuItem(
+      const Icon(Icons.language_outlined, size: 19),
+      '浏览器',
+      () => unawaited(_showBrowserDialog()),
+    ),
+  ];
 
   Widget get _buildHeaderActions {
     const iconSize = 22.0;
