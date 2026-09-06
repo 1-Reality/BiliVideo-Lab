@@ -2379,6 +2379,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           videoVertical: _isVertical,
           screenRatio: screenRatio,
           triggerOrientation: triggerOrientation,
+          physicalOrientation: _orientation,
         );
     _brotherAllowedMask = await OrientationPolicy.resolveBrotherAllowedMask(
       phase,

@@ -656,6 +656,7 @@ abstract final class OrientationPolicy {
     bool? videoVertical,
     double? screenRatio,
     DeviceOrientation? triggerOrientation,
+    DeviceOrientation? physicalOrientation,
   }) async {
     final current =
         await OrientationPlatform.currentOrientationBit() ??
@@ -693,7 +694,14 @@ abstract final class OrientationPolicy {
     final int target;
     if (requested == OrientationMask.portrait ||
         requested == OrientationMask.landscape) {
-      target = current & filtered != 0 ? current : filtered & -filtered;
+      final physical = physicalOrientation == null
+          ? 0
+          : orientationBit(physicalOrientation);
+      target = physical & filtered != 0
+          ? physical
+          : current & filtered != 0
+          ? current
+          : filtered & -filtered;
     } else {
       target = filtered & -filtered;
     }
