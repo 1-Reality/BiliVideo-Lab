@@ -746,7 +746,10 @@ abstract final class OrientationPolicy {
     BrotherPhaseConfig phase, {
     required int allowedMask,
   }) async {
-    if (allowedMask == 0) return;
+    if (allowedMask == 0) {
+      await lockedMode();
+      return;
+    }
     switch (phase.runtimeMode) {
       case BrotherRuntimeMode.inheritRequest:
       case BrotherRuntimeMode.appGravity:

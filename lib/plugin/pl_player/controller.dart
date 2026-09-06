@@ -2389,7 +2389,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       _brotherAllowedMask,
       phase,
     );
-    if (_brotherAllowedMask == 0) return;
+    if (_brotherAllowedMask == 0) {
+      await lockedMode();
+      _updateOrientationInputs();
+      return;
+    }
 
     if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
@@ -2432,7 +2436,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     _systemRuntimeBaselineRotation = null;
     _gravityRuntimePending = false;
     _gravityRuntimeBaseline = null;
-    if (_brotherAllowedMask == 0) return;
+    if (_brotherAllowedMask == 0) {
+      await lockedMode();
+      _updateOrientationInputs();
+      return;
+    }
 
     if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
