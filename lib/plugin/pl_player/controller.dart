@@ -966,7 +966,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
   bool? _brotherSignalMatch(
     int mask,
-    int required,
+    int requiredCount,
     bool landscape,
   ) {
     final values = <bool?>[
@@ -977,7 +977,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       if (mask & BrotherOrientationSignalMask.appGravity != 0)
         _sameAxis(_gravityLandscape, landscape),
     ];
-    final need = required < 0 ? 0 : required;
+    final need = requiredCount < 0 ? 0 : requiredCount;
     if (need == 0) return true;
     if (values.isEmpty || need > values.length) return false;
     var matched = 0;

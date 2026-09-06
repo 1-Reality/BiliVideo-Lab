@@ -155,7 +155,7 @@ enum BrotherOrientationPhase {
 
 enum BrotherDirectionAction {
   keepCurrent('保持当前，不发送方向请求'),
-  systemCurrent('读取并采用系统当前方向'),
+  systemCurrent('读取并采用当前界面方向'),
   startupDirection('采用 APP 启动方向'),
   video('按视频横竖方向'),
   ratio('按视频与屏幕比例判断'),
