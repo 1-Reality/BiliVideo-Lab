@@ -214,21 +214,32 @@ abstract final class TvRemoteSetup {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      const Text('确认后才会写入电视预设并进入遥控器方向校准；若不是，请返回。'),
-                      const SizedBox(height: 14),
-                      const Text('若确认无误，请按遥控器【OK】或除返回键外的任意键继续。'),
+                      const SizedBox(height: 18),
+                      Text(
+                        '若当前不是电视，或者您不使用遥控器操作：',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '请立即返回，请立即取消！',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('若程序卡住退出失败，请将 APP 杀后台重开！'),
                     ],
                   ),
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(current).pop(false),
-                    child: const Text('返回'),
+                    child: const Text('返回、取消'),
                   ),
                   FilledButton(
                     onPressed: accept,
-                    child: const Text('确定'),
+                    child: const Text('我是电视遥控器'),
                   ),
                 ],
               );

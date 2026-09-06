@@ -48,6 +48,7 @@ import 'package:PiliBro/pages/video/widgets/intro_layout.dart';
 import 'package:PiliBro/pages/video/widgets/player_focus.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
@@ -119,6 +120,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoDetailController.plPlayerController.pipNoDanmaku;
 
   bool isShowing = true;
+  bool _removeSafeArea = false;
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
@@ -187,10 +189,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       final callback = _focusRelatedAfterFullscreen;
       _fullscreenExitFocusCallback = callback;
       playerController.onFullscreenExited = callback;
-    }
-
-    if (videoDetailController.removeSafeArea) {
-      hideSystemBar();
     }
 
     if (videoDetailController.showReply) {
@@ -318,7 +316,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
       if (exitFlag) {
         if (autoExitFullscreen) {
-          plPlayerController!.triggerFullScreen(status: false);
+          plPlayerController!.triggerFullScreen(
+            status: false,
+            exitCause: FullscreenExitCause.playbackAuto,
+          );
           if (plPlayerController!.controlsLock.value) {
             plPlayerController!.onLockControl(false);
           }
@@ -402,7 +403,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
 
-    if (!videoDetailController.removeSafeArea) {
+    if (_removeSafeArea) {
       showSystemBar();
     }
 
@@ -506,15 +507,23 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (videoDetailController.removeSafeArea) {
-      padding = .zero;
-    } else {
-      padding = MediaQuery.viewPaddingOf(context);
-    }
 
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
     maxHeight = size.height;
+    final portrait = maxHeight >= maxWidth;
+    final nextRemoveSafeArea = videoDetailController.removeSafeAreaFor(
+      portrait: portrait,
+    );
+    if (nextRemoveSafeArea != _removeSafeArea) {
+      _removeSafeArea = nextRemoveSafeArea;
+      if (_removeSafeArea) {
+        hideSystemBar();
+      } else if (!isFullScreen) {
+        showSystemBar();
+      }
+    }
+    padding = _removeSafeArea ? .zero : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * videoDetailController.uiScale,
       height: maxHeight * videoDetailController.uiScale,
@@ -525,7 +534,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     final minVideoHeight = shortestSide / Style.aspectRatio16x9;
     final maxVideoHeight = max(size.longestSide * 0.65, shortestSide);
     videoDetailController
-      ..isPortrait = isPortrait = maxHeight >= maxWidth
+      ..isPortrait = isPortrait = portrait
       ..minVideoHeight = minVideoHeight
       ..maxVideoHeight = maxVideoHeight
       ..videoHeight = videoDetailController.isVertical.value
@@ -539,7 +548,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   bool removeAppBar(bool isFullScreen) =>
       PlatformUtils.isDesktop ||
-      videoDetailController.removeSafeArea ||
+      _removeSafeArea ||
       (isWindowMode && isFullScreen && !isPortrait);
 
   Widget get childWhenDisabled {

@@ -26,6 +26,7 @@ class OrientationSettingsPage extends StatefulWidget {
 }
 
 class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
+  BrotherOrientationPhase _brotherPhase = BrotherOrientationPhase.app;
   Future<void> _select<T extends Enum>({
     required String title,
     required T value,
@@ -228,6 +229,784 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       style: TextStyle(color: Theme.of(context).colorScheme.primary),
     ),
   );
+
+
+  Future<T?> _pickEnum<T extends Enum>({
+    required String title,
+    required T value,
+    required List<T> values,
+    required String Function(T value) label,
+  }) =>
+      showDialog<T>(
+        context: context,
+        builder: (context) => SelectDialog<T>(
+          title: title,
+          value: value,
+          values: values.map((e) => (e, label(e))).toList(),
+        ),
+      );
+
+  BrotherPhaseConfig get _brotherPhaseConfig => switch (_brotherPhase) {
+    BrotherOrientationPhase.app => Pref.brotherAppPhase,
+    BrotherOrientationPhase.windowed => Pref.brotherWindowedPhase,
+    BrotherOrientationPhase.fullscreen => Pref.brotherFullscreenPhase,
+  };
+
+  String get _brotherPhaseKey => switch (_brotherPhase) {
+    BrotherOrientationPhase.app => SettingBoxKey.brotherAppPhase,
+    BrotherOrientationPhase.windowed => SettingBoxKey.brotherWindowedPhase,
+    BrotherOrientationPhase.fullscreen => SettingBoxKey.brotherFullscreenPhase,
+  };
+
+  Future<void> _writeBrotherPhase(BrotherPhaseConfig config) async {
+    await GStorage.setting.put(_brotherPhaseKey, config.toStorage());
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
+  }
+
+  List<BrotherDirectionAction> _brotherActionValues({
+    required bool resume,
+  }) {
+    if (_brotherPhase == BrotherOrientationPhase.app) {
+      return BrotherDirectionAction.values
+          .where(
+            (e) =>
+                e != BrotherDirectionAction.video &&
+                e != BrotherDirectionAction.ratio &&
+                e != BrotherDirectionAction.triggerDirection,
+          )
+          .toList(growable: false);
+    }
+    if (_brotherPhase == BrotherOrientationPhase.windowed && !resume) {
+      return BrotherDirectionAction.values
+          .where((e) => e != BrotherDirectionAction.triggerDirection)
+          .toList(growable: false);
+    }
+    return BrotherDirectionAction.values;
+  }
+
+  List<BrotherRuntimeMode> get _brotherRuntimeValues {
+    if (_brotherPhase == BrotherOrientationPhase.app) {
+      return BrotherRuntimeMode.values
+          .where((e) => e != BrotherRuntimeMode.appGravity)
+          .toList(growable: false);
+    }
+    return BrotherRuntimeMode.values;
+  }
+
+  Future<void> _editBrotherEnterAction() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '进入本生命周期时方向',
+      value: phase.enterAction,
+      values: _brotherActionValues(resume: false),
+      label: (e) => e.desc,
+    );
+    if (res != null) await _writeBrotherPhase(phase.copyWith(enterAction: res));
+  }
+
+  Future<void> _editBrotherResumeAction() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '从下级生命周期返回时方向',
+      value: phase.resumeAction,
+      values: _brotherActionValues(resume: true),
+      label: (e) => e.desc,
+    );
+    if (res != null) await _writeBrotherPhase(phase.copyWith(resumeAction: res));
+  }
+
+  Future<void> _editBrotherRuntimeMode() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '运行期间方向执行方式',
+      value: phase.runtimeMode,
+      values: _brotherRuntimeValues,
+      label: (e) => e.desc,
+    );
+    if (res != null) await _writeBrotherPhase(phase.copyWith(runtimeMode: res));
+  }
+
+  Future<void> _editBrotherRuntimeActivation() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '运行接管时机',
+      value: phase.runtimeActivation,
+      values: BrotherRuntimeActivation.values,
+      label: (e) => e.desc,
+    );
+    if (res != null) {
+      await _writeBrotherPhase(phase.copyWith(runtimeActivation: res));
+    }
+  }
+
+  Future<void> _editBrotherAllowedBasis() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '运行旋转允许方向基准',
+      value: phase.allowedBasis,
+      values: BrotherAllowedBasis.values,
+      label: (e) => e.desc,
+    );
+    if (res != null) await _writeBrotherPhase(phase.copyWith(allowedBasis: res));
+  }
+
+  String _directionMaskLabel(int mask) {
+    if (mask == 0) return '空集';
+    if (mask == OrientationMask.all) return '全部';
+    return [
+      if (mask & OrientationMask.portraitUp != 0) '正竖',
+      if (mask & OrientationMask.portraitDown != 0) '倒竖',
+      if (mask & OrientationMask.landscapeLeft != 0) '左横',
+      if (mask & OrientationMask.landscapeRight != 0) '右横',
+    ].join('、');
+  }
+
+  Future<int?> _directionMaskDialog({
+    required String title,
+    required int initial,
+  }) async {
+    var mask = initial;
+    return showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Widget item(String title, int bit) => CheckboxListTile(
+            title: Text(title),
+            value: mask & bit != 0,
+            onChanged: (value) => setDialogState(() {
+              mask = value == true ? mask | bit : mask & ~bit;
+            }),
+          );
+          return AlertDialog(
+            title: Text(title),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  item('正竖屏', OrientationMask.portraitUp),
+                  item('倒竖屏', OrientationMask.portraitDown),
+                  item('左横屏', OrientationMask.landscapeLeft),
+                  item('右横屏', OrientationMask.landscapeRight),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: Get.back, child: const Text('取消')),
+              TextButton(
+                onPressed: () => Get.back(result: mask),
+                child: const Text('确定'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _editBrotherAllowedMask() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _directionMaskDialog(
+      title: '固定运行旋转允许方向',
+      initial: phase.allowedMask,
+    );
+    if (res != null) await _writeBrotherPhase(phase.copyWith(allowedMask: res));
+  }
+
+  Future<void> _editBrotherAngle() async {
+    final phase = _brotherPhaseConfig;
+    final res = await showDialog<double>(
+      context: context,
+      builder: (context) => SliderDialog(
+        title: const Text('APP 重力倾斜角度阈值'),
+        min: 10,
+        max: 90,
+        divisions: 80,
+        precise: 0,
+        value: phase.angleDegrees.toDouble(),
+        suffix: '°',
+      ),
+    );
+    if (res != null) {
+      await _writeBrotherPhase(phase.copyWith(angleDegrees: res.toInt()));
+    }
+  }
+
+  String _signalMaskLabel(int mask) {
+    final values = [
+      if (mask & BrotherOrientationSignalMask.window != 0) '界面方向变化',
+      if (mask & BrotherOrientationSignalMask.proposedSystem != 0)
+        '系统建议方向变化',
+      if (mask & BrotherOrientationSignalMask.appGravity != 0) 'APP 重力方向变化',
+    ];
+    return values.isEmpty ? '无' : values.join(' + ');
+  }
+
+  Future<int?> _signalMaskDialog({
+    required String title,
+    required int initial,
+  }) async {
+    var mask = initial;
+    return showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          Widget item(String title, int bit) => CheckboxListTile(
+            title: Text(title),
+            value: mask & bit != 0,
+            onChanged: (value) => setDialogState(() {
+              mask = value == true ? mask | bit : mask & ~bit;
+            }),
+          );
+          return AlertDialog(
+            title: Text(title),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  item(
+                    '界面方向变化（Flutter Metrics）',
+                    BrotherOrientationSignalMask.window,
+                  ),
+                  item(
+                    '系统建议方向变化（Android 14+ Proposed Rotation）',
+                    BrotherOrientationSignalMask.proposedSystem,
+                  ),
+                  item(
+                    'APP 重力方向变化',
+                    BrotherOrientationSignalMask.appGravity,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: Get.back, child: const Text('取消')),
+              TextButton(
+                onPressed: () => Get.back(result: mask),
+                child: const Text('确定'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<int?> _nonNegativeIntDialog({
+    required String title,
+    required int initial,
+    String helper = '非负整数；不设上限',
+  }) async {
+    final controller = TextEditingController(text: initial.toString());
+    final res = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(helperText: helper),
+        ),
+        actions: [
+          TextButton(onPressed: Get.back, child: const Text('取消')),
+          TextButton(
+            onPressed: () => Get.back(result: int.tryParse(controller.text)),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return res;
+  }
+
+  Future<void> _writeBrotherValue(String key, Object value) async {
+    await GStorage.setting.put(key, value);
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _toggleBrotherMaskBit(
+    String key,
+    int current,
+    int bit,
+    bool enabled,
+  ) => _writeBrotherValue(key, enabled ? current | bit : current & ~bit);
+
+  Future<void> _editSignalMask(String key, int current, String title) async {
+    final res = await _signalMaskDialog(title: title, initial: current);
+    if (res != null) await _writeBrotherValue(key, res);
+  }
+
+  Future<void> _editRequiredCount(
+    String key,
+    int current,
+    String title,
+  ) async {
+    final res = await _nonNegativeIntDialog(
+      title: title,
+      initial: current,
+      helper: '0 = 条件恒成立；大于已选信号数量 = 永不可达；不自动修正',
+    );
+    if (res != null) await _writeBrotherValue(key, res);
+  }
+
+  Widget _brotherBitSwitch({
+    required String title,
+    required String key,
+    required int current,
+    required int bit,
+    String? subtitle,
+  }) => SwitchListTile(
+    title: Text(title),
+    subtitle: subtitle == null ? null : Text(subtitle),
+    value: current & bit != 0,
+    onChanged: (value) =>
+        _toggleBrotherMaskBit(key, current, bit, value),
+  );
+
+  List<Widget> _brotherPhaseTemplate() {
+    final phase = _brotherPhaseConfig;
+    return [
+      _section(_brotherPhase.desc),
+      _selectTile(
+        title: '进入本生命周期时方向',
+        subtitle: phase.enterAction.desc,
+        onTap: _editBrotherEnterAction,
+      ),
+      if (_brotherPhase != BrotherOrientationPhase.fullscreen)
+        _selectTile(
+          title: '从下级生命周期返回时方向',
+          subtitle: phase.resumeAction.desc,
+          onTap: _editBrotherResumeAction,
+        ),
+      _selectTile(
+        title: '运行期间方向执行方式',
+        subtitle: phase.runtimeMode.desc,
+        onTap: _editBrotherRuntimeMode,
+      ),
+      if (_brotherPhase != BrotherOrientationPhase.app)
+        _selectTile(
+          title: '运行接管时机',
+          subtitle: phase.runtimeActivation.desc,
+          onTap: _editBrotherRuntimeActivation,
+        ),
+      _selectTile(
+        title: '运行旋转允许方向基准',
+        subtitle: phase.allowedBasis.desc,
+        onTap: _editBrotherAllowedBasis,
+      ),
+      _selectTile(
+        title: '固定运行旋转允许方向',
+        subtitle: '${_directionMaskLabel(phase.allowedMask)}${phase.allowedBasis == BrotherAllowedBasis.fixed ? '' : '（当前基准不使用）'}',
+        onTap: _editBrotherAllowedMask,
+      ),
+      if (_brotherPhase != BrotherOrientationPhase.app) ...[
+        SwitchListTile(
+          title: const Text('APP 重力遵循系统方向锁定'),
+          subtitle: const Text('运行或触发使用 APP 重力时生效'),
+          value: phase.gravityFollowSystemLock,
+          onChanged: (value) => _writeBrotherPhase(
+            phase.copyWith(gravityFollowSystemLock: value),
+          ),
+        ),
+        _selectTile(
+          title: 'APP 重力倾斜角度阈值',
+          subtitle: '${phase.angleDegrees}°',
+          onTap: _editBrotherAngle,
+        ),
+      ],
+    ];
+  }
+
+  Future<void> _editBrotherEntryOverride(
+    FullscreenEntryCause cause,
+    BrotherDirectionAction current,
+    String title,
+  ) async {
+    final res = await _pickEnum(
+      title: title,
+      value: current,
+      values: BrotherDirectionAction.values,
+      label: (e) => e.desc,
+    );
+    if (res == null) return;
+    final key = switch (cause) {
+      FullscreenEntryCause.manual => SettingBoxKey.brotherFullscreenManualEnter,
+      FullscreenEntryCause.playbackAuto =>
+        SettingBoxKey.brotherFullscreenPlaybackEnter,
+      FullscreenEntryCause.orientation =>
+        SettingBoxKey.brotherFullscreenOrientationEnter,
+    };
+    await _writeBrotherValue(key, res.index);
+  }
+
+  Future<void> _editBrotherResumeOverride(
+    FullscreenExitCause cause,
+    BrotherDirectionAction current,
+    String title,
+  ) async {
+    final res = await _pickEnum(
+      title: title,
+      value: current,
+      values: BrotherDirectionAction.values,
+      label: (e) => e.desc,
+    );
+    if (res == null) return;
+    final key = switch (cause) {
+      FullscreenExitCause.manual => SettingBoxKey.brotherWindowedManualResume,
+      FullscreenExitCause.playbackAuto =>
+        SettingBoxKey.brotherWindowedPlaybackResume,
+      FullscreenExitCause.orientation =>
+        SettingBoxKey.brotherWindowedOrientationResume,
+    };
+    await _writeBrotherValue(key, res.index);
+  }
+
+  List<Widget> _brotherWindowedSpecial() {
+    final overrideMask = Pref.brotherWindowedResumeOverrideMask;
+    return [
+      _section('视频非全屏特色链'),
+      SwitchListTile(
+        title: const Text('横置时自动进入全屏'),
+        value: Pref.brotherLandscapeEnter,
+        onChanged: (value) =>
+            _writeBrotherValue(SettingBoxKey.brotherLandscapeEnter, value),
+      ),
+      _selectTile(
+        title: '进入全屏触发信号',
+        subtitle: _signalMaskLabel(Pref.brotherEnterSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherEnterSignalMask,
+          Pref.brotherEnterSignalMask,
+          '进入全屏触发信号',
+        ),
+      ),
+      _selectTile(
+        title: '进入触发最少满足信号数',
+        subtitle: '${Pref.brotherEnterSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherEnterSignalRequired,
+          Pref.brotherEnterSignalRequired,
+          '进入触发最少满足信号数',
+        ),
+      ),
+      _selectTile(
+        title: '进入触发适用视频',
+        subtitle: Pref.brotherEnterTriggerContent.desc,
+        onTap: () async {
+          final res = await _pickEnum(
+            title: '进入触发适用视频',
+            value: Pref.brotherEnterTriggerContent,
+            values: OrientationTriggerContent.values,
+            label: (e) => e.desc,
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherEnterTriggerContent,
+              res.index,
+            );
+          }
+        },
+      ),
+      const Divider(),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Text('从视频全屏返回时，可按退出原因覆盖本生命周期的“返回时方向”。'),
+      ),
+      _brotherBitSwitch(
+        title: '手动退出全屏使用独立返回方向',
+        key: SettingBoxKey.brotherWindowedResumeOverrideMask,
+        current: overrideMask,
+        bit: FullscreenExitCauseMask.manual,
+      ),
+      _selectTile(
+        title: '手动退出全屏返回方向',
+        subtitle: '${Pref.brotherWindowedManualResume.desc}${overrideMask & FullscreenExitCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.manual,
+          Pref.brotherWindowedManualResume,
+          '手动退出全屏返回方向',
+        ),
+      ),
+      _brotherBitSwitch(
+        title: '播放自动退出使用独立返回方向',
+        key: SettingBoxKey.brotherWindowedResumeOverrideMask,
+        current: overrideMask,
+        bit: FullscreenExitCauseMask.playbackAuto,
+      ),
+      _selectTile(
+        title: '播放自动退出返回方向',
+        subtitle: '${Pref.brotherWindowedPlaybackResume.desc}${overrideMask & FullscreenExitCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.playbackAuto,
+          Pref.brotherWindowedPlaybackResume,
+          '播放自动退出返回方向',
+        ),
+      ),
+      _brotherBitSwitch(
+        title: '方向触发退出使用独立返回方向',
+        key: SettingBoxKey.brotherWindowedResumeOverrideMask,
+        current: overrideMask,
+        bit: FullscreenExitCauseMask.orientation,
+      ),
+      _selectTile(
+        title: '方向触发退出返回方向',
+        subtitle: '${Pref.brotherWindowedOrientationResume.desc}${overrideMask & FullscreenExitCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherResumeOverride(
+          FullscreenExitCause.orientation,
+          Pref.brotherWindowedOrientationResume,
+          '方向触发退出返回方向',
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _brotherFullscreenSpecial() {
+    final enterMask = Pref.brotherFullscreenEnterOverrideMask;
+    final exitCauses = Pref.brotherAutoExitCauses;
+    return [
+      _section('视频全屏特色链'),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+        child: Text('进入全屏可按进入原因覆盖本生命周期的“进入时方向”。'),
+      ),
+      _brotherBitSwitch(
+        title: '手动进入使用独立方向',
+        key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
+        current: enterMask,
+        bit: FullscreenEntryCauseMask.manual,
+      ),
+      _selectTile(
+        title: '手动进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenManualEnter.desc}${enterMask & FullscreenEntryCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.manual,
+          Pref.brotherFullscreenManualEnter,
+          '手动进入全屏时方向',
+        ),
+      ),
+      _brotherBitSwitch(
+        title: '播放自动进入使用独立方向',
+        key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
+        current: enterMask,
+        bit: FullscreenEntryCauseMask.playbackAuto,
+      ),
+      _selectTile(
+        title: '播放自动进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenPlaybackEnter.desc}${enterMask & FullscreenEntryCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.playbackAuto,
+          Pref.brotherFullscreenPlaybackEnter,
+          '播放自动进入全屏时方向',
+        ),
+      ),
+      _brotherBitSwitch(
+        title: '方向触发进入使用独立方向',
+        key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
+        current: enterMask,
+        bit: FullscreenEntryCauseMask.orientation,
+      ),
+      _selectTile(
+        title: '方向触发进入全屏时方向',
+        subtitle: '${Pref.brotherFullscreenOrientationEnter.desc}${enterMask & FullscreenEntryCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        onTap: () => _editBrotherEntryOverride(
+          FullscreenEntryCause.orientation,
+          Pref.brotherFullscreenOrientationEnter,
+          '方向触发进入全屏时方向',
+        ),
+      ),
+      const Divider(),
+      SwitchListTile(
+        title: const Text('竖置时自动退出全屏'),
+        value: Pref.brotherPortraitExit,
+        onChanged: (value) =>
+            _writeBrotherValue(SettingBoxKey.brotherPortraitExit, value),
+      ),
+      _selectTile(
+        title: '自动退出触发信号',
+        subtitle: _signalMaskLabel(Pref.brotherExitSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherExitSignalMask,
+          Pref.brotherExitSignalMask,
+          '自动退出触发信号',
+        ),
+      ),
+      _selectTile(
+        title: '自动退出最少满足信号数',
+        subtitle: '${Pref.brotherExitSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherExitSignalRequired,
+          Pref.brotherExitSignalRequired,
+          '自动退出最少满足信号数',
+        ),
+      ),
+      _selectTile(
+        title: '退出触发适用视频',
+        subtitle: Pref.brotherExitTriggerContent.desc,
+        onTap: () async {
+          final res = await _pickEnum(
+            title: '退出触发适用视频',
+            value: Pref.brotherExitTriggerContent,
+            values: OrientationTriggerContent.values,
+            label: (e) => e.desc,
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherExitTriggerContent,
+              res.index,
+            );
+          }
+        },
+      ),
+      const Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
+        child: Text('方向自动退出适用于哪些“进入全屏来源”：'),
+      ),
+      _brotherBitSwitch(
+        title: '手动进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.manual,
+      ),
+      _brotherBitSwitch(
+        title: '播放自动进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.playbackAuto,
+      ),
+      _brotherBitSwitch(
+        title: '方向触发进入的全屏',
+        key: SettingBoxKey.brotherAutoExitCauses,
+        current: exitCauses,
+        bit: FullscreenEntryCauseMask.orientation,
+      ),
+      _selectTile(
+        title: '手动全屏退出确认次数',
+        subtitle: Pref.brotherManualExitConfirmations == 0
+            ? '关闭'
+            : '${Pref.brotherManualExitConfirmations} 次',
+        onTap: () async {
+          final res = await _nonNegativeIntDialog(
+            title: '手动全屏退出确认次数',
+            initial: Pref.brotherManualExitConfirmations,
+            helper: '0 = 关闭；不设上限',
+          );
+          if (res != null) {
+            await _writeBrotherValue(
+              SettingBoxKey.brotherManualExitConfirmations,
+              res,
+            );
+          }
+        },
+      ),
+      _selectTile(
+        title: '手动退出确认信号',
+        subtitle: _signalMaskLabel(Pref.brotherManualExitSignalMask),
+        onTap: () => _editSignalMask(
+          SettingBoxKey.brotherManualExitSignalMask,
+          Pref.brotherManualExitSignalMask,
+          '手动退出确认信号',
+        ),
+      ),
+      _selectTile(
+        title: '手动退出确认最少满足信号数',
+        subtitle: '${Pref.brotherManualExitSignalRequired}',
+        onTap: () => _editRequiredCount(
+          SettingBoxKey.brotherManualExitSignalRequired,
+          Pref.brotherManualExitSignalRequired,
+          '手动退出确认最少满足信号数',
+        ),
+      ),
+    ];
+  }
+
+  String _brotherDiagnostics() {
+    String phaseLine(String name, BrotherPhaseConfig phase) {
+      final listeners = <String>[];
+      if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
+        listeners.add('APP重力');
+      }
+      if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+          phase.runtimeMode != BrotherRuntimeMode.appGravity &&
+          phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+          phase.runtimeMode != BrotherRuntimeMode.locked) {
+        listeners.add('系统建议方向');
+      }
+      final diagnosticMask = phase.allowedBasis == BrotherAllowedBasis.fixed
+          ? phase.allowedMask
+          : OrientationMask.landscape;
+      if (OrientationPolicy.brotherRuntimeNeedsGuard(
+        phase,
+        diagnosticMask,
+      )) {
+        listeners.add('方向许可Metrics守卫');
+      }
+      return '$name：${phase.runtimeMode.desc}；许可=${phase.allowedBasis == BrotherAllowedBasis.fixed ? _directionMaskLabel(phase.allowedMask) : phase.allowedBasis.desc}；运行监听=${listeners.isEmpty ? '0' : listeners.join('、')}';
+    }
+
+    final triggerListeners = <String>{};
+    void addSignals(int mask) {
+      if (mask & BrotherOrientationSignalMask.window != 0) {
+        triggerListeners.add('界面Metrics');
+      }
+      if (mask & BrotherOrientationSignalMask.proposedSystem != 0) {
+        triggerListeners.add('系统建议方向');
+      }
+      if (mask & BrotherOrientationSignalMask.appGravity != 0) {
+        triggerListeners.add('APP重力');
+      }
+    }
+    if (Pref.brotherLandscapeEnter) addSignals(Pref.brotherEnterSignalMask);
+    if (Pref.brotherPortraitExit) {
+      addSignals(Pref.brotherExitSignalMask);
+      if (Pref.brotherManualExitConfirmations > 0) {
+        addSignals(Pref.brotherManualExitSignalMask);
+      }
+    }
+
+    return [
+      phaseLine('APP', Pref.brotherAppPhase),
+      phaseLine('非全屏', Pref.brotherWindowedPhase),
+      phaseLine('全屏', Pref.brotherFullscreenPhase),
+      '触发监听候选：${triggerListeners.isEmpty ? '0' : triggerListeners.join('、')}',
+      '监听器均按实际生命周期与需求动态启停，无轮询。',
+    ].join('\n');
+  }
+
+  List<Widget> _brotherSettings() => [
+    _section('哥哥科技模式'),
+    const Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Text(
+        '三个父子生命周期共用同一模板；转换结果、运行过程、方向许可彼此独立。底层不能原生表达的组合不会自动改写您的选择。',
+      ),
+    ),
+    _selectTile(
+      title: '生命周期',
+      subtitle: _brotherPhase.desc,
+      onTap: () async {
+        final res = await _pickEnum(
+          title: '生命周期',
+          value: _brotherPhase,
+          values: BrotherOrientationPhase.values,
+          label: (e) => e.desc,
+        );
+        if (res != null && mounted) setState(() => _brotherPhase = res);
+      },
+    ),
+    ..._brotherPhaseTemplate(),
+    if (_brotherPhase == BrotherOrientationPhase.windowed)
+      ..._brotherWindowedSpecial(),
+    if (_brotherPhase == BrotherOrientationPhase.fullscreen)
+      ..._brotherFullscreenSpecial(),
+    _section('编译 / 性能诊断'),
+    Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: SelectableText(_brotherDiagnostics()),
+    ),
+  ];
 
   List<Widget> _simpleSettings() => [
     _section('简单配置'),
@@ -540,6 +1319,18 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
               setKey: SettingBoxKey.horizontalScreen,
               defaultVal: Pref.horizontalScreen,
             ),
+            SetSwitchItem(
+              title: '竖屏播放页移除安全边距',
+              subtitle: '公共布局设置；仅影响播放页竖屏',
+              setKey: SettingBoxKey.removeSafeAreaPortrait,
+              defaultVal: Pref.removeSafeAreaPortrait,
+            ),
+            SetSwitchItem(
+              title: '横屏播放页移除安全边距',
+              subtitle: '公共布局设置；仅影响播放页横屏',
+              setKey: SettingBoxKey.removeSafeAreaLandscape,
+              defaultVal: Pref.removeSafeAreaLandscape,
+            ),
             if (PlatformUtils.isMobile) ...[
               SetSwitchItem(
                 title: '播放器控件锁同时锁定方向',
@@ -584,9 +1375,11 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 ),
               ),
               const Divider(),
-              ...(mode == OrientationPolicyMode.simple
-                  ? _simpleSettings()
-                  : _advancedSettings()),
+              ...switch (mode) {
+                OrientationPolicyMode.simple => _simpleSettings(),
+                OrientationPolicyMode.advanced => _advancedSettings(),
+                OrientationPolicyMode.brotherTech => _brotherSettings(),
+              },
             ],
           ],
         ),

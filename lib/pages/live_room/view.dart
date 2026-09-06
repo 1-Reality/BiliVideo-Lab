@@ -73,6 +73,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
+  bool _removeSafeArea = false;
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
   final GlobalKey pageKey = GlobalKey();
@@ -91,28 +92,32 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(plPlayerController.play);
-    if (plPlayerController.removeSafeArea) {
-      hideSystemBar();
-    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (plPlayerController.removeSafeArea) {
-      padding = .zero;
-    } else {
-      padding = MediaQuery.viewPaddingOf(context);
-    }
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
     maxHeight = size.height;
+    isPortrait = size.isPortrait;
+    plPlayerController.screenRatio = maxHeight / maxWidth;
+    final nextRemoveSafeArea = plPlayerController.removeSafeAreaFor(
+      portrait: isPortrait,
+    );
+    if (nextRemoveSafeArea != _removeSafeArea) {
+      _removeSafeArea = nextRemoveSafeArea;
+      if (_removeSafeArea) {
+        hideSystemBar();
+      } else if (!isFullScreen) {
+        showSystemBar();
+      }
+    }
+    padding = _removeSafeArea ? .zero : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * plPlayerController.uiScale,
       height: maxHeight * plPlayerController.uiScale,
     );
-    isPortrait = size.isPortrait;
-    plPlayerController.screenRatio = maxHeight / maxWidth;
   }
 
   @override
@@ -179,6 +184,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
     }
     PlPlayerController.setPlayCallBack(null);
+    if (_removeSafeArea) showSystemBar();
     plPlayerController
       ..removeStatusLister(playerListener)
       ..dispose();

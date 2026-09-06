@@ -111,6 +111,11 @@ Future<void>? lockedMode() {
   return null;
 }
 
+Future<void>? androidRequestedOrientationMode(int request) {
+  if (Platform.isAndroid) return _setAndroidOrientation(request);
+  return null;
+}
+
 Future<void>? applyAutoOrientationMask(
   int mask, {
   required bool ignoreSystemLock,

@@ -128,12 +128,6 @@ List<SettingsModel> get styleSettings => [
     onTap: _showCardWidthDialog,
   ),
   const SwitchModel(
-    title: '播放页移除安全边距',
-    leading: Icon(Icons.fit_screen_outlined),
-    setKey: SettingBoxKey.removeSafeArea,
-    defaultVal: false,
-  ),
-  const SwitchModel(
     title: '视频播放页使用深色主题',
     leading: Icon(Icons.dark_mode_outlined),
     setKey: SettingBoxKey.darkVideoPage,
