@@ -977,8 +977,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       if (mask & BrotherOrientationSignalMask.appGravity != 0)
         _sameAxis(_gravityLandscape, landscape),
     ];
-    if (values.isEmpty) return false;
-    final need = required.clamp(1, values.length);
+    final need = required < 0 ? 0 : required;
+    if (need == 0) return true;
+    if (values.isEmpty || need > values.length) return false;
     var matched = 0;
     var unknown = 0;
     for (final value in values) {

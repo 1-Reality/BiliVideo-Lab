@@ -316,7 +316,8 @@ final class BrotherPhaseConfig {
           ? raw[v2 ? 7 : 6] as int
           : fallback.angleDegrees,
     );
-  }}
+  }
+}
 
 abstract final class BrotherOrientationSignalMask {
   static const int window = 1;

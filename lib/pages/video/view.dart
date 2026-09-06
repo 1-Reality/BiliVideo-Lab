@@ -48,6 +48,7 @@ import 'package:PiliBro/pages/video/widgets/intro_layout.dart';
 import 'package:PiliBro/pages/video/widgets/player_focus.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
@@ -318,7 +319,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
       if (exitFlag) {
         if (autoExitFullscreen) {
-          plPlayerController!.triggerFullScreen(status: false);
+          plPlayerController!.triggerFullScreen(
+            status: false,
+            exitCause: FullscreenExitCause.playbackAuto,
+          );
           if (plPlayerController!.controlsLock.value) {
             plPlayerController!.onLockControl(false);
           }
