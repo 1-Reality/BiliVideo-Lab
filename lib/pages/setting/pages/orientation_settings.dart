@@ -1319,6 +1319,18 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
               setKey: SettingBoxKey.horizontalScreen,
               defaultVal: Pref.horizontalScreen,
             ),
+            SetSwitchItem(
+              title: '竖屏播放页移除安全边距',
+              subtitle: '公共布局设置；仅影响播放页竖屏',
+              setKey: SettingBoxKey.removeSafeAreaPortrait,
+              defaultVal: Pref.removeSafeAreaPortrait,
+            ),
+            SetSwitchItem(
+              title: '横屏播放页移除安全边距',
+              subtitle: '公共布局设置；仅影响播放页横屏',
+              setKey: SettingBoxKey.removeSafeAreaLandscape,
+              defaultVal: Pref.removeSafeAreaLandscape,
+            ),
             if (PlatformUtils.isMobile) ...[
               SetSwitchItem(
                 title: '播放器控件锁同时锁定方向',
