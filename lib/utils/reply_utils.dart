@@ -47,7 +47,7 @@ abstract final class ReplyUtils {
           );
 
       final useAndroidActivity = Platform.isAndroid && biliSendCommAntifraud;
-      if (!isManual && useAndroidActivity) {
+      if (useAndroidActivity) {
         unawaited(
           _checkReply(
             oid: replyInfo.oid.toInt(),
@@ -61,11 +61,11 @@ abstract final class ReplyUtils {
                 .map((item) => item.toProto3Json())
                 .toList(),
             mid: replyInfo.mid.toInt(),
-            isManual: false,
+            isManual: isManual,
             biliSendCommAntifraud: false,
             sourceId: sourceId,
-            silent: true,
-            onHidden: recordHidden,
+            silent: !isManual,
+            onHidden: isManual ? null : recordHidden,
           ),
         );
       }

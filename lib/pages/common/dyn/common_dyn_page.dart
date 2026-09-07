@@ -180,8 +180,11 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                       controller.onRemove(index, item, subIndex),
                   upMid: controller.upMid,
                   onViewImage: hideFab,
-                  onCheckReply: (item) =>
-                      controller.onCheckReply(item, isManual: true),
+                  onCheckReply: (item, strong) => controller.onCheckReply(
+                    item,
+                    isManual: true,
+                    strong: strong,
+                  ),
                   onToggleTop: (item) => controller.onToggleTop(
                     item,
                     index,
