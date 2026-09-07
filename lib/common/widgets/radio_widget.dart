@@ -5,6 +5,7 @@ class RadioWidget<T> extends StatefulWidget {
   final T value;
   final String title;
   final bool tristate;
+  final VoidCallback? onActivate;
   final EdgeInsetsGeometry? padding;
   final MainAxisSize mainAxisSize;
 
@@ -13,6 +14,7 @@ class RadioWidget<T> extends StatefulWidget {
     required this.value,
     required this.title,
     this.tristate = false,
+    this.onActivate,
     this.padding,
     this.mainAxisSize = MainAxisSize.min,
   });
@@ -55,9 +57,10 @@ class RadioWidgetState<T> extends State<RadioWidget<T>> with RadioClient<T> {
   void _handleTap() {
     if (checked) {
       if (tristate) registry!.onChanged(null);
-      return;
+    } else {
+      registry!.onChanged(radioValue);
     }
-    registry!.onChanged(radioValue);
+    widget.onActivate?.call();
   }
 
   @override

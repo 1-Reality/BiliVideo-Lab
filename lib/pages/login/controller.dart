@@ -720,7 +720,7 @@ class LoginPageController extends GetxController
                       onChanged: (v) {
                         if (v == null) return;
                         selectAccount.fillRange(0, selectAccount.length, v);
-                        submit();
+                        (context as Element).markNeedsBuild();
                       },
                       child: Column(
                         crossAxisAlignment: .start,
@@ -729,6 +729,7 @@ class LoginPageController extends GetxController
                               (entry) => RadioWidget<Account>(
                                 value: entry.key,
                                 title: entry.value,
+                                onActivate: submit,
                                 mainAxisSize: .max,
                                 padding: PlatformUtils.isDesktop
                                     ? const .only(left: 12)
