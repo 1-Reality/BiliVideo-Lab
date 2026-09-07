@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:PiliBro/common/assets.dart';
@@ -86,7 +87,7 @@ class ReplyItemGrpc extends StatelessWidget {
   final VoidCallback? showDialogue;
   final Function? getTag;
   final VoidCallback? onViewImage;
-  final ValueChanged<ReplyInfo>? onCheckReply;
+  final void Function(ReplyInfo item, bool strong)? onCheckReply;
   final ValueChanged<ReplyInfo>? onToggleTop;
   final VoidCallback? jumpToDialogue;
 
@@ -1244,16 +1245,31 @@ class ReplyItemGrpc extends StatelessWidget {
             leading: const Icon(Icons.save_alt, size: 19),
             title: Text('保存评论', style: style),
           ),
-          if (kDebugMode || item.mid == ownerMid)
+          if (kDebugMode || item.mid == ownerMid) ...[
             ListTile(
               onTap: () {
                 Get.back();
-                onCheckReply?.call(item);
+                onCheckReply?.call(item, false);
               },
               minLeadingWidth: 0,
               leading: const Icon(CustomIcons.shield_reply, size: 19),
               title: Text('检查评论', style: style),
             ),
+            if (Platform.isAndroid)
+              ListTile(
+                onTap: () {
+                  Get.back();
+                  onCheckReply?.call(item, true);
+                },
+                minLeadingWidth: 0,
+                leading: Icon(
+                  CustomIcons.shield_reply,
+                  size: 19,
+                  color: errorColor,
+                ),
+                title: Text('强力检查', style: style),
+              ),
+          ],
         ],
       ),
     );

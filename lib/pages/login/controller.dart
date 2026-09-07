@@ -716,7 +716,7 @@ class LoginPageController extends GetxController
             child: quickSelect
                 ? Builder(
                     builder: (context) => RadioGroup<Account>(
-                      groupValue: null,
+                      groupValue: selectAccount[0],
                       onChanged: (v) {
                         if (v == null) return;
                         selectAccount.fillRange(0, selectAccount.length, v);

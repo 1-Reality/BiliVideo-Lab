@@ -196,8 +196,8 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                       _videoReplyController.onRemove(index, item, subIndex),
                   upMid: _videoReplyController.upMid,
                   getTag: () => heroTag,
-                  onCheckReply: (item) =>
-                      _videoReplyController.onCheckReply(item, isManual: true),
+                  onCheckReply: (item, strong) => _videoReplyController
+                      .onCheckReply(item, isManual: true, strong: strong),
                   onToggleTop: (item) => _videoReplyController.onToggleTop(
                     item,
                     index,

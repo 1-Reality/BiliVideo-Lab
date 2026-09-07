@@ -228,8 +228,8 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
             needDivider: false,
             onReply: (replyItem) => _controller.onReply(replyItem, index: -1),
             upMid: widget.upMid ?? _controller.upMid,
-            onCheckReply: (item) =>
-                _controller.onCheckReply(item, isManual: true),
+            onCheckReply: (item, strong) =>
+                _controller.onCheckReply(item, isManual: true, strong: strong),
           ),
         ),
         SliverToBoxAdapter(
@@ -356,7 +356,8 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           SmartDialog.showToast('评论可能已被删除');
         }
       },
-      onCheckReply: (item) => _controller.onCheckReply(item, isManual: true),
+      onCheckReply: (item, strong) =>
+          _controller.onCheckReply(item, isManual: true, strong: strong),
     );
   }
 }
