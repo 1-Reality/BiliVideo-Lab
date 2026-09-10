@@ -51,6 +51,20 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
   bool? phonePermission;
   NetworkProfile? profile = ConnectivityUtils.current;
 
+  List<(int, String)> get _cellularJudgeOptions => cellularMode == 2
+      ? const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号和下行速率同时满足'),
+          (3, '信号或下行速率任一满足'),
+        ]
+      : const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号或下行速率任一满足'),
+          (3, '信号和下行速率同时满足'),
+        ];
+
   @override
   void initState() {
     super.initState();
@@ -549,7 +563,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
               ListTile(
                 title: const Text('蜂窝质量判断方式'),
                 subtitle: Text(
-                  const ['仅使用信号判断', '仅使用下行速率判断', '两者同时满足', '两者任一满足'][cellularJudgeMode],
+                  _cellularJudgeOptions[cellularJudgeMode].$2,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -558,12 +572,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                     builder: (context) => SelectDialog<int>(
                       title: '蜂窝质量判断方式',
                       value: cellularJudgeMode,
-                      values: const [
-                        (0, '仅使用信号判断'),
-                        (1, '仅使用下行速率判断'),
-                        (2, '信号和下行速率同时满足'),
-                        (3, '信号或下行速率任一满足'),
-                      ],
+                      values: _cellularJudgeOptions,
                     ),
                   );
                   if (value != null) {

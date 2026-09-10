@@ -8,6 +8,7 @@ import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
+import 'package:PiliBro/utils/orientation_diagnostics.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -308,7 +309,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherResumeAction() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '从下级生命周期返回时方向',
+      title: '从下级周期返回时方向',
       value: phase.resumeAction,
       values: _brotherActionValues(resume: true),
       label: (e) => e.desc,
@@ -629,7 +630,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
       if (_brotherPhase != BrotherOrientationPhase.fullscreen)
         _selectTile(
-          title: '从下级生命周期返回时方向',
+          title: '从下级周期返回时方向',
           subtitle: phase.resumeAction.desc,
           onTap: _editBrotherResumeAction,
         ),
@@ -1003,119 +1004,6 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     ];
   }
 
-  String _brotherDiagnostics() {
-    final plan = OrientationPolicy.brotherPlan;
-
-    String phaseLine(
-      String name,
-      BrotherPhaseConfig phase, {
-      required bool hasResume,
-      required bool appPhase,
-    }) {
-      final listeners = <String>{};
-      final notes = <String>{};
-      final diagnosticMask = phase.allowedBasis == BrotherAllowedBasis.fixed
-          ? phase.allowedMask
-          : OrientationMask.landscape;
-      final runtimeModes = hasResume
-          ? phase.possibleRuntimeModes.toList(growable: false)
-          : <BrotherRuntimeMode>[phase.runtimeMode];
-
-      void addRuntime(
-        BrotherPhaseConfig candidate,
-        BrotherRuntimeInterpretation interpreted,
-      ) {
-        if (interpreted.usesAppGravity) listeners.add('APP重力');
-        if (interpreted.waitsForSourceChange) {
-          listeners.add('系统建议方向');
-        }
-        if (interpreted.needsMetricsGuard) {
-          listeners.add('方向许可Metrics守卫');
-        }
-        if (!interpreted.executable) {
-          notes.add('${candidate.runtimeMode.desc}：首页无执行器');
-        }
-      }
-
-      void interpretMode(BrotherRuntimeMode mode) {
-        final candidate = phase.copyWith(runtimeMode: mode);
-        addRuntime(
-          candidate,
-          OrientationPolicy.interpretBrotherRuntime(
-            candidate,
-            allowedMask: diagnosticMask,
-            appPhase: appPhase,
-          ),
-        );
-      }
-
-      for (final mode in runtimeModes) {
-        interpretMode(mode);
-      }
-
-      var latchCanRun = false;
-      if (appPhase && phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off) {
-        for (final mode in runtimeModes) {
-          final interpreted =
-              OrientationPolicy.interpretBrotherAppRuntimeLatch(
-                phase.copyWith(runtimeMode: mode),
-                allowedMask: diagnosticMask,
-              );
-          if (!interpreted.enabled) continue;
-          latchCanRun = true;
-          addRuntime(interpreted.targetPhase, interpreted.targetRuntime);
-        }
-      }
-
-      String modeLabel(BrotherRuntimeMode? mode, String fallback) {
-        if (mode == null) return fallback;
-        final interpreted = OrientationPolicy.interpretBrotherRuntime(
-          phase.copyWith(runtimeMode: mode),
-          allowedMask: diagnosticMask,
-          appPhase: appPhase,
-        );
-        return interpreted.executable ? mode.desc : '${mode.desc}（首页无效）';
-      }
-
-      final resume = hasResume
-          ? '；横屏返回=${modeLabel(phase.resumeLandscapeRuntimeMode, "沿用默认")}；竖屏返回=${modeLabel(phase.resumePortraitRuntimeMode, "沿用默认")}'
-          : '';
-      final latch = appPhase && phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off
-          ? '；一次性切换=${phase.runtimeLatchAxis.desc}→${modeLabel(phase.runtimeLatchMode, phase.runtimeLatchMode.desc)}；条件监听=${latchCanRun ? "界面Metrics（命中后立即注销）" : "0"}'
-          : '';
-      final note = notes.isEmpty ? '' : '；解释=${notes.join("、")}';
-      return '$name：默认=${modeLabel(phase.runtimeMode, phase.runtimeMode.desc)}$resume；许可=${phase.allowedBasis == BrotherAllowedBasis.fixed ? _directionMaskLabel(phase.allowedMask) : phase.allowedBasis.desc}；常规运行监听候选=${listeners.isEmpty ? "0" : listeners.join("、")}$latch$note';
-    }
-
-    final triggerListeners = <String>{};
-    void addSignals(int mask) {
-      if (mask & BrotherOrientationSignalMask.window != 0) {
-        triggerListeners.add('界面Metrics');
-      }
-      if (mask & BrotherOrientationSignalMask.proposedSystem != 0) {
-        triggerListeners.add('系统建议方向');
-      }
-      if (mask & BrotherOrientationSignalMask.appGravity != 0) {
-        triggerListeners.add('APP重力');
-      }
-    }
-    if (plan.landscapeEnter) addSignals(plan.enterSignalMask);
-    if (plan.portraitExit) {
-      addSignals(plan.exitSignalMask);
-      if (plan.manualExitConfirmations > 0) {
-        addSignals(plan.manualExitSignalMask);
-      }
-    }
-
-    return [
-      phaseLine('APP', plan.app, hasResume: true, appPhase: true),
-      phaseLine('非全屏', plan.windowed, hasResume: true, appPhase: false),
-      phaseLine('全屏', plan.fullscreen, hasResume: false, appPhase: false),
-      '触发监听候选：${triggerListeners.isEmpty ? '0' : triggerListeners.join('、')}',
-      '监听器均按实际生命周期与需求动态启停，无轮询；“候选”表示该配置路径可能启用，不等于当前时刻常驻。',
-    ].join('\n');
-  }
-
   List<Widget> _brotherSettings() => [
     _section('哥哥科技模式'),
     const Padding(
@@ -1145,7 +1033,11 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     _section('编译 / 性能诊断'),
     Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: SelectableText(_brotherDiagnostics()),
+      child: SelectableText(
+        BrotherOrientationDiagnostics.describe(
+          BrotherDiagnosticsCompiler.compile(OrientationPolicy.brotherPlan),
+        ),
+      ),
     ),
   ];
 
