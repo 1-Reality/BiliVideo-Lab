@@ -542,9 +542,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
   late final BrotherOrientationPlan _brotherPlan = OrientationPolicy.brotherPlan;
   int _brotherAllowedMask = OrientationMask.all;
   bool _brotherWindowedEntered = false;
+  BrotherPhaseConfig? _brotherActivePhase;
 
   BrotherPhaseConfig get _brotherCurrentPhase =>
-      isFullScreen.value ? _brotherPlan.fullscreen : _brotherPlan.windowed;
+      _brotherActivePhase ??
+      (isFullScreen.value ? _brotherPlan.fullscreen : _brotherPlan.windowed);
 
   bool get _currentSystemLandscape {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -1499,7 +1501,11 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
 
     final profile = playbackNetworkProfile ?? ConnectivityUtils.current;
     final bufferProfile = profile?.transport == NetworkTransport.cellular
-        ? 2
+        ? ConnectivityUtils.useAdaptiveCellularBuffer
+              ? profile?.useCellularPreferences == true
+                    ? 1
+                    : 0
+              : 2
         : profile?.useCellularPreferences == true
         ? 1
         : 0;
@@ -2364,7 +2370,9 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     BrotherPhaseConfig phase, {
     required BrotherDirectionAction action,
     DeviceOrientation? triggerOrientation,
+    bool resume = false,
   }) async {
+    OrientationPolicy.clearBrotherAppRuntimeLatch();
     _systemRuntimePending = false;
     _systemRuntimeBaselineRotation = null;
     _gravityRuntimePending = false;
@@ -2378,13 +2386,18 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           triggerOrientation: triggerOrientation,
           physicalOrientation: _orientation,
         );
+    final runtimePhase = phase.effectiveForResume(
+      resume: resume,
+      directionBit: entryDirectionBit,
+    );
+    _brotherActivePhase = runtimePhase;
     _brotherAllowedMask = await OrientationPolicy.resolveBrotherAllowedMask(
       phase,
       entryDirectionBit: entryDirectionBit,
     );
     OrientationPolicy.setBrotherActiveAllowedMask(
       _brotherAllowedMask,
-      phase,
+      runtimePhase,
     );
     if (_brotherAllowedMask == 0) {
       await lockedMode();
@@ -2392,13 +2405,13 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
-      if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
+    if (runtimePhase.runtimeMode == BrotherRuntimeMode.appGravity) {
+      if (runtimePhase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
         return;
       }
-      if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
+      if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
         _gravityRuntimePending = true;
       } else if (_orientation case final orientation?) {
         _applyBrotherGravityOrientation(orientation);
@@ -2407,14 +2420,14 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-        phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
-        phase.runtimeMode != BrotherRuntimeMode.locked) {
+    if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.locked) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
       }
-      if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
+      if (runtimePhase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
           !await OrientationPlatform.systemAutoRotate()) {
         _updateOrientationInputs();
         return;
@@ -2425,7 +2438,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     }
 
     await OrientationPolicy.applyBrotherRuntime(
-      phase,
+      runtimePhase,
       allowedMask: _brotherAllowedMask,
     );
     _updateOrientationInputs();
@@ -2778,6 +2791,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
         _brotherPlan.windowed,
         action: _brotherPlan.windowedResumeFor(exitCause),
         triggerOrientation: triggerOrientation,
+        resume: true,
       );
       return;
     }

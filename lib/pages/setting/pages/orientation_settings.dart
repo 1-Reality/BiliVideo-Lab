@@ -319,12 +319,63 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeMode() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '运行期间方向执行方式',
+      title: '默认运行期间方向执行方式',
       value: phase.runtimeMode,
       values: _brotherRuntimeValues,
       label: (e) => e.desc,
     );
     if (res != null) await _writeBrotherPhase(phase.copyWith(runtimeMode: res));
+  }
+
+  Future<void> _editBrotherResumeRuntime(bool landscape) async {
+    final phase = _brotherPhaseConfig;
+    final current = landscape
+        ? phase.resumeLandscapeRuntimeMode
+        : phase.resumePortraitRuntimeMode;
+    final res = await showDialog<int>(
+      context: context,
+      builder: (context) => SelectDialog<int>(
+        title: landscape ? '横屏返回后的运行方式' : '竖屏返回后的运行方式',
+        value: current?.index ?? -1,
+        values: [
+          (-1, '沿用默认运行方式'),
+          for (final mode in _brotherRuntimeValues) (mode.index, mode.desc),
+        ],
+      ),
+    );
+    if (res == null) return;
+    await _writeBrotherPhase(
+      phase.withResumeRuntime(
+        landscape: landscape,
+        mode: res < 0 ? null : BrotherRuntimeMode.values[res],
+      ),
+    );
+  }
+
+  Future<void> _editBrotherRuntimeLatchAxis() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '运行期间一次性切换条件',
+      value: phase.runtimeLatchAxis,
+      values: BrotherRuntimeLatchAxis.values,
+      label: (e) => e.desc,
+    );
+    if (res != null) {
+      await _writeBrotherPhase(phase.copyWith(runtimeLatchAxis: res));
+    }
+  }
+
+  Future<void> _editBrotherRuntimeLatchMode() async {
+    final phase = _brotherPhaseConfig;
+    final res = await _pickEnum(
+      title: '条件命中后的运行方式',
+      value: phase.runtimeLatchMode,
+      values: _brotherRuntimeValues,
+      label: (e) => e.desc,
+    );
+    if (res != null) {
+      await _writeBrotherPhase(phase.copyWith(runtimeLatchMode: res));
+    }
   }
 
   Future<void> _editBrotherRuntimeActivation() async {
@@ -582,10 +633,35 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
           onTap: _editBrotherResumeAction,
         ),
       _selectTile(
-        title: '运行期间方向执行方式',
+        title: '默认运行期间方向执行方式',
         subtitle: phase.runtimeMode.desc,
         onTap: _editBrotherRuntimeMode,
       ),
+      if (_brotherPhase != BrotherOrientationPhase.fullscreen) ...[
+        _selectTile(
+          title: '横屏返回后的运行方式',
+          subtitle: phase.resumeLandscapeRuntimeMode?.desc ?? '沿用默认运行方式',
+          onTap: () => _editBrotherResumeRuntime(true),
+        ),
+        _selectTile(
+          title: '竖屏返回后的运行方式',
+          subtitle: phase.resumePortraitRuntimeMode?.desc ?? '沿用默认运行方式',
+          onTap: () => _editBrotherResumeRuntime(false),
+        ),
+      ],
+      if (_brotherPhase == BrotherOrientationPhase.app) ...[
+        _selectTile(
+          title: '运行期间一次性切换条件',
+          subtitle: phase.runtimeLatchAxis.desc,
+          onTap: _editBrotherRuntimeLatchAxis,
+        ),
+        if (phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off)
+          _selectTile(
+            title: '条件命中后的运行方式',
+            subtitle: phase.runtimeLatchMode.desc,
+            onTap: _editBrotherRuntimeLatchMode,
+          ),
+      ],
       if (_brotherPhase != BrotherOrientationPhase.app)
         _selectTile(
           title: '运行接管时机',
@@ -923,27 +999,53 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   }
 
   String _brotherDiagnostics() {
-    String phaseLine(String name, BrotherPhaseConfig phase) {
-      final listeners = <String>[];
-      if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
-        listeners.add('APP重力');
-      }
-      if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-          phase.runtimeMode != BrotherRuntimeMode.appGravity &&
-          phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
-          phase.runtimeMode != BrotherRuntimeMode.locked) {
-        listeners.add('系统建议方向');
-      }
+    String phaseLine(
+      String name,
+      BrotherPhaseConfig phase, {
+      required bool hasResume,
+      required bool appPhase,
+    }) {
+      final listeners = <String>{};
       final diagnosticMask = phase.allowedBasis == BrotherAllowedBasis.fixed
           ? phase.allowedMask
           : OrientationMask.landscape;
-      if (OrientationPolicy.brotherRuntimeNeedsGuard(
-        phase,
-        diagnosticMask,
-      )) {
-        listeners.add('方向许可Metrics守卫');
+      final runtimeModes = hasResume
+          ? phase.possibleRuntimeModes
+          : <BrotherRuntimeMode>[phase.runtimeMode];
+
+      for (final mode in runtimeModes) {
+        final candidate = phase.copyWith(runtimeMode: mode);
+        if (mode == BrotherRuntimeMode.appGravity) {
+          listeners.add('APP重力');
+        }
+        if (!appPhase &&
+            phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+            mode != BrotherRuntimeMode.appGravity &&
+            mode != BrotherRuntimeMode.inheritRequest &&
+            mode != BrotherRuntimeMode.locked) {
+          listeners.add('系统建议方向');
+        }
+        if (OrientationPolicy.brotherRuntimeNeedsGuard(
+          candidate,
+          diagnosticMask,
+        )) {
+          listeners.add('方向许可Metrics守卫');
+        }
       }
-      return '$name：${phase.runtimeMode.desc}；许可=${phase.allowedBasis == BrotherAllowedBasis.fixed ? _directionMaskLabel(phase.allowedMask) : phase.allowedBasis.desc}；运行监听=${listeners.isEmpty ? '0' : listeners.join('、')}';
+
+      final latchCanRun = appPhase &&
+          phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off &&
+          phase.runtimeLatchMode != BrotherRuntimeMode.appGravity &&
+          phase.possibleRuntimeModes.any(
+            (mode) => mode != phase.runtimeLatchMode,
+          );
+      final resume = hasResume
+          ? '；横屏返回=${phase.resumeLandscapeRuntimeMode?.desc ?? "沿用默认"}；竖屏返回=${phase.resumePortraitRuntimeMode?.desc ?? "沿用默认"}'
+          : '';
+      final latch = appPhase && phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off
+          ? '；一次性切换=${phase.runtimeLatchAxis.desc}→${phase.runtimeLatchMode.desc}；条件监听=${latchCanRun ? "界面Metrics（仅运行方式不同于目标时启用，命中后立即注销）" : "0"}'
+          : '';
+      return '$name：默认=${phase.runtimeMode.desc}$resume；许可=${phase.allowedBasis == BrotherAllowedBasis.fixed ? _directionMaskLabel(phase.allowedMask) : phase.allowedBasis.desc}；常规运行监听候选=${listeners.isEmpty ? "0" : listeners.join("、")}$latch';
     }
 
     final triggerListeners = <String>{};
@@ -967,11 +1069,21 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     }
 
     return [
-      phaseLine('APP', Pref.brotherAppPhase),
-      phaseLine('非全屏', Pref.brotherWindowedPhase),
-      phaseLine('全屏', Pref.brotherFullscreenPhase),
+      phaseLine('APP', Pref.brotherAppPhase, hasResume: true, appPhase: true),
+      phaseLine(
+        '非全屏',
+        Pref.brotherWindowedPhase,
+        hasResume: true,
+        appPhase: false,
+      ),
+      phaseLine(
+        '全屏',
+        Pref.brotherFullscreenPhase,
+        hasResume: false,
+        appPhase: false,
+      ),
       '触发监听候选：${triggerListeners.isEmpty ? '0' : triggerListeners.join('、')}',
-      '监听器均按实际生命周期与需求动态启停，无轮询。',
+      '监听器均按实际生命周期与需求动态启停，无轮询；“候选”表示该配置路径可能启用，不等于当前时刻常驻。',
     ].join('\n');
   }
 

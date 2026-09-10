@@ -230,6 +230,7 @@ abstract final class OrientationPolicy {
   static int _startupDirectionBit = OrientationMask.portraitUp;
   static final _finalGuard = _FinalOrientationGuard();
   static final _brotherGuard = _BrotherOrientationGuard();
+  static final _brotherAppRuntimeLatch = _BrotherAppRuntimeLatch();
   static bool _brotherEnabled = false;
   static BrotherOrientationPlan _brotherPlan = const BrotherOrientationPlan(
     app: BrotherPhaseConfig(
@@ -343,6 +344,7 @@ abstract final class OrientationPolicy {
       };
 
   static Future<void> compile() async {
+    _brotherAppRuntimeLatch.clear();
     final mode = Pref.orientationPolicyMode;
     _brotherEnabled = mode == OrientationPolicyMode.brotherTech;
     if (_brotherEnabled) {
@@ -453,10 +455,12 @@ abstract final class OrientationPolicy {
     final app = Pref.brotherAppPhase;
     final windowed = Pref.brotherWindowedPhase;
     final fullscreen = Pref.brotherFullscreenPhase;
+    bool usesGravity(BrotherPhaseConfig phase) =>
+        phase.possibleRuntimeModes.contains(BrotherRuntimeMode.appGravity);
     final gravityNeeded =
-        app.runtimeMode == BrotherRuntimeMode.appGravity ||
-        windowed.runtimeMode == BrotherRuntimeMode.appGravity ||
-        fullscreen.runtimeMode == BrotherRuntimeMode.appGravity ||
+        usesGravity(app) ||
+        usesGravity(windowed) ||
+        usesGravity(fullscreen) ||
         Pref.brotherLandscapeEnter &&
             Pref.brotherEnterSignalMask &
                     BrotherOrientationSignalMask.appGravity !=
@@ -645,13 +649,21 @@ abstract final class OrientationPolicy {
     final entryDirectionBit = await applyBrotherDirectionAction(
       resume ? phase.resumeAction : phase.enterAction,
     );
+    final runtimePhase = phase.effectiveForResume(
+      resume: resume,
+      directionBit: entryDirectionBit,
+    );
     final allowed = await resolveBrotherAllowedMask(
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    setBrotherActiveAllowedMask(allowed, phase);
-    await applyBrotherRuntime(phase, allowedMask: allowed);
+    setBrotherActiveAllowedMask(allowed, runtimePhase);
+    _brotherAppRuntimeLatch.arm(runtimePhase, allowedMask: allowed);
+    await applyBrotherRuntime(runtimePhase, allowedMask: allowed);
   }
+
+  static void clearBrotherAppRuntimeLatch() =>
+      _brotherAppRuntimeLatch.clear();
 
   static Future<int> resolveBrotherAllowedMask(
     BrotherPhaseConfig phase, {
@@ -923,6 +935,78 @@ abstract final class OrientationPolicy {
   }
 }
 
+
+final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
+  BrotherPhaseConfig? _targetPhase;
+  BrotherRuntimeLatchAxis _targetAxis = BrotherRuntimeLatchAxis.off;
+  int _allowedMask = OrientationMask.all;
+  bool _active = false;
+  bool _checking = false;
+  int _generation = 0;
+
+  void arm(
+    BrotherPhaseConfig phase, {
+    required int allowedMask,
+  }) {
+    clear();
+    if (allowedMask == 0 ||
+        phase.runtimeLatchAxis == BrotherRuntimeLatchAxis.off ||
+        phase.runtimeMode == phase.runtimeLatchMode ||
+        phase.runtimeLatchMode == BrotherRuntimeMode.appGravity) {
+      return;
+    }
+    _targetAxis = phase.runtimeLatchAxis;
+    _targetPhase = phase.copyWith(
+      runtimeMode: phase.runtimeLatchMode,
+      runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    );
+    _allowedMask = allowedMask;
+    _active = true;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void clear() {
+    _generation++;
+    _targetPhase = null;
+    _targetAxis = BrotherRuntimeLatchAxis.off;
+    _allowedMask = OrientationMask.all;
+    if (!_active) return;
+    _active = false;
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_active || _checking) return;
+    _check();
+  }
+
+  Future<void> _check() async {
+    final generation = _generation;
+    _checking = true;
+    try {
+      final phase = _targetPhase;
+      if (phase == null) return;
+      final current =
+          await OrientationPlatform.currentOrientationBit() ??
+          OrientationPolicy._currentWindowAxisBit();
+      if (!_active || generation != _generation) return;
+      final targetMask = _targetAxis == BrotherRuntimeLatchAxis.landscape
+          ? OrientationMask.landscape
+          : OrientationMask.portrait;
+      if (current & targetMask == 0) return;
+      final allowedMask = _allowedMask;
+      clear();
+      OrientationPolicy.setBrotherActiveAllowedMask(allowedMask, phase);
+      await OrientationPolicy.applyBrotherRuntime(
+        phase,
+        allowedMask: allowedMask,
+      );
+    } finally {
+      _checking = false;
+    }
+  }
+}
 
 final class _BrotherOrientationGuard with WidgetsBindingObserver {
   int _mask = OrientationMask.all;

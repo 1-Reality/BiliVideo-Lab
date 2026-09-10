@@ -172,7 +172,7 @@ enum BrotherDirectionAction {
 }
 
 enum BrotherRuntimeMode {
-  inheritRequest('保持当前底层方向请求'),
+  inheritRequest('沿用当前方向规则'),
   unspecified('系统自行决定（UNSPECIFIED）'),
   landscape('横屏（LANDSCAPE）'),
   portrait('竖屏（PORTRAIT）'),
@@ -215,6 +215,15 @@ enum BrotherAllowedBasis {
   const BrotherAllowedBasis(this.desc);
 }
 
+enum BrotherRuntimeLatchAxis {
+  off('关闭'),
+  portrait('首次转入竖屏后'),
+  landscape('首次转入横屏后');
+
+  final String desc;
+  const BrotherRuntimeLatchAxis(this.desc);
+}
+
 final class BrotherPhaseConfig {
   const BrotherPhaseConfig({
     required this.enterAction,
@@ -225,6 +234,10 @@ final class BrotherPhaseConfig {
     required this.allowedMask,
     required this.gravityFollowSystemLock,
     required this.angleDegrees,
+    this.resumePortraitRuntimeMode,
+    this.resumeLandscapeRuntimeMode,
+    this.runtimeLatchAxis = BrotherRuntimeLatchAxis.off,
+    this.runtimeLatchMode = BrotherRuntimeMode.locked,
   });
 
   final BrotherDirectionAction enterAction;
@@ -235,6 +248,10 @@ final class BrotherPhaseConfig {
   final int allowedMask;
   final bool gravityFollowSystemLock;
   final int angleDegrees;
+  final BrotherRuntimeMode? resumePortraitRuntimeMode;
+  final BrotherRuntimeMode? resumeLandscapeRuntimeMode;
+  final BrotherRuntimeLatchAxis runtimeLatchAxis;
+  final BrotherRuntimeMode runtimeLatchMode;
 
   BrotherPhaseConfig copyWith({
     BrotherDirectionAction? enterAction,
@@ -245,6 +262,8 @@ final class BrotherPhaseConfig {
     int? allowedMask,
     bool? gravityFollowSystemLock,
     int? angleDegrees,
+    BrotherRuntimeLatchAxis? runtimeLatchAxis,
+    BrotherRuntimeMode? runtimeLatchMode,
   }) => BrotherPhaseConfig(
     enterAction: enterAction ?? this.enterAction,
     resumeAction: resumeAction ?? this.resumeAction,
@@ -255,7 +274,58 @@ final class BrotherPhaseConfig {
     gravityFollowSystemLock:
         gravityFollowSystemLock ?? this.gravityFollowSystemLock,
     angleDegrees: angleDegrees ?? this.angleDegrees,
+    resumePortraitRuntimeMode: resumePortraitRuntimeMode,
+    resumeLandscapeRuntimeMode: resumeLandscapeRuntimeMode,
+    runtimeLatchAxis: runtimeLatchAxis ?? this.runtimeLatchAxis,
+    runtimeLatchMode: runtimeLatchMode ?? this.runtimeLatchMode,
   );
+
+  BrotherPhaseConfig withResumeRuntime({
+    required bool landscape,
+    required BrotherRuntimeMode? mode,
+  }) => BrotherPhaseConfig(
+    enterAction: enterAction,
+    resumeAction: resumeAction,
+    runtimeMode: runtimeMode,
+    runtimeActivation: runtimeActivation,
+    allowedBasis: allowedBasis,
+    allowedMask: allowedMask,
+    gravityFollowSystemLock: gravityFollowSystemLock,
+    angleDegrees: angleDegrees,
+    resumePortraitRuntimeMode:
+        landscape ? resumePortraitRuntimeMode : mode,
+    resumeLandscapeRuntimeMode:
+        landscape ? mode : resumeLandscapeRuntimeMode,
+    runtimeLatchAxis: runtimeLatchAxis,
+    runtimeLatchMode: runtimeLatchMode,
+  );
+
+  BrotherRuntimeMode runtimeForResume(int directionBit) =>
+      (directionBit & OrientationMask.landscape != 0
+              ? resumeLandscapeRuntimeMode
+              : resumePortraitRuntimeMode) ??
+          runtimeMode;
+
+  BrotherPhaseConfig effectiveForResume({
+    required bool resume,
+    required int directionBit,
+  }) {
+    if (!resume) return this;
+    final selected = runtimeForResume(directionBit);
+    return selected == runtimeMode ? this : copyWith(runtimeMode: selected);
+  }
+
+  Iterable<BrotherRuntimeMode> get possibleRuntimeModes sync* {
+    yield runtimeMode;
+    final portrait = resumePortraitRuntimeMode;
+    if (portrait != null && portrait != runtimeMode) yield portrait;
+    final landscape = resumeLandscapeRuntimeMode;
+    if (landscape != null &&
+        landscape != runtimeMode &&
+        landscape != portrait) {
+      yield landscape;
+    }
+  }
 
   List<Object> toStorage() => [
     enterAction.index,
@@ -266,6 +336,10 @@ final class BrotherPhaseConfig {
     allowedMask,
     gravityFollowSystemLock,
     angleDegrees,
+    resumePortraitRuntimeMode?.index ?? -1,
+    resumeLandscapeRuntimeMode?.index ?? -1,
+    runtimeLatchAxis.index,
+    runtimeLatchMode.index,
   ];
 
   static BrotherPhaseConfig fromStorage(
@@ -278,6 +352,13 @@ final class BrotherPhaseConfig {
             ? values[index]
             : orElse;
     final v2 = raw.length >= 8;
+    final v3 = raw.length >= 12;
+    BrotherRuntimeMode? nullableRuntime(Object? index) =>
+        index is int &&
+            index >= 0 &&
+            index < BrotherRuntimeMode.values.length
+        ? BrotherRuntimeMode.values[index]
+        : null;
     return BrotherPhaseConfig(
       enterAction: value(
         BrotherDirectionAction.values,
@@ -315,6 +396,26 @@ final class BrotherPhaseConfig {
       angleDegrees: raw[v2 ? 7 : 6] is int
           ? raw[v2 ? 7 : 6] as int
           : fallback.angleDegrees,
+      resumePortraitRuntimeMode: v3
+          ? nullableRuntime(raw[8])
+          : fallback.resumePortraitRuntimeMode,
+      resumeLandscapeRuntimeMode: v3
+          ? nullableRuntime(raw[9])
+          : fallback.resumeLandscapeRuntimeMode,
+      runtimeLatchAxis: v3
+          ? value(
+              BrotherRuntimeLatchAxis.values,
+              raw[10],
+              fallback.runtimeLatchAxis,
+            )
+          : fallback.runtimeLatchAxis,
+      runtimeLatchMode: v3
+          ? value(
+              BrotherRuntimeMode.values,
+              raw[11],
+              fallback.runtimeLatchMode,
+            )
+          : fallback.runtimeLatchMode,
     );
   }
 }
