@@ -1,0 +1,25 @@
+name: Temporary validate Windows build 34485387135
+
+on:
+  push:
+    branches:
+      - tmp/validate-windows-build-34485387135
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+      - name: Apply Windows patches
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
+      - name: Compile Windows release
+        run: flutter build windows --release --no-pub
