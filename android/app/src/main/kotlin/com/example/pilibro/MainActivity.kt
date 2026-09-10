@@ -68,8 +68,11 @@ class MainActivity : AudioServiceActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
         proposedRotationSink = events
 
+        // Resolve the natural display orientation once per subscription. Dart
+        // receives portraitUp / landscapeLeft / portraitDown / landscapeRight.
+        val rotationOffset = portraitRotationOffset(display?.rotation ?: Surface.ROTATION_0)
         val listener = IntConsumer { rotation ->
-            proposedRotationSink?.success(rotation)
+            proposedRotationSink?.success((rotation + rotationOffset) and 3)
         }
         proposedRotationListener = listener
         try {
@@ -133,27 +136,22 @@ class MainActivity : AudioServiceActivity() {
         } else {
             windowManager.defaultDisplay.rotation
         }
+        return when ((rotation + portraitRotationOffset(rotation)) and 3) {
+            Surface.ROTATION_0 -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            Surface.ROTATION_90 -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            Surface.ROTATION_180 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+            else -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+        }
+    }
+
+    private fun portraitRotationOffset(rotation: Int): Int {
         val naturalLandscape =
             ((rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) &&
                 resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) ||
             ((rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270) &&
                 resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
 
-        return if (naturalLandscape) {
-            when (rotation) {
-                Surface.ROTATION_0 -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                Surface.ROTATION_90 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
-                Surface.ROTATION_180 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-                else -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            }
-        } else {
-            when (rotation) {
-                Surface.ROTATION_0 -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                Surface.ROTATION_90 -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                Surface.ROTATION_180 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
-                else -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-            }
-        }
+        return if (naturalLandscape) 1 else 0
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

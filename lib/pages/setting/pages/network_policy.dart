@@ -51,6 +51,20 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
   bool? phonePermission;
   NetworkProfile? profile = ConnectivityUtils.current;
 
+  List<(int, String)> get _cellularJudgeOptions => cellularMode == 2
+      ? const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号和下行速率同时满足'),
+          (3, '信号或下行速率任一满足'),
+        ]
+      : const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号或下行速率任一满足'),
+          (3, '信号和下行速率同时满足'),
+        ];
+
   @override
   void initState() {
     super.initState();
@@ -164,13 +178,17 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
           (0, '关闭'),
           (1, '默认将蜂窝设为 Wi-Fi / 等效宽带'),
           (2, '默认将蜂窝设为流量 / 等效移网'),
+          (3, '上帝模式：适合「双不限」用户使用'),
         ],
       ),
     );
     if (value == null) return;
     cellularMode = value;
     await _put(SettingBoxKey.cellularQualityMode, value);
-    if (value != 0 && Platform.isAndroid && !(await Permission.phone.isGranted)) {
+    if (value != 0 &&
+        (value != 3 || cellularMatch.isNotEmpty) &&
+        Platform.isAndroid &&
+        !(await Permission.phone.isGranted)) {
       await Permission.phone.request();
       await _refreshPhonePermission();
       await _refreshStatus();
@@ -486,6 +504,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                   '关闭：真蜂窝固定使用蜂窝播放偏好',
                   '默认将蜂窝设为 WiFi；质量低于阈值时改用流量偏好',
                   '默认将蜂窝设为流量；质量高于阈值时改用 WiFi 偏好',
+                  '上帝模式：默认按宽带，弱网时改用流量偏好；空 ISP 时不读取详细运营商字段',
                 ][cellularMode],
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -496,7 +515,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                 ListTile(
                   title: const Text('READ_PHONE_STATE'),
                   subtitle: Text(
-                    phonePermission == true
+                    cellularMode == 3 && cellularMatch.isEmpty
+                        ? '上帝模式未配置 ISP：不读取 SubscriptionInfo，无需此权限'
+                        : phonePermission == true
                         ? 'granted；SubscriptionInfo 原始字段可参与精确匹配'
                         : '未授权；仍可使用 networkOperatorName、蜂窝信号和系统带宽估计',
                   ),
@@ -513,7 +534,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                 title: const Text('配置运营商 / Subscription 原始字段'),
                 subtitle: Text(
                   cellularMatch.isEmpty
-                      ? '未配置：该功能不会生效。逗号分隔，和上方原始字段值或 path=value 完整匹配'
+                      ? cellularMode == 3
+                            ? '未配置：上帝模式对所有蜂窝生效，不读取详细运营商字段'
+                            : '未配置：该功能不会生效。逗号分隔，和上方原始字段值或 path=value 完整匹配'
                       : cellularMatch,
                 ),
                 trailing: const Icon(Icons.chevron_right),
@@ -526,13 +549,21 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                   if (value != null) {
                     cellularMatch = value;
                     await _put(SettingBoxKey.cellularQualityMatch, value);
+                    if (cellularMode == 3 &&
+                        value.isNotEmpty &&
+                        Platform.isAndroid &&
+                        !(await Permission.phone.isGranted)) {
+                      await Permission.phone.request();
+                      await _refreshPhonePermission();
+                      await _refreshStatus();
+                    }
                   }
                 },
               ),
               ListTile(
                 title: const Text('蜂窝质量判断方式'),
                 subtitle: Text(
-                  const ['仅使用信号判断', '仅使用下行速率判断', '两者同时满足', '两者任一满足'][cellularJudgeMode],
+                  _cellularJudgeOptions[cellularJudgeMode].$2,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -541,12 +572,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                     builder: (context) => SelectDialog<int>(
                       title: '蜂窝质量判断方式',
                       value: cellularJudgeMode,
-                      values: const [
-                        (0, '仅使用信号判断'),
-                        (1, '仅使用下行速率判断'),
-                        (2, '信号和下行速率同时满足'),
-                        (3, '信号或下行速率任一满足'),
-                      ],
+                      values: _cellularJudgeOptions,
                     ),
                   );
                   if (value != null) {

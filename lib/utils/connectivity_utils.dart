@@ -146,6 +146,8 @@ abstract final class ConnectivityUtils {
     _refresh();
   }
 
+  static bool get useAdaptiveCellularBuffer => _cellularQualityMode == 3;
+
   static List<VideoDecodeFormatType> effectiveCodecs() {
     final peak = _networkPeakCodecs;
     return List.of(peak.isEmpty ? Pref.preferCodecsCellular : peak);
@@ -314,18 +316,22 @@ abstract final class ConnectivityUtils {
         final android = isAndroid
             ? PiliAndroidHelper.networkInfo()
             : null;
+        final godMode = _cellularQualityMode == 3;
+        final hasCellularFilter = _cellularQualityMatches.isNotEmpty;
         final checkCellularQuality =
-            _cellularQualityMode != 0 && _cellularQualityMatches.isNotEmpty;
-        final carrierName = checkCellularQuality
+            _cellularQualityMode != 0 && (hasCellularFilter || godMode);
+        final carrierName = checkCellularQuality && hasCellularFilter
             ? await PiliAndroidHelper.networkOperator()
             : null;
-        final flattened = checkCellularQuality
+        final flattened = checkCellularQuality && hasCellularFilter
             ? _flattenCellularDetails(
                 await PiliAndroidHelper.subscriptionInfo(),
               )
             : (details: const <String>[], matchValues: const <String>{});
         final matched = checkCellularQuality &&
-            _cellularQualityMatches.any(flattened.matchValues.contains);
+            (!hasCellularFilter ||
+                _cellularQualityMatches.contains(carrierName?.trim()) ||
+                _cellularQualityMatches.any(flattened.matchValues.contains));
 
         bool useCellularPreferences = true;
         if (matched) {
@@ -348,7 +354,12 @@ abstract final class ConnectivityUtils {
               : level == null
               ? null
               : level > _cellularSignalLevelThreshold;
-          if (_cellularQualityMode == 1) {
+          if (_cellularQualityMode == 3) {
+            useCellularPreferences = _matchesCellularQuality(
+              signalWeak,
+              speedWeak,
+            );
+          } else if (_cellularQualityMode == 1) {
             // 默认按宽带；满足“弱”条件才降为蜂窝策略。
             useCellularPreferences = _matchesCellularQuality(
               signalWeak,
