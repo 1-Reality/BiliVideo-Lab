@@ -217,11 +217,21 @@ enum BrotherAllowedBasis {
 
 enum BrotherRuntimeLatchAxis {
   off('关闭'),
-  portrait('首次转入竖屏后'),
-  landscape('首次转入横屏后');
+  portrait('检测到竖屏后（状态命中）'),
+  landscape('检测到横屏后（状态命中）'),
+  portraitEdge('首次由横屏转入竖屏后（边沿检测）'),
+  landscapeEdge('首次由竖屏转入横屏后（边沿检测）');
 
   final String desc;
   const BrotherRuntimeLatchAxis(this.desc);
+
+  bool get targetsLandscape =>
+      this == BrotherRuntimeLatchAxis.landscape ||
+      this == BrotherRuntimeLatchAxis.landscapeEdge;
+
+  bool get edgeTriggered =>
+      this == BrotherRuntimeLatchAxis.portraitEdge ||
+      this == BrotherRuntimeLatchAxis.landscapeEdge;
 }
 
 final class BrotherPhaseConfig {

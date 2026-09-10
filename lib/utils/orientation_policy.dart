@@ -202,6 +202,38 @@ final class BrotherOrientationPlan {
   int filterMask(int mask) => mask & effectiveFinalMask;
 }
 
+final class BrotherRuntimeInterpretation {
+  const BrotherRuntimeInterpretation({
+    required this.mode,
+    required this.executable,
+    required this.usesAppGravity,
+    required this.waitsForSourceChange,
+    required this.needsMetricsGuard,
+  });
+
+  final BrotherRuntimeMode mode;
+  final bool executable;
+  final bool usesAppGravity;
+  final bool waitsForSourceChange;
+  final bool needsMetricsGuard;
+}
+
+final class BrotherAppLatchInterpretation {
+  const BrotherAppLatchInterpretation({
+    required this.enabled,
+    required this.edgeTriggered,
+    required this.targetMask,
+    required this.targetPhase,
+    required this.targetRuntime,
+  });
+
+  final bool enabled;
+  final bool edgeTriggered;
+  final int targetMask;
+  final BrotherPhaseConfig targetPhase;
+  final BrotherRuntimeInterpretation targetRuntime;
+}
+
 abstract final class OrientationPolicy {
   static OrientationPlan _plan = const OrientationPlan(
     appInitial: AppInitialOrientation.system,
@@ -455,12 +487,18 @@ abstract final class OrientationPolicy {
     final app = Pref.brotherAppPhase;
     final windowed = Pref.brotherWindowedPhase;
     final fullscreen = Pref.brotherFullscreenPhase;
-    bool usesGravity(BrotherPhaseConfig phase) =>
-        phase.possibleRuntimeModes.contains(BrotherRuntimeMode.appGravity);
+    bool usesGravity(BrotherPhaseConfig phase, {required bool appPhase}) =>
+        phase.possibleRuntimeModes.any(
+          (mode) => interpretBrotherRuntime(
+            phase.copyWith(runtimeMode: mode),
+            allowedMask: OrientationMask.all,
+            appPhase: appPhase,
+          ).usesAppGravity,
+        );
     final gravityNeeded =
-        usesGravity(app) ||
-        usesGravity(windowed) ||
-        usesGravity(fullscreen) ||
+        usesGravity(app, appPhase: true) ||
+        usesGravity(windowed, appPhase: false) ||
+        usesGravity(fullscreen, appPhase: false) ||
         Pref.brotherLandscapeEnter &&
             Pref.brotherEnterSignalMask &
                     BrotherOrientationSignalMask.appGravity !=
@@ -474,7 +512,6 @@ abstract final class OrientationPolicy {
                     BrotherOrientationSignalMask.appGravity !=
                 0;
     final gravityUsesSystemGate =
-        app.gravityFollowSystemLock ||
         windowed.gravityFollowSystemLock ||
         fullscreen.gravityFollowSystemLock;
     final systemAutoRotate = gravityNeeded && gravityUsesSystemGate
@@ -646,20 +683,33 @@ abstract final class OrientationPolicy {
 
   static Future<void> applyBrotherApp({required bool resume}) async {
     final phase = _brotherPlan.app;
+    final resumeSourceDirectionBit = resume
+        ? await OrientationPlatform.currentOrientationBit() ??
+              _currentWindowAxisBit()
+        : null;
     final entryDirectionBit = await applyBrotherDirectionAction(
       resume ? phase.resumeAction : phase.enterAction,
+      currentDirectionBit: resumeSourceDirectionBit,
     );
     final runtimePhase = phase.effectiveForResume(
       resume: resume,
-      directionBit: entryDirectionBit,
+      directionBit: resumeSourceDirectionBit ?? entryDirectionBit,
     );
     final allowed = await resolveBrotherAllowedMask(
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    setBrotherActiveAllowedMask(allowed, runtimePhase);
-    _brotherAppRuntimeLatch.arm(runtimePhase, allowedMask: allowed);
-    await applyBrotherRuntime(runtimePhase, allowedMask: allowed);
+    setBrotherActiveAllowedMask(allowed, runtimePhase, appPhase: true);
+    _brotherAppRuntimeLatch.arm(
+      runtimePhase,
+      allowedMask: allowed,
+      initialDirectionBit: entryDirectionBit,
+    );
+    await applyBrotherRuntime(
+      runtimePhase,
+      allowedMask: allowed,
+      appPhase: true,
+    );
   }
 
   static void clearBrotherAppRuntimeLatch() =>
@@ -694,8 +744,10 @@ abstract final class OrientationPolicy {
     double? screenRatio,
     DeviceOrientation? triggerOrientation,
     DeviceOrientation? physicalOrientation,
+    int? currentDirectionBit,
   }) async {
     final current =
+        currentDirectionBit ??
         await OrientationPlatform.currentOrientationBit() ??
         _currentWindowAxisBit();
     final requested = switch (action) {
@@ -769,24 +821,94 @@ abstract final class OrientationPolicy {
     };
   }
 
+  static BrotherRuntimeInterpretation interpretBrotherRuntime(
+    BrotherPhaseConfig phase, {
+    required int allowedMask,
+    required bool appPhase,
+  }) {
+    final executable =
+        !(appPhase && phase.runtimeMode == BrotherRuntimeMode.appGravity);
+    final active = executable && allowedMask != 0;
+    return BrotherRuntimeInterpretation(
+      mode: phase.runtimeMode,
+      executable: executable,
+      usesAppGravity:
+          active &&
+          !appPhase &&
+          phase.runtimeMode == BrotherRuntimeMode.appGravity,
+      waitsForSourceChange:
+          active &&
+          !appPhase &&
+          phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+          phase.runtimeMode != BrotherRuntimeMode.appGravity &&
+          phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+          phase.runtimeMode != BrotherRuntimeMode.locked,
+      needsMetricsGuard:
+          active && brotherRuntimeNeedsGuard(phase, allowedMask),
+    );
+  }
+
+  static BrotherAppLatchInterpretation interpretBrotherAppRuntimeLatch(
+    BrotherPhaseConfig phase, {
+    required int allowedMask,
+  }) {
+    final axis = phase.runtimeLatchAxis;
+    final targetPhase = phase.copyWith(
+      runtimeMode: phase.runtimeLatchMode,
+      runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    );
+    final targetRuntime = interpretBrotherRuntime(
+      targetPhase,
+      allowedMask: allowedMask,
+      appPhase: true,
+    );
+    final targetMask = axis == BrotherRuntimeLatchAxis.off
+        ? 0
+        : axis.targetsLandscape
+        ? OrientationMask.landscape
+        : OrientationMask.portrait;
+    return BrotherAppLatchInterpretation(
+      enabled:
+          allowedMask != 0 &&
+          axis != BrotherRuntimeLatchAxis.off &&
+          phase.runtimeMode != phase.runtimeLatchMode &&
+          targetRuntime.executable,
+      edgeTriggered: axis.edgeTriggered,
+      targetMask: targetMask,
+      targetPhase: targetPhase,
+      targetRuntime: targetRuntime,
+    );
+  }
+
   static void setBrotherActiveAllowedMask(
     int mask,
-    BrotherPhaseConfig phase,
-  ) {
+    BrotherPhaseConfig phase, {
+    bool appPhase = false,
+  }) {
     if (!_brotherEnabled) return;
-    _brotherGuard.update(
-      brotherRuntimeNeedsGuard(phase, mask) ? mask : 0,
+    final runtime = interpretBrotherRuntime(
+      phase,
+      allowedMask: mask,
+      appPhase: appPhase,
     );
+    _brotherGuard.update(runtime.needsMetricsGuard ? mask : 0);
   }
 
   static Future<void> applyBrotherRuntime(
     BrotherPhaseConfig phase, {
     required int allowedMask,
+    bool appPhase = false,
   }) async {
     if (allowedMask == 0) {
       await lockedMode();
       return;
     }
+    final runtime = interpretBrotherRuntime(
+      phase,
+      allowedMask: allowedMask,
+      appPhase: appPhase,
+    );
+    if (!runtime.executable) return;
     switch (phase.runtimeMode) {
       case BrotherRuntimeMode.inheritRequest:
       case BrotherRuntimeMode.appGravity:
@@ -938,8 +1060,10 @@ abstract final class OrientationPolicy {
 
 final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
   BrotherPhaseConfig? _targetPhase;
-  BrotherRuntimeLatchAxis _targetAxis = BrotherRuntimeLatchAxis.off;
+  int _targetMask = 0;
   int _allowedMask = OrientationMask.all;
+  bool _edgeTriggered = false;
+  bool _targetMatched = false;
   bool _active = false;
   bool _checking = false;
   int _generation = 0;
@@ -947,20 +1071,19 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
   void arm(
     BrotherPhaseConfig phase, {
     required int allowedMask,
+    required int initialDirectionBit,
   }) {
     clear();
-    if (allowedMask == 0 ||
-        phase.runtimeLatchAxis == BrotherRuntimeLatchAxis.off ||
-        phase.runtimeMode == phase.runtimeLatchMode ||
-        phase.runtimeLatchMode == BrotherRuntimeMode.appGravity) {
-      return;
-    }
-    _targetAxis = phase.runtimeLatchAxis;
-    _targetPhase = phase.copyWith(
-      runtimeMode: phase.runtimeLatchMode,
-      runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    final interpreted = OrientationPolicy.interpretBrotherAppRuntimeLatch(
+      phase,
+      allowedMask: allowedMask,
     );
+    if (!interpreted.enabled) return;
+    _targetPhase = interpreted.targetPhase;
+    _targetMask = interpreted.targetMask;
     _allowedMask = allowedMask;
+    _edgeTriggered = interpreted.edgeTriggered;
+    _targetMatched = initialDirectionBit & _targetMask != 0;
     _active = true;
     WidgetsBinding.instance.addObserver(this);
   }
@@ -968,8 +1091,10 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
   void clear() {
     _generation++;
     _targetPhase = null;
-    _targetAxis = BrotherRuntimeLatchAxis.off;
+    _targetMask = 0;
     _allowedMask = OrientationMask.all;
+    _edgeTriggered = false;
+    _targetMatched = false;
     if (!_active) return;
     _active = false;
     WidgetsBinding.instance.removeObserver(this);
@@ -991,16 +1116,25 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
           await OrientationPlatform.currentOrientationBit() ??
           OrientationPolicy._currentWindowAxisBit();
       if (!_active || generation != _generation) return;
-      final targetMask = _targetAxis == BrotherRuntimeLatchAxis.landscape
-          ? OrientationMask.landscape
-          : OrientationMask.portrait;
-      if (current & targetMask == 0) return;
+      final matched = current & _targetMask != 0;
+      if (_edgeTriggered) {
+        final trigger = !_targetMatched && matched;
+        _targetMatched = matched;
+        if (!trigger) return;
+      } else if (!matched) {
+        return;
+      }
       final allowedMask = _allowedMask;
       clear();
-      OrientationPolicy.setBrotherActiveAllowedMask(allowedMask, phase);
+      OrientationPolicy.setBrotherActiveAllowedMask(
+        allowedMask,
+        phase,
+        appPhase: true,
+      );
       await OrientationPolicy.applyBrotherRuntime(
         phase,
         allowedMask: allowedMask,
+        appPhase: true,
       );
     } finally {
       _checking = false;

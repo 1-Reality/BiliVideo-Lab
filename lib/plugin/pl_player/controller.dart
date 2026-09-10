@@ -2378,6 +2378,12 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
     _gravityRuntimePending = false;
     _gravityRuntimeBaseline = null;
 
+    final resumeSourceDirectionBit = resume
+        ? await OrientationPlatform.currentOrientationBit() ??
+              (_currentSystemLandscape
+                  ? OrientationMask.landscapeLeft
+                  : OrientationMask.portraitUp)
+        : null;
     final entryDirectionBit =
         await OrientationPolicy.applyBrotherDirectionAction(
           action,
@@ -2385,15 +2391,21 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
           screenRatio: screenRatio,
           triggerOrientation: triggerOrientation,
           physicalOrientation: _orientation,
+          currentDirectionBit: resumeSourceDirectionBit,
         );
     final runtimePhase = phase.effectiveForResume(
       resume: resume,
-      directionBit: entryDirectionBit,
+      directionBit: resumeSourceDirectionBit ?? entryDirectionBit,
     );
     _brotherActivePhase = runtimePhase;
     _brotherAllowedMask = await OrientationPolicy.resolveBrotherAllowedMask(
       phase,
       entryDirectionBit: entryDirectionBit,
+    );
+    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
+      runtimePhase,
+      allowedMask: _brotherAllowedMask,
+      appPhase: false,
     );
     OrientationPolicy.setBrotherActiveAllowedMask(
       _brotherAllowedMask,
@@ -2405,7 +2417,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (runtimePhase.runtimeMode == BrotherRuntimeMode.appGravity) {
+    if (runtimeInterpretation.usesAppGravity) {
       if (runtimePhase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2420,9 +2432,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-        runtimePhase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
-        runtimePhase.runtimeMode != BrotherRuntimeMode.locked) {
+    if (runtimeInterpretation.waitsForSourceChange) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
@@ -2455,7 +2465,13 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
+    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
+      phase,
+      allowedMask: _brotherAllowedMask,
+      appPhase: false,
+    );
+
+    if (runtimeInterpretation.usesAppGravity) {
       if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2470,9 +2486,7 @@ class PlPlayerController with BlockConfigMixin, WidgetsBindingObserver {
       return;
     }
 
-    if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
-        phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
-        phase.runtimeMode != BrotherRuntimeMode.locked) {
+    if (runtimeInterpretation.waitsForSourceChange) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
