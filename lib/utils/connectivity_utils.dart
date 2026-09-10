@@ -330,6 +330,7 @@ abstract final class ConnectivityUtils {
             : (details: const <String>[], matchValues: const <String>{});
         final matched = checkCellularQuality &&
             (!hasCellularFilter ||
+                _cellularQualityMatches.contains(carrierName?.trim()) ||
                 _cellularQualityMatches.any(flattened.matchValues.contains));
 
         bool useCellularPreferences = true;
