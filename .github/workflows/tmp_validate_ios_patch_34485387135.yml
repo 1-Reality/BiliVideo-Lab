@@ -1,0 +1,20 @@
+name: Temporary validate iOS patch 34485387135
+
+on:
+  push:
+    branches:
+      - tmp/validate-ios-patch-34485387135
+
+jobs:
+  validate-ios-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+      - name: Apply complete iOS patch stage
+        shell: pwsh
+        run: lib/scripts/patch.ps1 iOS
