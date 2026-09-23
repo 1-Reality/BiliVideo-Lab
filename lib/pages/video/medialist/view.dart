@@ -12,10 +12,10 @@ import 'package:PiliBro/models_new/video/video_detail/episode.dart';
 import 'package:PiliBro/pages/common/slide/common_slide_page.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MediaListPanel extends CommonSlidePage {
   const MediaListPanel({

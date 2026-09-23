@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_reply.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
@@ -91,10 +92,12 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
   ) {
     switch (loadingState) {
       case Loading():
-        return SliverPrototypeExtentList.builder(
-          prototypeItem: const VideoReplySkeleton(),
-          itemBuilder: (_, _) => const VideoReplySkeleton(),
-          itemCount: 8,
+        return const SliverPrototypeExtentList(
+          prototypeItem: VideoReplySkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 8,
+            child: VideoReplySkeleton(),
+          ),
         );
       case Success(:final response):
         if (response != null && response.isNotEmpty) {

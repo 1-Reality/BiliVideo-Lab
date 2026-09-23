@@ -13,8 +13,8 @@ import 'package:PiliBro/pages/later/controller.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 水平布局
 class VideoCardHLater extends StatelessWidget {

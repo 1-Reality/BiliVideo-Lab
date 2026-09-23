@@ -3,9 +3,9 @@ import 'package:PiliBro/common/widgets/reorder_mixin.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/models/common/enum_with_label.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class BarSetPage extends StatefulWidget {
   const BarSetPage({super.key});

@@ -2,9 +2,9 @@ import 'package:PiliBro/http/user.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class HistoryBaseController extends GetxController {
   RxBool pauseStatus = false.obs;

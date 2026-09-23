@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:PiliBro/utils/android/bindings.g.dart';
+import 'package:PiliBro/utils/device_utils.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:jni/jni.dart';
 
 abstract final class PiliAndroidHelper {
@@ -189,6 +193,29 @@ abstract final class PiliAndroidHelper {
       jUri.release();
       jLabel.release();
       jPath.release();
+    }
+  }
+
+  static void openUrl(String url, {String domain = '*.bilibili.com'}) {
+    if (!Platform.isAndroid || DeviceUtils.sdkInt < 31) {
+      PageUtils.launchURL(url);
+      return;
+    }
+    final jDomain = domain.toJString();
+    JString? jUrl;
+    try {
+      if (AndroidHelper.isDomainVerified(jDomain)) {
+        jUrl = url.toJString();
+        final jStr = AndroidHelper.openUrl(jUrl);
+        if (jStr != null) {
+          SmartDialog.showToast(jStr.toDartString(releaseOriginal: true));
+        }
+      } else {
+        PageUtils.launchURL(url);
+      }
+    } finally {
+      jDomain.release();
+      jUrl?.release();
     }
   }
 }

@@ -4,7 +4,6 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/models/login/model.dart';
 import 'package:PiliBro/models_new/login_devices/data.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
@@ -69,17 +68,17 @@ abstract final class LoginHttp {
     };
   }
 
-  static Future queryCaptcha() async {
-    final res = await Request().get(Api.getCaptcha);
-    if (res.data['code'] == 0) {
-      return {
-        'status': true,
-        'data': CaptchaDataModel.fromJson(res.data['data']),
-      };
-    } else {
-      return {'status': false, 'data': res.data['message']};
-    }
-  }
+  // static Future queryCaptcha() async {
+  //   final res = await Request().get(Api.getCaptcha);
+  //   if (res.data['code'] == 0) {
+  //     return {
+  //       'status': true,
+  //       'data': CaptchaDataModel.fromJson(res.data['data']),
+  //     };
+  //   } else {
+  //     return {'status': false, 'data': res.data['message']};
+  //   }
+  // }
 
   // 获取salt与PubKey
   static Future getWebKey() async {
@@ -492,7 +491,7 @@ abstract final class LoginHttp {
     }
   }
 
-  static Future<Map> logout(Account account) async {
+  static Future<LoadingState<void>> logout(LoginAccount account) async {
     final res = await Request().post(
       Api.logout,
       data: {'biliCSRF': account.csrf},
@@ -501,7 +500,11 @@ abstract final class LoginHttp {
         extra: {'account': account},
       ),
     );
-    return {'status': res.data['code'] == 0, 'msg': res.data['message']};
+    if (res.data['code'] == 0) {
+      return const Success(null);
+    } else {
+      return Error(res.data['message']);
+    }
   }
 
   static Future<LoadingState<LoginDevicesData>> loginDevices() async {

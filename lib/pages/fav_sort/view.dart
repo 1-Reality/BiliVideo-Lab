@@ -6,9 +6,9 @@ import 'package:PiliBro/models_new/fav/fav_detail/media.dart';
 import 'package:PiliBro/pages/fav_detail/controller.dart';
 import 'package:PiliBro/pages/fav_detail/widget/fav_video_card.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavSortPage extends StatefulWidget {
   const FavSortPage({super.key, required this.favDetailController});

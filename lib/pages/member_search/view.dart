@@ -4,8 +4,8 @@ import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/pages/member_search/child/view.dart';
 import 'package:PiliBro/pages/member_search/controller.dart';
 import 'package:PiliBro/utils/utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberSearchPage extends StatefulWidget {
   const MemberSearchPage({super.key});

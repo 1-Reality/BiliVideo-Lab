@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_card_v.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/models/search/result.dart';
 import 'package:PiliBro/pages/search_panel/controller.dart';
@@ -53,12 +54,9 @@ class _SearchLivePanelState
   );
 
   @override
-  Widget buildList(ThemeData theme, List<SearchLiveItemModel> list) {
+  Widget buildList(List<SearchLiveItemModel> list) {
     return SliverPadding(
-      padding: const EdgeInsets.only(
-        left: Style.safeSpace,
-        right: Style.safeSpace,
-      ),
+      padding: const .only(left: Style.safeSpace, right: Style.safeSpace),
       sliver: SliverGrid.builder(
         gridDelegate: gridDelegate,
         itemBuilder: (context, index) {
@@ -73,9 +71,14 @@ class _SearchLivePanelState
   }
 
   @override
-  Widget get buildLoading => SliverGrid.builder(
-    gridDelegate: gridDelegate,
-    itemBuilder: (context, index) => const VideoCardVSkeleton(),
-    itemCount: 10,
+  Widget get buildLoading => SliverPadding(
+    padding: const .only(left: Style.safeSpace, right: Style.safeSpace),
+    sliver: SliverGrid(
+      gridDelegate: gridDelegate,
+      delegate: const SliverSingleChildDelegate(
+        count: 10,
+        child: VideoCardVSkeleton(),
+      ),
+    ),
   );
 }

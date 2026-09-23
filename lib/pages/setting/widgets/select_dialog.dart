@@ -7,6 +7,7 @@ import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/pages/setting/widgets/checkbox_num_list_tile.dart';
@@ -369,6 +370,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final result = await VideoHttp.videoUrl(
       cid: 196018899,
       bvid: 'BV1fK4y1t7hj',
+      qn: VideoQuality.high1080.code,
       tryLook: false,
       videoType: VideoType.ugc,
     );

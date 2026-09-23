@@ -7,8 +7,8 @@ import 'package:PiliBro/models/common/reply/reply_search_type.dart';
 import 'package:PiliBro/pages/video/reply_search_item/child/controller.dart';
 import 'package:PiliBro/pages/video/reply_search_item/child/widgets/item.dart';
 import 'package:PiliBro/utils/grid.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ReplySearchChildPage extends StatefulWidget {
   const ReplySearchChildPage({

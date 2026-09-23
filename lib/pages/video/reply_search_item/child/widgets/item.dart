@@ -8,8 +8,8 @@ import 'package:PiliBro/models/common/badge_type.dart';
 import 'package:PiliBro/models/common/reply/reply_search_type.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ReplySearchItem extends StatelessWidget {
   const ReplySearchItem({

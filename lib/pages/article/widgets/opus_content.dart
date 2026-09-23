@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/common/widgets/emote_tooltip.dart';
 import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliBro/common/widgets/image/cached_network_svg_image.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
@@ -9,7 +10,6 @@ import 'package:PiliBro/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliBro/common/widgets/image_viewer/hero.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
-import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/models/dynamics/article_content_model.dart'
     show ArticleContentModel, Rich, Style, Word, Node;
 import 'package:PiliBro/models/dynamics/result.dart';
@@ -61,11 +61,18 @@ class OpusContent extends StatelessWidget {
             final size = 20.0 * emoji.size;
             return WidgetSpan(
               rawText: rich.origText,
-              child: NetworkImgLayer(
-                width: size,
-                height: size,
-                src: emoji.url,
-                type: ImageType.emote,
+              child: emoteTooltipBuilder(
+                url: emoji.url,
+                triggerMode: .tap,
+                emote: rich.origText,
+                jumpUrl: emoji.jumpUrl,
+                colorScheme: colorScheme,
+                child: NetworkImgLayer(
+                  width: size,
+                  height: size,
+                  src: emoji.url,
+                  type: .emote,
+                ),
               ),
             );
           case 'RICH_TEXT_NODE_TYPE_LOTTERY':

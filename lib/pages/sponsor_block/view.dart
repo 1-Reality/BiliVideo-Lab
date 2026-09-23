@@ -1,13 +1,13 @@
 import 'package:PiliBro/common/widgets/pair.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/http/constants.dart';
-import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/sponsor_block.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliBro/models_new/sponsor_block/user_info.dart';
 import 'package:PiliBro/pages/setting/slide_color_picker.dart';
+import 'package:PiliBro/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliBro/utils/filtering_text.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -331,7 +331,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = HttpString.sponsorBlockBaseUrl;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     (context as Element).markNeedsBuild();
                   },
                   child: const Text('重置'),
@@ -350,7 +350,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = _textController.text;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     _checkServerStatus();
                     _getUserInfo();
                     (context as Element).markNeedsBuild();

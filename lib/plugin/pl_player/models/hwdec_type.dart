@@ -1,4 +1,8 @@
 // mpv --hwdec=help
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 enum HwDecType {
   no('no', '启用软解'),
   auto('auto', '启用任意可用解码器'),
@@ -38,22 +42,27 @@ enum HwDecType {
   final String desc;
   const HwDecType(this.hwdec, this.desc);
 
-  static final String androidDefault = [
-    HwDecType.mediacodec.hwdec,
-    HwDecType.autoSafe.hwdec,
-  ].join(',');
+  static final String androidDefault = kDebugMode
+      ? autoSafe.hwdec
+      : [mediacodec.hwdec, autoSafe.hwdec].join(',');
 
   static final String windowsDefault = [
-    HwDecType.d3d12va.hwdec,
-    HwDecType.d3d11va.hwdec,
-    HwDecType.nvdec.hwdec,
-    HwDecType.cuda.hwdec,
-    HwDecType.qsv.hwdec,
-    HwDecType.amf.hwdec,
-    HwDecType.nvdecCopy.hwdec,
-    HwDecType.dxva2.hwdec,
-    HwDecType.qsvCopy.hwdec,
-    HwDecType.d3d12vaCopy.hwdec,
-    HwDecType.auto.hwdec,
+    d3d12va.hwdec,
+    d3d11va.hwdec,
+    nvdec.hwdec,
+    cuda.hwdec,
+    qsv.hwdec,
+    amf.hwdec,
+    nvdecCopy.hwdec,
+    dxva2.hwdec,
+    qsvCopy.hwdec,
+    d3d12vaCopy.hwdec,
+    auto.hwdec,
   ].join(',');
+
+  static final String kHwdec = Platform.isAndroid
+      ? androidDefault
+      : Platform.isWindows
+      ? windowsDefault
+      : auto.hwdec;
 }

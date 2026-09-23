@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_reply.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/colored_box_transition.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
@@ -268,7 +269,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               icon: Icon(Icons.sort, size: 16, color: colorScheme.secondary),
               label: Obx(
                 () => Text(
-                  _controller.sortType.value.text!,
+                  _controller.sortType.value.label,
                   style: TextStyle(fontSize: 13, color: colorScheme.secondary),
                 ),
               ),
@@ -285,10 +286,12 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   ) {
     final jumpIndex = _controller.index.value;
     return switch (loadingState) {
-      Loading() => SliverPrototypeExtentList.builder(
-        prototypeItem: const VideoReplySkeleton(),
-        itemBuilder: (_, _) => const VideoReplySkeleton(),
-        itemCount: 8,
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 8,
+          child: VideoReplySkeleton(),
+        ),
       ),
       Success(:final response!) => SuperSliverList.builder(
         listController: _controller.listController,
