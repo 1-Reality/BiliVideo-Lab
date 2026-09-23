@@ -1,4 +1,4 @@
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliBro/pages/common/common_list_controller.dart';
 
 mixin PageOrderMixin<R, T> on CommonListController<R, T> {
   int get ps;

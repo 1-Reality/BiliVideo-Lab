@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.piliplus">
+    package="com.example.pilibro">
 
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
@@ -79,7 +79,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter android:label="PiliPlus">
+            <intent-filter android:label="PiliBro">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -105,10 +105,10 @@
                 <!--<data android:host="bangumi.bilibili.com"/>-->
                 <!--<data android:host="space.bilibili.com"/>-->
             </intent-filter>
-            <intent-filter android:label="PiliPlus">
+            <intent-filter android:label="PiliBro">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEARCH" />
-                <action android:name="org.BroTech.gege.piliplus.SHORTCUT" />
+                <action android:name="org.BroTech.gege.pilibro.SHORTCUT" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

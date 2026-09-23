@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/history/list.dart';
-import 'package:PiliPlus/models_new/history/tab.dart';
+import 'package:PiliBro/models_new/history/list.dart';
+import 'package:PiliBro/models_new/history/tab.dart';
 
 class HistoryData {
   List<HistoryTab>? tab;

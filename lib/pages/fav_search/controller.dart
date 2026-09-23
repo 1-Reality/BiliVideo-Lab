@@ -1,13 +1,13 @@
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models/common/video/source_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/media.dart';
-import 'package:PiliPlus/pages/common/multi_select/base.dart';
-import 'package:PiliPlus/pages/common/search/common_search_controller.dart';
-import 'package:PiliPlus/pages/fav_detail/controller.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliBro/http/fav.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
+import 'package:PiliBro/models/common/video/source_type.dart';
+import 'package:PiliBro/models_new/fav/fav_detail/data.dart';
+import 'package:PiliBro/models_new/fav/fav_detail/media.dart';
+import 'package:PiliBro/pages/common/multi_select/base.dart';
+import 'package:PiliBro/pages/common/search/common_search_controller.dart';
+import 'package:PiliBro/pages/fav_detail/controller.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:get/get.dart';
 
 class FavSearchController

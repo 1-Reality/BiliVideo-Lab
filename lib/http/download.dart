@@ -1,16 +1,16 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/models/common/video/audio_quality.dart';
-import 'package:PiliPlus/models/common/video/video_quality.dart';
-import 'package:PiliPlus/models/common/video/video_type.dart';
-import 'package:PiliPlus/models/video/play/url.dart';
-import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
-import 'package:PiliPlus/models_new/download/bili_download_media_file_info.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/video_utils.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/models/common/video/audio_quality.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
+import 'package:PiliBro/models/common/video/video_type.dart';
+import 'package:PiliBro/models/video/play/url.dart';
+import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliBro/models_new/download/bili_download_media_file_info.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:PiliBro/utils/video_utils.dart';
 import 'package:collection/collection.dart';
 
 abstract final class DownloadHttp {

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/pages/mine/controller.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:PiliPlus/utils/login_utils.dart';
+import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/pages/mine/controller.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/login_utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_ce/hive.dart';
 

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -20,7 +20,7 @@ void main() {
   late Directory tempDir;
 
   setUpAll(() async {
-    tempDir = await Directory.systemTemp.createTemp('piliplus-account-test-');
+    tempDir = await Directory.systemTemp.createTemp('pilibro-account-test-');
     Hive.init(tempDir.path);
     GStorage.regAdapter();
     Accounts.account = await Hive.openBox<LoginAccount>('account');

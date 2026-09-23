@@ -1,9 +1,9 @@
-import 'package:PiliPlus/http/fan.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models_new/follow/data.dart';
-import 'package:PiliPlus/pages/follow_type/controller.dart';
-import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliBro/http/fan.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models_new/follow/data.dart';
+import 'package:PiliBro/pages/follow_type/controller.dart';
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

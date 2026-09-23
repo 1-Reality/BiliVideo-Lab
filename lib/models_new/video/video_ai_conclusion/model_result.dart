@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/video/video_ai_conclusion/outline.dart';
+import 'package:PiliBro/models_new/video/video_ai_conclusion/outline.dart';
 
 class AiConclusionResult {
   String? summary;

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
 

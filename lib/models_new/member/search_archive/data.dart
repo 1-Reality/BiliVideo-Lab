@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/member/search_archive/list.dart';
-import 'package:PiliPlus/models_new/member/search_archive/page.dart';
+import 'package:PiliBro/models_new/member/search_archive/list.dart';
+import 'package:PiliBro/models_new/member/search_archive/page.dart';
 
 class SearchArchiveData {
   SearchArchiveList? list;

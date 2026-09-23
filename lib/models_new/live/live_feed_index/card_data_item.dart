@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/live/live_feed_index/card_data_list_item.dart';
+import 'package:PiliBro/models_new/live/live_feed_index/card_data_list_item.dart';
 
 class CardDataItem {
   List<CardLiveItem>? list;

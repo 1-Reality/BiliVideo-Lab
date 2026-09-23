@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
 
 enum PlayRepeat implements EnumWithLabel {
   pause('播完暂停'),

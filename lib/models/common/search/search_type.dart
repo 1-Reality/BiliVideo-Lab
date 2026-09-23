@@ -1,6 +1,6 @@
 // ignore_for_file: constant_identifier_names
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
 
 enum SearchType implements EnumWithLabel {
   all('综合', api: Api.searchAll),

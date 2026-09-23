@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/live/live_room_info_h5/base_info.dart';
+import 'package:PiliBro/models_new/live/live_room_info_h5/base_info.dart';
 
 class AnchorInfo {
   BaseInfo? baseInfo;

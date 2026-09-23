@@ -1,9 +1,9 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:io' show Cookie, Platform;
 
-import 'package:PiliPlus/plugin/linux_webview.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
+import 'package:PiliBro/plugin/linux_webview.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 abstract final class LinuxCookieManager {

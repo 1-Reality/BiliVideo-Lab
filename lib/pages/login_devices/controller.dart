@@ -1,8 +1,8 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/login.dart';
-import 'package:PiliPlus/models_new/login_devices/data.dart';
-import 'package:PiliPlus/models_new/login_devices/device.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/login.dart';
+import 'package:PiliBro/models_new/login_devices/data.dart';
+import 'package:PiliBro/models_new/login_devices/device.dart';
+import 'package:PiliBro/pages/common/common_list_controller.dart';
 
 class LoginDevicesController
     extends CommonListController<LoginDevicesData, LoginDevice> {

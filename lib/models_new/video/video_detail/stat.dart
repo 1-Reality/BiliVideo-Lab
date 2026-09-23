@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/video/video_detail/stat_detail.dart';
+import 'package:PiliBro/models_new/video/video_detail/stat_detail.dart';
 
 class VideoStat extends StatDetail {
   VideoStat.fromJson(Map<String, dynamic> json) {

@@ -1,4 +1,4 @@
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliBro/pages/common/common_list_controller.dart';
 
 abstract class LogController<R, T> extends CommonListController<R, T> {
   @override
