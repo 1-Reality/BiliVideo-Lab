@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/models/common/network_profile.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
-import 'package:PiliPlus/utils/connectivity_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/connectivity_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/widgets.dart';
 
 final class TrafficStatsService with WidgetsBindingObserver {

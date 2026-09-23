@@ -1,4 +1,4 @@
-import 'package:PiliPlus/common/skeleton/skeleton.dart';
+import 'package:PiliBro/common/skeleton/skeleton.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MsgFeedSysMsgSkeleton extends StatelessWidget {

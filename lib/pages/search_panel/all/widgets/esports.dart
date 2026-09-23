@@ -1,8 +1,8 @@
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/search/search_esports.dart';
-import 'package:PiliPlus/utils/app_scheme.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/models/search/search_esports.dart';
+import 'package:PiliBro/utils/app_scheme.dart';
+import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
 import 'package:material_ui/material_ui.dart';

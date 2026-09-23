@@ -1,15 +1,15 @@
-import 'package:PiliPlus/models/common/enum_with_label.dart';
-import 'package:PiliPlus/pages/common/common_controller.dart';
-import 'package:PiliPlus/pages/hot/controller.dart';
-import 'package:PiliPlus/pages/hot/view.dart';
-import 'package:PiliPlus/pages/live/controller.dart';
-import 'package:PiliPlus/pages/live/view.dart';
-import 'package:PiliPlus/pages/pgc/controller.dart';
-import 'package:PiliPlus/pages/pgc/view.dart';
-import 'package:PiliPlus/pages/rank/controller.dart';
-import 'package:PiliPlus/pages/rank/view.dart';
-import 'package:PiliPlus/pages/rcmd/controller.dart';
-import 'package:PiliPlus/pages/rcmd/view.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
+import 'package:PiliBro/pages/common/common_controller.dart';
+import 'package:PiliBro/pages/hot/controller.dart';
+import 'package:PiliBro/pages/hot/view.dart';
+import 'package:PiliBro/pages/live/controller.dart';
+import 'package:PiliBro/pages/live/view.dart';
+import 'package:PiliBro/pages/pgc/controller.dart';
+import 'package:PiliBro/pages/pgc/view.dart';
+import 'package:PiliBro/pages/rank/controller.dart';
+import 'package:PiliBro/pages/rank/view.dart';
+import 'package:PiliBro/pages/rcmd/controller.dart';
+import 'package:PiliBro/pages/rcmd/view.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

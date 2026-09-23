@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
 
 enum ReplySortType implements EnumWithLabel {
   time('最新评论', '最新', label: '按时间'),

@@ -1,11 +1,11 @@
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/extra_hittest_stack.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/common/avatar_badge_type.dart';
-import 'package:PiliPlus/models/common/image_type.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/assets.dart';
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/extra_hittest_stack.dart';
+import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/models/common/avatar_badge_type.dart';
+import 'package:PiliBro/models/common/image_type.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:material_ui/material_ui.dart';
 

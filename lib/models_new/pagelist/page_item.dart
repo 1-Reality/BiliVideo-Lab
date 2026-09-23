@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
+import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
 
 class PageItem {
   int cid;

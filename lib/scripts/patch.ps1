@@ -14,7 +14,7 @@ $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 
 # Upstream issue #1906
 $BottomSheetIOSFlutterPatch = "lib/scripts/bottom_sheet_ios_flutter.patch"
-$BottomSheetIOSPiliPlusPatch = "lib/scripts/bottom_sheet_ios_piliplus.patch"
+$BottomSheetIOSPiliBroPatch = "lib/scripts/bottom_sheet_ios_pilibro.patch"
 
 # Upstream issue #1662
 # handle bottom scroll event
@@ -102,9 +102,9 @@ $MouseCursorPatch = "lib/scripts/mouse_cursor.patch"
 $GeetestIOSPatch = "lib/scripts/geetest_ios.patch"
 
 if ($platform.ToLower() -eq "ios") {
-    git apply $BottomSheetIOSPiliPlusPatch
+    git apply $BottomSheetIOSPiliBroPatch
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "$BottomSheetIOSPiliPlusPatch applied"
+        Write-Host "$BottomSheetIOSPiliBroPatch applied"
     } else {
         throw "$LASTEXITCODE"
     }

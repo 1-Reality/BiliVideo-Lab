@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
+import 'package:PiliBro/models_new/video/video_detail/episode.dart';
 
 class SectionItem {
   int? seasonId;

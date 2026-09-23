@@ -1,253 +1,76 @@
-<div align="center">
-    <img width="200" height="200" src="assets/images/logo/logo.png">
-</div>
+## PiliPala/X 高倍速增强 哥哥科技版 大带宽优化
 
-
+一切为了提高倍速看B站、节约时间、增加信息熵、少即是多的世界知识思维服务！
 
 <div align="center">
-    <h1>PiliPlus</h1>
-<div align="center">
-
-![GitHub repo size](https://img.shields.io/github/repo-size/ucxn/Bili.Libre.Speed)
-![GitHub Repo stars](https://img.shields.io/github/stars/ucxn/Bili.Libre.Speed)
-![GitHub all releases](https://img.shields.io/github/downloads/ucxn/Bili.Libre.Speed/total)
-</div>
-    <p>使用Flutter开发的BiliBili第三方客户端</p>
-
-<img src="assets/screenshots/510shots_so.png" width="32%" alt="home" />
-<img src="assets/screenshots/174shots_so.png" width="32%" alt="home" />
-<img src="assets/screenshots/850shots_so.png" width="32%" alt="home" />
-<br/>
-<img src="assets/screenshots/main_screen.png" width="96%" alt="home" />
-<br/>
+  <img width="200" height="200" src="assets/images/logo/logo.png" alt="PiliBro">
+  <h1>PiliBro FreeRate</h1>
+  <p>基于 Flutter 开发的 PiliBro 客户端 · 哥哥科技的自由速率</p>
+  <p><img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/ucxn/Bili.Libre.Speed"> <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ucxn/Bili.Libre.Speed"> <img alt="GitHub all releases" src="https://img.shields.io/github/downloads/ucxn/Bili.Libre.Speed/total"></p>
+  <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/850shots_so.png" width="32%" alt="home" />
+  <br><img src="assets/screenshots/main_screen.png" width="96%" alt="main screen" />
 </div>
 
+## FreeRate · 自由速率
 
-<br/>
+弟弟科技维护的 PiliPala 类 应用，顾名思义——“自由速率”~ 专为偏爱高倍速、高信息熵的朋友们打造：热爱博物、渴求信息、资源饥渴、节约时间……凡是想在有限的生命中了解更多信息、高效看视频的，都可以选择本软件！测试宽带真实业务速率：网络 CDN 诊断、高峰调控、弱网优化，助你流畅，护你冲浪！
+
+**高倍速与观看统计：** 默认倍速、长按倍速与长按倍率系数均可自定义，长按期间可滑动调整临时倍速，持续 2 秒可锁定当前速度；统计区分普通观看/倒带重看、播放/暂停/缓冲与基础/临时倍速，计算实际/名义平均倍速、倍速节约时间、倒带等效倍速与完成率，并记录评论区停留、前进跳转、按 UP 主/年份/直播主播汇总等，完整原始统计可随设置导入导出。<br>**网络与 CDN：** Wi-Fi/蜂窝可分别设置画质、音质、编码及 CDN 优先级，多 CDN 按顺序使用，连接失败自动回退并明确提示；测速直接模拟真实视频业务，可设置单 CDN 数据量、预热、冷却与并行/串行模式，长期保存原始诊断，分离 DNS 与首包等待，记录响应头、250 ms 固定窗吞吐、P02/P05/P50/P95、带宽抖动与趋势、最大传输空窗、解析 IP 等指标。
+
+**弱网、高峰与缓冲：** PC 按有线链路速率、Wi-Fi RSSI/协商速率等状态判断“等效宽带/等效移网”，Windows 可查看当前网卡、收发协商速率、Metric、MTU 等；网络高峰期支持多时段、条目独立启停，并临时覆盖编码偏好；按流量计费的 Wi-Fi 直接沿用蜂窝策略。缓冲分为宽带、非蜂窝弱网、真蜂窝三套配置，弱网可选择与宽带同步；联动判断主要发生在启动、进入播放器等关键节点，不持续扫描。<br>
+**更多可观察性：** 应用流量按小时统计上下行，并区分 Wi-Fi、等效移网与真蜂窝；播放器显示当前视频流大小/估算大小与总码率；首选编码不可用、CDN 回退、硬解兜底均给出明确提示；AI 字幕增加 UP 主粉丝数阈值控制。
+
+**离线解码实验室：** 在离线缓存界面增加离线解码测试，您可以在固定倍速、关闭弹幕、同一视频、同一起点播放相同时间，观察播放器实际推进的时间，得出实际倍速。您也可以指定某一编码器，看它在您的设备上性能到底如何。我们不关心复杂的实现，我们只关心该解码器在您的设备上到底能为您节约多少时间。测试方法非常朴素，就是可以选择不改变设置、轻微丢帧和激进丢帧，看流逝相同的物理时间，播放器时间能推进多少？<br>**UI 针对实验优化：** 抛弃所有入口必须统一的教科书形式主义、学院派，例如当前视频切换 CDN 变成单选题，避免复杂的排序。在不同的场景运用不同的选择偏好复杂度。
+
+**近乎完备的正交屏幕旋转设定：** 分为简单、高级和工程师模式。简单模式就已经可以指定方向、以及后续是旋转、跟随APP启动时、之后不再改变还是怎样，高级模式已经能够区分初始方向和旋转条件。甚至您可以根据程序的不同运行周期，规定进入时、退出时、初始化、触发条件、是否遵循安卓某 API，是否接受用户的方向锁定设置等。<br>**TV大屏适配：** 特制专门的遥控器模式，适合电视机、投影仪等大屏设备，适合通过遥控器操纵的横屏设备；特殊形态设备也可以自适应，折叠屏等设备也通过一定方法进行了判断，并且应用预设。不再为电视端专门交会员税。
 
 ## 适配平台
+Android 手机、平板、TV（Arm/×86-64）、iOS（含iPad）、MacOS、Windows（AMD64 安装/绿色）、Linux。
 
-- [x] Android
-- [x] iOS
-- [x] Pad
-- [x] Windows
-- [x] Linux
+## 🔗 友情链接
+兄弟项目，全品牌路由器接入HA 米家智能集成&nbsp;⇨&nbsp;<a href="https://github.com/ucxn/ZTE-Stat_HA" target="_blank"><img src="https://img.shields.io/badge/HACS-ZTE--Stat__Home%20Assistant-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white" alt="ZTE HACS"></a>&nbsp;&nbsp;&nbsp;<a href="https://www.bilibili.com/video/BV1PtR7B8ECC" target="_blank"><img src="https://img.shields.io/badge/Bilibili-%E8%A7%82%E7%9C%8B%E6%BC%94%E7%A4%BA%E8%A7%86%E9%A2%91-FF8EB3?style=for-the-badge&logo=bilibili&logoColor=white" alt="Bilibili Video"></a>
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/piliplus.svg)](https://repology.org/project/piliplus/versions)
+[![Anti PCDN](https://img.shields.io/badge/Network-脚本推荐-FF4C00?style=for-the-badge&logo=github&logoColor=white)](https://github.com/1-Reality/China-PCDN-Rules)
 
-## refactor
 
-- [ ] gRPC [wip]
-- [x] 用户界面
-- [x] 其他
+## PiliBro 基础功能
 
-## feat
+**内容与播放：**
+推荐/最热视频/热门直播/番剧、分 P/合集/互动视频，弹幕/高级弹幕/字幕、高能进度条、SponsorBlock、DLNA、PIP、离线缓存与播放、音频播放、片头片尾跳过、画质/音质/解码预设、硬件加速、超分辨率、记忆播放、视频比例、滑动缩略图预览、视频动图、Live Photo、AI 原声翻译、课堂视频等；
 
-- [x] 编辑动态
-- [x] DLNA 投屏
-- [x] 离线缓存/播放
-- [x] 移动端支持点击弹幕悬停，点赞、复制、举报 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] 播放音频
-- [x] 跳过番剧片头/片尾
-- [x] 安卓端 `loudnorm` 适配 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] Win/Mac 支持极验、短信登录 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] 视频截取动图 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] AI 原声翻译
-- [x] SuperChat
-- [x] 播放课堂视频
-- [x] 发起投票
-- [x] 发布动态/评论支持`富文本编辑`/`表情显示`/`@用户`
-- [x] 修改消息设置
-- [x] 修改聊天设置
-- [x] 展示折叠消息
-- [x] 查看用户图文
-- [x] 动态话题
-- [x] 直播分区
-- [x] 分享`视频`/`番剧`/`动态`/`专栏`/`直播`至消息
-- [x] 创建/修改/删除关注分组
-- [x] 移除粉丝
-- [x] 直播弹幕发送表情
-- [x] 收藏夹排序
-- [x] 稍后再看 ~~`未看`~~ / `未看完` / ~~`已看完`~~ 分类
-- [x] WebDAV 备份/恢复设置
-- [x] 保存评论/动态
-- [x] 高级弹幕 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] 取消/置顶评论
-- [x] 记笔记
-- [x] 多账号支持 by [@My-Responsitories](https://github.com/My-Responsitories)
-- [x] 屏蔽带货动态/评论
-- [x] 互动视频
-- [x] 发评/动态反诈
-- [x] 高能进度条
-- [x] 滑动跳转预览视频缩略图
-- [x] Live Photo
-- [x] 复制/移动/排序收藏夹/稍后再看视频
-- [x] 超分辨率
-- [x] 合并弹幕
-- [x] 会员彩色弹幕
-- [x] 播放全部/继续播放/倒序播放
-- [x] Cookie登录
-- [x] 显示视频分段信息
-- [x] 调节字幕大小
-- [x] 调节全屏弹幕大小
-- [x] 收藏夹/稍后再看多选删除
-- [x] 搜索用户动态
-- [x] 直播弹幕
-- [x] 修改头像/用户名/签名/性别/生日
-- [x] 创建/编辑/删除收藏夹
-- [x] 评论楼中楼查看对话
-- [x] 评论楼中楼定位点击查看的评论
-- [x] 评论楼中楼按热度/时间排序
-- [x] 评论点踩
-- [x] 私信发图
-- [x] 投币动画
-- [x] 取消/追番，更新追番状态
-- [x] 取消/订阅合集
-- [x] SponsorBlock
-- [x] 显示视频完整合集
-- [x] 三连动画
-- [x] 番剧三连
-- [x] 带图评论
-- [x] 视频TAG
-- [x] 筛选搜索
-- [x] 转发动态
-- [x] 合集图片
-- [x] 删除/置顶/撤回私信
-- [x] 举报用户/评论/视频/动态
-- [x] 删除/发布/置顶文本/图片动态
-- [x] 其他
+**账号与互动：** Cookie/短信登录、多账号、无痕/游客模式，用户主页/粉丝/关注/拉黑，动态/评论/私信/SuperChat/投票/分享，点赞/投币/收藏、关注分组、收藏夹/稍后再看管理，图文/富文本/表情/@用户、楼中楼、举报/置顶/撤回/删除等；
 
-## opt
+**搜索与设置：** 热搜/搜索历史/默认搜索词，投稿/番剧/直播间/用户搜索及排序筛选，WebDAV 设置备份/恢复，主题、图片质量、震动、高帧率、自动全屏/横屏、字幕/弹幕大小、亮度/音量等。
 
-- [x] 专栏界面
-- [x] 私信界面
-- [x] 收藏面板
-- [x] PIP
-- [x] 视频封面
-- [x] 回复界面
-- [x] 系统通知
-- [x] 评论显示
-- [x] 亮度调节
-- [x] 视频播放
-- [x] 视频staff
-- [x] 防止bottomsheet遮挡全屏视频
-- [x] 其他
+### 重构
 
-## fix
-
-- [x] 番剧分集点赞/投币/收藏
-- [x] bugs
-
-<br/>
-
-## 功能
-
-- [x] 推荐视频列表(app端)
-- [x] 最热视频列表
-- [x] 热门直播
-- [x] 番剧列表
-- [x] 屏蔽黑名单内用户视频
-- [x] 无痕模式（播放视为未登录）
-- [x] 游客模式（推荐视为未登录）
-
-- [x] 用户相关
-  - [x] 粉丝、关注用户、拉黑用户查看
-  - [x] 用户主页查看
-  - [x] 关注/取关用户
-  - [x] 离线缓存
-  - [x] 稍后再看
-  - [x] 观看记录
-  - [x] 我的收藏
-  - [x] 站内私信
-
-- [x] 动态相关
-  - [x] 全部、投稿、番剧分类查看
-  - [x] 动态评论查看
-  - [x] 动态评论回复功能
-
-- [x] 视频播放相关
-  - [x] 双击快进/快退
-  - [x] 双击播放/暂停
-  - [x] 垂直方向调节亮度/音量
-  - [x] 垂直方向上滑全屏、下滑退出全屏
-  - [x] 水平方向手势快进/快退
-  - [x] 全屏方向设置
-  - [x] 倍速选择/长按2倍速
-  - [x] 硬件加速（视机型而定）
-  - [x] 画质选择（高清画质未解锁）
-  - [x] 音质选择（视视频而定）
-  - [x] 解码格式选择（视视频而定）
-  - [x] 弹幕
-  - [x] 字幕
-  - [x] 记忆播放
-  - [x] 视频比例：高度/宽度适应、填充、包含等
-
-- [x] 搜索相关
-  - [x] 热搜
-  - [x] 搜索历史
-  - [x] 默认搜索词
-  - [x] 投稿、番剧、直播间、用户搜索
-  - [x] 视频搜索排序、按时长筛选
-
-- [x] 视频详情页相关
-  - [x] 视频选集(分p)切换
-  - [x] 点赞、投币、收藏/取消收藏
-  - [x] 相关视频查看
-  - [x] 评论用户身份标识
-  - [x] 评论(排序)查看、二楼评论查看
-  - [x] 主楼、二楼评论回复功能
-  - [x] 评论点赞
-  - [x] 评论笔记图片查看、保存
-
-- [x] 设置相关
-  - [x] 画质、音质、解码方式预设
-  - [x] 图片质量设定
-  - [x] 主题模式：亮色/暗色/跟随系统
-  - [x] 震动反馈(可选)
-  - [x] 高帧率
-  - [x] 自动全屏
-  - [x] 横屏适配
-- [ ] 等等
-
-<br/>
+<input type="checkbox" disabled> gRPC [wip]　
+<input type="checkbox" checked disabled> 用户界面　
+<input type="checkbox" checked disabled> 性能探索
 
 ## 下载
 
-可以通过右侧release进行下载或拉取代码到本地进行编译
+可从下方 Releases区 下载，也可拉取 `dev` 分支本地编译。Android 使用 `org.BroTech.Gege.piliBro`，可与三方应用并存；本分支 Release 使用固定签名，同签名的后续构建可直接覆盖升级，Apk内部版本号随时间单调递增至至多 10000次 提交。
 
-<br/>
+## 声明与致谢
 
-## 声明
+本项目仅用于学习和测试，请于下载后 24 小时内删除；所用 API 皆从官方网站收集，不涉及任何破解设计。本项目对倍速、网络、CDN 与播放策略，还有「未来10年不留遗憾的记录和历史」进行了更激进的大量重写，特别感谢伟大的[orz12/PiliPalaX](https://github.com/orz12/PiliPalaX) 、精神发源者[guozhigq/pilipala](https://github.com/guozhigq/pilipala)以及全体贡献者的工作。
 
-此项目（PiliPlus）是个人为了兴趣而开发，仅用于学习和测试，请于下载后24小时内删除。
-所用API皆从官方网站收集，不提供任何破解内容。
-在此致敬原作者：[guozhigq/pilipala](https://github.com/guozhigq/pilipala)
-在此致敬上游作者：[orz12/PiliPalaX](https://github.com/orz12/PiliPalaX)
-本仓库做了更激进的修改，感谢原作者的开源精神。
+感谢 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)、[flutter_meedu_videoplayer](https://github.com/zezo357/flutter_meedu_videoplayer)、[media-kit](https://github.com/media-kit/media-kit)、[dio](https://pub.dev/packages/dio) 等项目。
 
-感谢使用
+PiliBro，乾杯-( ゜- ゜)つロ
 
+本项目主要面向个人学习、技术研究与非商业使用，并尤其鼓励具有明确、合理目的的使用场景。例如：用于公立学校、班级、实验室、社团等非营/盈利环境中的旧设备或低性能设备，在不额外增加硬件负担的前提下小规模在受限的、可控的计算机系统上安装，改善学习和观看体验；用于个人所有、仅供本人使用的私人设备，通过更自由的倍速控制、长按临时倍速、弱网适应和播放策略调整，让软件更贴合个人长期形成的观看习惯；用于预/学/复习高考、考研、语言学习、专业课程、资格考试、论文资料搜集等持续数月乃至数年的学习阶段，在大量课程、讲座、访谈、纪录片和知识型视频之间更有效地分配时间；用于需要快速回顾已经熟悉内容的场景，在保留完整语义和上下文的同时减少重复信息占用的时间；用于高信息摄入需求的用户，在兴趣足够广、想看的内容远多于可支配时间时，把有限的注意力留给真正值得停留、思考和反复观看的部分。
 
-<br/>
+本项目尤其重视长期统计所具有的个人意义。观看时间、实际平均倍速、不同阶段的倍速习惯、倒带重看、暂停与缓冲、节约时间等数据，在当天看来可能只是一些数字，经过几年甚至十几年积累后，却可能成为一份非常具体的个人信息生活记录：曾经把多少时间用于学习、兴趣与探索，哪些年份看得更多，哪些创作者陪伴得更久，又通过更高效的播放方式为自己留下了多少原本会消失在重复等待中的时间。其意义并不一定在于追求某个更高的数字，而在于让长期行为能够被看见、被回顾、被保存，避免很多年后只剩下一句模糊的“以前好像看过很多东西”，却再也不知道那些时间究竟去了哪里。
 
-## 致谢
+它同样适合把视频当作一种日常知识媒介，而非单纯娱乐内容的人：有人习惯用书阅读，有人喜欢播客，也有人大量依赖视频获取科技、人文、历史、社会、音乐、交通、地理、自然科学等不同领域的信息。当兴趣范围不断扩大，而一天仍然只有 24 小时时，提高单位时间的信息获取效率就具有真实的边际价值。节约下来的10分钟、半小时，在单独一次观看中并不起眼；当这种差异重复数千次、延续数年以后，它最终对应的是更多读完的资料、更多看完的课程、更多了解过的领域，以及更多真正属于自己的自由时间。
 
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-- [flutter_meedu_videoplayer](https://github.com/zezo357/flutter_meedu_videoplayer)
-- [media-kit](https://github.com/media-kit/media-kit)
-- [dio](https://pub.dev/packages/dio)
-- 等等
+其他合理场景还包括：在通勤、候车、课间等碎片时间快速处理已经收藏的视频；为需要反复复习的课程建立更符合个人节奏的观看方式；在较差网络、老旧硬件或资源有限的设备上减少无意义的卡顿和资源浪费；通过长期数据观察自己的注意力与观看习惯变化；对播放器交互、倍速算法、统计模型、缓冲策略、编码选择和跨平台适配进行学习与实验；在考研、考试准备或更多需要长期专注的阶段，用于学习效率管理与自律；仅通过私聊等非公开方式分享给现实生活中相识的挚友、亲人或家人，供共同学习、测试或个人使用；以及单纯因为珍惜自己的时间，用于仅供个人使用的私人设备，希望一件每天都要使用的软件能够真正服从于人的习惯，而非让人反过来适应软件预设的节奏：其边界效用在于节约自己宝贵的时间和生命。
 
-<br/>
-<br/>
-<br/>
+本项目无意建立独立的软件分发体系，也不鼓励以商业推广、广告捆绑、流量获利、批量转载或其他与上述用途明显无关的方式传播。上述内容主要用于说明项目的创作目的与作者认可的合理使用方式，不改变许可证及各创作者依法享有的权利。
+The open-source authors—whether associated with or unrelated to this matter—and I shall not be held liable for any consequences or disputes arising from the use of methods not recommended on the official website; the developers bear no legal responsibility.
 
-## Star History
-
-<a href="https://star-history.dera.page/#ucxn/Bili.Libre.Speed&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=ucxn/Bili.Libre.Speed&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=ucxn/Bili.Libre.Speed&type=Date" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=ucxn/Bili.Libre.Speed&type=Date" />
- </picture>
-</a>
+It is provided here solely for non-commercial, educational, research, and transformative purposes.
+This project is strictly a fan-made modification and is not affiliated with, maintained by, authorized by, endorsed by, or sponsored by Bilibili or any other SaaS platform, website, or service provider.
+The simple proposition that a person's limited time is itself a resource worth respecting.

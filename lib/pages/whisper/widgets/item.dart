@@ -1,22 +1,22 @@
 import 'dart:convert';
 
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
-import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
-import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:PiliBro/common/assets.dart';
+import 'package:PiliBro/common/widgets/badge.dart';
+import 'package:PiliBro/common/widgets/dialog/dialog.dart';
+import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
+import 'package:PiliBro/common/widgets/pendant_avatar.dart';
+import 'package:PiliBro/grpc/bilibili/app/im/v1.pb.dart'
     show Session, SessionId, SessionPageType;
-import 'package:PiliPlus/grpc/im.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/msg.dart';
-import 'package:PiliPlus/pages/whisper_secondary/view.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliBro/grpc/im.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/msg.dart';
+import 'package:PiliBro/pages/whisper_secondary/view.dart';
+import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/extension/theme_ext.dart';
+import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

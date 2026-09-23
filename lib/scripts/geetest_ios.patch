@@ -118,11 +118,11 @@ diff --git a/lib/pages/login/geetest/geetest_webview_dialog.dart b/lib/pages/log
 index 339f0fcda..41d953998 100644
 --- a/lib/pages/login/geetest/geetest_webview_dialog.dart
 +++ b/lib/pages/login/geetest/geetest_webview_dialog.dart
-@@ -7,6 +7,7 @@ import 'package:PiliPlus/plugin/linux_webview.dart';
+@@ -7,6 +7,7 @@ import 'package:PiliBro/plugin/linux_webview.dart';
  import 'package:flutter_inappwebview/flutter_inappwebview.dart';
  import 'package:get/get.dart';
  import 'package:material_ui/material_ui.dart';
-+import 'package:PiliPlus/pages/login/geetest/geetest_plugin.dart';
++import 'package:PiliBro/pages/login/geetest/geetest_plugin.dart';
  
  class GeetestWebviewDialog extends StatefulWidget {
    const GeetestWebviewDialog(this.gt, this.challenge, {super.key});

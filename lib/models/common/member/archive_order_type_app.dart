@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/common/enum_with_label.dart';
+import 'package:PiliBro/models/common/enum_with_label.dart';
 
 enum ArchiveOrderTypeApp with EnumWithLabel {
   pubdate('最新发布'),

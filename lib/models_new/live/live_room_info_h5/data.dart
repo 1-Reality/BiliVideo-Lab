@@ -1,6 +1,6 @@
-import 'package:PiliPlus/models_new/live/live_feed_index/watched_show.dart';
-import 'package:PiliPlus/models_new/live/live_room_info_h5/anchor_info.dart';
-import 'package:PiliPlus/models_new/live/live_room_info_h5/room_info.dart';
+import 'package:PiliBro/models_new/live/live_feed_index/watched_show.dart';
+import 'package:PiliBro/models_new/live/live_room_info_h5/anchor_info.dart';
+import 'package:PiliBro/models_new/live/live_room_info_h5/room_info.dart';
 
 class RoomInfoH5Data {
   RoomInfo? roomInfo;

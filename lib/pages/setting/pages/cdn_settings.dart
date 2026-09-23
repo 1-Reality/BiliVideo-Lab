@@ -1,5 +1,5 @@
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/pages/setting/models/video_settings.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/pages/setting/models/video_settings.dart';
 import 'package:material_ui/material_ui.dart';
 
 class CdnSettingsPage extends StatelessWidget {
