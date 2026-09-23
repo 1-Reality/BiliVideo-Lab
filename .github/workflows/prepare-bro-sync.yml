@@ -1,0 +1,95 @@
+name: Prepare Bro Sync
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-bro-sync
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Materialize mainback as Bro
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mainback
+        uses: actions/checkout@v7
+        with:
+          ref: mainback
+          fetch-depth: 0
+
+      - name: Fetch lab4AI and helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin lab4AI:refs/remotes/origin/lab4AI
+          git show origin/lab4AI:lib/scripts/bro_sync_normalize.py > "${RUNNER_TEMP}/bro_sync_normalize.py"
+          echo "mainback: $(git rev-parse HEAD)"
+          echo "lab4AI:  $(git rev-parse origin/lab4AI)"
+
+      - name: Keep product-owned documents from lab4AI
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout origin/lab4AI -- README.md LICENSE
+
+      - name: Normalize mainback into Bro
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "${RUNNER_TEMP}/bro_sync_normalize.py" normalize
+          git add -A
+
+      - name: Show prepared delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "===== status ====="
+          git status --short
+          echo
+          echo "===== diff stat ====="
+          git diff --cached --stat || true
+          echo
+          echo "===== protected .github diff ====="
+          git diff --cached --name-status HEAD -- .github || true
+
+      - name: Commit Bro projection
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+
+          git commit --allow-empty             -m "sync: normalize mainback@${SHORT_SHA} for Bro"             -m "Source-Mainback: ${SOURCE_SHA}"
+
+          BRO_SHA="$(git rev-parse HEAD)"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "bro_sha=${BRO_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Push disposable Bro branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push --force origin HEAD:bro
+          {
+            echo "## Bro sync prepared"
+            echo
+            echo "- mainback: \`${{ steps.commit.outputs.source_sha }}\`"
+            echo "- bro: \`${{ steps.commit.outputs.bro_sha }}\`"
+            echo "- README / LICENSE: taken from \`lab4AI\`"
+            echo "- \`.github/\`: deliberately left as mainback; final merge preserves lab4AI's copy"
+            echo
+            echo "[Open or review bro → lab4AI PR](https://github.com/${GITHUB_REPOSITORY}/compare/lab4AI...bro?expand=1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit Bro after push
+        shell: bash
+        run: python3 "${RUNNER_TEMP}/bro_sync_normalize.py" audit
