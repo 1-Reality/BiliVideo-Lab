@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - mainback
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -38,7 +39,10 @@ jobs:
           echo "Message:"
           printf '%s\n' "$message"
 
-          if [ "$parent_count" -ge 2 ] || grep -Fq '[bro-normalize]' <<<"$message"; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Normalization enabled by manual workflow dispatch."
+          elif [ "$parent_count" -ge 2 ] || grep -Fq '[bro-normalize]' <<<"$message"; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Normalization enabled for this push."
           else
@@ -68,6 +72,9 @@ jobs:
           workflow_path = ".github/workflows/bro-normalize.yml"
           protected_files = {"README.md", "LICENSE", workflow_path}
 
+          def is_protected(path: str) -> bool:
+              return path in protected_files or path.startswith(".github/workflows/")
+
           replacements = (
               ("PiliPlus", "PiliBro"),
               ("piliplus", "pilibro"),
@@ -89,7 +96,7 @@ jobs:
 
           # Rename tracked paths first. Work file-by-file so Git can record renames.
           for src in sorted(tracked_files(), key=lambda p: (p.count("/"), len(p)), reverse=True):
-              if src in protected_files:
+              if is_protected(src):
                   continue
               dst = normalize_token(src)
               if dst == src:
@@ -112,7 +119,7 @@ jobs:
 
           # Re-read the index after renames and normalize UTF-8 text only.
           for rel in tracked_files():
-              if rel in protected_files:
+              if is_protected(rel):
                   continue
 
               path = Path(rel)
@@ -217,13 +224,16 @@ jobs:
           excluded_files = {"README.md", "LICENSE", workflow_path}
           pattern = re.compile(r"piliplus", re.IGNORECASE)
 
+          def is_excluded(path: str) -> bool:
+              return path in excluded_files or path.startswith(".github/workflows/")
+
           raw = subprocess.check_output(["git", "ls-files", "-z"])
           files = [p.decode("utf-8") for p in raw.split(b"\0") if p]
 
           issues = []
 
           for rel in files:
-              if rel in excluded_files:
+              if is_excluded(rel):
                   continue
 
               if pattern.search(rel):
