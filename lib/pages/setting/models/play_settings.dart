@@ -309,7 +309,7 @@ Future<void> _showSubtitleDialog(
     builder: (context) => SelectDialog<SubtitlePrefType>(
       title: '字幕选择偏好',
       value: Pref.subtitlePreferenceV2,
-      values: SubtitlePrefType.values.map((e) => (e, e.label)).toList(),
+      values: SubtitlePrefType.values.map((e) => (e, e.desc)).toList(),
     ),
   );
   if (res != null) {
