@@ -175,9 +175,12 @@ class VideoDetailController extends GetxController
   bool _cdnFallbackInProgress = false;
   Duration? defaultST;
   Duration? playedTime;
-  String get playedTimePos {
+  String playedTimePos(bool hasParams) {
     final pos = playedTime?.inMilliseconds;
-    return pos == null || pos == 0 ? '' : '?t=${pos / 1000}';
+    if (pos != null && pos > 0) {
+      return '${hasParams ? '&' : '?'}t=${pos / 1000}';
+    }
+    return '';
   }
 
   // 亮度
@@ -398,6 +401,7 @@ class VideoDetailController extends GetxController
   void initFileSource(BiliDownloadEntryInfo entry, {bool isInit = true}) {
     this.entry = entry;
     firstVideo = VideoItem(
+      id: entry.preferedVideoQuality,
       quality: VideoQuality.fromCode(entry.preferedVideoQuality),
       width: entry.ep?.width ?? entry.pageData?.width ?? 1,
       height: entry.ep?.height ?? entry.pageData?.height ?? 1,
@@ -932,6 +936,29 @@ class VideoDetailController extends GetxController
     queryVideoUrl(fromReset: true);
   }
 
+  Future<LoadingState<PlayUrlModel>> _getVideoUrl(int quality) {
+    return VideoHttp.videoUrl(
+      cid: cid.value,
+      bvid: bvid,
+      qn: quality,
+      epid: epId,
+      seasonId: seasonId,
+      tryLook: plPlayerController.tryLook,
+      videoType: _actualVideoType ?? videoType,
+      language: currLang.value,
+      voiceBalance: plPlayerController.enableAudioNormalization,
+    );
+  }
+
+  Future<void> _supplementVideoQualities() async {
+    final quality = data.missingVideoQualityBelowHighest;
+    if (quality == -1) return;
+    final result = await _getVideoUrl(quality);
+    if (result case Success(:final response)) {
+      data.dash!.video!.merge(response.dash?.video);
+    }
+  }
+
   Volume? volume;
 
   Future<void> _syncNetworkProfile() async {
@@ -1076,19 +1103,13 @@ class VideoDetailController extends GetxController
       }
       await _syncNetworkProfile();
 
-      final result = await VideoHttp.videoUrl(
-        cid: cid.value,
-        bvid: bvid,
-        epid: epId,
-        seasonId: seasonId,
-        tryLook: plPlayerController.tryLook,
-        videoType: _actualVideoType ?? videoType,
-        language: currLang.value,
-        voiceBalance: plPlayerController.enableAudioNormalization,
-      );
+      final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
 
       if (result case Success(:final response)) {
         data = response;
+        if (data.dash != null) {
+          await _supplementVideoQualities();
+        }
 
         languages.value = data.language?.items;
         currLang.value = data.curLanguage;
@@ -1117,11 +1138,12 @@ class VideoDetailController extends GetxController
             displayTime: const Duration(seconds: 3),
           );
         }
+
         if (data.dash == null) {
           if (data.durl case final durl?) {
             _selectLegacyStreams(durl);
 
-            // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理
+            // 实际为 FLV/MP4 格式，仅作为 DASH 不可用时的兜底。
             final videoQuality = VideoQuality.fromCode(data.quality!);
             firstVideo = VideoItem(
               id: data.quality!,
@@ -1134,16 +1156,17 @@ class VideoDetailController extends GetxController
             currentVideoQa.value = videoQuality;
             await _initPlayerIfNeeded(autoFullScreenFlag);
             return;
-          } else {
-            SmartDialog.showToast('视频资源不存在');
-            _autoPlay.value = false;
-            videoState.value = false;
-            if (plPlayerController.isFullScreen.value) {
-              plPlayerController.triggerFullScreen(status: false);
-            }
-            return;
           }
+
+          SmartDialog.showToast('视频资源不存在');
+          _autoPlay.value = false;
+          videoState.value = false;
+          if (plPlayerController.isFullScreen.value) {
+            plPlayerController.triggerFullScreen(status: false);
+          }
+          return;
         }
+
         hasDashResponse = true;
         _pendingNetworkRefresh = false;
         preferCodecs = plPlayerController.effectivePreferCodecs;

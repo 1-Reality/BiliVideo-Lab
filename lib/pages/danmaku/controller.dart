@@ -7,6 +7,7 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/danmaku_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:path/path.dart' as path;
@@ -29,15 +30,9 @@ class PlDanmakuController {
   // 已请求的段落标记
   late final Set<int> _requestedSeg = HashSet();
 
-  static const int segmentLength = 60 * 6 * 1000;
-
   void dispose() {
     _dmSegMap.clear();
     _requestedSeg.clear();
-  }
-
-  static int calcSegment(int progress) {
-    return progress ~/ segmentLength;
   }
 
   Future<void> queryDanmaku(int segmentIndex) async {
@@ -99,7 +94,7 @@ class PlDanmakuController {
     if (_isFileSource) {
       initFileDmIfNeeded();
     } else {
-      final int segmentIndex = calcSegment(progress);
+      final int segmentIndex = DmUtils.calcSegment(progress);
       if (!_requestedSeg.contains(segmentIndex)) {
         queryDanmaku(segmentIndex);
         return null;

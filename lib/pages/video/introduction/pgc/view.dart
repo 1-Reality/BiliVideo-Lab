@@ -18,9 +18,9 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PgcIntroPage extends StatefulWidget {
   final int? cid;
