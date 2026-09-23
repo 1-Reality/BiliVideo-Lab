@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/http/fav.dart';
 import 'package:PiliBro/http/loading_state.dart';
@@ -9,6 +11,7 @@ import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
 import 'package:PiliBro/pages/common/common_list_controller.dart';
 import 'package:PiliBro/pages/common/multi_select/base.dart';
 import 'package:PiliBro/pages/common/multi_select/multi_select_controller.dart';
+import 'package:PiliBro/pages/common/page_order_mixin.dart';
 import 'package:PiliBro/pages/fav_sort/view.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
@@ -75,7 +78,7 @@ mixin BaseFavController
 
 class FavDetailController
     extends MultiSelectController<FavDetailData, FavDetailItemModel>
-    with BaseFavController {
+    with BaseFavController, PageOrderMixin {
   @override
   late int mediaId;
   late String heroTag;
@@ -98,6 +101,14 @@ class FavDetailController
   }
 
   @override
+  int get count => folderInfo.value.mediaCount;
+
+  @override
+  int get ps => _ps;
+
+  static const _ps = 20;
+
+  @override
   void onInit() {
     super.onInit();
 
@@ -112,7 +123,11 @@ class FavDetailController
 
   @override
   List<FavDetailItemModel>? getDataList(FavDetailData response) {
-    if (response.hasMore == false) {
+    if (pageDesc) {
+      if (page == 1) {
+        isEnd = true;
+      }
+    } else if (response.hasMore == false) {
       isEnd = true;
     }
     return response.medias;
@@ -145,7 +160,7 @@ class FavDetailController
   Future<LoadingState<FavDetailData>> customGetData() =>
       FavHttp.userFavFolderDetail(
         pn: page,
-        ps: 20,
+        ps: _ps,
         mediaId: mediaId,
         order: order.value,
       );
@@ -194,7 +209,7 @@ class FavDetailController
     final res = await FavHttp.cleanFav(mediaId: mediaId);
     if (res.isSuccess) {
       SmartDialog.showToast('清除成功');
-      Future.delayed(const Duration(milliseconds: 200), onReload);
+      Timer(const Duration(milliseconds: 200), onReload);
     } else {
       res.toast();
     }

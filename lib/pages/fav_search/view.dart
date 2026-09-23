@@ -8,8 +8,8 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavSearchPage extends StatefulWidget {
   const FavSearchPage({super.key});

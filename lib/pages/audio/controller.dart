@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
@@ -16,13 +17,13 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart'
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models/common/audio_normalization.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/models/video/play/url.dart' as http_model show Volume;
 import 'package:PiliBro/pages/common/common_intro_controller.dart'
     show FavMixin;
 import 'package:PiliBro/pages/dynamics_repost/view.dart';
 import 'package:PiliBro/pages/main_reply/view.dart';
-import 'package:PiliBro/pages/setting/models/play_settings.dart'
-    show kMaxVolume;
 import 'package:PiliBro/pages/sponsor_block/block_mixin.dart';
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/widgets/triple_mixin.dart';
@@ -32,6 +33,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
@@ -57,7 +59,8 @@ class AudioController extends GetxController
         TripleMixin,
         FavMixin,
         BlockConfigMixin,
-        BlockMixin {
+        BlockMixin,
+        AudioNormalizationMixin {
   late Int64 id;
   late Int64 oid;
   late List<Int64> subId;
@@ -91,6 +94,14 @@ class AudioController extends GetxController
 
   late double speed = 1.0;
 
+  void setSpeed(double value) {
+    if (player case final player?) {
+      speed = value;
+      player.setRate(value);
+      _updatePlaybackState();
+    }
+  }
+
   late final Rx<PlayRepeat> playMode = Pref.audioPlayMode.obs;
 
   @override
@@ -107,6 +118,21 @@ class AudioController extends GetxController
 
   double? _lastVolume;
   late final RxDouble desktopVolume = RxDouble(Pref.desktopVolume);
+
+  Timer? _statusTimer;
+
+  void _startStatusTimer() {
+    _statusTimer?.cancel();
+    _statusTimer = Timer(
+      const Duration(milliseconds: 500),
+      _updatePlaybackState,
+    );
+  }
+
+  void _stopStatusTimer() {
+    _statusTimer?.cancel();
+    _statusTimer = null;
+  }
 
   void toggleVolume() {
     if (_lastVolume == null) {
@@ -160,7 +186,12 @@ class AudioController extends GetxController
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
       _querySponsorBlock();
-      _onOpenMedia(audioUrl, ua: BrowserUa.pc, referer: HttpString.baseUrl);
+      _onOpenMedia(
+        audioUrl,
+        ua: BrowserUa.pc,
+        referer: HttpString.baseUrl,
+        volume: _videoDetailController?.volume,
+      );
     }
     ConnectivityUtils.resolveForPlayback().then((profile) {
       if (isClosed) return;
@@ -204,6 +235,7 @@ class AudioController extends GetxController
   }
 
   Future<void>? onSeek(Duration duration) {
+    _updatePlaybackState(position: duration);
     return player?.seek(duration);
   }
 
@@ -308,6 +340,19 @@ class AudioController extends GetxController
   Future<void> _onPlay(PlayURLResp data, {bool autoplay = true}) async {
     final PlayInfo? playInfo = data.playerInfo.values.firstOrNull;
     if (playInfo != null) {
+      http_model.Volume? volume;
+      if (playInfo.hasVolume()) {
+        final volumeInfo = playInfo.volume;
+        volume = http_model.Volume(
+          measuredI: volumeInfo.measuredI,
+          measuredLra: volumeInfo.measuredLra,
+          measuredTp: volumeInfo.measuredTp,
+          measuredThreshold: volumeInfo.measuredThreshold,
+          targetOffset: volumeInfo.targetOffset,
+          targetI: volumeInfo.targetI,
+          targetTp: volumeInfo.targetTp,
+        );
+      }
       if (playInfo.hasPlayDash()) {
         final playDash = playInfo.playDash;
         final audios = playDash.audio;
@@ -321,6 +366,7 @@ class AudioController extends GetxController
         );
         await _onOpenMedia(
           VideoUtils.getCdnUrl(audio.playUrls),
+          volume: volume,
           autoplay: autoplay,
         );
       } else if (playInfo.hasPlayUrl()) {
@@ -333,6 +379,7 @@ class AudioController extends GetxController
         if (_start == null) position.value = 0;
         await _onOpenMedia(
           VideoUtils.getCdnUrl(durl.playUrls),
+          volume: volume,
           autoplay: autoplay,
         );
       }
@@ -343,9 +390,11 @@ class AudioController extends GetxController
     String url, {
     String ua = Constants.userAgentApp,
     String? referer,
+    http_model.Volume? volume,
     bool autoplay = true,
   }) async {
     await _initPlayerIfNeeded();
+    final extras = audioFilterExtras(volume);
     final player = this.player;
     if (player != null) {
       player.setMediaHeader(
@@ -353,7 +402,10 @@ class AudioController extends GetxController
         // mpv cannot clear referer option
         headers: {'Referer': ?referer},
       );
-      await player.open(Media(url, start: _start), play: autoplay);
+      await player.open(
+        Media(url, start: _start, extras: extras),
+        play: autoplay,
+      );
     }
     _start = null;
   }
@@ -377,6 +429,18 @@ class AudioController extends GetxController
     await _queryPlayUrl(autoplay: player.state.playing);
   }
 
+  PlayerStatus _playerStatus = .paused;
+  void _updatePlaybackState({Duration? position, String? debugLabel}) {
+    videoPlayerServiceHandler?.onUpdateState(
+      _playerStatus,
+      false,
+      false,
+      position: position ?? player!.state.position,
+      speed: speed,
+      debugLabel: debugLabel,
+    );
+  }
+
   Future<void> _initPlayerIfNeeded() async {
     if (_hasInit) return;
     _hasInit = true;
@@ -384,10 +448,10 @@ class AudioController extends GetxController
     player = await Player.create(
       configuration: PlayerConfiguration(
         options: {
+          if (Platform.isAndroid) 'ao': Pref.audioOutput,
           'volume': PlatformUtils.isDesktop
               ? (desktopVolume.value * 100).toString()
               : Pref.playerVolume.toString(),
-          'volume-max': kMaxVolume.toString(),
           ...Pref.initBuffer(),
         },
       ),
@@ -403,33 +467,39 @@ class AudioController extends GetxController
         if (isDragging) return;
         final seconds = position.inSeconds;
         if (seconds != this.position.value) {
+          if (seconds == 0 && _playerStatus.isPlaying) {
+            _updatePlaybackState(position: position);
+          }
           this.position.value = seconds;
           _videoDetailController?.playedTime = position;
-          videoPlayerServiceHandler?.onPositionChange(position);
         }
       }),
       stream.duration.listen((duration) {
         this.duration.value = duration.inSeconds;
       }),
       stream.playing.listen((playing) {
-        final PlayerStatus playerStatus;
         if (playing) {
           animController.forward();
-          playerStatus = PlayerStatus.playing;
+          _playerStatus = .playing;
+          _stopStatusTimer();
+          _updatePlaybackState();
         } else {
           animController.reverse();
-          playerStatus = PlayerStatus.paused;
+          _playerStatus = .paused;
+          _startStatusTimer();
         }
-        videoPlayerServiceHandler?.onStatusChange(playerStatus, false, false);
+      }),
+      stream.buffering.listen((bool buffering) {
+        if (!_playerStatus.isCompleted) {
+          _stopStatusTimer();
+          _updatePlaybackState();
+        }
       }),
       stream.completed.listen((completed) {
         _videoDetailController?.playedTime = player!.state.duration;
-        videoPlayerServiceHandler?.onStatusChange(
-          PlayerStatus.completed,
-          false,
-          false,
-        );
         if (completed) {
+          _playerStatus = .completed;
+          _startStatusTimer();
           if (shutdownTimerService.isWaiting) {
             shutdownTimerService.handleWaiting();
           } else {
@@ -603,7 +673,7 @@ class AudioController extends GetxController
             child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
             onPressed: () {
               Get.back();
-              PageUtils.launchURL(audioUrl);
+              PiliAndroidHelper.openUrl(audioUrl);
             },
           ),
           if (PlatformUtils.isMobile)
@@ -746,13 +816,6 @@ class AudioController extends GetxController
     });
   }
 
-  void setSpeed(double speed) {
-    if (player case final player?) {
-      this.speed = speed;
-      player.setRate(speed);
-    }
-  }
-
   @override
   (Object, int) get getFavRidType => (oid, isUgc ? 2 : 12);
 
@@ -824,6 +887,7 @@ class AudioController extends GetxController
 
   @override
   void onClose() {
+    _stopStatusTimer();
     shutdownTimerService
       ..onPause = null
       ..isPlaying = null

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliBro/common/style.dart';
@@ -21,9 +22,9 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
 class DetailItem extends StatelessWidget {
@@ -123,7 +124,7 @@ class DetailItem extends StatelessWidget {
               },
             );
             if (context.mounted) {
-              Future.delayed(const Duration(milliseconds: 400), () {
+              Timer(const Duration(milliseconds: 400), () {
                 if (context.mounted) {
                   // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
                   progress?.notifyListeners();

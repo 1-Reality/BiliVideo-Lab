@@ -75,10 +75,10 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart' show FocusNode;
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 class VideoDetailPageV extends StatefulWidget {
@@ -438,7 +438,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     videoDetailController
       ..videoState.value = false
       ..cancelBlockListener()
-      ..playerStatus = plPlayerController?.playerStatus.value
+      ..playerStatus = plPlayerController?.playerStatus
       ..brightness = plPlayerController?.brightness.value;
     if (plPlayerController != null) {
       videoDetailController.makeHeartBeat();

@@ -6,8 +6,8 @@ import 'package:PiliBro/models/model_hot_video_item.dart';
 import 'package:PiliBro/pages/rank/zone/controller.dart';
 import 'package:PiliBro/pages/rank/zone/widget/pgc_rank_item.dart';
 import 'package:PiliBro/utils/grid.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ZonePage extends StatefulWidget {
   const ZonePage({super.key, this.rid, this.seasonType});

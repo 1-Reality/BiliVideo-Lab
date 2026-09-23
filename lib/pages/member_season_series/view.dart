@@ -1,5 +1,6 @@
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/scroll_physics.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models/common/member/contribute_type.dart';
@@ -46,6 +47,7 @@ class _SeasonSeriesPageState extends State<SeasonSeriesPage>
   Widget build(BuildContext context) {
     super.build(context);
     return CustomScrollView(
+      physics: platformAlwaysClampingPhysics,
       slivers: [
         SliverPadding(
           padding: EdgeInsets.only(

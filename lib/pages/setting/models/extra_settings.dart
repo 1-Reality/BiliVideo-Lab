@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:io' show Platform, Directory;
 import 'dart:math' show max;
 
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/common/widgets/emote_tooltip.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
 import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
@@ -28,9 +29,9 @@ import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
@@ -46,12 +47,12 @@ import 'package:PiliBro/utils/update.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 
 List<SettingsModel> get extraSettings => [
   if (PlatformUtils.isDesktop) ...[
@@ -72,7 +73,15 @@ List<SettingsModel> get extraSettings => [
       leading: const Icon(Icons.storage),
       onTap: _showDownPathDialog,
     ),
-  ],
+  ] else if (Platform.isAndroid)
+    SwitchModel(
+      title: '允许三方APP访问私有存储',
+      subtitle: '允许三方APP（例如MT管理器）通过访问外部存储的方式访问私有存储下的文件',
+      leading: const Icon(Icons.storage),
+      setKey: SettingBoxKey.enableDocProvider,
+      defaultVal: Pref.enableDocProvider,
+      onChanged: AndroidHelper.updateDocProvider,
+    ),
   SplitModel(
     normalModel: const NormalModel.split(
       title: '空降助手',
@@ -341,6 +350,13 @@ List<SettingsModel> get extraSettings => [
     onChanged: (value) => PendantAvatar.showDecorate = value,
   ),
   SwitchModel(
+    title: '点击表情显示 Tooltip',
+    leading: const Icon(Icons.emoji_emotions_outlined),
+    setKey: SettingBoxKey.enableEmoteTooltip,
+    defaultVal: false,
+    onChanged: (value) => enableEmoteTooltip = value,
+  ),
+  SwitchModel(
     title: '显示粉丝勋章',
     leading: const Icon(MdiIcons.medalOutline),
     setKey: SettingBoxKey.showMedal,
@@ -561,7 +577,7 @@ List<SettingsModel> get extraSettings => [
   NormalModel(
     title: '评论展示',
     leading: const Icon(Icons.whatshot_outlined),
-    getSubtitle: () => '当前优先展示「${Pref.replySortType.title}」',
+    getSubtitle: () => '当前优先展示「${Pref.replySortType.desc}」',
     onTap: _showReplySortDialog,
   ),
   NormalModel(
@@ -703,7 +719,7 @@ Future<void> audioNormalization(
                 Get.back();
                 GStorage.setting.put(key, param);
                 if (!fallback &&
-                    PlPlayerController.loudnormRegExp.hasMatch(param)) {
+                    AudioNormalization.loudnormRegExp.hasMatch(param)) {
                   audioNormalization(context, setState, fallback: true);
                 }
                 setState();
@@ -733,6 +749,13 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
         DialogOption(
           onPressed: () {
             Get.back();
+            PathUtils.openDir(downloadPath);
+          },
+          child: const Text('打开'),
+        ),
+        DialogOption(
+          onPressed: () {
+            Get.back();
             Utils.copyText(downloadPath);
           },
           child: const Text('复制', style: TextStyle(fontSize: 14)),
@@ -752,7 +775,11 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
         DialogOption(
           onPressed: () async {
             Get.back();
-            final path = await FilePicker.getDirectoryPath();
+            final path = await FilePicker.getDirectoryPath(
+              initialDirectory: Directory(downloadPath).existsSync()
+                  ? downloadPath
+                  : null,
+            );
             if (path == null || path == downloadPath) return;
             downloadPath = path;
             setState();
@@ -1083,7 +1110,7 @@ Future<void> _showReplySortDialog(
     builder: (context) => SelectDialog<ReplySortType>(
       title: '评论展示',
       value: Pref.replySortType,
-      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
+      values: ReplySortType.values.take(2).map((e) => (e, e.desc)).toList(),
     ),
   );
   if (res != null) {

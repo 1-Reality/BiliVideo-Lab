@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/user.dart';
-import 'package:PiliBro/main.dart';
+import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/account_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
@@ -12,6 +12,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:collection/collection.dart';
+import 'package:PiliBro/utils/linux_cookie_manager.dart';
 import 'package:crypto/crypto.dart' show Digest;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -19,19 +20,16 @@ import 'package:get/get.dart';
 
 abstract final class LoginUtils {
   static FutureOr setWebCookie([Account? account]) {
-    if (Platform.isLinux) {
-      return null;
-    }
+    if (Platform.isLinux) return null;
     final cookies = (account ?? Accounts.main).cookieJar.toList();
     final webManager = web.CookieManager.instance(
       webViewEnvironment: webViewEnvironment,
     );
-    final isWindows = Platform.isWindows;
     return Future.wait(
       cookies.map(
         (cookie) => webManager.setCookie(
           url: web.WebUri(
-            '${isWindows ? 'https://' : ''} ${cookie.domain}',
+            '${Platform.isWindows ? 'https://' : ''}${cookie.domain}',
           ),
           name: cookie.name,
           value: cookie.value,
@@ -86,7 +84,9 @@ abstract final class LoginUtils {
       ..isLogin.value = false;
 
     return Future.wait([
-      if (!Platform.isLinux)
+      if (Platform.isLinux)
+        LinuxCookieManager.deleteAllCookies()
+      else
         web.CookieManager.instance(
           webViewEnvironment: webViewEnvironment,
         ).deleteAllCookies(),

@@ -30,6 +30,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
@@ -44,9 +45,9 @@ import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class UgcIntroController extends CommonIntroController with ReloadMixin {
   late final RxBool expand;
@@ -320,8 +321,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   @override
   void actionShareVideo(BuildContext context) {
     final videoDetail = this.videoDetail.value;
-    final playedTimePos = videoDetailCtr.playedTimePos;
-    String videoUrl = '${HttpString.baseUrl}/video/$bvid';
+    final cid = this.cid.value;
+    final partIndex = videoDetail.pages?.indexWhere((e) => e.cid == cid);
+    final addIndex = partIndex != null && partIndex > 0;
+    final playedTimePos = videoDetailCtr.playedTimePos(addIndex);
+    final videoUrl =
+        '${HttpString.baseUrl}/video/$bvid/${addIndex ? '?p=${partIndex + 1}' : ''}';
     showDialog(
       context: context,
       builder: (_) => SimpleDialog(
@@ -357,7 +362,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             ),
             onTap: () {
               Get.back();
-              PageUtils.launchURL(videoUrl);
+              PiliAndroidHelper.openUrl(videoUrl);
             },
           ),
           if (PlatformUtils.isMobile)
@@ -481,7 +486,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           followStatus
             ..value.attribute = attribute
             ..refresh();
-          Future.delayed(const Duration(milliseconds: 500), queryFollowStatus);
+          Timer(const Duration(milliseconds: 500), queryFollowStatus);
         },
       );
     }

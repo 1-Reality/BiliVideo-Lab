@@ -10,10 +10,10 @@ import 'package:PiliBro/pages/common/multi_select/base.dart'
 import 'package:PiliBro/pages/download/detail/widgets/item.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/grid.dart';
-import 'package:material_ui/material_ui.dart'
-    hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart'
+    hide SliverGridDelegateWithMaxCrossAxisExtent;
 
 class DownloadingPage extends StatefulWidget {
   const DownloadingPage({super.key});

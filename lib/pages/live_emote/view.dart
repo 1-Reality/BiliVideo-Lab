@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:PiliBro/common/widgets/custom_tooltip.dart';
+import 'package:PiliBro/common/widgets/emote_tooltip.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliBro/common/widgets/scroll_physics.dart'
@@ -51,12 +51,7 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
   }
 
   Widget _buildBody(LoadingState<List<LiveEmoteDatum>?> loadingState) {
-    final theme = Theme.of(context);
-    final color = ElevationOverlay.colorWithOverlay(
-      theme.colorScheme.surface,
-      theme.hoverColor,
-      2,
-    );
+    late final theme = Theme.of(context);
     return switch (loadingState) {
       Loading() => m3eLoading,
       Success(:final response) =>
@@ -83,11 +78,7 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                           final height = heightFac * 38;
                           return GridView.builder(
                             physics: platformClampingPhysics,
-                            padding: const EdgeInsets.only(
-                              left: 12,
-                              right: 12,
-                              bottom: 12,
-                            ),
+                            padding: const .all(12),
                             gridDelegate:
                                 SliverGridDelegateWithMaxCrossAxisExtent(
                                   maxCrossAxisExtent: widthFac * 40,
@@ -111,46 +102,13 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                                       widget.onSendEmoticonUnique(e);
                                     }
                                   },
-                                  child: CustomTooltip(
-                                    indicator: () => Triangle(
-                                      color: color,
-                                      size: const Size(14, 8),
-                                    ),
-                                    overlayWidget: () => Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        borderRadius: const BorderRadius.all(
-                                          Radius.circular(8),
-                                        ),
-                                      ),
-                                      child: Column(
-                                        spacing: 4,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          NetworkImgLayer(
-                                            src: e.url,
-                                            width: 65,
-                                            height: 65,
-                                            type: ImageType.emote,
-                                            fit: BoxFit.contain,
-                                          ),
-                                          Text(
-                                            e.emoji == null
-                                                ? ''
-                                                : e.emoji!.startsWith('[')
-                                                ? e.emoji!.substring(
-                                                    1,
-                                                    e.emoji!.length - 1,
-                                                  )
-                                                : e.emoji!,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  child: emoteTooltipBuilder(
+                                    enable: true,
+                                    size: 70,
+                                    colorScheme: theme.colorScheme,
+                                    url: e.url,
+                                    emote: e.emoji,
+                                    triggerMode: kTriggerMode,
                                     child: Padding(
                                       padding: const EdgeInsets.all(6),
                                       child: NetworkImgLayer(

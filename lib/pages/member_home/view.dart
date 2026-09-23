@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/button/more_btn.dart';
 import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliBro/common/widgets/scroll_physics.dart'
+    show platformAlwaysClampingPhysics;
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models_new/space/space/data.dart';
 import 'package:PiliBro/models_new/space/space/tab2.dart';
@@ -72,6 +74,7 @@ class _MemberHomeState extends State<MemberHome>
       Success(response: final res) =>
         res != null
             ? CustomScrollView(
+                physics: platformAlwaysClampingPhysics,
                 slivers: [
                   if (res.archive?.item?.isNotEmpty == true) ...[
                     _header(

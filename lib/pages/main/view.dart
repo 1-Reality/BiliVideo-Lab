@@ -13,7 +13,6 @@ import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/pages/home/view.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
-import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
@@ -73,8 +72,8 @@ class _MainAppState extends PopScopeState<MainApp>
         trayManager.addListener(this);
         _handleTray();
       }
-    } else {
-      // FlutterSmartDialog throws
+    }
+    if (!Platform.isMacOS) {
       PiliScheme.init();
     }
   }
@@ -254,19 +253,29 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  double? _opacity;
+
+  Future<void>? _setOpacity(double opacity) {
+    if (Platform.isWindows && _opacity != opacity) {
+      _opacity = opacity;
+      return windowManager.setOpacity(opacity);
+    }
+    return null;
+  }
+
+  @override
+  Future<void>? onWindowFocus() {
+    return _setOpacity(1.0);
+  }
+
   /// https://github.com/leanflutter/window_manager/issues/571
   Future<void> _hide() async {
-    if (Platform.isWindows) {
-      await windowManager.setOpacity(0.0);
-    }
+    await _setOpacity(0.0);
     await windowManager.hide();
   }
 
-  Future<void> _show() async {
-    if (Platform.isWindows) {
-      await windowManager.setOpacity(1.0);
-    }
-    await windowManager.show();
+  Future<void> _show() {
+    return windowManager.show();
   }
 
   @override
@@ -533,11 +542,7 @@ class _MainAppState extends PopScopeState<MainApp>
           child: bottomNav,
         );
       }
-      padding = .only(
-        top: _padding.top,
-        left: _padding.left,
-        right: _padding.right,
-      );
+      padding = _padding.copyWith(bottom: 0);
     } else {
       sideBar = DecoratedBox(
         decoration: BoxDecoration(

@@ -3,6 +3,7 @@ import 'dart:convert' show utf8, jsonDecode, jsonEncode;
 
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/storage_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
@@ -13,7 +14,6 @@ import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_ui/material_ui.dart';
 import 'package:pretty_qr_code/pretty_qr_code.dart';
 import 'package:re_highlight/languages/json.dart';
@@ -35,7 +35,7 @@ void exportToLocalFile({
   StorageUtils.saveBytes2File(
     name:
         'pilibro_${localFileName()}_'
-        '${DateFormat('yyyyMMddHHmmss').format(DateTime.now())}.json',
+        '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
     bytes: res,
     allowedExtensions: const ['json'],
   );

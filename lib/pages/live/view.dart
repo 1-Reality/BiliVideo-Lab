@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_card_v.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/button/icon_button.dart';
 import 'package:PiliBro/common/widgets/button/more_btn.dart';
@@ -19,9 +20,9 @@ import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:material_ui/material_ui.dart';
 
 class LivePage extends StatefulWidget {
   const LivePage({super.key});
@@ -185,10 +186,12 @@ class _LivePageState extends State<LivePage>
 
   Widget _buildBody(ThemeData theme, LoadingState<List?> loadingState) {
     return switch (loadingState) {
-      Loading() => SliverGrid.builder(
+      Loading() => SliverGrid(
         gridDelegate: gridDelegate,
-        itemBuilder: (context, index) => const VideoCardVSkeleton(),
-        itemCount: 10,
+        delegate: const SliverSingleChildDelegate(
+          child: VideoCardVSkeleton(),
+          count: 10,
+        ),
       ),
       Success(:final response) => SliverMainAxisGroup(
         slivers: [

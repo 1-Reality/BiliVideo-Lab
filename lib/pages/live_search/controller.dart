@@ -4,8 +4,8 @@ import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class LiveSearchController extends GetxController
     with GetSingleTickerProviderStateMixin {

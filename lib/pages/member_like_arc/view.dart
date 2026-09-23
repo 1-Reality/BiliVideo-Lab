@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_card_v.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
@@ -10,8 +11,8 @@ import 'package:PiliBro/pages/member_like_arc/controller.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MemberLikeArcPage extends StatefulWidget {
   const MemberLikeArcPage({
@@ -79,10 +80,12 @@ class _MemberLikeArcPageState extends State<MemberLikeArcPage> {
 
   Widget _buildBody(LoadingState<List<CoinLikeArcItem>?> loadingState) {
     return switch (loadingState) {
-      Loading() => SliverGrid.builder(
+      Loading() => SliverGrid(
         gridDelegate: gridDelegate,
-        itemCount: 16,
-        itemBuilder: (context, index) => const VideoCardVSkeleton(),
+        delegate: const SliverSingleChildDelegate(
+          count: 16,
+          child: VideoCardVSkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

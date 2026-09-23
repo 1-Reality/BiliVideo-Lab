@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/whisper_item.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
@@ -10,9 +11,9 @@ import 'package:PiliBro/services/comment_helper_service.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/extension/three_dot_ext.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class WhisperPage extends StatefulWidget {
   const WhisperPage({super.key});
@@ -142,9 +143,12 @@ class _WhisperPageState extends State<WhisperPage> {
   Widget _buildBody(LoadingState<List<Session>?> loadingState) {
     switch (loadingState) {
       case Loading():
-        return SliverList.builder(
-          itemCount: 12,
-          itemBuilder: (context, index) => const WhisperItemSkeleton(),
+        return const SliverPrototypeExtentList(
+          prototypeItem: WhisperItemSkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 12,
+            child: WhisperItemSkeleton(),
+          ),
         );
       case Success(:final response):
         if (response != null && response.isNotEmpty) {

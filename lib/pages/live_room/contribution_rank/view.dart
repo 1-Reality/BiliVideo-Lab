@@ -13,8 +13,8 @@ import 'package:PiliBro/utils/color_utils.dart';
 import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ContributionRankPanel extends StatefulWidget {
   const ContributionRankPanel({

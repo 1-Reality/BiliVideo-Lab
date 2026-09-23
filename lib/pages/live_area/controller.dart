@@ -4,9 +4,9 @@ import 'package:PiliBro/models_new/live/live_area_list/area_item.dart';
 import 'package:PiliBro/models_new/live/live_area_list/area_list.dart';
 import 'package:PiliBro/pages/common/common_list_controller.dart';
 import 'package:PiliBro/utils/accounts.dart';
-import 'package:material_ui/material_ui.dart' show TabController;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart' show TabController;
 
 class LiveAreaController extends CommonListController<List<AreaList>?, AreaList>
     with GetSingleTickerProviderStateMixin {

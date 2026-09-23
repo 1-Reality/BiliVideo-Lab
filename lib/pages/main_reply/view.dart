@@ -1,4 +1,5 @@
 import 'package:PiliBro/common/skeleton/video_reply.dart';
+import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
@@ -112,10 +113,12 @@ class _MainReplyPageState extends State<MainReplyPage>
     LoadingState<List<ReplyInfo>?> loadingState,
   ) {
     return switch (loadingState) {
-      Loading() => SliverPrototypeExtentList.builder(
-        itemCount: 10,
-        itemBuilder: (_, _) => const VideoReplySkeleton(),
-        prototypeItem: const VideoReplySkeleton(),
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 10,
+          child: VideoReplySkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty
@@ -195,7 +198,7 @@ class _MainReplyPageState extends State<MainReplyPage>
               icon: Icon(Icons.sort, size: 16, color: secondary),
               label: Obx(
                 () => Text(
-                  _controller.sortType.value.label,
+                  _controller.sortType.value.descShort,
                   style: TextStyle(fontSize: 13, color: secondary),
                 ),
               ),

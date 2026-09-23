@@ -41,7 +41,6 @@ import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/gesture_type.dart';
-import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/backward_seek.dart';
@@ -56,6 +55,7 @@ import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
+import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/mobile_observer.dart';
@@ -269,6 +269,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           _getCurrVolume();
           FlutterVolumeController.addListener(
             _onVolumeChanged,
+            // The plugin defaults to ambient and overwrites AVAudioSession.
+            // Keep media playback audible regardless of listener/mpv init order.
+            category: AudioSessionCategory.playback,
             emitOnStart: false,
           );
         } catch (_) {}
@@ -653,37 +656,28 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               tooltip: '翻译',
               requestFocus: false,
               initialValue: videoDetailController.currLang.value,
+              onSelected: videoDetailController.setLanguage,
               color: Colors.black.withValues(alpha: 0.8),
-              itemBuilder: (context) {
-                return [
-                  PopupMenuItem<String>(
+              itemBuilder: (context) => [
+                const PopupMenuItem<String>(
+                  height: 35,
+                  value: '',
+                  child: Text(
+                    "关闭翻译",
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+                ...list.map(
+                  (e) => PopupMenuItem<String>(
                     height: 35,
-                    value: '',
-                    onTap: () => videoDetailController.setLanguage(''),
-                    child: const Text(
-                      "关闭翻译",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                      ),
+                    value: e.lang,
+                    child: Text(
+                      e.title!,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
                     ),
                   ),
-                  ...list.map((e) {
-                    return PopupMenuItem<String>(
-                      height: 35,
-                      value: e.lang,
-                      onTap: () => videoDetailController.setLanguage(e.lang!),
-                      child: Text(
-                        e.title!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                      ),
-                    );
-                  }),
-                ];
-              },
+                ),
+              ],
               child: SizedBox(
                 width: widgetWidth,
                 height: 30,
@@ -806,11 +800,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             return const SizedBox.shrink();
           }
           final videoFormat = videoInfo.supportFormats!;
-          final totalQaSam = videoFormat.length;
-          final usefulQaSam = videoInfo.dash!.video!
-              .map((i) => i.id)
-              .toSet()
-              .length;
+          final availableQa = videoInfo.dash!.video!.availableVideoQualities;
           return PopupMenuButton<int>(
             tooltip: '画质',
             requestFocus: false,
@@ -818,10 +808,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             color: Colors.black.withValues(alpha: 0.8),
             itemBuilder: (context) {
               return List.generate(
-                totalQaSam,
+                videoFormat.length,
                 (index) {
                   final item = videoFormat[index];
-                  final enabled = index >= totalQaSam - usefulQaSam;
+                  final enabled = availableQa.contains(item.quality);
                   return PopupMenuItem<int>(
                     enabled: enabled,
                     height: 35,
@@ -977,7 +967,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 
   void _onHorizontalDragStart() {
-    plPlayerController.isSeeking.value = true;
+    plPlayerController.onSeekStart(plPlayerController.position.value);
     _seekScalePerPixel =
         plPlayerController.sliderScale.toDouble() * _inverseMaxWidth;
   }
@@ -985,7 +975,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   void _onHorizontalDragUpdate(double dx) {
     final curPos =
         plPlayerController.seekToPos?.inMilliseconds ??
-        plPlayerController.position.value * 1000;
+        plPlayerController.seekPosition.value * 1000;
     final posDelta = (_seekScalePerPixel * dx).round();
     final rawPos = curPos + posDelta;
     final duration = plPlayerController.durationInMilliseconds;
@@ -997,7 +987,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final seconds = newPos ~/ 1000;
     plPlayerController
       ..seekToPos = Duration(milliseconds: newPos)
-      ..position.value = seconds;
+      ..seekPosition.value = seconds;
     if (!plPlayerController.isFileSource &&
         plPlayerController.showSeekPreview) {
       plPlayerController.updatePreviewIndex(seconds);
@@ -1005,9 +995,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 
   void _onHorizontalDragEnd() {
-    plPlayerController.onSeekEnd();
     if (plPlayerController.seekToPos case final seekToPos?) {
+      feedBack();
       plPlayerController
+        ..position.value = seekToPos.inSeconds
         ..seekTo(seekToPos, isSeek: false)
         ..seekToPos = null;
     } else {
@@ -1015,6 +1006,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           plPlayerController.videoPlayerController?.state.position.inSeconds ??
           0;
     }
+    plPlayerController.onSeekEnd();
   }
 
   void _onPanUpdate(ScaleUpdateDetails details) {
@@ -1079,11 +1071,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           }
           SmartDialog.showAttach(
             targetContext: context,
-            alignment: Alignment.center,
-            animationTime: const Duration(milliseconds: 200),
-            animationType: SmartAnimationType.fade,
-            displayTime: const Duration(milliseconds: 1500),
+            alignment: .center,
+            usePenetrate: true,
+            animationType: .fade,
             maskColor: Colors.transparent,
+            displayTime: const Duration(milliseconds: 1500),
+            animationTime: const Duration(milliseconds: 200),
             builder: (context) => Container(
               padding: const .symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -1272,21 +1265,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     return true;
   }
 
+  /// 鼠标中键/右键全屏切换的挂起项：(进入全屏, 应用内全屏)。
+  /// 在鼠标按下时启动原生全屏过渡会与本次点击重叠，窗口可能卡在半过渡状态
+  /// 导致鼠标事件失效，因此延后到抬起后执行。
+  (bool, bool)? _pendingFullScreenToggle;
+
   void _onPointerDown(PointerDownEvent event) {
     if (PlatformUtils.isDesktop) {
       final buttons = event.buttons;
       final isSecondaryBtn = buttons == kSecondaryMouseButton;
       if (isSecondaryBtn || buttons == kMiddleMouseButton) {
-        final isFullScreen = this.isFullScreen;
-        if (isFullScreen && plPlayerController.controlsLock.value) {
-          plPlayerController
-            ..controlsLock.value = false
-            ..showControls.value = false;
-        }
-        plPlayerController.triggerFullScreen(
-          status: !isFullScreen,
-          inAppFullScreen: isSecondaryBtn,
-        );
+        _pendingFullScreenToggle = (!isFullScreen, isSecondaryBtn);
         return;
       }
     }
@@ -1313,6 +1302,27 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
       _scaleGestureRecognizer.addPointer(event);
     }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    final pending = _pendingFullScreenToggle;
+    if (pending == null || event.buttons != 0) {
+      return;
+    }
+    _pendingFullScreenToggle = null;
+    if (isFullScreen && plPlayerController.controlsLock.value) {
+      plPlayerController
+        ..controlsLock.value = false
+        ..showControls.value = false;
+    }
+    plPlayerController.triggerFullScreen(
+      status: pending.$1,
+      inAppFullScreen: pending.$2,
+    );
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    _pendingFullScreenToggle = null;
   }
 
   void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
@@ -1517,7 +1527,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           Obx(
                             () => Text(
                               DurationUtils.formatDuration(
-                                plPlayerController.position.value,
+                                plPlayerController.seekPosition.value,
                               ),
                               style: textStyle,
                             ),
@@ -1784,7 +1794,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     children: [
                       Obx(
                         () => ProgressBar(
-                          progress: plPlayerController.position.value,
+                          progress: plPlayerController.progress,
                           buffered: plPlayerController.buffered.value,
                           total: plPlayerController.duration.value,
                           progressBarColor: primary,
@@ -1918,7 +1928,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           ),
                           onLongPress:
                               (Platform.isAndroid || kDebugMode) && !isLive
-                              ? screenshotWebp
+                              ? _screenshotWebp
                               : null,
                           onTap: plPlayerController.takeScreenshot,
                         ),
@@ -2085,6 +2095,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
           onPointerPanZoomEnd: _onPointerPanZoomEnd,
           onPointerDown: _onPointerDown,
+          onPointerUp: _onPointerUp,
+          onPointerCancel: _onPointerCancel,
           onPanStart: _onPanStart,
           onPanUpdate: _onPanUpdate,
           onPanEnd: _onPanEnd,
@@ -2125,14 +2137,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     );
   }
 
-  Future<void> screenshotWebp() async {
+  Future<void> _screenshotWebp() async {
     final videoInfo = videoDetailController.data;
-    final ids = videoInfo.dash!.video!.map((i) => i.id!).toSet();
+    final ids = videoInfo.dash!.video!.availableVideoQualities;
     final video = videoDetailController.findVideoByQa(ids.min);
 
-    VideoQuality qa = video.quality;
     String? url = video.baseUrl;
     if (url == null) return;
+    VideoQuality qa = video.quality;
 
     final ctr = plPlayerController;
     final theme = Theme.of(context);

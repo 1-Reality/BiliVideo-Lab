@@ -8,8 +8,8 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliBro/utils/danmaku_utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// 传入播放器控制器，监听播放进度，加载对应弹幕
 class PlDanmaku extends StatefulWidget {
@@ -58,9 +58,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
         _plDanmakuController.initFileDmIfNeeded();
       } else {
         _plDanmakuController.queryDanmaku(
-          PlDanmakuController.calcSegment(
-            playerController.positionInMilliseconds,
-          ),
+          DmUtils.calcSegment(playerController.positionInMilliseconds),
         );
       }
     }

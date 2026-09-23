@@ -17,6 +17,7 @@ import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/device_utils.dart';
@@ -124,7 +125,7 @@ class _AboutPageState extends State<AboutPage> {
         onSubmitted: (value) {
           Get.back();
           if (value.isNotEmpty) {
-            PageUtils.handleWebview(value, inApp: true);
+            PiliScheme.routePushFromUrl(value);
           }
         },
       ),
