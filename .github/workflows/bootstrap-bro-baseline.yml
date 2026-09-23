@@ -41,10 +41,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           BASE_SHA="b32768ef66e158f5372d7151d85a6eaa7e6358d6"
-          BRAND_SHA="5644e4f018675148c9d03d6ad06dd2c69cc44c2c"
-
           echo "base=$BASE_SHA"
-          echo "brand_commit=$BRAND_SHA"
           echo "mainback_before=$(git rev-parse origin/mainback)"
           echo "lab4AI_before=$(git rev-parse origin/lab4AI)"
 
@@ -106,6 +103,7 @@ jobs:
                   text = data.decode('utf-8')
               except UnicodeDecodeError:
                   continue
+
               old = text
               text = norm(text)
 
@@ -123,29 +121,37 @@ jobs:
           PY
           }
 
+          restore_docs_from_lab() {
+            git checkout origin/lab4AI -- README.md LICENSE
+          }
+
           echo '--- create synthetic Bro baseline from the old common ancestor ---'
           git switch --detach "$BASE_SHA"
-          if ! git cherry-pick --no-commit "$BRAND_SHA"; then
-            echo 'Brand commit did not cherry-pick cleanly onto the old common ancestor.'
-            echo 'Unmerged files:'
-            git diff --name-only --diff-filter=U || true
-            git cherry-pick --abort || true
-            exit 1
+          normalize_tree
+          restore_docs_from_lab
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Nothing changed while building synthetic baseline.'
+            BRO_BASE_SHA="$BASE_SHA"
+          else
+            git commit -m "baseline: synthetic PiliBro brand identity" \
+              -m "Synthetic-Base: $BASE_SHA" \
+              -m "README-LICENSE-Source: origin/lab4AI" \
+              -m "Protected-GitHub-Directory: unchanged"
+            BRO_BASE_SHA="$(git rev-parse HEAD)"
           fi
-          git commit -m "baseline: synthetic PiliBro brand identity" \
-            -m "Original-Brand-Commit: $BRAND_SHA" \
-            -m "Synthetic-Base: $BASE_SHA"
-          BRO_BASE_SHA="$(git rev-parse HEAD)"
           echo "bro_base=$BRO_BASE_SHA"
 
           echo '--- merge baseline into mainback and materialize current mainback as Bro ---'
           git switch -C bootstrap-mainback origin/mainback
           git merge -s ours --no-commit "$BRO_BASE_SHA"
           normalize_tree
+          restore_docs_from_lab
           git add -A
           git commit -m "chore: absorb PiliBro brand baseline into mainback" \
             -m "Bro-Baseline: $BRO_BASE_SHA" \
-            -m "Mainback-Before: $(git rev-parse origin/mainback)"
+            -m "Mainback-Before: $(git rev-parse origin/mainback)" \
+            -m "Protected-GitHub-Directory: unchanged"
           MAINBACK_AFTER="$(git rev-parse HEAD)"
           echo "mainback_after=$MAINBACK_AFTER"
           echo 'mainback protected-file diff:'
@@ -156,7 +162,8 @@ jobs:
           git merge -s ours --no-commit "$BRO_BASE_SHA"
           git commit -m "chore: record PiliBro brand baseline" \
             -m "Bro-Baseline: $BRO_BASE_SHA" \
-            -m "Lab4AI-Before: $(git rev-parse origin/lab4AI)"
+            -m "Lab4AI-Before: $(git rev-parse origin/lab4AI)" \
+            -m "Tree-Change: none"
           LAB_AFTER="$(git rev-parse HEAD)"
           echo "lab_after=$LAB_AFTER"
           echo 'lab4AI first-parent diff against previous head:'
@@ -171,8 +178,9 @@ jobs:
             echo '## Bootstrap Bro baseline complete'
             echo
             echo "- old common base: \`$BASE_SHA\`"
-            echo "- original brand commit: \`$BRAND_SHA\`"
             echo "- synthetic Bro baseline: \`$BRO_BASE_SHA\`"
             echo "- mainback after: \`$MAINBACK_AFTER\`"
             echo "- lab4AI after: \`$LAB_AFTER\`"
+            echo "- README / LICENSE: restored from lab4AI"
+            echo "- .github: not changed by this workflow"
           } >> "$GITHUB_STEP_SUMMARY"
