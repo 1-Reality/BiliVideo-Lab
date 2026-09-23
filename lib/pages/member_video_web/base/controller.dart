@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/widgets/scroll_physics.dart' show ReloadMixin;
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliBro/common/widgets/scroll_physics.dart' show ReloadMixin;
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/pages/common/common_list_controller.dart';
 import 'package:get/get.dart';
 
 const int ps = 30;

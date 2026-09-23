@@ -1,15 +1,15 @@
-import 'package:PiliPlus/common/skeleton/video_card_v.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/member/coin_like_arc/item.dart';
-import 'package:PiliPlus/pages/member_coin_arc/controller.dart';
-import 'package:PiliPlus/pages/member_coin_arc/widgets/item.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/grid.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/common/skeleton/video_card_v.dart';
+import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models_new/member/coin_like_arc/item.dart';
+import 'package:PiliBro/pages/member_coin_arc/controller.dart';
+import 'package:PiliBro/pages/member_coin_arc/widgets/item.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/grid.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

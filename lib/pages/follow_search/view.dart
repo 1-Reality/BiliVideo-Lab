@@ -1,9 +1,9 @@
-import 'package:PiliPlus/models_new/follow/data.dart';
-import 'package:PiliPlus/models_new/follow/list.dart';
-import 'package:PiliPlus/pages/common/search/common_search_page.dart';
-import 'package:PiliPlus/pages/follow/widgets/follow_item.dart';
-import 'package:PiliPlus/pages/follow_search/controller.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliBro/models_new/follow/data.dart';
+import 'package:PiliBro/models_new/follow/list.dart';
+import 'package:PiliBro/pages/common/search/common_search_page.dart';
+import 'package:PiliBro/pages/follow/widgets/follow_item.dart';
+import 'package:PiliBro/pages/follow_search/controller.dart';
+import 'package:PiliBro/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 

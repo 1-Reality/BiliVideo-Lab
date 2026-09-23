@@ -1,12 +1,12 @@
-import 'package:PiliPlus/common/widgets/scroll_physics.dart' show ReloadMixin;
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/model_hot_video_item.dart';
-import 'package:PiliPlus/models_new/popular/popular_series_list/list.dart';
-import 'package:PiliPlus/models_new/popular/popular_series_one/config.dart';
-import 'package:PiliPlus/models_new/popular/popular_series_one/data.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/common/widgets/scroll_physics.dart' show ReloadMixin;
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/model_hot_video_item.dart';
+import 'package:PiliBro/models_new/popular/popular_series_list/list.dart';
+import 'package:PiliBro/models_new/popular/popular_series_one/config.dart';
+import 'package:PiliBro/models_new/popular/popular_series_one/data.dart';
+import 'package:PiliBro/pages/common/common_list_controller.dart';
+import 'package:PiliBro/utils/extension/iterable_ext.dart';
 import 'package:get/get.dart';
 
 class PopularSeriesController

@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/live/live_medal_wall/uinfo_medal.dart';
+import 'package:PiliBro/models_new/live/live_medal_wall/uinfo_medal.dart';
 
 class LiveContributionRankItem {
   int? uid;

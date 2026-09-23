@@ -1,19 +1,19 @@
 import 'dart:io' show File, Platform;
 import 'dart:ui' show PlatformDispatcher;
 
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pb.dart' show DetailItem;
-import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
-import 'package:PiliPlus/models_new/live/live_room_info_h5/data.dart';
-import 'package:PiliPlus/models_new/pgc/pgc_info_model/episode.dart';
-import 'package:PiliPlus/models_new/video/video_detail/data.dart';
-import 'package:PiliPlus/models_new/video/video_detail/page.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
-import 'package:PiliPlus/utils/android/bindings.g.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/path_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart' show DetailItem;
+import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliBro/models_new/live/live_room_info_h5/data.dart';
+import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
+import 'package:PiliBro/models_new/video/video_detail/data.dart';
+import 'package:PiliBro/models_new/video/video_detail/page.dart';
+import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/utils/android/bindings.g.dart';
+import 'package:PiliBro/utils/image_utils.dart';
+import 'package:PiliBro/utils/path_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as path;
@@ -22,7 +22,7 @@ Future<VideoPlayerServiceHandler> initAudioService() {
   return AudioService.init(
     builder: VideoPlayerServiceHandler.new,
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'org.BroTech.gege.piliplus.audio',
+      androidNotificationChannelId: 'org.BroTech.gege.pilibro.audio',
       androidNotificationChannelName: 'Audio Service ${Constants.appName}',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,

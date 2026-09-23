@@ -1,7 +1,7 @@
 import 'dart:math';
 
-import 'package:PiliPlus/common/skeleton/video_card_h.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliBro/common/skeleton/video_card_h.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 

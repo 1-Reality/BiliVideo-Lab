@@ -1,11 +1,11 @@
-import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:PiliPlus/common/widgets/video_card/video_card_h.dart';
-import 'package:PiliPlus/models/common/search/video_search_type.dart';
-import 'package:PiliPlus/models/search/result.dart';
-import 'package:PiliPlus/pages/search/widgets/search_text.dart';
-import 'package:PiliPlus/pages/search_panel/video/controller.dart';
-import 'package:PiliPlus/pages/search_panel/view.dart';
-import 'package:PiliPlus/utils/grid.dart';
+import 'package:PiliBro/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:PiliBro/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliBro/models/common/search/video_search_type.dart';
+import 'package:PiliBro/models/search/result.dart';
+import 'package:PiliBro/pages/search/widgets/search_text.dart';
+import 'package:PiliBro/pages/search_panel/video/controller.dart';
+import 'package:PiliBro/pages/search_panel/view.dart';
+import 'package:PiliBro/utils/grid.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 

@@ -1,12 +1,12 @@
-import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/dynamic/dyn_reaction/item.dart';
-import 'package:PiliPlus/pages/common/dyn/common_dyn_page.dart';
-import 'package:PiliPlus/pages/common/dyn/reaction/controller.dart';
+import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
+import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliBro/common/widgets/pendant_avatar.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/models_new/dynamic/dyn_reaction/item.dart';
+import 'package:PiliBro/pages/common/dyn/common_dyn_page.dart';
+import 'package:PiliBro/pages/common/dyn/reaction/controller.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:get/get.dart';
 

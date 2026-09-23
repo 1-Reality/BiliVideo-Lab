@@ -119,7 +119,7 @@ index 7a0461170..da032af1a 100644
 --- a/lib/pages/login/geetest/geetest_webview_dialog.dart
 +++ b/lib/pages/login/geetest/geetest_webview_dialog.dart
 @@ -1,3 +1,5 @@
-+import 'package:PiliPlus/pages/login/geetest/geetest_plugin.dart';
++import 'package:PiliBro/pages/login/geetest/geetest_plugin.dart';
 +
  import 'dart:convert' show base64, jsonDecode, jsonEncode, utf8;
  import 'dart:io' show Platform;

@@ -1,13 +1,13 @@
-import 'package:PiliPlus/models/model_avatar.dart';
-import 'package:PiliPlus/models_new/space/space/achieve.dart';
-import 'package:PiliPlus/models_new/space/space/followings_followed_upper.dart';
-import 'package:PiliPlus/models_new/space/space/level_info.dart';
-import 'package:PiliPlus/models_new/space/space/likes.dart';
-import 'package:PiliPlus/models_new/space/space/live_fans_wearing.dart';
-import 'package:PiliPlus/models_new/space/space/official_verify.dart';
-import 'package:PiliPlus/models_new/space/space/pr_info.dart';
-import 'package:PiliPlus/models_new/space/space/relation.dart';
-import 'package:PiliPlus/models_new/space/space/space_tag.dart';
+import 'package:PiliBro/models/model_avatar.dart';
+import 'package:PiliBro/models_new/space/space/achieve.dart';
+import 'package:PiliBro/models_new/space/space/followings_followed_upper.dart';
+import 'package:PiliBro/models_new/space/space/level_info.dart';
+import 'package:PiliBro/models_new/space/space/likes.dart';
+import 'package:PiliBro/models_new/space/space/live_fans_wearing.dart';
+import 'package:PiliBro/models_new/space/space/official_verify.dart';
+import 'package:PiliBro/models_new/space/space/pr_info.dart';
+import 'package:PiliBro/models_new/space/space/relation.dart';
+import 'package:PiliBro/models_new/space/space/space_tag.dart';
 
 class SpaceCard {
   String? mid;
