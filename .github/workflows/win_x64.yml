@@ -36,6 +36,10 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml
 
+      - name: Use Git OpenSSL TLS backend
+        shell: pwsh
+        run: git config --global http.sslBackend openssl
+
       - name: Add fastforge and Inno Setup
         run: |
           dart pub global activate fastforge

@@ -36,3 +36,38 @@ jobs:
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+  windows-compile:
+    name: Windows compile validation
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Use Git OpenSSL TLS backend
+        shell: pwsh
+        run: git config --global http.sslBackend openssl
+
+      - name: Set and Extract version
+        shell: pwsh
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
+
+      - name: Build Windows
+        shell: pwsh
+        run: flutter build windows --release --dart-define-from-file=pili_release.json --no-pub
