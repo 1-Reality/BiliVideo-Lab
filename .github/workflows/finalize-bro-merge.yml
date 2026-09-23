@@ -93,28 +93,38 @@ jobs:
           MERGE_RC=$?
           set -e
 
-          if [[ "$MERGE_RC" -ne 0 ]]; then
-            echo "===== unresolved files ====="
-            git diff --name-only --diff-filter=U || true
+          # README, LICENSE and .github belong to lab4AI. Restore that subtree exactly,
+          # including deleting files that exist only on Bro.
+          rm -rf README.md LICENSE .github
+          git rm -r --cached --ignore-unmatch README.md LICENSE .github >/dev/null 2>&1 || true
+          git archive "$BEFORE" README.md LICENSE .github | tar -x
+          git add -A README.md LICENSE .github
+
+          echo "===== merge command exit code ====="
+          echo "$MERGE_RC"
+          echo
+          echo "===== unresolved files after auto-resolving protected files ====="
+          REMAINING_CONFLICTS="$(git diff --name-only --diff-filter=U || true)"
+          printf '%s\n' "$REMAINING_CONFLICTS"
+
+          if [[ -n "$REMAINING_CONFLICTS" ]]; then
             {
               echo "## Merge stopped on real conflicts"
               echo
+              echo "Protected files were resolved automatically, but real code conflicts remain."
               echo "No commit was pushed."
               echo
               echo "Unresolved files:"
               echo '~~~'
-              git diff --name-only --diff-filter=U || true
+              printf '%s\n' "$REMAINING_CONFLICTS"
               echo '~~~'
             } >> "$GITHUB_STEP_SUMMARY"
             git merge --abort || true
             exit 1
           fi
 
-          git checkout "$BEFORE" -- README.md LICENSE .github
-          git add -A
-
           if ! git diff --cached --quiet "$BEFORE" -- README.md LICENSE .github; then
-            echo "::error::Protected files still differ after restoration."
+            echo "::error::Protected files still differ after exact restoration."
             git diff --cached --name-status "$BEFORE" -- README.md LICENSE .github || true
             git merge --abort || true
             exit 1
