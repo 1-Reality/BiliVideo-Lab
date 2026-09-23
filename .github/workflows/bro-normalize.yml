@@ -1,0 +1,270 @@
+name: Bro Normalize
+
+on:
+  push:
+    branches:
+      - mainback
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bro-normalize-mainback
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    name: Normalize PiliPlus branding
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout mainback
+        uses: actions/checkout@v7
+        with:
+          ref: mainback
+          fetch-depth: 0
+
+      - name: Decide whether this push should normalize
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent_count=$(git rev-list --parents -n 1 "$GITHUB_SHA" | awk '{print NF-1}')
+          message=$(git log -1 --pretty=%B)
+
+          echo "Commit: $GITHUB_SHA"
+          echo "Parents: $parent_count"
+          echo "Message:"
+          printf '%s\n' "$message"
+
+          if [ "$parent_count" -ge 2 ] || grep -Fq '[bro-normalize]' <<<"$message"; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Normalization enabled for this push."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not a merge commit and no [bro-normalize] marker; nothing to do."
+          fi
+
+      - name: Fetch lab4AI
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin lab4AI:refs/remotes/origin/lab4AI
+          echo "lab4AI: $(git rev-parse origin/lab4AI)"
+          echo "mainback: $(git rev-parse HEAD)"
+
+      - name: Normalize tracked paths and text
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+
+          workflow_path = ".github/workflows/bro-normalize.yml"
+          protected_files = {"README.md", "LICENSE", workflow_path}
+
+          replacements = (
+              ("PiliPlus", "PiliBro"),
+              ("piliplus", "pilibro"),
+              ("PILIPLUS", "PILIBRO"),
+              ("Piliplus", "Pilibro"),
+          )
+
+          def tracked_files():
+              raw = subprocess.check_output(["git", "ls-files", "-z"])
+              return [p.decode("utf-8") for p in raw.split(b"\0") if p]
+
+          def normalize_token(value: str) -> str:
+              for old, new in replacements:
+                  value = value.replace(old, new)
+              return value
+
+          rename_count = 0
+          rename_collisions = []
+
+          # Rename tracked paths first. Work file-by-file so Git can record renames.
+          for src in sorted(tracked_files(), key=lambda p: (p.count("/"), len(p)), reverse=True):
+              if src in protected_files:
+                  continue
+              dst = normalize_token(src)
+              if dst == src:
+                  continue
+
+              src_path = Path(src)
+              dst_path = Path(dst)
+              if dst_path.exists():
+                  rename_collisions.append((src, dst))
+                  print(f"::error file={src}::Cannot rename to {dst}: destination already exists")
+                  continue
+
+              dst_path.parent.mkdir(parents=True, exist_ok=True)
+              subprocess.run(["git", "mv", "--", src, dst], check=True)
+              rename_count += 1
+              print(f"RENAME {src} -> {dst}")
+
+          counts = {old: 0 for old, _ in replacements}
+          changed_files = 0
+
+          # Re-read the index after renames and normalize UTF-8 text only.
+          for rel in tracked_files():
+              if rel in protected_files:
+                  continue
+
+              path = Path(rel)
+              try:
+                  data = path.read_bytes()
+              except FileNotFoundError:
+                  continue
+
+              if b"\0" in data:
+                  continue
+
+              try:
+                  text = data.decode("utf-8")
+              except UnicodeDecodeError:
+                  continue
+
+              original = text
+              for old, new in replacements:
+                  n = text.count(old)
+                  if n:
+                      counts[old] += n
+                      text = text.replace(old, new)
+
+              if text != original:
+                  path.write_text(text, encoding="utf-8", newline="")
+                  changed_files += 1
+
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          with open(summary, "a", encoding="utf-8") as f:
+              f.write("## Bro Normalize\n\n")
+              f.write(f"- Renamed tracked paths: **{rename_count}**\n")
+              f.write(f"- Text files changed: **{changed_files}**\n")
+              for old, _ in replacements:
+                  f.write(f"- Replaced \`{old}\`: **{counts[old]}** occurrences\n")
+              if rename_collisions:
+                  f.write(f"- Rename collisions: **{len(rename_collisions)}**\n")
+
+          print(f"Renamed paths: {rename_count}")
+          print(f"Changed text files: {changed_files}")
+          for old, _ in replacements:
+              print(f"{old}: {counts[old]} replacements")
+          if rename_collisions:
+              print(f"Rename collisions: {len(rename_collisions)}")
+          PY
+
+      - name: Force README and LICENSE from lab4AI
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout origin/lab4AI -- README.md LICENSE
+          echo "::notice::README.md and LICENSE restored from lab4AI $(git rev-parse --short origin/lab4AI)."
+          {
+            echo "- README.md source: \`lab4AI\`"
+            echo "- LICENSE source: \`lab4AI\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show normalized changes
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "===== git status ====="
+          git status --short
+          echo
+          echo "===== diff stat ====="
+          git diff --stat || true
+
+      - name: Commit and push successful normalization
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "::notice::No normalization changes to commit."
+            echo "- Commit: no changes" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git commit -m "chore: normalize PiliPlus branding to PiliBro"
+            git push origin HEAD:mainback
+            new_sha=$(git rev-parse HEAD)
+            echo "::notice::Normalization committed and pushed: $new_sha"
+            echo "- Commit: \`$new_sha\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Audit remaining PiliPlus variants
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          workflow_path = ".github/workflows/bro-normalize.yml"
+          excluded_files = {"README.md", "LICENSE", workflow_path}
+          pattern = re.compile(r"piliplus", re.IGNORECASE)
+
+          raw = subprocess.check_output(["git", "ls-files", "-z"])
+          files = [p.decode("utf-8") for p in raw.split(b"\0") if p]
+
+          issues = []
+
+          for rel in files:
+              if rel in excluded_files:
+                  continue
+
+              if pattern.search(rel):
+                  issues.append((rel, 0, f"tracked path still contains PiliPlus variant: {rel}"))
+
+              path = Path(rel)
+              try:
+                  data = path.read_bytes()
+              except FileNotFoundError:
+                  continue
+
+              if b"\0" in data:
+                  continue
+              try:
+                  text = data.decode("utf-8")
+              except UnicodeDecodeError:
+                  continue
+
+              for line_no, line in enumerate(text.splitlines(), 1):
+                  if pattern.search(line):
+                      snippet = line.strip()
+                      if len(snippet) > 220:
+                          snippet = snippet[:217] + "..."
+                      issues.append((rel, line_no, snippet))
+
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          with open(summary, "a", encoding="utf-8") as f:
+              f.write(f"- Unexpected case-insensitive PiliPlus leftovers: **{len(issues)}**\n")
+
+          if not issues:
+              print("Audit passed: no unexpected PiliPlus variants remain outside README.md, LICENSE, and this workflow.")
+              print("::notice::Bro normalization audit passed.")
+              sys.exit(0)
+
+          print(f"Audit failed: {len(issues)} unexpected PiliPlus occurrence(s) remain.")
+          print("Successful replacements were already committed before this audit.")
+          for rel, line_no, snippet in issues:
+              if line_no:
+                  print(f"::error file={rel},line={line_no}::Unexpected PiliPlus variant: {snippet}")
+              else:
+                  print(f"::error file={rel}::{snippet}")
+
+          sys.exit(1)
+          PY
