@@ -8,6 +8,16 @@ on:
         required: false
         default: ""
         type: string
+      build_number:
+        description: "Build number (0 = auto)"
+        required: false
+        default: "0"
+        type: string
+      include_portable:
+        description: "Create portable ZIP"
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch:
 
 jobs:
@@ -38,11 +48,18 @@ jobs:
 
       - name: Set and Extract version
         shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
         run: lib/scripts/build.ps1
 
       - name: Apply Patch
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
+
+      - name: Apply media_kit decoder lab patch
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_decoder_lab.ps1
 
       - name: Build Windows
         run: |
@@ -50,36 +67,28 @@ jobs:
 
       - name: Prepare Upload
         run: |
-          mkdir -p Release/PiliPlus-Win
-          mkdir -p PiliPlus-Win-Setup
-          mv build/windows/x64/runner/Release/* Release/PiliPlus-Win/
-          mv dist/**/*.exe PiliPlus-Win-Setup/PiliPlus_windows_${{env.version}}_x64_setup.exe
+          mkdir -p Release/PiliBro-Win
+          mkdir -p PiliBro-Win-Setup
+          mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
+          mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
-      - name: Compress
+      - name: Compress portable ZIP
+        if: ${{ inputs.include_portable }}
         run: |
-          Compress-Archive -Path "Release/PiliPlus-Win" -DestinationPath "PiliPlus_windows_${{env.version}}_x64_portable.zip"
+          Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
         shell: pwsh
 
-      - name: Release
-        if: ${{ github.event.inputs.tag != '' }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.tag }}
-          files: |
-            PiliPlus_windows_*.zip
-            PiliPlus-Win-Setup/PiliPlus_windows_*.exe
-
-      - name: Upload windows file release
+      - name: Upload windows portable release
+        if: ${{ inputs.include_portable }}
         uses: actions/upload-artifact@v7
         with:
           archive: false
           name: Windows-file-x64-release
-          path: PiliPlus_windows_*.zip
+          path: PiliBro_windows_*.zip
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7
         with:
           archive: false
           name: Windows-setup-x64-release
-          path: PiliPlus-Win-Setup/PiliPlus_windows_*.exe
+          path: PiliBro-Win-Setup/PiliBro_windows_*.exe
