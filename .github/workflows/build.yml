@@ -178,3 +178,5 @@ jobs:
         permissions: write-all
         with:
             tag: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+# workflow-permission-test: harmless second-parent-only change
