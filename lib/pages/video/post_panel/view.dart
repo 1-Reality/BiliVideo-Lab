@@ -5,6 +5,7 @@ import 'package:PiliBro/common/widgets/button/icon_button.dart';
 import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliBro/common/widgets/pair.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/sponsor_block.dart';
 import 'package:PiliBro/models/common/sponsor_block/action_type.dart';
@@ -15,6 +16,8 @@ import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
+import 'package:PiliBro/utils/extension/context_ext.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -110,33 +113,92 @@ class PostPanel extends CommonSlidePage {
               icon: const Icon(Icons.edit),
               onPressed: () async {
                 String initV = value;
-                final res = await showDialog<String>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    content: TextFormField(
-                      initialValue: value,
-                      autofocus: true,
-                      onChanged: (value) => initV = value,
-                      inputFormatters: _segmentTimeFormatters,
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: Get.back,
-                        child: Text(
-                          '取消',
-                          style: TextStyle(
-                            color: theme.colorScheme.outline,
+                final String? res;
+                final textField = TextFormField(
+                  initialValue: value,
+                  autofocus: true,
+                  textInputAction: .done,
+                  onChanged: (value) => initV = value,
+                  decoration: PlatformUtils.isMobile
+                      ? const InputDecoration(
+                          border: .none,
+                          isDense: true,
+                          contentPadding: .zero,
+                        )
+                      : null,
+                  onFieldSubmitted: (value) => Get.back(result: initV),
+                  inputFormatters: _segmentTimeFormatters,
+                );
+                if (PlatformUtils.isDesktop || context.isTablet) {
+                  res = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      content: textField,
+                      title: Text(
+                        '${isFirst ? '开始' : '结束'}: ',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      contentPadding: const .fromLTRB(24, 6, 24, 16),
+                      actions: [
+                        TextButton(
+                          onPressed: Get.back,
+                          child: Text(
+                            '取消',
+                            style: TextStyle(color: theme.colorScheme.outline),
                           ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () => Get.back(result: initV),
-                        child: const Text('确定'),
-                      ),
-                    ],
-                  ),
-                );
-
+                        TextButton(
+                          onPressed: () => Get.back(result: initV),
+                          child: const Text('确定'),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  res = await showModalBottomSheet<String>(
+                    context: context,
+                    useSafeArea: true,
+                    isScrollControlled: true,
+                    constraints: const BoxConstraints(maxWidth: 450),
+                    builder: (context) {
+                      final colorScheme = ColorScheme.of(context);
+                      return Padding(
+                        padding: const .symmetric(horizontal: 16, vertical: 10),
+                        child: ViewInsetsSafeArea(
+                          child: SafeArea(
+                            bottom: true,
+                            child: Row(
+                              spacing: 10,
+                              mainAxisSize: .min,
+                              children: [
+                                Text('${isFirst ? '开始' : '结束'}: '),
+                                Expanded(child: textField),
+                                iconButton(
+                                  size: 34,
+                                  iconSize: 19,
+                                  tooltip: '取消',
+                                  onPressed: Get.back,
+                                  iconColor: colorScheme.outline,
+                                  bgColor: colorScheme.onInverseSurface,
+                                  icon: const Icon(Icons.clear),
+                                ),
+                                iconButton(
+                                  size: 34,
+                                  iconSize: 19,
+                                  tooltip: '确定',
+                                  onPressed: () => Get.back(result: initV),
+                                  iconColor: colorScheme.onSecondaryContainer,
+                                  bgColor: colorScheme.secondaryContainer,
+                                  icon: const Icon(Icons.check),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
                 if (res != null) {
                   try {
                     double duration = 0;
@@ -456,7 +518,7 @@ class _PostPanelState extends State<PostPanel>
               final player = plPlayerController.videoPlayerController;
               if (player != null) {
                 final start = (item.segment.first * 1000).round();
-                Future<void> seekTo() => player.seek(
+                Future<void> seekTo() => plPlayerController.seek(
                   Duration(milliseconds: (item.segment.second * 1000).round()),
                 );
                 if (start <= 0) {
@@ -467,7 +529,7 @@ class _PostPanelState extends State<PostPanel>
                   return;
                 }
                 final seek = max(0, start - 2000);
-                await player.seek(Duration(milliseconds: seek));
+                await plPlayerController.seek(Duration(milliseconds: seek));
                 if (!player.state.playing) {
                   await player.play();
                 }

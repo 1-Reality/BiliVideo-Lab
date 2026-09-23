@@ -51,10 +51,11 @@ class MainController extends GetxController
   bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
 
+  late final disableLikeMsg = Pref.disableLikeMsg;
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
   late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
-  late final RxString msgUnReadCount = ''.obs;
-  int lastCheckUnreadAt = 0;
+  late final RxnString msgUnReadCount = RxnString(null);
+  late int lastCheckUnreadAt = 0;
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
@@ -137,20 +138,36 @@ class MainController extends GetxController
 
   Future<int> _msgFeedUnread() async {
     int count = 0;
-    if (msgUnReadTypes.any((item) => item != .pm)) {
-      if (await MsgHttp.msgFeedUnread() case Success(:final response)) {
-        for (final item in msgUnReadTypes) {
-          count += switch (item) {
-            .reply => response.reply,
-            .at => response.at,
-            .like => response.like,
-            .sysMsg => response.sysMsg,
-            _ => 0,
-          };
+    final remainTypes = Set<MsgUnReadType>.from(msgUnReadTypes)
+      ..remove(MsgUnReadType.pm);
+    if (remainTypes.isNotEmpty) {
+      final res = await MsgHttp.msgFeedUnread();
+      if (res case Success(:final response)) {
+        for (final item in remainTypes) {
+          switch (item) {
+            case MsgUnReadType.pm:
+              break;
+            case MsgUnReadType.reply:
+              count += response.reply;
+              break;
+            case MsgUnReadType.at:
+              count += response.at;
+              break;
+            case MsgUnReadType.like:
+              if (!disableLikeMsg) count += response.like;
+              break;
+            case MsgUnReadType.sysMsg:
+              count += response.sysMsg;
+              break;
+          }
         }
       }
     }
     return count;
+  }
+
+  void clearUnreadMsg() {
+    msgUnReadCount.value = null;
   }
 
   Future<void> queryUnreadMsg([bool isChangeType = false]) async {
@@ -158,14 +175,14 @@ class MainController extends GetxController
         !hasHome ||
         msgUnReadTypes.isEmpty ||
         msgBadgeMode == DynamicBadgeMode.hidden) {
-      msgUnReadCount.value = '';
+      clearUnreadMsg();
       return;
     }
 
     final count = (await Future.wait([_msgUnread(), _msgFeedUnread()])).sum;
 
     final countStr = count == 0
-        ? ''
+        ? null
         : count > 99
         ? '99+'
         : count.toString();
@@ -217,9 +234,15 @@ class MainController extends GetxController
   void setNavBarConfig() {
     final navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    navigationBars = navBarSort == null || navBarSort.isEmpty
-        ? NavigationBarType.values
-        : navBarSort.map((i) => NavigationBarType.values[i]).toList();
+    late final List<NavigationBarType> navigationBars;
+    if (navBarSort == null || navBarSort.isEmpty) {
+      navigationBars = NavigationBarType.values;
+    } else {
+      navigationBars = navBarSort
+          .map(NavigationBarType.values.elementAt)
+          .toList();
+    }
+    this.navigationBars = navigationBars;
     final defPage = Pref.defaultHomePage;
     selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
   }
@@ -337,6 +360,7 @@ class MainController extends GetxController
   @override
   void onChangeAccount(bool isLogin) {
     if (isLogin) {
+      queryUnreadMsg();
       getUnreadDynamic();
     } else {
       setDynCount();

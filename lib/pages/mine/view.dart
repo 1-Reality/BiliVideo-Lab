@@ -7,6 +7,7 @@ import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/player_bar.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/user.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
@@ -292,92 +293,84 @@ class _MediaPageState extends CommonPageState<MinePage>
     const iconSize = 22.0;
     const padding = EdgeInsets.all(8);
     const style = ButtonStyle(tapTargetSize: .shrinkWrap);
-    return Row(
-      spacing: 5,
-      mainAxisAlignment: .end,
+    return PlayerBar(
       children: [
         if (widget.showBackBtn)
-          const Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: BackButton(),
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: BackButton(),
+          )
+        else
+          const SizedBox.shrink(),
+        Row(
+          spacing: 5,
+          mainAxisSize: .min,
+          children: [
+            if (!_mainController.hasHome) ...[
+              IconButton(
+                iconSize: iconSize,
+                padding: padding,
+                style: style,
+                tooltip: '搜索',
+                onPressed: () => Get.toNamed('/search'),
+                icon: const Icon(Icons.search),
+              ),
+              msgBadge(_mainController),
+            ],
+            if (GStorage.reply != null)
+              IconButton(
+                iconSize: iconSize,
+                padding: padding,
+                style: style,
+                tooltip: '评论记录',
+                onPressed: () => Get.toNamed('/myReply'),
+                icon: const Icon(Icons.message_outlined),
+              ),
+            Obx(
+              () {
+                final anonymity = MineController.anonymity.value;
+                return IconButton(
+                  iconSize: iconSize,
+                  padding: padding,
+                  style: style,
+                  tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
+                  onPressed: MineController.onChangeAnonymity,
+                  icon: anonymity
+                      ? const Icon(MdiIcons.incognito)
+                      : const Icon(MdiIcons.incognitoOff),
+                );
+              },
+            ),
+            IconButton(
+              iconSize: iconSize,
+              padding: padding,
+              style: style,
+              tooltip: '切换账号',
+              onPressed: () => LoginPageController.switchAccountDialog(context),
+              icon: const Icon(Icons.switch_account_outlined),
+            ),
+            Obx(
+              () => IconButton(
+                iconSize: iconSize,
+                padding: padding,
+                style: style,
+                tooltip: '切换至${controller.nextThemeType.label}主题',
+                onPressed: controller.onChangeTheme,
+                icon: controller.themeType.value.icon,
               ),
             ),
-          ),
-        if (!_mainController.hasHome) ...[
-          IconButton(
-            iconSize: iconSize,
-            padding: padding,
-            style: style,
-            tooltip: '搜索',
-            onPressed: () => Get.toNamed('/search'),
-            icon: const Icon(Icons.search),
-          ),
-          msgBadge(_mainController),
-        ],
-        IconButton(
-          iconSize: iconSize,
-          padding: padding,
-          style: style,
-          tooltip: '离线缓存',
-          onPressed: () => Get.toNamed('/download'),
-          icon: const Icon(CustomIcons.folderDownloadOutline),
-        ),
-        if (GStorage.reply != null)
-          IconButton(
-            iconSize: iconSize,
-            padding: padding,
-            style: style,
-            tooltip: '评论记录',
-            onPressed: () => Get.toNamed('/myReply'),
-            icon: const Icon(Icons.message_outlined),
-          ),
-        Obx(
-          () {
-            final anonymity = MineController.anonymity.value;
-            return IconButton(
+            IconButton(
               iconSize: iconSize,
               padding: padding,
               style: style,
-              tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
-              onPressed: MineController.onChangeAnonymity,
-              icon: anonymity
-                  ? const Icon(MdiIcons.incognito)
-                  : const Icon(MdiIcons.incognitoOff),
-            );
-          },
+              tooltip: '设置',
+              onPressed: () =>
+                  Get.toNamed('/setting', preventDuplicates: false),
+              icon: const Icon(Icons.settings_outlined),
+            ),
+            const SizedBox(width: 16),
+          ],
         ),
-        IconButton(
-          iconSize: iconSize,
-          padding: padding,
-          style: style,
-          tooltip: '切换账号',
-          onPressed: () => LoginPageController.switchAccountDialog(context),
-          icon: const Icon(Icons.switch_account_outlined),
-        ),
-        Obx(
-          () {
-            return IconButton(
-              iconSize: iconSize,
-              padding: padding,
-              style: style,
-              tooltip: '切换至${controller.nextThemeType.desc}主题',
-              onPressed: controller.onChangeTheme,
-              icon: controller.themeType.value.icon,
-            );
-          },
-        ),
-        IconButton(
-          iconSize: iconSize,
-          padding: padding,
-          style: style,
-          tooltip: '设置',
-          onPressed: () => Get.toNamed('/setting', preventDuplicates: false),
-          icon: const Icon(Icons.settings_outlined),
-        ),
-        const SizedBox(width: 16),
       ],
     );
   }
@@ -708,7 +701,7 @@ class _MediaPageState extends CommonPageState<MinePage>
     _openInternalWeb(url);
   }
 
-  void _autoRefresh() => Future.delayed(
+  void _autoRefresh() => Timer(
     const Duration(milliseconds: 150),
     () => controller.onRefresh(isManual: false),
   );
