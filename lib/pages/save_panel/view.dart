@@ -339,7 +339,7 @@ class _SavePanelState extends State<SavePanel> {
     final colorScheme = ColorScheme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
     final maxWidth = MediaQuery.sizeOf(context).shortestSide;
-    late final coverSize = MediaQuery.textScalerOf(context).scale(65);
+    final coverSize = MediaQuery.textScalerOf(context).scale(65);
     return Stack(
       clipBehavior: .none,
       alignment: .center,

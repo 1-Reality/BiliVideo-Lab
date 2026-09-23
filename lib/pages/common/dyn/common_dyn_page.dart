@@ -188,7 +188,11 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                       controller.onRemove(index, item, subIndex),
                   upMid: controller.upMid,
                   onViewImage: hideFab,
-                  onCheckReply: controller.onCheckReply,
+                  onCheckReply: (item, strong) => controller.onCheckReply(
+                    item,
+                    isManual: true,
+                    strong: strong,
+                  ),
                   onToggleTop: (item) => controller.onToggleTop(
                     item,
                     index,
@@ -292,7 +296,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
         alignment: Alignment.topRight,
         child: Container(
           margin: const EdgeInsets.only(top: 56, right: 16),
-          width: maxWidth / 4,
+          width: maxWidth * 0.25,
           height: 32,
           child: Builder(
             builder: (context) => Slider(

@@ -24,6 +24,10 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _segmentTimeFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
+];
+
 class PostPanel extends CommonSlidePage {
   const PostPanel({
     super.key,
@@ -123,9 +127,7 @@ class PostPanel extends CommonSlidePage {
                         )
                       : null,
                   onFieldSubmitted: (value) => Get.back(result: initV),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
-                  ],
+                  inputFormatters: _segmentTimeFormatters,
                 );
                 if (PlatformUtils.isDesktop || context.isTablet) {
                   res = await showDialog<String>(
@@ -199,14 +201,11 @@ class PostPanel extends CommonSlidePage {
                 }
                 if (res != null) {
                   try {
-                    List<num> split = res
-                        .split(':')
-                        .reversed
-                        .map(num.parse)
-                        .toList();
                     double duration = 0;
-                    for (int i = 0; i < split.length; i++) {
-                      duration += split[i] * pow(60, i);
+                    int unit = 1;
+                    for (final part in res.split(':').reversed) {
+                      duration += num.parse(part) * unit;
+                      unit *= 60;
                     }
                     if (duration <= videoDuration) {
                       updateSegment(
@@ -245,9 +244,9 @@ class _PostPanelState extends State<PostPanel>
   late final PlPlayerController plPlayerController = widget.plPlayerController;
   late final List<PostSegmentModel> list = videoDetailController.postList;
 
-  double get videoDuration => plPlayerController.durationInMilliseconds / 1000;
+  double get videoDuration => plPlayerController.durationInMilliseconds * 0.001;
 
-  double currentPos() => plPlayerController.positionInMilliseconds / 1000;
+  double currentPos() => plPlayerController.positionInMilliseconds * 0.001;
 
   late double bottom;
 

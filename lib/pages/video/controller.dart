@@ -55,6 +55,7 @@ import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/download/download_service.dart';
+import 'package:PiliBro/services/cdn_last_video_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
@@ -74,7 +75,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show Options;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -84,6 +85,8 @@ import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
+  static final RegExp _httpSchemeRegExp = RegExp('^https?:');
+
   /// 路由传参
   late final Map args;
   late String bvid;
@@ -106,7 +109,7 @@ class VideoDetailController extends GetxController
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
-  late bool _mediaDesc = false;
+  bool _mediaDesc = false;
   late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
   late String watchLaterTitle;
 
@@ -137,23 +140,93 @@ class VideoDetailController extends GetxController
       final bytes = exactBytes != null && exactBytes > 0
           ? exactBytes
           : bitrate > 0 && durationMs > 0
-          ? (bitrate * durationMs / 8000).round()
+          ? (bitrate * durationMs * 0.000125).round()
           : 0;
       if (bitrate <= 0 && bytes > 0 && durationMs > 0) {
         bitrate = (bytes * 8000 / durationMs).round();
       }
       if (bytes <= 0 && bitrate <= 0) return null;
-      final size = bytes >= 1073741824
-          ? '${(bytes / 1073741824).toStringAsFixed(2)} GiB'
-          : '${(bytes / 1048576).toStringAsFixed(1)} MiB';
+      final size = bytes >= 1 << 30
+          ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+          : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
       final rate = bitrate >= 1000000
-          ? '${(bitrate / 1000000).toStringAsFixed(2)} Mb/s'
-          : '${(bitrate / 1000).toStringAsFixed(0)} kb/s';
+          ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+          : '${(bitrate * 0.001).round()} kb/s';
       return '${exactBytes == null ? '约 ' : ''}$size · $rate';
     } catch (_) {
       return null;
     }
   }
+
+  List<String> get otherStreamSizeAndBitrates {
+    if (!videoState.value || data.dash?.video == null) return const [];
+    try {
+      final audio = data.dash?.audio?.firstWhereOrNull(
+        (item) => item.id == currentAudioQa?.code,
+      );
+      final durationMs = data.timeLength ?? 0;
+      final current = _streamMetrics(firstVideo, audio, durationMs);
+      if (current == null || current.bytes <= 0) return const [];
+      final currentFormat = VideoDecodeFormatType.fromString(
+        firstVideo.codecs ?? '',
+      );
+      final quality = currentVideoQa.value?.code ?? firstVideo.id;
+      const order = [
+        VideoDecodeFormatType.AVC,
+        VideoDecodeFormatType.HEVC,
+        VideoDecodeFormatType.AV1,
+      ];
+      final rows = <String>[];
+      for (final format in order) {
+        if (format == currentFormat) continue;
+        final candidates = data.dash!.video!.where(
+          (item) =>
+              item.id == quality &&
+              item.codecs != null &&
+              format.codes.any(item.codecs!.startsWith),
+        );
+        if (candidates.isEmpty) continue;
+        final item = candidates.reduce(
+          (a, b) => (a.bandWidth ?? 0) >= (b.bandWidth ?? 0) ? a : b,
+        );
+        final metrics = _streamMetrics(item, audio, durationMs);
+        if (metrics == null || metrics.bytes <= 0) continue;
+        final relative = metrics.bytes * 100 / current.bytes;
+        rows.add(
+          '${_codecDisplayName(format)}: ${metrics.text} (${relative.round()}%)',
+        );
+      }
+      return rows.take(2).toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  ({int bytes, int bitrate, String text})? _streamMetrics(
+    BaseItem video,
+    BaseItem? audio,
+    int durationMs,
+  ) {
+    final bitrate = (video.bandWidth ?? 0) + (audio?.bandWidth ?? 0);
+    if (bitrate <= 0 || durationMs <= 0) return null;
+    final bytes = (bitrate * durationMs * 0.000125).round();
+    final size = bytes >= 1 << 30
+        ? '${(bytes / (1 << 30)).toStringAsFixed(2)} GiB'
+        : '${(bytes / (1 << 20)).toStringAsFixed(1)} MiB';
+    final rate = bitrate >= 1000000
+        ? '${(bitrate * 0.000001).toStringAsFixed(2)} Mb/s'
+        : '${(bitrate * 0.001).round()} kb/s';
+    return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
+  }
+
+  String get currentStreamCodec => _codecDisplayName(currentDecodeFormats);
+
+  String _codecDisplayName(VideoDecodeFormatType format) => switch (format) {
+    VideoDecodeFormatType.AVC => 'H264',
+    VideoDecodeFormatType.HEVC => 'h265',
+    VideoDecodeFormatType.AV1 => 'AV1',
+    VideoDecodeFormatType.DVH1 => 'DVH1',
+  };
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
@@ -164,7 +237,8 @@ class VideoDetailController extends GetxController
   final plPlayerController = PlPlayerController.getInstance()
     ..brightness.value = -1;
   bool get setSystemBrightness => plPlayerController.setSystemBrightness;
-  bool get removeSafeArea => plPlayerController.removeSafeArea;
+  bool removeSafeAreaFor({required bool portrait}) =>
+      plPlayerController.removeSafeAreaFor(portrait: portrait);
   double get uiScale => plPlayerController.uiScale;
 
   late VideoItem firstVideo;
@@ -173,6 +247,8 @@ class VideoDetailController extends GetxController
   List<CDNService> _cdnPriority = const [CDNService.backupUrl];
   int _cdnIndex = 0;
   bool _cdnFallbackInProgress = false;
+  CDNService? _manualCdn;
+  String? _manualCdnPlaybackKey;
   Duration? defaultST;
   Duration? playedTime;
   String playedTimePos(bool hasParams) {
@@ -195,38 +271,14 @@ class VideoDetailController extends GetxController
       plPlayerController.cachePreferCodecs ?? Pref.preferCodecs;
   bool _pendingNetworkRefresh = false;
 
-  bool get showReply => isFileSource
-      ? false
-      : isUgc
-      ? plPlayerController.showVideoReply
-      : plPlayerController.showBangumiReply;
+  bool get showReply =>
+      !isFileSource &&
+      (isUgc
+          ? plPlayerController.showVideoReply
+          : plPlayerController.showBangumiReply);
 
   bool get showRelatedVideo =>
-      isFileSource ? false : plPlayerController.showRelatedVideo;
-
-  int? get videoUpUid {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.mid;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.mid : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String? get videoUpName {
-    try {
-      if (!isUgc) {
-        return Get.find<PgcIntroController>(tag: heroTag).pgcItem.upInfo?.uname;
-      }
-      final detail = Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
-      return detail.bvid == bvid ? detail.owner?.name : null;
-    } catch (_) {
-      return null;
-    }
-  }
+      !isFileSource && plPlayerController.showRelatedVideo;
 
   ScrollController? introScrollCtr;
   ScrollController get effectiveIntroScrollCtr =>
@@ -294,7 +346,7 @@ class VideoDetailController extends GetxController
   bool _needAnimOnDimensionChanged(bool isVertical) {
     if (isFullScreen) {
       if (PlatformUtils.isMobile) {
-        plPlayerController.changeOrientation(isVertical: isVertical);
+        plPlayerController.onVideoOrientationChanged(isVertical);
       }
       return false;
     }
@@ -468,32 +520,24 @@ class VideoDetailController extends GetxController
     if (!isReverse && count != null && mediaList.length >= count) {
       return;
     }
+    final edge = mediaList.isEmpty
+        ? null
+        : isLoadPrevious
+        ? mediaList.first
+        : mediaList.last;
     final res = await UserHttp.getMediaList(
       type: args['mediaType'] ?? sourceType.mediaType,
       bizId: args['mediaId'] ?? -1,
       ps: 20,
-      direction: isLoadPrevious ? true : false,
+      direction: isLoadPrevious,
       oid: isReverse
           ? null
-          : mediaList.isEmpty
-          ? args['isContinuePlaying'] == true
-                ? args['oid']
-                : null
-          : isLoadPrevious
-          ? mediaList.first.aid
-          : mediaList.last.aid,
-      otype: isReverse
-          ? null
-          : mediaList.isEmpty
-          ? null
-          : isLoadPrevious
-          ? mediaList.first.type
-          : mediaList.last.type,
+          : edge?.aid ??
+                (args['isContinuePlaying'] == true ? args['oid'] : null),
+      otype: isReverse ? null : edge?.type,
       desc: _mediaDesc,
       sortField: args['sortField'] ?? 1,
-      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
-          ? true
-          : false,
+      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true,
     );
     if (res case Success(:final response)) {
       if (response.mediaList.isNotEmpty) {
@@ -587,7 +631,7 @@ class VideoDetailController extends GetxController
 
   bool isPortrait = true;
 
-  bool get horizontalScreen => plPlayerController.horizontalScreen;
+  late final bool horizontalScreen = Pref.horizontalScreen;
 
   bool get showVideoSheet =>
       (!horizontalScreen && !isPortrait) || plPlayerController.isDesktopPip;
@@ -600,6 +644,12 @@ class VideoDetailController extends GetxController
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
   Player? get player => plPlayerController.videoPlayerController;
+  @override
+  void addBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.addPositionListener(listener);
+  @override
+  void removeBlockPositionListener(ValueChanged<Duration> listener) =>
+      plPlayerController.removePositionListener(listener);
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
@@ -714,17 +764,16 @@ class VideoDetailController extends GetxController
 
   VideoItem findVideoByQa(int qa, {bool setCodecs = false}) {
     /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
-    final videoList = data.dash!.video!.where((i) => i.id == qa).toList();
-
     final currentCodes = currentDecodeFormats.codes;
+    VideoItem? firstVideo;
     VideoItem? bestVideo;
-    int bestIndex = preferCodecs.length;
-    for (final video in videoList) {
+    var bestIndex = preferCodecs.length;
+    for (final video in data.dash!.video!) {
+      if (video.id != qa) continue;
+      firstVideo ??= video;
       final c = video.codecs!;
-      if (currentCodes.any(c.startsWith)) {
-        return video;
-      }
-      for (int i = 0; i < bestIndex; i++) {
+      if (currentCodes.any(c.startsWith)) return video;
+      for (var i = 0; i < bestIndex; i++) {
         if (preferCodecs[i].codes.any(c.startsWith)) {
           bestIndex = i;
           bestVideo = video;
@@ -733,28 +782,54 @@ class VideoDetailController extends GetxController
       }
     }
 
+    final fallback = firstVideo!;
     if (setCodecs) {
-      if (bestIndex < preferCodecs.length) {
-        currentDecodeFormats = preferCodecs[bestIndex];
-      } else {
-        currentDecodeFormats = VideoDecodeFormatType.fromString(
-          videoList.first.codecs!,
-        );
-      }
+      currentDecodeFormats = bestIndex < preferCodecs.length
+          ? preferCodecs[bestIndex]
+          : VideoDecodeFormatType.fromString(fallback.codecs!);
     }
-
-    return bestVideo ?? videoList.first;
+    return bestVideo ?? fallback;
   }
+
+  String get _cdnPlaybackKey => '$bvid:${cid.value}';
 
   CDNService get _currentCdn =>
       _cdnPriority.getOrNull(_cdnIndex) ?? _cdnPriority.first;
 
+  CDNService get currentCdn => _currentCdn;
+
+  bool get isCdnLockedForCurrentPlayback =>
+      _manualCdn != null && _manualCdnPlaybackKey == _cdnPlaybackKey;
+
+  Future<void> selectCdnForCurrentPlayback(CDNService cdn) async {
+    final wasPlaying = plPlayerController.playerStatus.isPlaying;
+    playedTime = plPlayerController.videoPlayerController?.state.position;
+    _manualCdn = cdn;
+    _manualCdnPlaybackKey = _cdnPlaybackKey;
+    _cdnPriority = [cdn];
+    _cdnIndex = 0;
+    _cdnFallbackInProgress = false;
+
+    if (data.dash != null) {
+      _selectPreferredStreams();
+    } else if (data.durl case final durl?) {
+      _selectLegacyStreams(durl);
+    }
+    SmartDialog.showToast('本次播放已锁定：${cdn.desc}');
+    await playerInit(autoplay: wasPlaying);
+  }
+
   void _resetCdnPriority(NetworkProfile profile) {
-    _cdnPriority = List.of(
-      profile.useCellularPreferences
-          ? Pref.defaultCDNServicesCellular
-          : Pref.defaultCDNServices,
-    );
+    if (_manualCdnPlaybackKey == _cdnPlaybackKey && _manualCdn != null) {
+      _cdnPriority = [_manualCdn!];
+      _cdnIndex = 0;
+      return;
+    }
+    _manualCdn = null;
+    _manualCdnPlaybackKey = null;
+    _cdnPriority = profile.useCellularPreferences
+        ? Pref.defaultCDNServicesCellular
+        : Pref.defaultCDNServices;
     _cdnIndex = 0;
   }
 
@@ -847,9 +922,7 @@ class VideoDetailController extends GetxController
   Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
-            (isFileSource
-                ? true
-                : videoPlayerKey.currentState?.mounted == true)) {
+            (isFileSource || videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
         autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
       );
@@ -866,6 +939,51 @@ class VideoDetailController extends GetxController
     Duration? seek = defaultST ?? playedTime;
     if (seek == .zero) seek = null;
     seek ??= getFirstSegment();
+
+    ({
+      int? uid,
+      String? name,
+      int? partitionId,
+      String? partitionName,
+      String copyright,
+    }) statsContext;
+    try {
+      if (isUgc) {
+        final detail =
+            Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+        final matches = detail.bvid == bvid;
+        statsContext = (
+          uid: matches ? detail.owner?.mid : null,
+          name: matches ? detail.owner?.name : null,
+          partitionId: matches ? detail.tid : null,
+          partitionName: matches ? detail.tname : null,
+          copyright: switch (detail.copyright) {
+            1 => 'original',
+            2 => 'repost',
+            _ => 'unknown',
+          },
+        );
+      } else {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        statsContext = (
+          uid: item.upInfo?.mid,
+          name: item.upInfo?.uname,
+          partitionId: item.type,
+          partitionName:
+              'PGC:${item.type ?? 'unknown'}:${item.areas?.firstOrNull?.name ?? '未知地区'}',
+          copyright: 'licensed',
+        );
+      }
+    } catch (_) {
+      statsContext = (
+        uid: null,
+        name: null,
+        partitionId: null,
+        partitionName: null,
+        copyright: isUgc ? 'unknown' : 'licensed',
+      );
+    }
+
     await plPlayerController.setDataSource(
       isFileSource
           ? FileSource(
@@ -891,8 +1009,13 @@ class VideoDetailController extends GetxController
       seasonId: isUgc ? null : seasonId,
       pgcType: isUgc ? null : pgcType,
       videoType: videoType,
-      videoUpUid: videoUpUid,
-      videoUpName: videoUpName,
+      videoUpUid: statsContext.uid,
+      videoUpName: statsContext.name,
+      partitionId: statsContext.partitionId,
+      partitionName: statsContext.partitionName,
+      copyright: statsContext.copyright,
+      codec: isFileSource ? null : currentDecodeFormats.name,
+      quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;
         setSubtitle(vttSubtitlesIndex.value);
@@ -1030,33 +1153,81 @@ class VideoDetailController extends GetxController
           .codecs!,
       preferCodecs,
     );
-    final videos = videoList
-        .where((video) => video.quality.code == targetVideoQa)
-        .toList();
-    firstVideo = videos.firstWhere(
-      (video) => currentDecodeFormats.codes.any(video.codecs!.startsWith),
-      orElse: () => videos.first,
-    );
+    VideoItem? fallbackVideo;
+    VideoItem? preferredVideo;
+    final currentCodes = currentDecodeFormats.codes;
+
+    if (Pref.desktopHighBitrateHevc &&
+        targetVideoQa >= Pref.desktopHighBitrateHevcQuality) {
+      var streamCount = 0;
+      VideoItem? avcVideo;
+      VideoItem? hevcVideo;
+      for (final video in videoList) {
+        if (video.quality.code != targetVideoQa) continue;
+        streamCount++;
+        fallbackVideo ??= video;
+        final codecs = video.codecs!;
+        if (preferredVideo == null && currentCodes.any(codecs.startsWith)) {
+          preferredVideo = video;
+        }
+        if (avcVideo == null &&
+            VideoDecodeFormatType.AVC.codes.any(codecs.startsWith)) {
+          avcVideo = video;
+        } else if (hevcVideo == null &&
+            VideoDecodeFormatType.HEVC.codes.any(codecs.startsWith)) {
+          hevcVideo = video;
+        }
+        if (streamCount >= 3 &&
+            preferredVideo != null &&
+            avcVideo != null &&
+            hevcVideo != null) {
+          break;
+        }
+      }
+      final avcBandwidth = avcVideo?.bandWidth;
+      if (streamCount >= 3 &&
+          currentDecodeFormats == VideoDecodeFormatType.AVC &&
+          avcBandwidth != null &&
+          avcBandwidth > Pref.desktopHighBitrateHevcThresholdBps &&
+          hevcVideo != null) {
+        currentDecodeFormats = VideoDecodeFormatType.HEVC;
+        preferredVideo = hevcVideo;
+      }
+    } else {
+      for (final video in videoList) {
+        if (video.quality.code != targetVideoQa) continue;
+        fallbackVideo ??= video;
+        if (currentCodes.any(video.codecs!.startsWith)) {
+          preferredVideo = video;
+          break;
+        }
+      }
+    }
+    firstVideo = preferredVideo ?? fallbackVideo!;
     _setVideoHeight();
     videoUrl = _getCdnUrl(firstVideo.playUrls);
 
     final audioList = data.dash?.audio;
     if (audioList != null && audioList.isNotEmpty) {
-      final audioIds = audioList.map((audio) => audio.id!).toList();
-      var closestNumber = audioIds.findClosestTarget(
-        (quality) => quality <= plPlayerController.cacheAudioQa,
-        (a, b) => a > b ? a : b,
-      );
-      if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
-          audioIds.any(
-            (quality) => quality > plPlayerController.cacheAudioQa,
-          )) {
-        closestNumber = AudioQuality.k192.code;
+      final cacheAudioQa = plPlayerController.cacheAudioQa;
+      AudioItem? exactAudio;
+      AudioItem? highestEligibleAudio;
+      AudioItem? audio192;
+      var hasHigherAudio = false;
+      for (final audio in audioList) {
+        final id = audio.id!;
+        if (id == cacheAudioQa) exactAudio = audio;
+        if (id > cacheAudioQa) hasHigherAudio = true;
+        if (id <= cacheAudioQa &&
+            (highestEligibleAudio == null || id > highestEligibleAudio.id!)) {
+          highestEligibleAudio = audio;
+        }
+        if (id == AudioQuality.k192.code) audio192 = audio;
       }
-      final firstAudio = audioList.firstWhere(
-        (audio) => audio.id == closestNumber,
-        orElse: () => audioList.first,
-      );
+      final firstAudio =
+          exactAudio ??
+          (hasHigherAudio ? audio192 : highestEligibleAudio) ??
+          audioList.first;
       audioUrl = _getCdnUrl(firstAudio.playUrls, isAudio: true);
       if (firstAudio.id case final int id?) {
         currentAudioQa = AudioQuality.fromCode(id);
@@ -1072,7 +1243,7 @@ class VideoDetailController extends GetxController
       for (final item in durl) {
         final video = _getCdnUrl(item.playUrls);
         buffer.write(
-          '%${video.length}%$video,length=${item.length! / 1000};',
+          '%${video.length}%$video,length=${item.length! * 0.001};',
         );
       }
       videoUrl = buffer.toString();
@@ -1101,9 +1272,9 @@ class VideoDetailController extends GetxController
       if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
         querySponsorBlock(bvid: bvid, cid: cid.value);
       }
-      await _syncNetworkProfile();
-
+      final networkProfileFuture = _syncNetworkProfile();
       final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
+      await networkProfileFuture;
 
       if (result case Success(:final response)) {
         data = response;
@@ -1171,6 +1342,18 @@ class VideoDetailController extends GetxController
         _pendingNetworkRefresh = false;
         preferCodecs = plPlayerController.effectivePreferCodecs;
         _selectPreferredStreams();
+        unawaited(
+          CdnLastVideoService.remember(
+            bvid: bvid,
+            cid: cid.value,
+            quality: currentVideoQa.value!.code,
+            preferredCodec: currentDecodeFormats.name,
+            videoType: _actualVideoType ?? videoType,
+            tryLook: plPlayerController.tryLook,
+            epId: epId,
+            seasonId: seasonId,
+          ),
+        );
         await _initPlayerIfNeeded(autoFullScreenFlag);
       } else {
         _autoPlay.value = false;
@@ -1195,7 +1378,7 @@ class VideoDetailController extends GetxController
         PostSegmentModel(
           segment: Pair(
             first: 0,
-            second: plPlayerController.positionInMilliseconds / 1000,
+            second: plPlayerController.positionInMilliseconds * 0.001,
           ),
           category: SegmentType.sponsor,
           actionType: ActionType.skip,
@@ -1237,6 +1420,11 @@ class VideoDetailController extends GetxController
     if (index <= 0) {
       await plPlayerController.videoPlayerController?.setSubtitleTrack(.no());
       vttSubtitlesIndex.value = index;
+      PlaybackStatsService.samplePosition(
+        plPlayerController.videoPlayerController?.state.position ??
+            Duration.zero,
+      );
+      PlaybackStatsService.updateVideoContext(subtitle: 'off');
       return;
     }
 
@@ -1251,6 +1439,13 @@ class VideoDetailController extends GetxController
         SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
       );
       vttSubtitlesIndex.value = index;
+      PlaybackStatsService.samplePosition(
+        plPlayerController.videoPlayerController?.state.position ??
+            Duration.zero,
+      );
+      PlaybackStatsService.updateVideoContext(
+        subtitle: sub.lan.isNotEmpty ? sub.lan : (sub.lanDoc ?? 'on'),
+      );
     }
 
     var subtitle = vttSubtitles[index - 1];
@@ -1312,39 +1507,42 @@ class VideoDetailController extends GetxController
     );
     if (res case Success(:final response)) {
       // interactive video
-      late final introCtr = Get.find<UgcIntroController>(tag: heroTag);
-      if (isUgc && graphVersion == null) {
-        try {
-          if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
-            graphVersion = response.interaction?.graphVersion;
-            getSteinEdgeInfo();
-          }
-        } catch (e) {
-          if (kDebugMode) debugPrint('handle stein: $e');
-        }
-      }
-
-      if (isUgc && continuePlayingPart) {
-        continuePlayingPart = false;
-        final lastCid = response.lastPlayCid;
-        if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+      if (isUgc && (graphVersion == null || continuePlayingPart)) {
+        final introCtr = Get.find<UgcIntroController>(tag: heroTag);
+        if (graphVersion == null) {
           try {
-            final pages = introCtr.videoDetail.value.pages;
-            if (pages != null && pages.length > 1) {
-              final index = pages.indexWhere((item) => item.cid == lastCid);
-              if (index != -1) {
-                onAddItem(index);
-              }
+            if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
+              graphVersion = response.interaction?.graphVersion;
+              getSteinEdgeInfo();
             }
-          } catch (_) {}
+          } catch (e) {
+            if (kDebugMode) debugPrint('handle stein: $e');
+          }
+        }
+
+        if (continuePlayingPart) {
+          continuePlayingPart = false;
+          final lastCid = response.lastPlayCid;
+          if (lastCid != null && lastCid != 0 && lastCid != cid.value) {
+            try {
+              final pages = introCtr.videoDetail.value.pages;
+              if (pages != null && pages.length > 1) {
+                final index = pages.indexWhere((item) => item.cid == lastCid);
+                if (index != -1) {
+                  onAddItem(index);
+                }
+              }
+            } catch (_) {}
+          }
         }
       }
 
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
+          final timeScale = 1000 / data.timeLength!;
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
+            final end = (item.to! * timeScale).clamp(0.0, 1.0);
             return ViewPointSegment(
               end: end,
               title: item.content,
@@ -1370,7 +1568,7 @@ class VideoDetailController extends GetxController
                       lan: i.lan,
                       lanDoc: i.lanDoc,
                       subtitleUrl: i.subtitleUrl.replaceFirst(
-                        RegExp('^https?:'),
+                        _httpSchemeRegExp,
                         '',
                       ),
                       isAi: i.type == .AI,
