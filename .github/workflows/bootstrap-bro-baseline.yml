@@ -1,0 +1,178 @@
+name: Bootstrap Bro Baseline
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-bro-baseline
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[bootstrap-bro-baseline]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev control branch
+        uses: actions/checkout@v7
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Fetch branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/mainback:refs/remotes/origin/mainback \
+            +refs/heads/lab4AI:refs/remotes/origin/lab4AI \
+            +refs/heads/dev:refs/remotes/origin/dev
+
+      - name: Build and install shared Bro brand baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BASE_SHA="b32768ef66e158f5372d7151d85a6eaa7e6358d6"
+          BRAND_SHA="5644e4f018675148c9d03d6ad06dd2c69cc44c2c"
+
+          echo "base=$BASE_SHA"
+          echo "brand_commit=$BRAND_SHA"
+          echo "mainback_before=$(git rev-parse origin/mainback)"
+          echo "lab4AI_before=$(git rev-parse origin/lab4AI)"
+
+          normalize_tree() {
+            python3 - <<'PY'
+          from __future__ import annotations
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          protected_files = {'README.md', 'LICENSE'}
+          protected_prefixes = ('.github/',)
+          replacements = (
+              ('PiliPlus', 'PiliBro'),
+              ('piliplus', 'pilibro'),
+              ('PILIPLUS', 'PILIBRO'),
+              ('Piliplus', 'Pilibro'),
+          )
+
+          def tracked() -> list[str]:
+              raw = subprocess.check_output(['git', 'ls-files', '-z'])
+              return [x.decode('utf-8') for x in raw.split(b'\0') if x]
+
+          def protected(path: str) -> bool:
+              return path in protected_files or path.startswith(protected_prefixes)
+
+          def norm(s: str) -> str:
+              for a, b in replacements:
+                  s = s.replace(a, b)
+              return s
+
+          renamed = 0
+          changed = 0
+
+          for src in sorted(tracked(), key=lambda p: (p.count('/'), len(p)), reverse=True):
+              if protected(src):
+                  continue
+              dst = norm(src)
+              if dst == src:
+                  continue
+              if Path(dst).exists():
+                  print(f'collision: {src} -> {dst}', file=sys.stderr)
+                  sys.exit(2)
+              Path(dst).parent.mkdir(parents=True, exist_ok=True)
+              subprocess.run(['git', 'mv', '--', src, dst], check=True)
+              renamed += 1
+
+          for rel in tracked():
+              if protected(rel):
+                  continue
+              p = Path(rel)
+              try:
+                  data = p.read_bytes()
+              except FileNotFoundError:
+                  continue
+              if b'\0' in data:
+                  continue
+              try:
+                  text = data.decode('utf-8')
+              except UnicodeDecodeError:
+                  continue
+              old = text
+              text = norm(text)
+
+              # Keep the known old WebDAV settings filename for backward compatibility.
+              if rel == 'lib/pages/webdav/webdav.dart':
+                  text = text.replace("pilibro_settings_${DeviceUtils.platformName}.json", "piliplus_settings_${DeviceUtils.platformName}.json")
+                  text = text.replace("PiliBro_settings_${DeviceUtils.platformName}.json", "PiliPlus_settings_${DeviceUtils.platformName}.json")
+
+              if text != old:
+                  p.write_bytes(text.encode('utf-8'))
+                  changed += 1
+
+          print(f'normalized paths: {renamed}')
+          print(f'normalized text files: {changed}')
+          PY
+          }
+
+          echo '--- create synthetic Bro baseline from the old common ancestor ---'
+          git switch --detach "$BASE_SHA"
+          if ! git cherry-pick --no-commit "$BRAND_SHA"; then
+            echo 'Brand commit did not cherry-pick cleanly onto the old common ancestor.'
+            echo 'Unmerged files:'
+            git diff --name-only --diff-filter=U || true
+            git cherry-pick --abort || true
+            exit 1
+          fi
+          git commit -m "baseline: synthetic PiliBro brand identity" \
+            -m "Original-Brand-Commit: $BRAND_SHA" \
+            -m "Synthetic-Base: $BASE_SHA"
+          BRO_BASE_SHA="$(git rev-parse HEAD)"
+          echo "bro_base=$BRO_BASE_SHA"
+
+          echo '--- merge baseline into mainback and materialize current mainback as Bro ---'
+          git switch -C bootstrap-mainback origin/mainback
+          git merge -s ours --no-commit "$BRO_BASE_SHA"
+          normalize_tree
+          git add -A
+          git commit -m "chore: absorb PiliBro brand baseline into mainback" \
+            -m "Bro-Baseline: $BRO_BASE_SHA" \
+            -m "Mainback-Before: $(git rev-parse origin/mainback)"
+          MAINBACK_AFTER="$(git rev-parse HEAD)"
+          echo "mainback_after=$MAINBACK_AFTER"
+          echo 'mainback protected-file diff:'
+          git diff --name-status origin/mainback "$MAINBACK_AFTER" -- README.md LICENSE .github || true
+
+          echo '--- record the same baseline in lab4AI without changing its tree ---'
+          git switch -C bootstrap-lab origin/lab4AI
+          git merge -s ours --no-commit "$BRO_BASE_SHA"
+          git commit -m "chore: record PiliBro brand baseline" \
+            -m "Bro-Baseline: $BRO_BASE_SHA" \
+            -m "Lab4AI-Before: $(git rev-parse origin/lab4AI)"
+          LAB_AFTER="$(git rev-parse HEAD)"
+          echo "lab_after=$LAB_AFTER"
+          echo 'lab4AI first-parent diff against previous head:'
+          git diff --name-status origin/lab4AI "$LAB_AFTER" || true
+
+          echo '--- atomic push to mainback and lab4AI ---'
+          git push --atomic origin \
+            "$MAINBACK_AFTER:refs/heads/mainback" \
+            "$LAB_AFTER:refs/heads/lab4AI"
+
+          {
+            echo '## Bootstrap Bro baseline complete'
+            echo
+            echo "- old common base: \`$BASE_SHA\`"
+            echo "- original brand commit: \`$BRAND_SHA\`"
+            echo "- synthetic Bro baseline: \`$BRO_BASE_SHA\`"
+            echo "- mainback after: \`$MAINBACK_AFTER\`"
+            echo "- lab4AI after: \`$LAB_AFTER\`"
+          } >> "$GITHUB_STEP_SUMMARY"
