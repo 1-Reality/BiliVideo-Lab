@@ -9,21 +9,25 @@ extension DurationExtension on Duration {
   /// Returns a [String] representation of [Duration].
   String label({Duration? reference}) {
     reference ??= this;
+    final totalSeconds = inSeconds;
+    final days = totalSeconds ~/ 86400;
+    final daySeconds = totalSeconds - days * 86400;
+    final hours = daySeconds ~/ 3600;
+    final hourSeconds = daySeconds - hours * 3600;
+    final minutes = hourSeconds ~/ 60;
+    final seconds = hourSeconds - minutes * 60;
     if (reference > const Duration(days: 1)) {
-      final days = inDays.toString().padLeft(3, '0');
-      final hours = (inHours - (inDays * 24)).toString().padLeft(2, '0');
-      final minutes = (inMinutes - (inHours * 60)).toString().padLeft(2, '0');
-      final seconds = (inSeconds - (inMinutes * 60)).toString().padLeft(2, '0');
-      return '$days:$hours:$minutes:$seconds';
+      return '${days.toString().padLeft(3, '0')}:'
+          '${hours.toString().padLeft(2, '0')}:'
+          '${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
     } else if (reference > const Duration(hours: 1)) {
-      final hours = inHours.toString().padLeft(2, '0');
-      final minutes = (inMinutes - (inHours * 60)).toString().padLeft(2, '0');
-      final seconds = (inSeconds - (inMinutes * 60)).toString().padLeft(2, '0');
-      return '$hours:$minutes:$seconds';
+      return '${(days * 24 + hours).toString().padLeft(2, '0')}:'
+          '${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
     } else {
-      final minutes = inMinutes.toString().padLeft(2, '0');
-      final seconds = (inSeconds - (inMinutes * 60)).toString().padLeft(2, '0');
-      return '$minutes:$seconds';
+      return '${(days * 1440 + hours * 60 + minutes).toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
     }
   }
 }

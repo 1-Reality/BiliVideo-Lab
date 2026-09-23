@@ -7,8 +7,13 @@ class CdnSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const quickPlaybackSettings = {'自动同步', '视频同步', '硬解模式'};
     final settings = videoSettings
-        .where((item) => item.effectiveTitle.contains('CDN'))
+        .where(
+          (item) =>
+              item.effectiveTitle.contains('CDN') ||
+              quickPlaybackSettings.contains(item.effectiveTitle),
+        )
         .toList(growable: false);
     return SimpleScaffold(
       appBar: AppBar(title: const Text('CDN 设置与诊断')),

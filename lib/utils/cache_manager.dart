@@ -57,10 +57,9 @@ abstract final class CacheManager {
     int index = 0;
     while (value >= 1024) {
       index++;
-      value = value / 1024;
+      value *= 0.0009765625;
     }
-    String size = value.toStringAsFixed(2);
-    return size + (unitArr.elementAtOrNull(index) ?? '');
+    return '${value.toStringAsFixed(2)}${unitArr.elementAtOrNull(index) ?? ''}';
   }
 
   // 清除 Library/Caches 目录及文件缓存

@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
@@ -21,6 +23,17 @@ class NetworkSource extends DataSource {
 class FileSource extends DataSource {
   final String dir;
   final bool isMp4;
+
+  String? missingMedia({bool audioOnly = false}) {
+    if ((!audioOnly || audioSource == null) &&
+        !File(videoSource).existsSync()) {
+      return videoSource;
+    }
+    if (audioSource case final audio? when !File(audio).existsSync()) {
+      return audio;
+    }
+    return null;
+  }
 
   FileSource({
     required this.dir,

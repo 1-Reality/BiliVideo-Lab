@@ -10,6 +10,8 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:material_ui/material_ui.dart';
 
+final _maxHeightRegExp = RegExp(r'max-height:(\d+)px');
+
 Widget htmlRender({
   required BuildContext context,
   dom.Element? element,
@@ -25,8 +27,7 @@ Widget htmlRender({
       builder: (ExtensionContext extensionContext) {
         try {
           final Map<String, dynamic> attributes = extensionContext.attributes;
-          final List<dynamic> key = attributes.keys.toList();
-          String imgUrl = key.contains('src')
+          String imgUrl = attributes.containsKey('src')
               ? attributes['src'] as String
               : attributes['data-src'] as String;
           imgUrl = imgUrl.contains('@') ? imgUrl.split('@').first : imgUrl;
@@ -36,10 +37,10 @@ Widget htmlRender({
             return const SizedBox.shrink();
           }
 
-          String? clazz = attributes['class'];
-          String? height = RegExp(
-            r'max-height:(\d+)px',
-          ).firstMatch('${attributes['style']}')?.group(1);
+          final clazz = attributes['class'] as String?;
+          final height = _maxHeightRegExp
+              .firstMatch('${attributes['style']}')
+              ?.group(1);
           if (clazz?.contains('cut-off') == true || height != null) {
             return CachedNetworkImage(
               width: maxWidth,

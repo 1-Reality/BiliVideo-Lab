@@ -48,10 +48,12 @@ import 'package:PiliBro/pages/video/widgets/intro_layout.dart';
 import 'package:PiliBro/pages/video/widgets/player_focus.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/view/view.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -67,9 +69,12 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
+import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
+import 'package:flutter/widgets.dart' show FocusNode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -115,6 +120,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoDetailController.plPlayerController.pipNoDanmaku;
 
   bool isShowing = true;
+  bool _removeSafeArea = false;
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
@@ -134,6 +140,39 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   final videoReplyPanelKey = GlobalKey();
   final videoRelatedKey = GlobalKey();
   final videoIntroKey = GlobalKey();
+  TabController? _commentTabController;
+  int _commentTabIndex = -1;
+  FocusNode? _relatedExitFocusNode;
+  void Function()? _fullscreenExitFocusCallback;
+
+  void _focusRelatedAfterFullscreen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !isShowing || isFullScreen) return;
+      final node = _relatedExitFocusNode;
+      if (node?.context != null && node!.canRequestFocus) {
+        node.requestFocus();
+      }
+    });
+  }
+
+  void _syncCommentPanelVisibility() {
+    PlaybackStatsService.setVideoCommentPanelVisible(
+      _commentTabIndex >= 0 &&
+          _commentTabController?.index == _commentTabIndex &&
+          !isFullScreen,
+    );
+  }
+
+  void _watchCommentTab(List<String> tabs) {
+    _commentTabIndex = tabs.indexOf('评论');
+    final controller = videoDetailController.tabCtr;
+    if (!identical(_commentTabController, controller)) {
+      _commentTabController?.removeListener(_syncCommentPanelVisibility);
+      _commentTabController = controller
+        ..addListener(_syncCommentPanelVisibility);
+    }
+    _syncCommentPanelVisibility();
+  }
 
   @override
   void initState() {
@@ -142,8 +181,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     PlPlayerController.setPlayCallBack(playCallBack);
     videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
 
-    if (videoDetailController.removeSafeArea) {
-      hideSystemBar();
+    final playerController = videoDetailController.plPlayerController;
+    if (Platform.isAndroid && !playerController.keyboardControl) {
+      _relatedExitFocusNode = FocusNode(
+        debugLabel: 'PiliBroRelatedAfterFullscreen',
+      );
+      final callback = _focusRelatedAfterFullscreen;
+      _fullscreenExitFocusCallback = callback;
+      playerController.onFullscreenExited = callback;
     }
 
     if (videoDetailController.showReply) {
@@ -271,7 +316,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
       if (exitFlag) {
         if (autoExitFullscreen) {
-          plPlayerController!.triggerFullScreen(status: false);
+          plPlayerController!.triggerFullScreen(
+            status: false,
+            exitCause: FullscreenExitCause.playbackAuto,
+          );
           if (plPlayerController!.controlsLock.value) {
             plPlayerController!.onLockControl(false);
           }
@@ -327,6 +375,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    final playerController = videoDetailController.plPlayerController;
+    if (identical(
+      playerController.onFullscreenExited,
+      _fullscreenExitFocusCallback,
+    )) {
+      playerController.onFullscreenExited = null;
+    }
+    _relatedExitFocusNode?.dispose();
+    _commentTabController?.removeListener(_syncCommentPanelVisibility);
+    PlaybackStatsService.setVideoCommentPanelVisible(false);
     plPlayerController
       ?..removeStatusLister(playerListener)
       ..removePositionListener(positionListener);
@@ -345,7 +403,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
 
-    if (!videoDetailController.removeSafeArea) {
+    if (_removeSafeArea) {
       showSystemBar();
     }
 
@@ -449,15 +507,23 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (videoDetailController.removeSafeArea) {
-      padding = .zero;
-    } else {
-      padding = MediaQuery.viewPaddingOf(context);
-    }
 
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
     maxHeight = size.height;
+    final portrait = maxHeight >= maxWidth;
+    final nextRemoveSafeArea = videoDetailController.removeSafeAreaFor(
+      portrait: portrait,
+    );
+    if (nextRemoveSafeArea != _removeSafeArea) {
+      _removeSafeArea = nextRemoveSafeArea;
+      if (_removeSafeArea) {
+        hideSystemBar();
+      } else if (!isFullScreen) {
+        showSystemBar();
+      }
+    }
+    padding = _removeSafeArea ? .zero : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * videoDetailController.uiScale,
       height: maxHeight * videoDetailController.uiScale,
@@ -468,7 +534,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     final minVideoHeight = shortestSide / Style.aspectRatio16x9;
     final maxVideoHeight = max(size.longestSide * 0.65, shortestSide);
     videoDetailController
-      ..isPortrait = isPortrait = maxHeight >= maxWidth
+      ..isPortrait = isPortrait = portrait
       ..minVideoHeight = minVideoHeight
       ..maxVideoHeight = maxVideoHeight
       ..videoHeight = videoDetailController.isVertical.value
@@ -482,7 +548,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   bool removeAppBar(bool isFullScreen) =>
       PlatformUtils.isDesktop ||
-      videoDetailController.removeSafeArea ||
+      _removeSafeArea ||
       (isWindowMode && isFullScreen && !isPortrait);
 
   Widget get childWhenDisabled {
@@ -592,7 +658,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                       children: [
                         videoIntro(isHorizontal: false, needCtr: false),
                         if (videoDetailController.showReply)
-                          videoReplyPanel(isNested: true),
+                          videoReplyPanel(
+                            isNested: true,
+                            header: Pref.defaultShowComment
+                                ? _replyStreamMetrics
+                                : null,
+                          ),
                         if (_shouldShowSeasonPanel) seasonPanel,
                       ],
                     ),
@@ -825,7 +896,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           final double videoHeight = maxHeight - padding.vertical;
           final double width = videoHeight / Style.aspectRatio16x9;
           final videoWidth = isFullScreen ? maxWidth : width;
-          final introWidth = (maxWidth - padding.horizontal - width) / 2;
+          final introWidth = (maxWidth - padding.horizontal - width) * 0.5;
           final introHeight = maxHeight - padding.top;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,7 +957,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledLandscapeInner(bool isFullScreen) {
     double width =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.5, 0.7) * maxWidth;
+        clampDouble(
+          videoDetailController.plPlayerController.screenRatio * 1.08,
+          0.5,
+          0.7,
+        ) *
+        maxWidth;
     if (maxWidth >= 560) {
       width = maxWidth - clampDouble(maxWidth - width, 280, 425);
     }
@@ -1004,7 +1080,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return Obx(
         () {
           if (videoDetailController.isVertical.value && !isPortrait) {
-            return childSplit(9 / 16);
+            return childSplit(0.5625);
           }
 
           return _childWhenDisabledAlmostSquareInner(isFullScreen);
@@ -1017,7 +1093,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget _childWhenDisabledAlmostSquareInner(bool isFullScreen) {
     final shouldShowSeasonPanel = _shouldShowSeasonPanel;
-    final double height = maxHeight / 2.5;
+    final double height = maxHeight * 0.4;
     final videoHeight = isFullScreen
         ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
         : height;
@@ -1259,9 +1335,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
     } else if (!videoDetailController.horizontalScreen) {
       child = childWhenDisabled;
-    } else if (maxWidth / maxHeight >= kScreenRatio) {
+    } else if (maxWidth >= maxHeight * kScreenRatio) {
       child = childWhenDisabledLandscape;
-    } else if (maxWidth / Style.aspectRatio16x9 < 0.4 * maxHeight) {
+    } else if (maxWidth < maxHeight * 0.7111111111111111) {
       child = childWhenDisabled;
     } else {
       child = childWhenDisabledAlmostSquare;
@@ -1300,6 +1376,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       if (_shouldShowSeasonPanel) '播放列表',
     ];
     if (videoDetailController.tabCtr.length != tabs.length) {
+      _commentTabController?.removeListener(_syncCommentPanelVisibility);
+      _commentTabController = null;
       videoDetailController.tabCtr.dispose();
       videoDetailController.tabCtr = TabController(
         vsync: videoDetailController,
@@ -1309,6 +1387,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             : videoDetailController.tabCtr.index.clamp(0, tabs.length - 1),
       );
     }
+    _watchCommentTab(tabs);
 
     Widget tabBar() {
       final flag = !needIndicator || tabs.length == 1;
@@ -1358,8 +1437,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               );
             });
           } else {
+            final label = Text(
+              text,
+              softWrap: false,
+              overflow: .visible,
+            );
+            final relatedNode = _relatedExitFocusNode;
             return Tab(
-              child: Text(text, softWrap: false, overflow: .visible),
+              child: text == '相关视频' && relatedNode != null
+                  ? Focus(focusNode: relatedNode, child: label)
+                  : label,
             );
           }
         }).toList(),
@@ -1378,18 +1465,35 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         height: 45,
         child: Row(
           children: [
-            if (tabs.isEmpty)
-              const Spacer()
-            else
-              Expanded(
-                child: Align(
-                  alignment: .centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                    child: tabBar(),
+            Expanded(
+              child: Row(
+                children: [
+                  if (tabs.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
+                      child: tabBar(),
+                    ),
+                  Expanded(
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 38,
+                        child: IconButton(
+                          tooltip: '全屏',
+                          onPressed: () => videoDetailController
+                              .plPlayerController
+                              .triggerFullScreen(status: true),
+                          icon: Icon(
+                            Icons.fullscreen,
+                            size: 22,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
+            ),
             SizedBox(
               height: 32,
               child: TextButton(
@@ -1415,6 +1519,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   return IconButton(
                     onPressed: () {
                       final newVal = !enableShowDanmaku;
+                      final position = ctr.videoPlayerController?.state.position ??
+                          Duration.zero;
+                      PlaybackStatsService.samplePosition(position);
+                      PlaybackStatsService.updateVideoContext(
+                        danmakuEnabled: newVal,
+                      );
                       ctr.enableShowDanmaku.value = newVal;
                       if (!ctr.tempPlayerConf) {
                         GStorage.setting.put(
@@ -1445,7 +1555,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
-    return Stack(
+    final child = Stack(
       clipBehavior: Clip.none,
       children: [
         const Positioned.fill(
@@ -1598,6 +1708,50 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           },
         ),
       ],
+    );
+    if (videoDetailController.plPlayerController.keyboardControl) {
+      return Platform.isAndroid && isFullScreen
+          ? Focus(autofocus: true, child: child)
+          : child;
+    }
+    return Focus(
+      autofocus: !Platform.isAndroid || isFullScreen,
+      onKeyEvent: (_, event) {
+        if (PlayerFocus.handleAndroidFullscreenSeek(
+          controller: videoDetailController.plPlayerController,
+          event: event,
+          isFullScreen: isFullScreen,
+        )) {
+          return .handled;
+        }
+        if (event is! KeyDownEvent ||
+            (event.logicalKey != LogicalKeyboardKey.select &&
+                event.logicalKey != LogicalKeyboardKey.enter &&
+                event.logicalKey != LogicalKeyboardKey.numpadEnter &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonA &&
+                event.logicalKey != LogicalKeyboardKey.gameButtonSelect)) {
+          return .ignored;
+        }
+        if (GStorage.setting.get(
+          SettingBoxKey.playerConfirmFullscreen,
+          defaultValue: false,
+        )) {
+          final controller = videoDetailController.plPlayerController;
+          if (isFullScreen && controller.controlsLock.value) {
+            controller
+              ..controlsLock.value = false
+              ..showControls.value = false;
+          }
+          controller.triggerFullScreen(status: !isFullScreen);
+        } else if (plPlayerController == null ||
+            videoDetailController.playedTime == null) {
+          handlePlay();
+        } else {
+          plPlayerController!.onDoubleTapCenter();
+        }
+        return .handled;
+      },
+      child: child,
     );
   }
 
@@ -1829,11 +1983,32 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     );
   }
 
-  Widget videoReplyPanel({bool isNested = false}) => VideoReplyPanel(
-    key: videoReplyPanelKey,
-    isNested: isNested,
-    heroTag: heroTag,
-  );
+  Widget get _replyStreamMetrics => Obx(() {
+    final current = videoDetailController.streamSizeAndBitrate;
+    final others = videoDetailController.otherStreamSizeAndBitrates;
+    if (current == null && others.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const .fromLTRB(12, 8, 12, 4),
+      child: Column(
+        crossAxisAlignment: .start,
+        children: [
+          if (current != null)
+            Text(
+              '$current${others.length < 2 ? ' · ${videoDetailController.currentStreamCodec}' : ''}',
+            ),
+          for (final row in others) Text(row),
+        ],
+      ),
+    );
+  });
+
+  Widget videoReplyPanel({bool isNested = false, Widget? header}) =>
+      VideoReplyPanel(
+        key: videoReplyPanelKey,
+        isNested: isNested,
+        heroTag: heroTag,
+        header: header,
+      );
 
   // ai总结
   void showAiBottomSheet() {

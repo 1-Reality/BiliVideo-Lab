@@ -12,6 +12,8 @@ import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/services/logger.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
@@ -346,7 +348,9 @@ Commit Hash: ${BuildConfig.commitHash}''',
                     DialogOption(
                       onPressed: () async {
                         Get.back();
+                        await TrafficStatsService.instance.reset();
                         await GStorage.clear();
+                        await PlaybackStatsService.reset();
                         SmartDialog.showToast('重置成功');
                       },
                       child: const Text('重置所有数据（含登录信息）', style: style),

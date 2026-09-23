@@ -32,11 +32,20 @@ class TrendingHeader extends SliverToBoxAdapter {
 
 class RenderTrendingHeader extends RenderSliverToBoxAdapter {
   RenderTrendingHeader({
-    required this.offset,
+    required double offset,
     required this.onScrollRatioChanged,
-  });
+  }) : _offset = offset,
+       _inverseOffset = 1 / offset;
 
-  double offset;
+  double _offset;
+  double _inverseOffset;
+  double get offset => _offset;
+  set offset(double value) {
+    if (_offset == value) return;
+    _offset = value;
+    _inverseOffset = 1 / value;
+    markNeedsLayout();
+  }
   double? _scrollRatio;
   final ValueChanged<double> onScrollRatioChanged;
 
@@ -44,7 +53,7 @@ class RenderTrendingHeader extends RenderSliverToBoxAdapter {
   void performLayout() {
     super.performLayout();
     final scrollOffset = constraints.scrollOffset;
-    final scrollRatio = clampDouble(scrollOffset / offset, 0.0, 1.0);
+    final scrollRatio = clampDouble(scrollOffset * _inverseOffset, 0.0, 1.0);
     if (_scrollRatio != scrollRatio) {
       _scrollRatio = scrollRatio;
       WidgetsBinding.instance.addPostFrameCallback((_) {

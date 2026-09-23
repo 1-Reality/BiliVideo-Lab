@@ -25,7 +25,6 @@ import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/utils/extension/file_ext.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
@@ -43,6 +42,17 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 import 'package:path/path.dart' as path;
+
+final _scaleFormatters = [
+  LengthLimitingTextInputFormatter(4),
+  FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
+];
+final _decimalFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
+];
+final _signedDecimalFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+')),
+];
 
 List<SettingsModel> get styleSettings => [
   if (PlatformUtils.isDesktop) ...[
@@ -62,20 +72,6 @@ List<SettingsModel> get styleSettings => [
     ),
   ],
   if (Platform.isLinux) _useSSDModel(),
-  SwitchModel(
-    title: '横屏适配',
-    subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
-    leading: const Icon(Icons.phonelink_outlined),
-    setKey: SettingBoxKey.horizontalScreen,
-    defaultVal: Pref.horizontalScreen,
-    onChanged: (value) {
-      if (value) {
-        fullMode();
-      } else {
-        portraitUpMode();
-      }
-    },
-  ),
   const SwitchModel(
     title: '改用侧边栏',
     subtitle: '开启后底栏与顶栏被替换，且相关设置失效',
@@ -130,12 +126,6 @@ List<SettingsModel> get styleSettings => [
     getSubtitle: () =>
         '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
     onTap: _showCardWidthDialog,
-  ),
-  const SwitchModel(
-    title: '播放页移除安全边距',
-    leading: Icon(Icons.fit_screen_outlined),
-    setKey: SettingBoxKey.removeSafeArea,
-    defaultVal: false,
   ),
   const SwitchModel(
     title: '视频播放页使用深色主题',
@@ -454,10 +444,7 @@ void _showUiScaleDialog(
             TextFormField(
               controller: textController,
               keyboardType: const .numberWithOptions(decimal: true),
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(4),
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]+')),
-              ],
+              inputFormatters: _scaleFormatters,
               decoration: const InputDecoration(
                 labelText: '缩放比例',
                 hintText: '0.50 - 2.00',
@@ -525,7 +512,7 @@ void _showSpringDialog(BuildContext context, _) {
     final stiffness = double.parse(springDescription[1]);
     final damping = double.parse(springDescription[2]);
 
-    final duration = math.sqrt(4 * math.pi * math.pi * mass / stiffness);
+    final duration = math.sqrt(39.47841760435743 * mass / stiffness);
     final dampingRatio = damping / (2.0 * math.sqrt(mass * stiffness));
     final bounce = dampingRatio < 1.0
         ? 1.0 - dampingRatio
@@ -540,7 +527,7 @@ void _showSpringDialog(BuildContext context, _) {
     final duration = double.parse(springDescription[0]);
     final bounce = double.parse(springDescription[1]).clamp(-1.0, 1.0);
 
-    final stiffness = 4 * math.pi * math.pi / math.pow(duration, 2);
+    final stiffness = 39.47841760435743 / (duration * duration);
     final dampingRatio = bounce > 0 ? 1.0 - bounce : 1.0 / (bounce + 1);
     final damping = 2 * math.sqrt(stiffness) * dampingRatio;
 
@@ -591,11 +578,9 @@ void _showSpringDialog(BuildContext context, _) {
               decimal: true,
             ),
             onChanged: (value) => springDescription[index] = value,
-            inputFormatters: [
-              !physicalMode && index == 1
-                  ? FilteringTextInputFormatter.allow(RegExp(r'[-\d\.]+'))
-                  : FilteringTextInputFormatter.allow(RegExp(r'[\d\.]+')),
-            ],
+            inputFormatters: !physicalMode && index == 1
+                ? _signedDecimalFormatters
+                : _decimalFormatters,
             decoration: InputDecoration(
               labelText: (physicalMode
                   ? const ['mass', 'stiffness', 'damping']

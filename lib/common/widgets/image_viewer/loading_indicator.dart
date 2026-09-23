@@ -59,6 +59,25 @@ class RenderLoadingIndicator extends RenderBox {
     required this._progress,
   });
 
+  final _backgroundPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .fill
+    ..color = const Color(0x80000000);
+  final _ringPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .stroke
+    ..strokeWidth = 1.4
+    ..color = Colors.white;
+  final _progressPaint = Paint()
+    ..isAntiAlias = true
+    ..style = .fill
+    ..color = Colors.white;
+  static const _fullRotation = pi * 2;
+
+  late Offset _center;
+  late double _radius;
+  late Rect _progressRect;
+
   double _preferredSize;
   double get preferredSize => _preferredSize;
   set preferredSize(double value) {
@@ -79,6 +98,9 @@ class RenderLoadingIndicator extends RenderBox {
   @override
   void performLayout() {
     size = constraints.constrainDimensions(_preferredSize, _preferredSize);
+    _radius = size.width * 0.5 - 1.4;
+    _center = size.center(.zero);
+    _progressRect = Rect.fromCircle(center: _center, radius: _radius - 8.0);
   }
 
   @override
@@ -86,37 +108,25 @@ class RenderLoadingIndicator extends RenderBox {
     if (_progress == 0) {
       return;
     }
-    const padding = 8.0;
-    const strokeWidth = 1.4;
-    const startAngle = -pi / 2;
-
-    final paint = Paint()..isAntiAlias = true;
-    final size = this.size;
-    final radius = size.width / 2 - strokeWidth;
-    final center = size.center(.zero);
+    const startAngle = -pi * 0.5;
 
     context.canvas
       ..drawCircle(
-        center,
-        radius,
-        paint
-          ..style = .fill
-          ..color = const Color(0x80000000),
+        _center,
+        _radius,
+        _backgroundPaint,
       )
       ..drawCircle(
-        center,
-        radius,
-        paint
-          ..style = .stroke
-          ..strokeWidth = strokeWidth
-          ..color = Colors.white,
+        _center,
+        _radius,
+        _ringPaint,
       )
       ..drawArc(
-        Rect.fromCircle(center: center, radius: radius - padding),
+        _progressRect,
         startAngle,
-        progress * 2 * pi,
+        progress * _fullRotation,
         true,
-        paint..style = .fill,
+        _progressPaint,
       );
   }
 

@@ -65,7 +65,7 @@ class _BlackListPageState extends State<BlackListPage> {
   }
 
   Widget _buildBody(LoadingState<List<BlackListItem>?> loadingState) {
-    late final style = TextStyle(color: Theme.of(context).colorScheme.outline);
+    final style = TextStyle(color: Theme.of(context).colorScheme.outline);
     return switch (loadingState) {
       Loading() => const SliverPrototypeExtentList(
         prototypeItem: MsgFeedTopSkeleton(),

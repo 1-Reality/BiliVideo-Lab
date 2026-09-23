@@ -30,7 +30,7 @@ class VListItemModel extends HorizontalVideoModel {
       if (position == 100) {
         progress = -1;
       } else {
-        progress = ((position / 100) * duration).round();
+        progress = (position * duration * 0.01).round();
       }
     }
   }

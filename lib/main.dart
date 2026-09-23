@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliBro/build_config.dart';
@@ -9,9 +10,11 @@ import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_behavior.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
+import 'package:PiliBro/pages/setting/first_run_device_setup.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
+import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
@@ -26,6 +29,7 @@ import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/font_utils.dart';
 import 'package:PiliBro/utils/json_file_handler.dart';
 import 'package:PiliBro/utils/max_screen_size.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/request_utils.dart';
@@ -92,27 +96,58 @@ Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 
+void _showStartupBrandProfileAfterFirstFrame() {
+  final mid = GStorage.startupBrandProfileMid;
+  if (mid == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (Get.currentRoute == '/') {
+      Get.toNamed('/member?mid=$mid&startup_brand=1');
+    }
+  });
+}
+
+void _deferNonCriticalServicesUntilAfterFirstFrame() {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(Future<void>(() async {
+      // Large telemetry/history is deliberately kept off the cold-start path.
+      // The first upgraded launch may still pay the old Hive-open cost once;
+      // after this migration the startup-critical video box stays small.
+      await GStorage.initializePlaybackStats();
+      PlaybackStatsService.initializeAppLifecycle();
+      await ConnectivityUtils.initialize();
+      await TrafficStatsService.instance.initialize();
+      await GStorage.migrateHeavyTelemetryFromVideoBox();
+      await RequestUtils.syncHistoryStatus();
+    }));
+  });
+}
+
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await _initAppPath();
+  late final num? due;
   try {
-    await GStorage.init();
+    due = await GStorage.init();
   } catch (e) {
     await Utils.copyText(e.toString(), needToast: false);
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
   }
-  PlaybackStatsService.initializeAppLifecycle();
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
+  if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
+
+  var showFirstRunDeviceSetup = false;
+  if (Platform.isAndroid && due != null && due <= 0) {
+    showFirstRunDeviceSetup = await FirstRunDeviceSetup.prepare();
+  }
+
   await Future.wait([
     _initDownPath(),
     _initTmpPath(),
     CacheManager.ensureInitialized(),
     ?FontUtils.init(),
   ]);
-  await ConnectivityUtils.initialize();
-  await TrafficStatsService.instance.initialize();
   Get
     ..lazyPut(AccountService.new)
     ..lazyPut(DownloadService.new);
@@ -121,9 +156,17 @@ void main() async {
   if (PlatformUtils.isMobile) {
     if (Platform.isAndroid) MaxScreenSize.init();
     await Future.wait([
-      if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
+      showFirstRunDeviceSetup
+          ? fullMode() ?? Future<void>.value()
+          : OrientationPolicy.applyStartup(),
       setupServiceLocator(),
     ]);
+    if (showFirstRunDeviceSetup) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = Get.context;
+        if (context != null) unawaited(FirstRunDeviceSetup.show(context));
+      });
+    }
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {
       webViewEnvironment = await WebViewEnvironment.create(
@@ -138,7 +181,6 @@ void main() async {
 
   Request();
   Request.setCookie();
-  RequestUtils.syncHistoryStatus();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
@@ -195,6 +237,9 @@ void main() async {
   if (Pref.dynamicColor) {
     await MyApp.initPlatformState();
   }
+
+  _showStartupBrandProfileAfterFirstFrame();
+  _deferNonCriticalServicesUntilAfterFirstFrame();
 
   if (Pref.enableLog) {
     // 异常捕获 logo记录
@@ -309,6 +354,7 @@ class MyApp extends StatelessWidget {
       ),
       navigatorObservers: [
         routeObserver,
+        PlaybackStatsService.pageRouteObserver,
         FlutterSmartDialog.observer,
       ],
       scrollBehavior: PlatformUtils.isDesktop
@@ -322,13 +368,14 @@ class MyApp extends StatelessWidget {
     final mediaQuery = MediaQuery.of(context);
     final textScaler = TextScaler.linear(Pref.defaultTextScale);
     if (uiScale != 1.0) {
+      final inverseUiScale = 1 / uiScale;
       child = MediaQuery(
         data: mediaQuery.copyWith(
           textScaler: textScaler,
-          size: mediaQuery.size / uiScale,
-          padding: tmpPadding ?? mediaQuery.padding / uiScale,
-          viewInsets: mediaQuery.viewInsets / uiScale,
-          viewPadding: tmpPadding ?? mediaQuery.viewPadding / uiScale,
+          size: mediaQuery.size * inverseUiScale,
+          padding: tmpPadding ?? mediaQuery.padding * inverseUiScale,
+          viewInsets: mediaQuery.viewInsets * inverseUiScale,
+          viewPadding: tmpPadding ?? mediaQuery.viewPadding * inverseUiScale,
           devicePixelRatio: mediaQuery.devicePixelRatio * uiScale,
         ),
         child: child!,
@@ -378,7 +425,6 @@ class MyApp extends StatelessWidget {
 
     try {
       final Color? accentColor = await DynamicColorPlugin.getAccentColor();
-
       if (accentColor != null) {
         if (kDebugMode) {
           debugPrint('dynamic_color: Accent color detected.');

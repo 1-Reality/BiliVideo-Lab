@@ -72,7 +72,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   }
 
   Widget _buildPage() {
-    double padding = max(maxWidth / 2 - Grid.smallCardWidth, 0);
+    double padding = max(maxWidth * 0.5 - Grid.smallCardWidth, 0);
     if (isPortrait) {
       return Padding(
         padding: .symmetric(horizontal: padding),
@@ -101,7 +101,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       );
     }
 
-    padding = padding / 4;
+    padding *= 0.25;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
     return Row(

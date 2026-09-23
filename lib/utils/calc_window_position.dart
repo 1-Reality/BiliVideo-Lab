@@ -49,7 +49,7 @@ Future<Offset> calcWindowPosition(Size windowSize) async {
   }
 
   return Offset(
-    visibleStartX + (visibleWidth / 2) - (windowSize.width / 2),
-    visibleStartY + ((visibleHeight / 2) - (windowSize.height / 2)),
+    visibleStartX + visibleWidth * 0.5 - windowSize.width * 0.5,
+    visibleStartY + (visibleHeight * 0.5 - windowSize.height * 0.5),
   );
 }

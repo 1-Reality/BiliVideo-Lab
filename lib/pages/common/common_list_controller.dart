@@ -23,7 +23,7 @@ abstract class CommonListController<R, T> extends CommonController<R, T> {
   Future<void> queryData([bool isRefresh = true]) async {
     if (isLoading || (!isRefresh && isEnd)) return;
     isLoading = true;
-    final LoadingState<R> res = await customGetData();
+    final res = await customGetData();
     if (res case Success(:final response)) {
       if (!customHandleResponse(isRefresh, res)) {
         final dataList = getDataList(response);

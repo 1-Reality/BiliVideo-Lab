@@ -23,12 +23,12 @@ class DynamicsController
   final Set<int> tempBannedList = <int>{};
 
   String? _offset;
-  late int _page = 1;
-  late bool _isEnd = false;
+  int _page = 1;
+  bool _isEnd = false;
   Set<UpItem>? _cacheUpList;
-  late int hostMid = -1, currentMid = -1;
-  late bool showLiveUp = Pref.expandDynLivePanel;
-  late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
+  int hostMid = -1, currentMid = -1;
+  bool showLiveUp = Pref.expandDynLivePanel;
+  final _showAllUp = Pref.dynamicsShowAllFollowedUp;
 
   final upPanelPosition = Pref.upPanelPosition;
 
@@ -141,27 +141,20 @@ class DynamicsController
   void onChangeAccount(bool isLogin) => onReload();
 
   @override
-  Future<LoadingState<FollowUpModel>> customGetData() {
-    if (_offset == null) {
-      return DynamicsHttp.followUp();
-    }
-    if (_showAllUp) {
-      return DynamicsHttp.followings(
+  Future<LoadingState<FollowUpModel>> customGetData() => _offset == null
+      ? DynamicsHttp.followUp()
+      : _showAllUp
+      ? DynamicsHttp.followings(
         vmid: Accounts.main.mid,
         pn: _page,
         orderType: 'attention',
         ps: 50,
-      );
-    } else {
-      return DynamicsHttp.dynUpList(_offset);
-    }
-  }
+      )
+      : DynamicsHttp.dynUpList(_offset);
 
   @override
-  Future<void> queryData([bool isRefresh = true]) {
-    if (!isRefresh && _isEnd) return Future.value();
-    return super.queryData(isRefresh);
-  }
+  Future<void> queryData([bool isRefresh = true]) =>
+      !isRefresh && _isEnd ? Future.value() : super.queryData(isRefresh);
 
   @override
   bool customHandleResponse(bool isRefresh, Success<FollowUpModel> response) {

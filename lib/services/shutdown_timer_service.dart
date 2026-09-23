@@ -79,7 +79,7 @@ class ShutdownTimerService {
   void _handleShutdown() {
     switch (_shutdownType) {
       case .pause:
-        late final player = PlPlayerController.instance;
+        final player = PlPlayerController.instance;
         final isPlaying =
             this.isPlaying?.call() ?? player?.playerStatus.isPlaying ?? false;
         if (isPlaying) {
@@ -132,19 +132,19 @@ class ShutdownTimerService {
     exit(0);
   }
 
-  static (int hour, int minute) _parseMinutes(int minutes) =>
-      (minutes ~/ 60, minutes % 60);
+  static (int hour, int minute) _parseMinutes(int minutes) {
+    final hour = minutes ~/ 60;
+    return (hour, minutes - hour * 60);
+  }
 
   static String _format(int minutes) {
     if (minutes == 60) return '60分钟';
     final (int hour, int minute) = _parseMinutes(minutes);
-    if (hour > 0 && minute > 0) {
-      return '$hour小时$minute分钟';
-    } else if (hour > 0) {
-      return '$hour小时';
-    } else {
-      return '$minute分钟';
-    }
+    return switch ((hour, minute)) {
+      (>0, >0) => '$hour小时$minute分钟',
+      (>0, _) => '$hour小时',
+      _ => '$minute分钟',
+    };
   }
 
   Widget _pickerBuider(

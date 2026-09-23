@@ -22,6 +22,9 @@ import 'package:material_ui/material_ui.dart';
 
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
+  LoginPageController({this.initialIndex = 0});
+
+  final int initialIndex;
   final TextEditingController telTextController = TextEditingController();
   final TextEditingController usernameTextController = TextEditingController();
   final TextEditingController passwordTextController = TextEditingController();
@@ -51,8 +54,12 @@ class LoginPageController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    tabController = TabController(length: 4, vsync: this)
-      ..addListener(_handleTabChange);
+    tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: initialIndex,
+    )..addListener(_handleTabChange);
+    if (initialIndex == 2) unawaited(refreshQRCode());
   }
 
   @override
@@ -466,7 +473,7 @@ class LoginPageController extends GetxController
       return;
     }
     if (DateTime.now().millisecondsSinceEpoch - smsSendTimestamp >
-        1000 * 60 * 5) {
+        300000) {
       SmartDialog.showToast('验证码已过期，请重新获取');
       return;
     }
@@ -652,6 +659,20 @@ class LoginPageController extends GetxController
       ),
     };
     bool quickSelect = selectAccount.every((e) => e == selectAccount.first);
+
+    void submit() {
+      Get.back();
+      for (final type in AccountType.values) {
+        final index = type.index;
+        final account = quickSelect
+            ? selectAccount.first
+            : selectAccount[index];
+        if (account != Accounts.accountMode[index]) {
+          Accounts.set(type, account);
+        }
+      }
+    }
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -697,6 +718,7 @@ class LoginPageController extends GetxController
                     builder: (context) => RadioGroup<Account>(
                       groupValue: selectAccount[0],
                       onChanged: (v) {
+                        if (v == null) return;
                         selectAccount.fillRange(0, selectAccount.length, v);
                         (context as Element).markNeedsBuild();
                       },
@@ -707,6 +729,7 @@ class LoginPageController extends GetxController
                               (entry) => RadioWidget<Account>(
                                 value: entry.key,
                                 title: entry.value,
+                                onActivate: submit,
                                 mainAxisSize: .max,
                                 padding: PlatformUtils.isDesktop
                                     ? const .only(left: 12)
@@ -745,18 +768,7 @@ class LoginPageController extends GetxController
             child: Text('取消', style: TextStyle(color: colorScheme.outline)),
           ),
           TextButton(
-            onPressed: () {
-              Get.back();
-              for (final type in AccountType.values) {
-                final index = type.index;
-                final account = quickSelect
-                    ? selectAccount.first
-                    : selectAccount[index];
-                if (account != Accounts.accountMode[index]) {
-                  Accounts.set(type, account);
-                }
-              }
-            },
+            onPressed: submit,
             child: const Text('确定'),
           ),
         ],

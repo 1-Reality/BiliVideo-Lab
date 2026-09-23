@@ -238,8 +238,8 @@ class LiveRoomChatPanel extends StatelessWidget {
       // "room_{{room_id}}_{{int}}" , "upower_[{{emote}}]" , "official_{{int}}"
       final double width, height;
       if (uemote.isOfficial) {
-        width = uemote.width / 3;
-        height = uemote.height / 3;
+        width = uemote.width * 0.3333333333333333;
+        height = uemote.height * 0.3333333333333333;
       } else {
         width = height = 54;
       }

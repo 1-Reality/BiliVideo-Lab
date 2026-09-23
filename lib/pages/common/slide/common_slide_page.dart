@@ -16,6 +16,7 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
   static const double offset = 30.0;
   double? _downDx;
   late double _maxWidth;
+  late double _inverseMaxWidth;
   double get maxWidth => _maxWidth;
   late bool _isRTL = false;
   late final bool enableSlide;
@@ -80,6 +81,7 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
       return LayoutBuilder(
         builder: (context, constraints) {
           _maxWidth = constraints.maxWidth;
+          _inverseMaxWidth = 1 / _maxWidth;
           return AnimatedBuilder(
             animation: _animController,
             builder: (context, child) {
@@ -120,7 +122,8 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
   void _onDragUpdate(DragUpdateDetails details) {
     final from = _downDx!;
     final to = details.localPosition.dx;
-    _animController.value = max(0, _isRTL ? from - to : to - from) / _maxWidth;
+    _animController.value =
+        max(0, _isRTL ? from - to : to - from) * _inverseMaxWidth;
   }
 
   Widget slideList(ThemeData theme) => Listener(

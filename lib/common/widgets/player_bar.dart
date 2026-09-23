@@ -50,6 +50,7 @@ class RenderBottomBar extends RenderBox
   }
 
   Matrix4? _transform;
+  late final _defaultPaintCallback = defaultPaint;
 
   @override
   void performLayout() {
@@ -72,20 +73,20 @@ class RenderBottomBar extends RenderBox
     final height = math.max(firstSize.height, lastSize.height);
     size = constraints.constrainDimensions(maxWidth, height);
 
-    firstParentData.offset = Offset(0.0, (height - firstSize.height) / 2);
+    firstParentData.offset = Offset(0.0, (height - firstSize.height) * 0.5);
     if (totalWidth <= maxWidth) {
       lastParentData.offset = Offset(
         maxWidth - lastWidth,
-        (height - lastSize.height) / 2,
+        (height - lastSize.height) * 0.5,
       );
     } else {
       final scale = maxWidth / totalWidth;
       _transform = Matrix4.identity()
-        ..translateByDouble(0.0, height * (1 - scale) / 2, 0.0, 1.0)
+        ..translateByDouble(0.0, height * (1 - scale) * 0.5, 0.0, 1.0)
         ..scaleByDouble(scale, scale, scale, 1.0);
       lastParentData.offset = Offset(
-        (maxWidth - lastWidth * scale) / scale,
-        (height - lastSize.height) / 2,
+        totalWidth - lastWidth,
+        (height - lastSize.height) * 0.5,
       );
     }
   }
@@ -97,11 +98,11 @@ class RenderBottomBar extends RenderBox
         needsCompositing,
         offset,
         _transform!,
-        defaultPaint,
+        _defaultPaintCallback,
         oldLayer: layer as TransformLayer?,
       );
     } else {
-      defaultPaint(context, offset);
+      _defaultPaintCallback(context, offset);
       layer = null;
     }
   }

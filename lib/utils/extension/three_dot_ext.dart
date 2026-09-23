@@ -9,6 +9,8 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _talkerIdRegExp = RegExp(r'/(\d{3,})');
+
 extension ThreeDotItemTypeExt on ThreeDotItemType {
   Icon get icon => switch (this) {
     ThreeDotItemType.THREE_DOT_ITEM_TYPE_MSG_SETTING => const Icon(
@@ -65,7 +67,7 @@ extension ThreeDotItemTypeExt on ThreeDotItemType {
           ),
         );
       case ThreeDotItemType.THREE_DOT_ITEM_TYPE_UP_HELPER:
-        dynamic talkerId = RegExp(r'/(\d{3,})').firstMatch(item.url)?.group(1);
+        dynamic talkerId = _talkerIdRegExp.firstMatch(item.url)?.group(1);
         if (talkerId != null) {
           talkerId = int.parse(talkerId);
           Get.toNamed(

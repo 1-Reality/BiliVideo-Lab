@@ -31,12 +31,14 @@ set displacement(double value) {
   if (_displacement == value) return;
   _displacement = value;
   _refreshDragExtent = (value + kIndicatorSize) * _kDragSizeFactorLimit;
+  _inverseRefreshDragExtent = 1 / _refreshDragExtent;
 }
 
 // The over-scroll distance that moves the indicator to its maximum
 // displacement, as a percentage of the scrollable's container extent.
 double _refreshDragExtent =
     (_displacement + kIndicatorSize) * _kDragSizeFactorLimit;
+double _inverseRefreshDragExtent = 1 / _refreshDragExtent;
 double get refreshDragExtent => _refreshDragExtent;
 // How much the scroll's drag gesture can overshoot the RefreshIndicator's
 // displacement; max displacement = _kDragSizeFactorLimit * displacement.
@@ -392,7 +394,7 @@ class RefreshIndicatorState extends State<RefreshIndicator>
 
   void _checkDragOffset() {
     assert(_status == RefreshIndicatorStatus.drag);
-    double newValue = _dragOffset! / _refreshDragExtent;
+    final newValue = _dragOffset! * _inverseRefreshDragExtent;
     _positionController.value = clampDouble(
       newValue,
       0.0,

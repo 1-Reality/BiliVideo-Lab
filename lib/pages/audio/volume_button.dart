@@ -215,7 +215,7 @@ class _RenderVolumeWidget extends RenderProxyBox {
             .size;
     size = constraints.biggest;
     _offset = Offset(
-      math.min(offset.dx - (childSize.width / 2), size.width - childSize.width),
+      math.min(offset.dx - childSize.width * 0.5, size.width - childSize.width),
       math.min(offset.dy, size.height) - childSize.height,
     );
   }

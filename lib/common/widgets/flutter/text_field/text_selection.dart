@@ -1568,7 +1568,7 @@ class _TextSelectionGestureDetectorState
         // triple click has selected a paragraph, on the next click the word at
         // the clicked position will be selected, and on the next click the
         // paragraph at the position is selected.
-        return rawCount < 2 ? rawCount : 2 + rawCount % 2;
+        return rawCount < 2 ? rawCount : 2 + (rawCount & 1);
     }
   }
 
@@ -2211,7 +2211,7 @@ class TextSelectionOverlay {
     // scale transformation, the line height will also be scaled.
     final double centerOfLineLocal =
         _selectionOverlay.selectionEndpoints.last.point.dy -
-        renderObject.preferredLineHeight / 2;
+        renderObject.preferredLineHeight * 0.5;
     final double centerOfLineGlobal = renderObject
         .localToGlobal(Offset(0.0, centerOfLineLocal))
         .dy;
@@ -2396,7 +2396,7 @@ class TextSelectionOverlay {
     // scale transformation, the line height will also be scaled.
     final double centerOfLineLocal =
         _selectionOverlay.selectionEndpoints.first.point.dy -
-        renderObject.preferredLineHeight / 2;
+        renderObject.preferredLineHeight * 0.5;
     final double centerOfLineGlobal = renderObject
         .localToGlobal(Offset(0.0, centerOfLineLocal))
         .dy;
@@ -3375,15 +3375,15 @@ class SelectionOverlay {
 
     final bool isMultiline =
         selectionEndpoints.last.point.dy - selectionEndpoints.first.point.dy >
-        lineHeightAtEnd / 2;
+        lineHeightAtEnd * 0.5;
 
     // If the selected text spans more than 1 line, horizontally center the toolbar.
     // Derived from both iOS and Android.
     final double midX = isMultiline
-        ? editingRegion.width / 2
+        ? editingRegion.width * 0.5
         : (selectionEndpoints.first.point.dx +
-                  selectionEndpoints.last.point.dx) /
-              2;
+                  selectionEndpoints.last.point.dx) *
+              0.5;
 
     final Offset midpoint = Offset(
       midX,
@@ -3618,14 +3618,14 @@ class _SelectionHandleOverlayState extends State<_SelectionHandleOverlay>
     final Rect interactiveRect = handleRect.expandToInclude(
       Rect.fromCircle(
         center: handleRect.center,
-        radius: kMinInteractiveDimension / 2,
+        radius: kMinInteractiveDimension * 0.5,
       ),
     );
     final RelativeRect padding = RelativeRect.fromLTRB(
-      math.max((interactiveRect.width - handleRect.width) / 2, 0),
-      math.max((interactiveRect.height - handleRect.height) / 2, 0),
-      math.max((interactiveRect.width - handleRect.width) / 2, 0),
-      math.max((interactiveRect.height - handleRect.height) / 2, 0),
+      math.max((interactiveRect.width - handleRect.width) * 0.5, 0),
+      math.max((interactiveRect.height - handleRect.height) * 0.5, 0),
+      math.max((interactiveRect.width - handleRect.width) * 0.5, 0),
+      math.max((interactiveRect.height - handleRect.height) * 0.5, 0),
     );
 
     final Offset handleAnchor = widget.selectionControls.getHandleAnchor(

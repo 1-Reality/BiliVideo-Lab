@@ -147,7 +147,7 @@ class DynamicPanel extends StatelessWidget {
     String? title;
     String? cover;
     String? bvid;
-    late final major = item.modules.moduleDynamic?.major;
+    final major = item.modules.moduleDynamic?.major;
     switch (item.type) {
       case 'DYNAMIC_TYPE_AV':
         if (major?.archive case final archive?) {

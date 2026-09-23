@@ -209,15 +209,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if ((widget.headerControl.key as GlobalKey<TimeBatteryMixin>).currentState
         case final state?) {
       if (state.mounted) {
-        state.getBatteryLevelIfNeeded();
+        state.showCurrTimeIfNeeded(state.isFullScreen);
         state.provider
           ?..startIfNeeded()
           ..muted = !visible;
-        if (visible) {
-          state.startClock();
-        } else {
-          state.stopClock();
-        }
+        state.updateTimeBatteryVisibility(visible);
       }
     }
 
@@ -332,21 +328,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
-      unawaited(PlaybackStatsService.flush());
-    }
+    final currentPlayer = plPlayerController.videoPlayerController;
+    final isBackground = state == .paused || state == .detached;
+    PlaybackStatsService.changePlaybackForm(
+      isBackground
+          ? (plPlayerController.isPipMode ? 'pip' : 'background')
+          : (plPlayerController.isFullScreen.value ? 'fullscreen' : 'window'),
+      currentPlayer?.state.position ?? Duration.zero,
+    );
+    if (isBackground) unawaited(PlaybackStatsService.flush());
     if (!plPlayerController.continuePlayInBackground.value) {
-      late final player = plPlayerController.videoPlayerController;
-      if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
-        if (player != null && player.state.playing) {
+      if (isBackground) {
+        if (currentPlayer != null && currentPlayer.state.playing) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
-          player.pause();
+          currentPlayer.pause();
         }
-      } else {
-        if (_pauseDueToPauseUponEnteringBackgroundMode) {
-          _pauseDueToPauseUponEnteringBackgroundMode = false;
-          player?.play();
-        }
+      } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
+        _pauseDueToPauseUponEnteringBackgroundMode = false;
+        currentPlayer?.play();
       }
     }
   }
@@ -929,6 +928,20 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late ColorScheme colorScheme;
   late double maxWidth;
   late double maxHeight;
+  late double _inverseMaxWidth;
+  late double _thirdWidth;
+  late double _twoThirdWidth;
+  late double _quarterWidth;
+  late double _threeQuarterWidth;
+  late double _eighthWidth;
+  late double _sevenEighthWidth;
+  late double _eighthHeight;
+  late double _inverseBrightnessLevel;
+  late double _inverseVolumeLevel;
+  double _geometryWidth = -1;
+  double _geometryHeight = -1;
+  double _seekScalePerPixel = 0;
+  static const _oneThird = 0.3333333333333333;
 
   @override
   void didChangeDependencies() {
@@ -955,17 +968,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onHorizontalDragStart() {
     plPlayerController.onSeekStart(plPlayerController.position.value);
+    _seekScalePerPixel =
+        plPlayerController.sliderScale.toDouble() * _inverseMaxWidth;
   }
 
   void _onHorizontalDragUpdate(double dx) {
     final curPos =
         plPlayerController.seekToPos?.inMilliseconds ??
         plPlayerController.seekPosition.value * 1000;
-    final posDelta = (plPlayerController.sliderScale * dx / maxWidth).round();
-    final newPos = (curPos + posDelta).clamp(
-      0,
-      plPlayerController.durationInMilliseconds,
-    );
+    final posDelta = (_seekScalePerPixel * dx).round();
+    final rawPos = curPos + posDelta;
+    final duration = plPlayerController.durationInMilliseconds;
+    final newPos = rawPos < 0
+        ? 0
+        : rawPos > duration
+        ? duration
+        : rawPos;
     final seconds = newPos ~/ 1000;
     plPlayerController
       ..seekToPos = Duration(milliseconds: newPos)
@@ -1007,8 +1025,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         }
 
         final double tapPosition = details.localFocalPoint.dx;
-        final double sectionWidth = maxWidth / 3;
-        if (tapPosition < sectionWidth) {
+        if (tapPosition < _thirdWidth) {
           if (!plPlayerController.enableSlideVolumeBrightness) {
             return;
           }
@@ -1018,7 +1035,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           } else {
             _gestureType = .left;
           }
-        } else if (tapPosition < sectionWidth * 2) {
+        } else if (tapPosition < _twoThirdWidth) {
           if (!plPlayerController.enableSlideFS) {
             return;
           }
@@ -1035,16 +1052,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return;
     }
 
-    Offset delta = details.focalPointDelta;
+    final delta = details.focalPointDelta;
 
     if (_gestureType == .horizontal) {
       // live模式下禁用
       if (plPlayerController.isLive) return;
 
-      final height = maxHeight * 0.125;
+      final height = _eighthHeight;
       if (details.localFocalPoint.dy <= height &&
-          (details.localFocalPoint.dx >= maxWidth * 0.875 ||
-              details.localFocalPoint.dx <= maxWidth * 0.125)) {
+          (details.localFocalPoint.dx >= _sevenEighthWidth ||
+              details.localFocalPoint.dx <= _eighthWidth)) {
         if (!plPlayerController.hasToasted) {
           plPlayerController
             ..seekToPos = null
@@ -1081,46 +1098,50 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _onHorizontalDragUpdate(delta.dx);
     } else if (_gestureType == .left) {
       // 左边区域 👈
-      final double level = maxHeight * 3;
-      final double brightness = (_brightnessValue.value - delta.dy / level)
-          .clamp(0.0, 1.0);
+      final rawBrightness =
+          _brightnessValue.value - delta.dy * _inverseBrightnessLevel;
+      final brightness = rawBrightness < 0
+          ? 0.0
+          : rawBrightness > 1
+          ? 1.0
+          : rawBrightness;
       setBrightness(brightness);
     } else if (_gestureType == .center) {
       // 全屏
       const double threshold = 2.5; // 滑动阈值
-      double cumulativeDy = details.localFocalPoint.dy - _initialFocalPoint!.dy;
-
-      void fullScreenTrigger(bool status) {
-        plPlayerController.triggerFullScreen(status: status);
-      }
+      final cumulativeDy =
+          details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
       if (cumulativeDy > threshold) {
         _gestureType = .center_down;
         if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            plPlayerController.fullScreenGestureReverse,
+          plPlayerController.triggerFullScreen(
+            status: plPlayerController.fullScreenGestureReverse,
           );
         }
       } else if (cumulativeDy < -threshold) {
         _gestureType = .center_up;
         if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          fullScreenTrigger(
-            !plPlayerController.fullScreenGestureReverse,
+          plPlayerController.triggerFullScreen(
+            status: !plPlayerController.fullScreenGestureReverse,
           );
         }
       }
     } else if (_gestureType == .right) {
       // 右边区域
-      final double level = maxHeight * 0.5;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
         () {
-          final double volume = clampDouble(
-            plPlayerController.volume.value - delta.dy / level,
-            0.0,
-            plPlayerController.maxVolume,
-          );
+          final rawVolume =
+              plPlayerController.volume.value -
+              delta.dy * _inverseVolumeLevel;
+          final maxVolume = plPlayerController.maxVolume;
+          final volume = rawVolume < 0
+              ? 0.0
+              : rawVolume > maxVolume
+              ? maxVolume
+              : rawVolume;
           plPlayerController.setVolume(volume);
         },
       );
@@ -1140,11 +1161,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return;
     }
     final double tapPosition = details.localPosition.dx;
-    final double sectionWidth = maxWidth / 4;
     DoubleTapType type;
-    if (tapPosition < sectionWidth) {
+    if (tapPosition < _quarterWidth) {
       type = DoubleTapType.left;
-    } else if (tapPosition < sectionWidth * 3) {
+    } else if (tapPosition < _threeQuarterWidth) {
       type = DoubleTapType.center;
     } else {
       type = DoubleTapType.right;
@@ -1213,7 +1233,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         })
         ..onLongPressMoveUpdate = ((details) {
           if (!plPlayerController.enableLongPressSlideSpeed) return;
-          final step = (-details.offsetFromOrigin.dy / 24).truncate();
+          final step = (details.offsetFromOrigin.dy * _inverseLongPressStep)
+              .truncate();
           if (step == _longPressSpeedStep) return;
           plPlayerController.adjustLongPressSpeed(step - _longPressSpeedStep);
           _longPressSpeedStep = step;
@@ -1232,6 +1253,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   StreamSubscription<bool>? _danmakuListener;
 
+  static const _inverseLongPressStep = -0.041666666666666664;
   static const _kOffsetThreshold = 25.0;
   bool _isPositionAllowed(Offset offset) {
     if (offset.dx < _kOffsetThreshold ||
@@ -1328,13 +1350,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return;
       }
 
-      final double level = maxHeight * 0.5;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
         () {
           final double volume = clampDouble(
-            plPlayerController.volume.value - event.localPanDelta.dy / level,
+            plPlayerController.volume.value -
+                event.localPanDelta.dy * _inverseVolumeLevel,
             0.0,
             plPlayerController.maxVolume,
           );
@@ -1353,7 +1375,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
-      final offset = -event.scrollDelta.dy / 4000;
+      final offset = -event.scrollDelta.dy * 0.00025;
       final volume = clampDouble(
         plPlayerController.volume.value + offset,
         0.0,
@@ -1365,8 +1387,25 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   Widget build(BuildContext context) {
-    maxWidth = widget.maxWidth;
-    maxHeight = widget.maxHeight;
+    final width = widget.maxWidth;
+    final height = widget.maxHeight;
+    if (width != _geometryWidth) {
+      _geometryWidth = maxWidth = width;
+      _inverseMaxWidth = 1 / width;
+      _thirdWidth = width * _oneThird;
+      _twoThirdWidth = _thirdWidth * 2;
+      _quarterWidth = width * 0.25;
+      _threeQuarterWidth = _quarterWidth * 3;
+      _eighthWidth = width * 0.125;
+      _sevenEighthWidth = width * 0.875;
+    }
+    if (height != _geometryHeight) {
+      _geometryHeight = maxHeight = height;
+      _eighthHeight = height * 0.125;
+      final inverseMaxHeight = 1 / height;
+      _inverseBrightnessLevel = inverseMaxHeight * _oneThird;
+      _inverseVolumeLevel = inverseMaxHeight * 2;
+    }
     final isFullScreen = this.isFullScreen;
     final primary = isFullScreen && colorScheme.isLight
         ? colorScheme.inversePrimary
@@ -1586,9 +1625,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
                       Icon(
-                        _brightnessValue.value < 1.0 / 3.0
+                        _brightnessValue.value < 0.3333333333333333
                             ? Icons.brightness_low
-                            : _brightnessValue.value < 2.0 / 3.0
+                            : _brightnessValue.value < 0.6666666666666666
                             ? Icons.brightness_medium
                             : Icons.brightness_high,
                         color: Colors.white,
@@ -1902,6 +1941,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ],
 
         Obx(() {
+          if (plPlayerController.dataStatus.error) {
+            return Center(
+              child: Text(
+                plPlayerController.isFileSource
+                    ? '离线缓存无法打开\n请确认缓存文件完整后重新下载'
+                    : '当前视频无法打开',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            );
+          }
           if (plPlayerController.dataStatus.loading ||
               (plPlayerController.isBuffering.value &&
                   plPlayerController.playerStatus.isPlaying)) {
@@ -2098,8 +2148,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
     final ctr = plPlayerController;
     final theme = Theme.of(context);
-    final currentPos = ctr.positionInMilliseconds / 1000.0;
-    final duration = ctr.durationInMilliseconds / 1000.0;
+    final currentPos = ctr.positionInMilliseconds * 0.001;
+    final duration = ctr.durationInMilliseconds * 0.001;
     final segment = Pair(first: currentPos, second: currentPos);
     final model = PostSegmentModel(
       segment: segment,
@@ -2188,16 +2238,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         false;
     if (!success) return;
 
+    final start = segment.first;
+    final end = segment.second;
     final progress = 0.0.obs;
     final name =
-        '${ctr.cid}-${segment.first.toStringAsFixed(3)}_${segment.second.toStringAsFixed(3)}.webp';
+        '${ctr.cid}-${start.toStringAsFixed(3)}_${end.toStringAsFixed(3)}.webp';
     final file = '$tmpDirPath/$name';
 
     final mpv = MpvConvertWebp(
       url!,
       file,
-      segment.first,
-      segment.second,
+      start,
+      end,
       progress: progress,
       preset: preset,
     );
@@ -2292,7 +2344,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
     final top = dy + item.height + _triangleHeight + 2;
 
-    final realLeft = dx + overlayWidth / 2;
+    final realLeft = dx + overlayWidth * 0.5;
 
     final left = realLeft.clamp(
       _overlaySpacing + overlayWidth,

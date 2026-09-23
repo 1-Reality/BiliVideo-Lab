@@ -95,6 +95,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   double? _scaleStart;
   double? _rotationStart = 0.0;
   double _currentRotation = 0.0;
+  late double _inverseScaleFactor;
   _GestureType? _gestureType;
 
   static final gestureSettings = DeviceGestureSettings(
@@ -140,6 +141,9 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       return matrix.clone();
     }
 
+    final boundary = _boundaryRect;
+    final viewport = _viewport;
+
     final Offset alignedTranslation;
 
     if (_currentAxis != null) {
@@ -156,14 +160,14 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     final Matrix4 nextMatrix = matrix.clone()
       ..translateByDouble(alignedTranslation.dx, alignedTranslation.dy, 0, 1);
 
-    final Quad nextViewport = _transformViewport(nextMatrix, _viewport);
+    final Quad nextViewport = _transformViewport(nextMatrix, viewport);
 
-    if (_boundaryRect.isInfinite) {
+    if (boundary.isInfinite) {
       return nextMatrix;
     }
 
     final Quad boundariesAabbQuad = _getAxisAlignedBoundingBoxWithRotation(
-      _boundaryRect,
+      boundary,
       _currentRotation,
     );
 
@@ -192,7 +196,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
 
     final Quad correctedViewport = _transformViewport(
       correctedMatrix,
-      _viewport,
+      viewport,
     );
     final Offset offendingCorrectedDistance = _exceedsBy(
       boundariesAabbQuad,
@@ -227,11 +231,13 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     assert(scale != 0.0);
 
     final double currentScale = _transformer.value.getMaxScaleOnAxis();
+    final boundary = _boundaryRect;
+    final viewport = _viewport;
     final double totalScale = math.max(
       currentScale * scale,
       math.max(
-        _viewport.width / _boundaryRect.width,
-        _viewport.height / _boundaryRect.height,
+        viewport.width / boundary.width,
+        viewport.height / boundary.height,
       ),
     );
     final double clampedTotalScale = clampDouble(
@@ -472,7 +478,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
         final FrictionSimulation frictionSimulation = FrictionSimulation(
           widget.interactionEndFrictionCoefficient * widget.scaleFactor,
           scale,
-          details.scaleVelocity / 10,
+          details.scaleVelocity * 0.1,
         );
         final double tFinal = _getFinalTime(
           details.scaleVelocity.abs(),
@@ -551,14 +557,13 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handlePointerScrollEvent(PointerScrollEvent event) {
     if (_gestureIsSupported(_GestureType.scale)) {
       final Offset local = event.localPosition;
-      final Offset global = event.position;
       if (HardwareKeyboard.instance.isControlPressed) {
-        _handleMouseWheelScale(event, local, global);
+        _handleMouseWheelScale(event, local);
         return;
       }
       final shift = HardwareKeyboard.instance.isShiftPressed;
       if (shift || HardwareKeyboard.instance.isAltPressed) {
-        _handleMouseWheelPanAsScale(event, local, global, shift);
+        _handleMouseWheelPanAsScale(event, local, shift);
         return;
       }
       widget.pointerSignalFallback(event);
@@ -568,10 +573,9 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handleMouseWheelScale(
     PointerScrollEvent event,
     Offset local,
-    Offset global,
   ) {
     final double scaleChange = math.exp(
-      -event.scrollDelta.dy / widget.scaleFactor,
+      -event.scrollDelta.dy * _inverseScaleFactor,
     );
     final Offset focalPointScene = _transformer.toScene(local);
     _transformer.value = _matrixScale(_transformer.value, scaleChange);
@@ -586,7 +590,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
   void _handleMouseWheelPanAsScale(
     PointerScrollEvent event,
     Offset local,
-    Offset global,
     bool flip,
   ) {
     if (_transformer.value[0] == 1.0) return;
@@ -661,12 +664,17 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     _scaleController = AnimationController(vsync: this);
 
     _transformer = widget.transformationController;
+    _inverseScaleFactor = 1 / widget.scaleFactor;
     _transformer.addListener(_handleTransformation);
   }
 
   @override
   void didUpdateWidget(MouseInteractiveViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.scaleFactor != oldWidget.scaleFactor) {
+      _inverseScaleFactor = 1 / widget.scaleFactor;
+    }
 
     final newController = widget.transformationController;
     if (newController == oldWidget.transformationController) {
@@ -762,7 +770,7 @@ double _getFinalTime(
   double drag, {
   double effectivelyMotionless = 10,
 }) {
-  return math.log(effectivelyMotionless / velocity) / math.log(drag / 100);
+  return math.log(effectivelyMotionless / velocity) / math.log(drag * 0.01);
 }
 
 Offset _getMatrixTranslation(Matrix4 matrix) {
@@ -790,9 +798,9 @@ Quad _transformViewport(Matrix4 matrix, Rect viewport) {
 
 Quad _getAxisAlignedBoundingBoxWithRotation(Rect rect, double rotation) {
   final Matrix4 rotationMatrix = Matrix4.identity()
-    ..translateByDouble(rect.size.width / 2, rect.size.height / 2, 0, 1)
+    ..translateByDouble(rect.size.width * 0.5, rect.size.height * 0.5, 0, 1)
     ..rotateZ(rotation)
-    ..translateByDouble(-rect.size.width / 2, -rect.size.height / 2, 0, 1);
+    ..translateByDouble(-rect.size.width * 0.5, -rect.size.height * 0.5, 0, 1);
   final Quad boundariesRotated = Quad.points(
     rotationMatrix.transform3(Vector3(rect.left, rect.top, 0.0)),
     rotationMatrix.transform3(Vector3(rect.right, rect.top, 0.0)),
@@ -804,14 +812,14 @@ Quad _getAxisAlignedBoundingBoxWithRotation(Rect rect, double rotation) {
 }
 
 Offset _exceedsBy(Quad boundary, Quad viewport) {
-  final List<Vector3> viewportPoints = <Vector3>[
-    viewport.point0,
-    viewport.point1,
-    viewport.point2,
-    viewport.point3,
-  ];
   Offset largestExcess = Offset.zero;
-  for (final Vector3 point in viewportPoints) {
+  for (var i = 0; i < 4; i++) {
+    final point = switch (i) {
+      0 => viewport.point0,
+      1 => viewport.point1,
+      2 => viewport.point2,
+      _ => viewport.point3,
+    };
     // ignore: invalid_use_of_visible_for_testing_member
     final Vector3 pointInside = InteractiveViewer.getNearestPointInside(
       point,

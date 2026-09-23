@@ -12,7 +12,7 @@ const _kIndicatorHeight = _kNavigationHeight - 2 * _kIndicatorPaddingInt;
 const _kIndicatorWidth = 86.0;
 const _kIndicatorPaddingInt = 4.0;
 const _kIndicatorPadding = EdgeInsets.all(_kIndicatorPaddingInt);
-const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight / 2));
+const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight * 0.5));
 const _kNavigationShape = RoundedSuperellipseBorder(
   borderRadius: _kBorderRadius,
 );
@@ -523,23 +523,18 @@ class _NavigationDestinationLayoutDelegate extends MultiChildLayoutDelegate {
 
   @override
   void performLayout(Size size) {
-    double halfWidth(Size size) => size.width / 2;
-    double halfHeight(Size size) => size.height / 2;
+    final looseConstraints = BoxConstraints.loose(size);
+    final Size iconSize = layoutChild(iconId, looseConstraints);
+    final Size labelSize = layoutChild(labelId, looseConstraints);
 
-    final Size iconSize = layoutChild(iconId, BoxConstraints.loose(size));
-    final Size labelSize = layoutChild(labelId, BoxConstraints.loose(size));
-
-    final double yPositionOffset = Tween<double>(
-      begin: halfHeight(iconSize),
-
-      end: halfHeight(iconSize) + halfHeight(labelSize),
-    ).transform(animation.value);
-    final double iconYPosition = halfHeight(size) - yPositionOffset;
+    final yPositionOffset =
+        (iconSize.height + labelSize.height * animation.value) * 0.5;
+    final double iconYPosition = size.height * 0.5 - yPositionOffset;
 
     positionChild(
       iconId,
       Offset(
-        halfWidth(size) - halfWidth(iconSize),
+        (size.width - iconSize.width) * 0.5,
         iconYPosition,
       ),
     );
@@ -547,7 +542,7 @@ class _NavigationDestinationLayoutDelegate extends MultiChildLayoutDelegate {
     positionChild(
       labelId,
       Offset(
-        halfWidth(size) - halfWidth(labelSize),
+        (size.width - labelSize.width) * 0.5,
 
         iconYPosition + iconSize.height,
       ),

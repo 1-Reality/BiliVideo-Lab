@@ -34,6 +34,11 @@ class _SettingsSearchPageState
     ...recommendSettings,
     ...videoSettings,
     ...playSettings,
+    NormalModel(
+      title: '极高码率 H.264 自动切换 H.265',
+      subtitle: 'PC 网络联动状态：画质门限、码率门限',
+      onTap: (context, setState) => Get.toNamed('/networkPolicy'),
+    ),
     ...styleSettings,
   ];
 

@@ -15,6 +15,9 @@ class PlaybackStatsPage extends StatefulWidget {
 }
 
 class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
+  static final _trailingZeros = RegExp(r'0+$');
+  static final _trailingDot = RegExp(r'\.$');
+
   late Map<String, dynamic> stats = PlaybackStatsService.snapshot();
 
   num _value(String key) => stats[key] as num? ?? 0;
@@ -22,13 +25,13 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
 
   String _duration(num microseconds) {
     final negative = microseconds < 0;
-    var seconds = (microseconds.abs() / 1000000).round();
+    var seconds = (microseconds.abs() * 0.000001).round();
     final days = seconds ~/ 86400;
-    seconds %= 86400;
+    seconds -= days * 86400;
     final hours = seconds ~/ 3600;
-    seconds %= 3600;
+    seconds -= hours * 3600;
     final minutes = seconds ~/ 60;
-    seconds %= 60;
+    seconds -= minutes * 60;
     final parts = [
       if (days > 0) '$days天',
       if (hours > 0) '$hours小时',
@@ -42,13 +45,13 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
     if (value == null || !value.isFinite || value == 0) return '暂无数据';
     final text = value
         .toStringAsFixed(2)
-        .replaceFirst(RegExp(r'0+$'), '')
-        .replaceFirst(
-          RegExp(r'\.$'),
-          '',
-        );
+        .replaceFirst(_trailingZeros, '')
+        .replaceFirst(_trailingDot, '');
     return '$text 倍';
   }
+
+  String _speedCompact(num value) =>
+      '${value.toStringAsFixed(2).replaceFirst(_trailingZeros, '').replaceFirst(_trailingDot, '')}×';
 
   Widget _section(String title) => Padding(
     padding: const .fromLTRB(16, 20, 16, 4),
@@ -86,8 +89,14 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   Widget build(BuildContext context) {
     final favorite = _derived['favoriteSpeed'] as num?;
     final favoriteDefault = _derived['favoriteSpeedWasDefault'] == true;
+    final favoriteSpeeds = (_derived['favoriteSpeeds'] as List? ?? const [])
+        .whereType<num>()
+        .toList(growable: false);
     final eligibleRewinds = _value('eligibleRewindCount');
     final completionRate = _derived['rewindCompletionRate'] as num? ?? 0;
+    final playedSessions = _value('sessionPlayedCount');
+    final completedSessions = _value('sessionCompletedCount');
+    final videoCompletionRate = _derived['videoCompletionRate'] as num? ?? 0;
     final speedSelections =
         (_derived['speedSelectionCounts'] as Map?)?.entries.toList()
           ?..sort((a, b) => (b.value as num).compareTo(a.value as num));
@@ -96,7 +105,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         (a, b) => ((b.value as Map)['activePlaybackUs'] as num? ?? 0)
             .compareTo((a.value as Map)['activePlaybackUs'] as num? ?? 0),
       );
-    final currentYear = DateTime.now().year.toString();
+    final now = DateTime.now();
+    final currentMonth =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
     return SimpleScaffold(
       appBar: AppBar(
@@ -125,6 +136,11 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   : '${_speed(favorite)}${favoriteDefault ? '（默认）' : ''}',
               '每次手动选择计一次；进入新的 CID 时，当前倍速也计一次',
             ),
+            if (favoriteSpeeds.length > 1)
+              _item(
+                '您次爱的倍速',
+                favoriteSpeeds.skip(1).take(4).map(_speedCompact).join('  '),
+              ),
             _item('实际平均倍速', _speed(_derived['actualAverageSpeed'] as num?)),
             _item(
               '名义平均倍速',
@@ -137,6 +153,36 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 _derived['nominalAverageSpeedIncludingLongPress'] as num?,
               ),
               '把长按期间的临时倍速也计入名义倍速积分',
+            ),
+            _item(
+              '新内容摄入倍速',
+              _speed(_derived['newContentEquivalentSpeed'] as num?),
+              '本次播放区间去重后的原视频覆盖量 ÷ 实际播放时间',
+            ),
+            _item(
+              '真实占用时间等效倍速',
+              _speed(_derived['observedEquivalentSpeed'] as num?),
+              '媒体推进量 ÷ 播放、暂停与缓冲总时间',
+            ),
+            _item(
+              '重复观看比例',
+              '${((_derived['repeatRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+            ),
+            _item(
+              '原视频覆盖率',
+              '${((_derived['coverageRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+            ),
+            _item(
+              '视频完播率',
+              playedSessions == 0
+                  ? '暂无数据'
+                  : '${(videoCompletionRate * 100).toStringAsFixed(1)}%',
+              '完成 $completedSessions 次／有效播放 $playedSessions 次；不保存单视频记录',
+            ),
+            _item(
+              '平均单次覆盖率',
+              '${((_derived['averageSessionCoverageRatio'] as num? ?? 0) * 100).toStringAsFixed(1)}%',
+              '每次产生实际播放的视频会话等权平均',
             ),
             _item('实际播放视频时长', _duration(_value('activePlaybackUs'))),
             _item('倍速为您节约', _duration(_derived['savedTimeUs'] as num? ?? 0)),
@@ -153,21 +199,46 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             _item('暂停累计时间', _duration(_value('pausedUs'))),
             _item('缓冲等待时间', _duration(_value('bufferingUs'))),
             _item(
-              '看评论区时间',
+              '评论页前台停留',
+              _duration(_value('commentPanelForegroundUs')),
+              '评论标签处于当前页且应用在前台；可与视频播放重叠',
+            ),
+            _item(
+              '播后／终止暂停停留',
               _duration(_value('commentAreaUs')),
-              '视频播放完毕后，仍停留在当前详情页的近似时间；不计作暂停',
+              '视频播完后停留，或最后一次暂停后始终未恢复的时间；不计作暂停',
             ),
             if (upEntries?.isNotEmpty == true)
               ExpansionTile(
                 title: const Text('视频 UP 主观看时长'),
-                subtitle: const Text('按 UID 汇总，并保留逐年原语'),
+                subtitle: const Text('按 UID 汇总，并保留逐月原语'),
                 children: upEntries!.map((entry) {
                   final item = entry.value as Map;
-                  final year = (item['years'] as Map?)?[currentYear] as Map?;
+                  final month = (item['months'] as Map?)?[currentMonth] as Map?;
+                  final active = item['activePlaybackUs'] as num? ?? 0;
+                  final media = item['mediaAdvanceUs'] as num? ?? 0;
+                  final nominal = item['nominalMediaUs'] as num? ?? 0;
+                  final nominalLong =
+                      item['nominalMediaIncludingLongPressUs'] as num? ?? 0;
+                  final observed = active +
+                      (item['pausedUs'] as num? ?? 0) +
+                      (item['bufferingUs'] as num? ?? 0);
+                  final activeScale = active == 0 ? 0 : 1 / active;
+                  final unique = item['uniqueCoveredUs'] as num? ?? 0;
+                  final repeat = item['repeatCoveredUs'] as num? ?? 0;
+                  final opened = item['openedSourceDurationUs'] as num? ?? 0;
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
-                      'UID ${entry.key} · 今年 ${_duration(year?['activePlaybackUs'] as num? ?? 0)}'
+                      'UID ${entry.key} · 本月 ${_duration(month?['activePlaybackUs'] as num? ?? 0)}'
+                      ' · 名义 ${_speed(nominal * activeScale)}'
+                      ' · 含长按 ${_speed(nominalLong * activeScale)}\n'
+                      '推进 ${_speed(media * activeScale)}'
+                      ' · 新内容 ${_speed(unique * activeScale)}'
+                      ' · 总占用 ${_speed(observed == 0 ? 0 : media / observed)}'
+                      ' · 覆盖 ${(opened == 0 ? 0 : unique * 100 / opened).toStringAsFixed(1)}%'
+                      ' · 重复 ${(media == 0 ? 0 : repeat * 100 / media).toStringAsFixed(1)}%'
+                      ' · 完播 ${(item['sessionPlayedCount'] as num? ?? 0) == 0 ? '—' : '${((item['sessionCompletedCount'] as num? ?? 0) * 100 / (item['sessionPlayedCount'] as num? ?? 0)).toStringAsFixed(1)}%'}'
                       ' · 评论区 ${_duration(item['commentAreaUs'] as num? ?? 0)}',
                     ),
                     trailing: Text(
@@ -216,7 +287,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '数据按正交原语保存：正常观看与倒带重看各自的播放、暂停和缓冲墙钟，以及媒体推进、倍速分桶、基础与含长按的名义倍速积分、评论区停留、前进跳转、倒带检查点、按 UP 主 UID 和年份汇总的视频时间，以及按主播 UID 汇总的直播时间。展示公式以后即使调整，也可以用这些原语重新计算。',
+                    '数据按正交原语保存：正常观看与倒带重看各自的播放、暂停和缓冲墙钟，以及媒体推进、倍速分桶、基础与含长按的名义倍速积分、去重覆盖、评论区停留、前进跳转、倒带检查点、按 UP 主 UID 和月份汇总的视频时间、按主播 UID 汇总的直播时间，以及页面、分区、横竖屏、编码、清晰度、网络和播放形态等维度。展示公式以后即使调整，也可以用这些原语重新计算。',
                     style: TextStyle(color: ColorScheme.of(context).outline),
                   ),
                 ),

@@ -1,8 +1,8 @@
 import 'package:PiliBro/models/common/enum_with_label.dart';
 
 enum AudioOutput implements EnumWithLabel {
-  opensles('OpenSL ES'),
   aaudio('AAudio'),
+  opensles('OpenSL ES'),
   audiotrack('AudioTrack'),
   ;
 

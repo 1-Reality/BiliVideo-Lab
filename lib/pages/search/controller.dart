@@ -152,7 +152,7 @@ class SSearchController extends GetxController
   }
 
   void onClear() {
-    if (controller.value.text != '') {
+    if (controller.text.isNotEmpty) {
       controller.clear();
       if (searchSuggestion) searchSuggestList.clear();
       searchFocusNode.requestFocus();

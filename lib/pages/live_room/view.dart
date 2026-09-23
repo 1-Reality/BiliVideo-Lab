@@ -68,16 +68,17 @@ class LiveRoomPage extends StatefulWidget {
 
 class _LiveRoomPageState extends State<LiveRoomPage>
     with WidgetsBindingObserver, RouteAware, RouteAwareMixin {
-  late final fullScreenSCWidth = Pref.fullScreenSCWidth;
+  final fullScreenSCWidth = Pref.fullScreenSCWidth;
   final String heroTag = Utils.generateRandomString(6);
   late final LiveRoomController _liveRoomController;
   late final PlPlayerController plPlayerController;
+  bool _removeSafeArea = false;
   bool get isFullScreen => plPlayerController.isFullScreen.value;
 
-  late final GlobalKey pageKey = GlobalKey();
-  late final GlobalKey chatKey = GlobalKey();
-  late final GlobalKey scKey = GlobalKey();
-  late final GlobalKey playerKey = GlobalKey();
+  final GlobalKey pageKey = GlobalKey();
+  final GlobalKey chatKey = GlobalKey();
+  final GlobalKey scKey = GlobalKey();
+  final GlobalKey playerKey = GlobalKey();
 
   @override
   void initState() {
@@ -90,28 +91,32 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(plPlayerController.play);
-    if (plPlayerController.removeSafeArea) {
-      hideSystemBar();
-    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (plPlayerController.removeSafeArea) {
-      padding = .zero;
-    } else {
-      padding = MediaQuery.viewPaddingOf(context);
-    }
     final size = MediaQuery.sizeOf(context);
     maxWidth = size.width;
     maxHeight = size.height;
+    isPortrait = size.isPortrait;
+    plPlayerController.screenRatio = maxHeight / maxWidth;
+    final nextRemoveSafeArea = plPlayerController.removeSafeAreaFor(
+      portrait: isPortrait,
+    );
+    if (nextRemoveSafeArea != _removeSafeArea) {
+      _removeSafeArea = nextRemoveSafeArea;
+      if (_removeSafeArea) {
+        hideSystemBar();
+      } else if (!isFullScreen) {
+        showSystemBar();
+      }
+    }
+    padding = _removeSafeArea ? .zero : MediaQuery.viewPaddingOf(context);
     isWindowMode = MaxScreenSize.isWindowMode(
       width: maxWidth * plPlayerController.uiScale,
       height: maxHeight * plPlayerController.uiScale,
     );
-    isPortrait = size.isPortrait;
-    plPlayerController.screenRatio = maxHeight / maxWidth;
   }
 
   @override
@@ -178,6 +183,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
     }
     PlPlayerController.setPlayCallBack(null);
+    if (_removeSafeArea) showSystemBar();
     plPlayerController
       ..removeStatusLister(playerListener)
       ..dispose();
@@ -693,7 +699,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   Widget _buildBodyH(bool isFullScreen) {
     double videoWidth =
-        clampDouble(maxHeight / maxWidth * 1.08, 0.56, 0.7) * maxWidth;
+        clampDouble(plPlayerController.screenRatio * 1.08, 0.56, 0.7) *
+        maxWidth;
     final rightWidth = min(400.0, maxWidth - videoWidth - padding.horizontal);
     videoWidth = maxWidth - rightWidth - padding.horizontal;
     final videoHeight = maxHeight - padding.top - kToolbarHeight;
@@ -981,13 +988,21 @@ class _RenderBorderIndicator extends RenderBox {
   _RenderBorderIndicator({
     required this._radius,
     required this._isLeft,
-  });
+  }) : _borderRadius = _makeBorderRadius(_radius, _isLeft);
+
+  static BorderRadius _makeBorderRadius(Radius radius, bool isLeft) =>
+      BorderRadius.only(
+        topLeft: isLeft ? radius : .zero,
+        topRight: isLeft ? .zero : radius,
+      );
 
   Radius _radius;
+  BorderRadius _borderRadius;
   Radius get radius => _radius;
   set radius(Radius value) {
     if (_radius == value) return;
     _radius = value;
+    _borderRadius = _makeBorderRadius(value, _isLeft);
     markNeedsLayout();
   }
 
@@ -996,6 +1011,7 @@ class _RenderBorderIndicator extends RenderBox {
   set isLeft(bool value) {
     if (_isLeft == value) return;
     _isLeft = value;
+    _borderRadius = _makeBorderRadius(_radius, value);
     markNeedsPaint();
   }
 
@@ -1008,7 +1024,7 @@ class _RenderBorderIndicator extends RenderBox {
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
     final canvas = context.canvas;
-    final width = size.width / 2;
+    final width = size.width * 0.5;
 
     BoxBorder.paintNonUniformBorder(
       canvas,
@@ -1018,10 +1034,7 @@ class _RenderBorderIndicator extends RenderBox {
         width,
         size.height,
       ),
-      borderRadius: BorderRadius.only(
-        topLeft: _isLeft ? _radius : .zero,
-        topRight: _isLeft ? .zero : _radius,
-      ),
+      borderRadius: _borderRadius,
       textDirection: null,
       top: const BorderSide(),
       color: Colors.white38,

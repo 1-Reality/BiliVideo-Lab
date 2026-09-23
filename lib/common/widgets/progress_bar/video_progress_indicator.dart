@@ -65,13 +65,26 @@ class RenderProgressBar extends RenderBox {
     required this._radius,
     required this._height,
     required this._progress,
-  });
+  }) : _progressPaint = Paint()
+         ..style = .fill
+         ..color = _color,
+       _backgroundPaint = Paint()
+         ..style = .fill
+         ..color = _backgroundColor;
+
+  final Paint _progressPaint;
+  final Paint _backgroundPaint;
+  Size? _geometrySize;
+  double? _geometryRadius;
+  late Rect _clipRect;
+  late RRect _rrect;
 
   Color _color;
   Color get color => _color;
   set color(Color value) {
     if (_color == value) return;
     _color = value;
+    _progressPaint.color = value;
     markNeedsPaint();
   }
 
@@ -80,6 +93,7 @@ class RenderProgressBar extends RenderBox {
   set backgroundColor(Color value) {
     if (_backgroundColor == value) return;
     _backgroundColor = value;
+    _backgroundPaint.color = value;
     markNeedsPaint();
   }
 
@@ -115,41 +129,45 @@ class RenderProgressBar extends RenderBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final size = this.size;
-    final canvas = context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
+    final canvas = context.canvas..save();
+    if (offset != .zero) {
+      canvas.translate(offset.dx, offset.dy);
+    }
 
-    final paint = Paint()..style = .fill;
+    if (_geometrySize != size || _geometryRadius != _radius) {
+      _geometrySize = size;
+      _geometryRadius = _radius;
+      _clipRect = Offset.zero & size;
+      final radius = Radius.circular(_radius);
+      _rrect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(
+          0,
+          -(_radius - size.height),
+          size.width,
+          _radius,
+        ),
+        bottomLeft: radius,
+        bottomRight: radius,
+      );
+    }
 
-    final Radius radius = .circular(_radius);
-    final rect = Rect.fromLTWH(
-      0,
-      -(_radius - size.height),
-      size.width,
-      _radius,
-    );
-    final rrect = RRect.fromRectAndCorners(
-      rect,
-      bottomLeft: radius,
-      bottomRight: radius,
-    );
-
+    final progress = _progress;
     if (progress <= 0) {
       canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, paint..color = _backgroundColor);
+        ..clipRect(_clipRect)
+        ..drawRRect(_rrect, _backgroundPaint);
     } else if (progress >= 1) {
       canvas
-        ..clipRect(Offset.zero & size)
-        ..drawRRect(rrect, paint..color = _color);
+        ..clipRect(_clipRect)
+        ..drawRRect(_rrect, _progressPaint);
     } else {
       final w = size.width * progress;
       final left = Rect.fromLTRB(0, 0, w, size.height);
       final right = Rect.fromLTRB(w, 0, size.width, size.height);
       canvas
-        ..clipRRect(rrect)
-        ..drawRect(left, paint..color = _color)
-        ..drawRect(right, paint..color = _backgroundColor);
+        ..clipRRect(_rrect)
+        ..drawRect(left, _progressPaint)
+        ..drawRect(right, _backgroundPaint);
     }
     canvas.restore();
   }

@@ -11,7 +11,7 @@ import 'package:flutter/foundation.dart' show kDebugMode, compute;
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 abstract final class GrpcReq {
-  static const _isolateSize = 256 * 1024;
+  static const _isolateSize = 262144;
   static const _gzipMinLength = 64;
 
   static final options = Options(

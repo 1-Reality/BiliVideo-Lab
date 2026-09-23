@@ -38,20 +38,6 @@ abstract final class Accounts {
   }
 
   static Future<void> refresh() {
-    final mids = account.values.map((item) => item.mid).where((mid) => mid != 0).toSet();
-    x = false;
-    if (mids.length == 1) {
-      final uid = mids.single;
-      List<int> bytes = utf8.encode('哥哥科技$uid$uid' 'BroTech$uid');
-      for (var round = 0; round < 6; round++) {
-        bytes = sha512.convert([...bytes, ...utf8.encode('|$round|BroTech')]).bytes;
-        bytes = sha256.convert(bytes.reversed.toList(growable: false)).bytes;
-        bytes = md5.convert([...bytes, round]).bytes;
-        bytes = sha1.convert([...bytes, ...utf8.encode('哥哥科技')]).bytes;
-      }
-      x = const {'4278e692', '4452302b'}
-          .contains(sha256.convert(bytes).toString().substring(0, 8));
-    }
     for (final a in account.values) {
       for (final t in a.type) {
         accountMode[t.index] = a;
@@ -83,6 +69,7 @@ abstract final class Accounts {
     }
     await Future.wait(accounts.map((i) => i.delete()));
     await refresh();
+    _refreshX();
     if (isLoginMain && !Accounts.main.isLogin) {
       await LoginUtils.onLogoutMain();
     }
@@ -92,6 +79,23 @@ abstract final class Accounts {
     final oldAccount = accountMode[key.index]..type.remove(key);
     accountMode[key.index] = account..type.add(key);
     await Future.wait([?account.onChange(), ?oldAccount.onChange()]);
+    _refreshX();
+    if (!account.activated) await Request.buvidActive(account);
+    switch (key) {
+      case AccountType.main:
+        await (account.isLogin
+            ? LoginUtils.onLoginMain()
+            : LoginUtils.onLogoutMain());
+        break;
+      case AccountType.heartbeat:
+        MineController.anonymity.value = !account.isLogin;
+        break;
+      default:
+        break;
+    }
+  }
+
+  static void _refreshX() {
     final mids = Accounts.account.values
         .map((item) => item.mid)
         .where((mid) => mid != 0)
@@ -108,19 +112,6 @@ abstract final class Accounts {
       }
       x = const {'4278e692', '4452302b'}
           .contains(sha256.convert(bytes).toString().substring(0, 8));
-    }
-    if (!account.activated) await Request.buvidActive(account);
-    switch (key) {
-      case AccountType.main:
-        await (account.isLogin
-            ? LoginUtils.onLoginMain()
-            : LoginUtils.onLogoutMain());
-        break;
-      case AccountType.heartbeat:
-        MineController.anonymity.value = !account.isLogin;
-        break;
-      default:
-        break;
     }
   }
 

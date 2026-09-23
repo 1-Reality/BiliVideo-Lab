@@ -36,7 +36,7 @@ abstract class CommonWhisperController<R>
 
     if (res.isSuccess) {
       List<Session> list = loadingState.value.data!;
-      item.isPinned = isTop ? false : true;
+      item.isPinned = !isTop;
       if (!isTop) {
         list.insert(0, list.removeAt(index));
       }

@@ -11,16 +11,16 @@ import 'package:share_plus/share_plus.dart';
 abstract final class ShareUtils {
   static bool? _isIpad;
   static Future<bool> get isIpad async {
-    if (!Platform.isIOS) return false;
-    return _isIpad ??= (await DeviceInfoPlugin().iosInfo).model
-        .toLowerCase()
-        .contains('ipad');
+    return Platform.isIOS &&
+        (_isIpad ??= (await DeviceInfoPlugin().iosInfo).model
+            .toLowerCase()
+            .contains('ipad'));
   }
 
   static Future<Rect?> get sharePositionOrigin async {
     if (await isIpad) {
       final screenSize = DeviceUtils.size;
-      return Rect.fromLTRB(0, 0, screenSize.width, screenSize.height / 2);
+      return Rect.fromLTRB(0, 0, screenSize.width, screenSize.height * 0.5);
     }
     return null;
   }

@@ -347,7 +347,22 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
        _thumbRadius = thumbRadius,
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
-       _hitTestSelf = onDragStart != null {
+       _hitTestSelf = onDragStart != null,
+       _inverseTotal = _total == 0 ? 0.0 : 1 / _total {
+    _baseBarPaint
+      ..color = _baseBarColor
+      ..strokeCap = .round
+      ..strokeWidth = _barHeight;
+    _progressBarPaint
+      ..color = _progressBarColor
+      ..strokeCap = .round
+      ..strokeWidth = _barHeight;
+    _bufferedBarPaint
+      ..color = _bufferedBarColor
+      ..strokeCap = .round
+      ..strokeWidth = _barHeight;
+    _thumbPaint.color = _thumbColor;
+    _thumbGlowPaint.color = _thumbGlowColor;
     if (onDragStart != null) {
       _drag = _EagerHorizontalDragGestureRecognizer()
         ..onStart = _onDragStart
@@ -358,6 +373,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
     }
+    _bufferedProportion = _proportionOfTotal(_buffered);
   }
 
   @override
@@ -373,6 +389,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   // This is a value between 0.0 and 1.0 used to indicate the position on
   // the bar.
   late double _thumbValue;
+  double _barStart = 0.0;
+  double _barWidth = 0.0;
+  double _inverseBarWidth = 0.0;
+  double _barCenterY = 0.0;
+  double _bufferedProportion = 0.0;
+  Offset _barStartPoint = Offset.zero;
+  Offset _barEndPoint = Offset.zero;
+  Offset _bufferedPoint = Offset.zero;
 
   // The thumb can move for two reasons. One is that the [progress] changed.
   // The other is that the user is dragging the thumb. This variable keeps
@@ -431,12 +455,13 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // The paint used to draw the bar line draws half of the cap before the
     // start of the line (and after the end of the line). The cap radius is
     // equal to half of the line width, which in this case is the bar height.
-    final barCapRadius = _barHeight / 2;
-    double barStart = barCapRadius;
-    double barEnd = size.width - barCapRadius;
-    final barWidth = barEnd - barStart;
-    final position = (dx - barStart).clamp(0.0, barWidth);
-    _thumbValue = position / barWidth;
+    final rawPosition = dx - _barStart;
+    final position = rawPosition < 0
+        ? 0.0
+        : rawPosition > _barWidth
+        ? _barWidth
+        : rawPosition;
+    _thumbValue = position * _inverseBarWidth;
     _progress = _currentThumbDuration();
     markNeedsPaint();
   }
@@ -461,12 +486,16 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   /// The total time length of the media.
   int get total => _total;
   int _total;
+  double _inverseTotal;
   set total(int value) {
     final clamp = (value.isNegative) ? 0 : value;
     if (_total == clamp) {
       return;
     }
     _total = clamp;
+    _inverseTotal = clamp == 0 ? 0.0 : 1 / clamp;
+    _bufferedProportion = _proportionOfTotal(_buffered);
+    _updateBufferedPoint();
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(progress);
     }
@@ -482,12 +511,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     _buffered = clamp;
+    _bufferedProportion = _proportionOfTotal(clamp);
+    _updateBufferedPoint();
     markNeedsPaint();
   }
 
   int _clampDuration(int value) {
-    if (value.isNegative) return 0;
-    if (value.compareTo(_total) > 0) return _total;
+    if (value < 0) return 0;
+    if (value > _total) return _total;
     return value;
   }
 
@@ -537,7 +568,10 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set barHeight(double value) {
     if (_barHeight == value) return;
     _barHeight = value;
-    markNeedsPaint();
+    _baseBarPaint.strokeWidth = value;
+    _progressBarPaint.strokeWidth = value;
+    _bufferedBarPaint.strokeWidth = value;
+    markNeedsLayout();
   }
 
   /// The color of the progress bar before any playing or buffering.
@@ -546,6 +580,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set baseBarColor(Color value) {
     if (_baseBarColor == value) return;
     _baseBarColor = value;
+    _baseBarPaint.color = value;
     markNeedsPaint();
   }
 
@@ -555,6 +590,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set progressBarColor(Color value) {
     if (_progressBarColor == value) return;
     _progressBarColor = value;
+    _progressBarPaint.color = value;
     markNeedsPaint();
   }
 
@@ -564,6 +600,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set bufferedBarColor(Color value) {
     if (_bufferedBarColor == value) return;
     _bufferedBarColor = value;
+    _bufferedBarPaint.color = value;
     markNeedsPaint();
   }
 
@@ -573,6 +610,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set thumbColor(Color value) {
     if (_thumbColor == value) return;
     _thumbColor = value;
+    _thumbPaint.color = value;
     markNeedsPaint();
   }
 
@@ -591,6 +629,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   set thumbGlowColor(Color value) {
     if (_thumbGlowColor == value) return;
     _thumbGlowColor = value;
+    _thumbGlowPaint.color = value;
     if (_userIsDraggingThumb) markNeedsPaint();
   }
 
@@ -630,6 +669,13 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   double computeMaxIntrinsicHeight(double width) => _heightWhenNoLabels();
 
   final bool _hitTestSelf;
+
+  final _baseBarPaint = Paint();
+  final _progressBarPaint = Paint();
+  final _bufferedBarPaint = Paint();
+  final _thumbPaint = Paint();
+  final _thumbGlowPaint = Paint();
+
   @override
   bool hitTestSelf(Offset position) => _hitTestSelf;
 
@@ -644,6 +690,21 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   @override
   void performLayout() {
     size = computeDryLayout(constraints);
+    final barCapRadius = _barHeight * 0.5;
+    _barStart = barCapRadius;
+    _barWidth = size.width - _barHeight;
+    _inverseBarWidth = 1 / _barWidth;
+    _barCenterY = _heightWhenNoLabels() * 0.5;
+    _barStartPoint = Offset(barCapRadius, _barCenterY);
+    _barEndPoint = Offset(_barWidth + barCapRadius, _barCenterY);
+    _updateBufferedPoint();
+  }
+
+  void _updateBufferedPoint() {
+    _bufferedPoint = Offset(
+      _bufferedProportion * _barWidth + _barStart,
+      _barCenterY,
+    );
   }
 
   @override
@@ -662,103 +723,43 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final canvas = context.canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
+    final canvas = context.canvas;
+    final hasOffset = offset != .zero;
+    if (hasOffset) {
+      canvas
+        ..save()
+        ..translate(offset.dx, offset.dy);
+    }
 
-    _drawProgressBarWithoutLabels(canvas);
-
-    canvas.restore();
-  }
-
-  /// Draw the progress bar without labels like this:
-  ///
-  /// | -------O---------------- |
-  ///
-  void _drawProgressBarWithoutLabels(Canvas canvas) {
-    final barWidth = size.width;
-    final barHeight = _heightWhenNoLabels();
-    _drawProgressBar(canvas, Offset.zero, Size(barWidth, barHeight));
-  }
-
-  void _drawProgressBar(Canvas canvas, Offset offset, Size localSize) {
-    canvas
-      ..save()
-      ..translate(offset.dx, offset.dy);
-    _drawBaseBar(canvas, localSize);
-    _drawBufferedBar(canvas, localSize);
-    _drawCurrentProgressBar(canvas, localSize);
-    _drawThumb(canvas, localSize);
-    canvas.restore();
-  }
-
-  void _drawBaseBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: 1.0,
-      color: baseBarColor,
-    );
-  }
-
-  void _drawBufferedBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: _proportionOfTotal(_buffered),
-      color: bufferedBarColor,
-    );
-  }
-
-  void _drawCurrentProgressBar(Canvas canvas, Size localSize) {
-    _drawBar(
-      canvas: canvas,
-      availableSize: localSize,
-      widthProportion: _thumbValue,
-      color: progressBarColor,
-    );
-  }
-
-  void _drawBar({
-    required Canvas canvas,
-    required Size availableSize,
-    required double widthProportion,
-    required Color color,
-  }) {
-    final baseBarPaint = Paint()
-      ..color = color
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = _barHeight;
-    final capRadius = _barHeight / 2;
-    final adjustedWidth = availableSize.width - barHeight;
-    final dx = widthProportion * adjustedWidth + capRadius;
-    final dy = availableSize.height / 2;
-    final startPoint = Offset(capRadius, dy);
-    final endPoint = Offset(dx, dy);
-    canvas.drawLine(startPoint, endPoint, baseBarPaint);
-  }
-
-  void _drawThumb(Canvas canvas, Size localSize) {
-    final thumbPaint = Paint()..color = thumbColor;
-    final barCapRadius = _barHeight / 2;
-    final availableWidth = localSize.width - _barHeight;
-    var thumbDx = _thumbValue * availableWidth + barCapRadius;
+    var thumbDx = _thumbValue * _barWidth + _barStart;
     if (!_thumbCanPaintOutsideBar) {
-      thumbDx = thumbDx.clamp(_thumbRadius, localSize.width - _thumbRadius);
+      final maxThumbDx = size.width - _thumbRadius;
+      if (thumbDx < _thumbRadius) {
+        thumbDx = _thumbRadius;
+      } else if (thumbDx > maxThumbDx) {
+        thumbDx = maxThumbDx;
+      }
     }
-    final center = Offset(thumbDx, localSize.height / 2);
+    final center = Offset(thumbDx, _barCenterY);
+    canvas
+      ..drawLine(_barStartPoint, _barEndPoint, _baseBarPaint)
+      ..drawLine(_barStartPoint, _bufferedPoint, _bufferedBarPaint)
+      ..drawLine(_barStartPoint, center, _progressBarPaint);
     if (_userIsDraggingThumb && _paintThumbGlow) {
-      final thumbGlowPaint = Paint()..color = thumbGlowColor;
-      canvas.drawCircle(center, thumbGlowRadius, thumbGlowPaint);
+      canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }
-    canvas.drawCircle(center, thumbRadius, thumbPaint);
+    canvas.drawCircle(center, thumbRadius, _thumbPaint);
+
+    if (hasOffset) canvas.restore();
   }
 
   double _proportionOfTotal(int duration) {
-    if (total == 0) {
-      return 0.0;
-    }
-    return (duration / total).clamp(0.0, 1.0);
+    final value = duration * _inverseTotal;
+    return value < 0
+        ? 0.0
+        : value > 1
+        ? 1.0
+        : value;
   }
 
   @override

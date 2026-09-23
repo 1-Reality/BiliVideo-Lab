@@ -23,6 +23,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, listEquals;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 
 class Request {
   static const _gzipDecoder = GZipDecoder();
@@ -47,7 +48,7 @@ class Request {
     if (Accounts.main.isLogin) {
       final coin = Pref.userInfoCache?.money;
       if (coin == null) {
-        setCoin();
+        WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(setCoin()));
       } else {
         GlobalData().coins = coin;
       }
@@ -202,7 +203,7 @@ class Request {
    */
   Request._internal() {
     //BaseOptions、Options、RequestOptions 都可以配置参数，优先级别依次递增，且可以根据优先级别覆盖参数
-    BaseOptions options = BaseOptions(
+    final options = BaseOptions(
       //请求基地址,可以包含子路径
       baseUrl: HttpString.apiBaseUrl,
       //连接服务器超时时间，单位是毫秒.

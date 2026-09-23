@@ -42,9 +42,27 @@ enum HwDecType {
   final String desc;
   const HwDecType(this.hwdec, this.desc);
 
+  static final String androidDefault = kDebugMode
+      ? autoSafe.hwdec
+      : [mediacodec.hwdec, autoSafe.hwdec].join(',');
+
+  static final String windowsDefault = [
+    d3d12va.hwdec,
+    d3d11va.hwdec,
+    nvdec.hwdec,
+    cuda.hwdec,
+    qsv.hwdec,
+    amf.hwdec,
+    nvdecCopy.hwdec,
+    dxva2.hwdec,
+    qsvCopy.hwdec,
+    d3d12vaCopy.hwdec,
+    auto.hwdec,
+  ].join(',');
+
   static final String kHwdec = Platform.isAndroid
-      ? kDebugMode
-            ? autoSafe.hwdec
-            : [mediacodec.hwdec, autoSafe.hwdec].join(',')
+      ? androidDefault
+      : Platform.isWindows
+      ? windowsDefault
       : auto.hwdec;
 }

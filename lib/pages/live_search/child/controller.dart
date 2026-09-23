@@ -16,8 +16,8 @@ class LiveSearchChildController
   void checkIsEnd(int length) {
     switch (searchType) {
       case LiveSearchType.room:
-        if (controller.counts.first != -1 &&
-            length >= controller.counts.first) {
+        final count = controller.counts.first;
+        if (count != -1 && length >= count) {
           isEnd = true;
         }
         break;

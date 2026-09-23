@@ -37,6 +37,17 @@ abstract final class PiliScheme {
   static StreamSubscription? listener;
   static final uriDigitRegExp = RegExp(r'/(\d+)');
   static final _prefixRegex = RegExp(r'^\S+://');
+  static final _followingCvRegExp = RegExp(
+    r'^/detail/cv(\d+)',
+    caseSensitive: false,
+  );
+  static final _spaceListRegExp = RegExp(r'lists/(\d+)');
+  static final _relationRegExp = RegExp(r'relation/([a-z]+)');
+  static final _playlistRegExp = RegExp(r'/pl(\d+)', caseSensitive: false);
+  static final _readListRegExp = RegExp(r'/rl(\d+)', caseSensitive: false);
+  static final _articleRegExp = RegExp(r'cv(\d+)', caseSensitive: false);
+  static final _mediaListRegExp = RegExp(r'/ml(\d+)');
+  static final _audioRegExp = RegExp(r'/au(\d+)', caseSensitive: false);
 
   static void init() {
     // Register our protocol only on Windows platform
@@ -273,10 +284,7 @@ abstract final class PiliScheme {
             // businessId == 17 => dynId == oid
             // bilibili://following/detail/832703053858603029 (dynId)
             // bilibili://following/detail/12345678?comment_root_id=654321\u0026comment_on=1
-            String? cvid = RegExp(
-              r'^/detail/cv(\d+)',
-              caseSensitive: false,
-            ).matchAsPrefix(path)?.group(1);
+            String? cvid = _followingCvRegExp.matchAsPrefix(path)?.group(1);
             if (cvid != null) {
               PageUtils.toDupNamed(
                 '/articlePage',
@@ -492,7 +500,7 @@ abstract final class PiliScheme {
     }
 
     final path = uri.path;
-    late final queryParameters = uri.queryParameters;
+    final queryParameters = uri.queryParameters;
 
     if (host.contains(bilibili_t)) {
       if (_onPushDynDetail(uri, off)) {
@@ -554,7 +562,7 @@ abstract final class PiliScheme {
       // space.bilibili.com/{{uid}}/channel/collectiondetail?sid={{season_id}}
       final sid =
           queryParameters['sid'] ??
-          RegExp(r'lists/(\d+)').firstMatch(path)?.group(1);
+          _spaceListRegExp.firstMatch(path)?.group(1);
       if (sid != null) {
         SubDetailPage.toSubDetailPage(int.parse(sid));
         return true;
@@ -562,7 +570,7 @@ abstract final class PiliScheme {
 
       // space.bilibili.com/{{mid}}/relation/{{type}}
       final mid = uriDigitRegExp.firstMatch(path)?.group(1);
-      final type = RegExp(r'relation/([a-z]+)').firstMatch(path)?.group(1);
+      final type = _relationRegExp.firstMatch(path)?.group(1);
       if (mid != null) {
         toType(mid: mid, type: type);
         return true;
@@ -632,10 +640,7 @@ abstract final class PiliScheme {
         return hasMatch;
       case 'playlist':
         // http://m.bilibili.com/playlist/pl12345678?bvid=BVxxxxxxxx&page_type=4
-        String? mediaId = RegExp(
-          r'/pl(\d+)',
-          caseSensitive: false,
-        ).firstMatch(path)?.group(1);
+        String? mediaId = _playlistRegExp.firstMatch(path)?.group(1);
         String? bvid =
             uri.queryParameters['bvid'] ??
             IdUtils.bvRegex.firstMatch(path)?.group(0);
@@ -707,10 +712,7 @@ abstract final class PiliScheme {
         return false;
       case 'read':
         if (path.contains('readlist')) {
-          String? id = RegExp(
-            r'/rl(\d+)',
-            caseSensitive: false,
-          ).firstMatch(path)?.group(1);
+          String? id = _readListRegExp.firstMatch(path)?.group(1);
           if (id != null) {
             PageUtils.toDupNamed(
               '/articleList',
@@ -723,10 +725,7 @@ abstract final class PiliScheme {
           return false;
         }
         // if (kDebugMode) debugPrint('专栏');
-        String? id = RegExp(
-          r'cv(\d+)',
-          caseSensitive: false,
-        ).firstMatch(path)?.group(1);
+        String? id = _articleRegExp.firstMatch(path)?.group(1);
         if (id != null) {
           PageUtils.toDupNamed(
             '/articlePage',
@@ -753,7 +752,7 @@ abstract final class PiliScheme {
         launchURL();
         return false;
       case 'medialist':
-        String? mediaId = RegExp(r'/ml(\d+)').firstMatch(path)?.group(1);
+        String? mediaId = _mediaListRegExp.firstMatch(path)?.group(1);
         if (mediaId != null) {
           PageUtils.toDupNamed(
             '/favDetail',
@@ -822,10 +821,7 @@ abstract final class PiliScheme {
         return false;
       case 'audio':
         // https://www.bilibili.com/audio/au123456
-        String? oid = RegExp(
-          r'/au(\d+)',
-          caseSensitive: false,
-        ).firstMatch(path)?.group(1);
+        String? oid = _audioRegExp.firstMatch(path)?.group(1);
         if (oid != null) {
           AudioPage.toAudioPage(
             itemType: 3,

@@ -32,6 +32,7 @@ import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
@@ -52,6 +53,9 @@ abstract final class Pref {
   static final Box _setting = GStorage.setting;
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
+
+  static String parseBanWord(String value) =>
+      value.contains('|') ? value : value.replaceAll('，', '|');
 
   static UserInfoData? get userInfoCache =>
       GStorage.userInfo.get('userInfoCache');
@@ -113,7 +117,24 @@ abstract final class Pref {
   static List<double> get speedList => List<double>.from(
     _video.get(
       VideoBoxKey.speedsList,
-      defaultValue: const [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0],
+      defaultValue: const [
+        0.5,
+        0.75,
+        1.0,
+        1.5,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        6.0,
+        7.0,
+        8.0,
+        10.0,
+        12.0,
+      ],
     ),
   );
 
@@ -121,7 +142,16 @@ abstract final class Pref {
     final list = _setting.get(SettingBoxKey.blockSettings) as List?;
     if (list == null || list.length != SegmentType.values.length) {
       return SegmentType.values
-          .map((i) => Pair(first: i, second: SkipType.skipOnce))
+          .map(
+            (i) => Pair<SegmentType, SkipType>(
+              first: i,
+              second: switch (i) {
+                .sponsor || .intro => .skipOnce,
+                .filler => .showOnly,
+                _ => .skipManually,
+              },
+            ),
+          )
           .toList();
     }
     return SegmentType.values
@@ -207,6 +237,315 @@ abstract final class Pref {
     return FullScreenMode.values[index];
   }
 
+  static OrientationPolicyMode get orientationPolicyMode =>
+      OrientationPolicyMode.values[_setting.get(
+        SettingBoxKey.orientationPolicyMode,
+        defaultValue: OrientationPolicyMode.simple.index,
+      )];
+
+  static bool get controlsLockOrientation =>
+      _setting.get(SettingBoxKey.controlsLockOrientation, defaultValue: true);
+
+  static AppInitialOrientation get appInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.appInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get appRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.appRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static FullScreenRotationSource get fullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.fullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.followSystem.index,
+      )];
+
+  static FullScreenAllowedOrientation get fullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.fullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get gravityFollowSystemLock =>
+      _setting.get(SettingBoxKey.gravityFollowSystemLock, defaultValue: true);
+
+  static OrientationFullscreenTrigger get orientationFullscreenTrigger =>
+      OrientationFullscreenTrigger.values[_setting.get(
+        SettingBoxKey.orientationFullscreenTrigger,
+        defaultValue: OrientationFullscreenTrigger.off.index,
+      )];
+
+  static OrientationTriggerSource get orientationTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.orientationTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static ExitOrientationMode get exitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.exitOrientationMode,
+        defaultValue: ExitOrientationMode.restoreApp.index,
+      )];
+
+  static int get finalDirectionMask =>
+      _setting.get(SettingBoxKey.finalDirectionMask, defaultValue: 0);
+
+  static AppInitialOrientation get advancedAppInitialOrientation =>
+      AppInitialOrientation.values[_setting.get(
+        SettingBoxKey.advancedAppInitialOrientation,
+        defaultValue: AppInitialOrientation.system.index,
+      )];
+
+  static AppRotationMode get advancedAppRotationMode =>
+      AppRotationMode.values[_setting.get(
+        SettingBoxKey.advancedAppRotationMode,
+        defaultValue: AppRotationMode.followSystem.index,
+      )];
+
+  static WindowedPlayerRotationMode get advancedWindowedPlayerRotationMode =>
+      WindowedPlayerRotationMode.values[_setting.get(
+        SettingBoxKey.advancedWindowedPlayerRotationMode,
+        defaultValue: WindowedPlayerRotationMode.inheritApp.index,
+      )];
+
+  static bool get advancedLandscapeEnter =>
+      _setting.get(SettingBoxKey.advancedLandscapeEnter, defaultValue: false);
+
+  static bool get advancedPortraitExit =>
+      _setting.get(SettingBoxKey.advancedPortraitExit, defaultValue: false);
+
+  static OrientationTriggerSource get advancedEnterTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedEnterTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerSource get advancedExitTriggerSource =>
+      OrientationTriggerSource.values[_setting.get(
+        SettingBoxKey.advancedExitTriggerSource,
+        defaultValue: OrientationTriggerSource.system.index,
+      )];
+
+  static OrientationTriggerContent get advancedTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.advancedTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static EntryOrientationPolicy get advancedManualEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedManualEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedAutoEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedAutoEntryOrientation,
+        defaultValue: EntryOrientationPolicy.video.index,
+      )];
+
+  static EntryOrientationPolicy get advancedOrientationEntryOrientation =>
+      EntryOrientationPolicy.values[_setting.get(
+        SettingBoxKey.advancedOrientationEntryOrientation,
+        defaultValue: EntryOrientationPolicy.triggerDirection.index,
+      )];
+
+  static FullScreenRotationSource get advancedFullScreenRotationSource =>
+      FullScreenRotationSource.values[_setting.get(
+        SettingBoxKey.advancedFullScreenRotationSource,
+        defaultValue: FullScreenRotationSource.keepCurrent.index,
+      )];
+
+  static FullScreenAllowedOrientation get advancedFullScreenAllowedOrientation =>
+      FullScreenAllowedOrientation.values[_setting.get(
+        SettingBoxKey.advancedFullScreenAllowedOrientation,
+        defaultValue: FullScreenAllowedOrientation.all.index,
+      )];
+
+  static bool get advancedGravityFollowSystemLock => _setting.get(
+    SettingBoxKey.advancedGravityFollowSystemLock,
+    defaultValue: true,
+  );
+
+  static int get advancedAngleDegrees =>
+      _setting.get(SettingBoxKey.advancedAngleDegrees, defaultValue: 30);
+
+  static int get advancedAutoExitCauses => _setting.get(
+    SettingBoxKey.advancedAutoExitCauses,
+    defaultValue: FullscreenEntryCauseMask.orientation,
+  );
+
+  static int get advancedManualExitConfirmations => _setting.get(
+    SettingBoxKey.advancedManualExitConfirmations,
+    defaultValue: 0,
+  );
+
+  static ExitOrientationMode get advancedExitOrientationMode =>
+      ExitOrientationMode.values[_setting.get(
+        SettingBoxKey.advancedExitOrientationMode,
+        defaultValue: ExitOrientationMode.keepPlayer.index,
+      )];
+
+
+  static const _brotherAppFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.systemCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.unspecified,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static const _brotherWindowedFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.keepCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.inheritRequest,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static const _brotherFullscreenFallback = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.video,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.locked,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+  );
+
+  static BrotherPhaseConfig get brotherAppPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherAppPhase),
+        fallback: _brotherAppFallback,
+      );
+
+  static BrotherPhaseConfig get brotherWindowedPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherWindowedPhase),
+        fallback: _brotherWindowedFallback,
+      );
+
+  static BrotherPhaseConfig get brotherFullscreenPhase =>
+      BrotherPhaseConfig.fromStorage(
+        _setting.get(SettingBoxKey.brotherFullscreenPhase),
+        fallback: _brotherFullscreenFallback,
+      );
+
+  static int get brotherFullscreenEnterOverrideMask => _setting.get(
+    SettingBoxKey.brotherFullscreenEnterOverrideMask,
+    defaultValue: FullscreenEntryCauseMask.all,
+  );
+
+  static BrotherDirectionAction get brotherFullscreenManualEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenManualEnter,
+        defaultValue: BrotherDirectionAction.video.index,
+      )];
+
+  static BrotherDirectionAction get brotherFullscreenPlaybackEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenPlaybackEnter,
+        defaultValue: BrotherDirectionAction.video.index,
+      )];
+
+  static BrotherDirectionAction get brotherFullscreenOrientationEnter =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherFullscreenOrientationEnter,
+        defaultValue: BrotherDirectionAction.triggerDirection.index,
+      )];
+
+  static int get brotherWindowedResumeOverrideMask => _setting.get(
+    SettingBoxKey.brotherWindowedResumeOverrideMask,
+    defaultValue: 0,
+  );
+
+  static BrotherDirectionAction get brotherWindowedManualResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedManualResume,
+        defaultValue: BrotherDirectionAction.keepCurrent.index,
+      )];
+
+  static BrotherDirectionAction get brotherWindowedPlaybackResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedPlaybackResume,
+        defaultValue: BrotherDirectionAction.keepCurrent.index,
+      )];
+
+  static BrotherDirectionAction get brotherWindowedOrientationResume =>
+      BrotherDirectionAction.values[_setting.get(
+        SettingBoxKey.brotherWindowedOrientationResume,
+        defaultValue: BrotherDirectionAction.triggerDirection.index,
+      )];
+
+  static bool get brotherLandscapeEnter =>
+      _setting.get(SettingBoxKey.brotherLandscapeEnter, defaultValue: false);
+
+  static bool get brotherPortraitExit =>
+      _setting.get(SettingBoxKey.brotherPortraitExit, defaultValue: false);
+
+  static int get brotherEnterSignalMask => _setting.get(
+    SettingBoxKey.brotherEnterSignalMask,
+    defaultValue: BrotherOrientationSignalMask.window,
+  );
+
+  static int get brotherEnterSignalRequired => _setting.get(
+    SettingBoxKey.brotherEnterSignalRequired,
+    defaultValue: 1,
+  );
+
+  static int get brotherExitSignalMask => _setting.get(
+    SettingBoxKey.brotherExitSignalMask,
+    defaultValue: BrotherOrientationSignalMask.window,
+  );
+
+  static int get brotherExitSignalRequired => _setting.get(
+    SettingBoxKey.brotherExitSignalRequired,
+    defaultValue: 1,
+  );
+
+  static int get brotherManualExitSignalMask => _setting.get(
+    SettingBoxKey.brotherManualExitSignalMask,
+    defaultValue: BrotherOrientationSignalMask.proposedSystem,
+  );
+
+  static int get brotherManualExitSignalRequired => _setting.get(
+    SettingBoxKey.brotherManualExitSignalRequired,
+    defaultValue: 1,
+  );
+
+  static OrientationTriggerContent get brotherEnterTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.brotherEnterTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static OrientationTriggerContent get brotherExitTriggerContent =>
+      OrientationTriggerContent.values[_setting.get(
+        SettingBoxKey.brotherExitTriggerContent,
+        defaultValue: OrientationTriggerContent.all.index,
+      )];
+
+  static int get brotherAutoExitCauses => _setting.get(
+    SettingBoxKey.brotherAutoExitCauses,
+    defaultValue: FullscreenEntryCauseMask.orientation,
+  );
+
+  static int get brotherManualExitConfirmations => _setting.get(
+    SettingBoxKey.brotherManualExitConfirmations,
+    defaultValue: 0,
+  );
+
   static BtmProgressBehavior get btmProgressBehavior =>
       BtmProgressBehavior.values[_setting.get(
         SettingBoxKey.btmProgressBehavior,
@@ -216,12 +555,12 @@ abstract final class Pref {
   static SubtitlePrefType get subtitlePreferenceV2 =>
       SubtitlePrefType.values[_setting.get(
         SettingBoxKey.subtitlePreferenceV2,
-        defaultValue: SubtitlePrefType.off.index,
+        defaultValue: SubtitlePrefType.auto.index,
       )];
 
   static int get subtitleFollowerThreshold => _setting.get(
     SettingBoxKey.subtitleFollowerThreshold,
-    defaultValue: 0,
+    defaultValue: 1000,
   );
 
   static bool get useRelativeSlide =>
@@ -291,6 +630,22 @@ abstract final class Pref {
   static int get wifiMinLinkSpeed =>
       _setting.get(SettingBoxKey.wifiMinLinkSpeed, defaultValue: 100);
 
+  static bool get desktopHighBitrateHevc => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevc,
+    defaultValue: false,
+  );
+
+  static int get desktopHighBitrateHevcQuality => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcQuality,
+    defaultValue: VideoQuality.high1080plus.code,
+  );
+
+  // Bilibili DASH bandwidth is kept in its raw bit/s unit.
+  static int get desktopHighBitrateHevcThresholdBps => _setting.get(
+    SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+    defaultValue: 114514000,
+  );
+
   static List<Map<String, dynamic>> get networkPeakPeriods =>
       (_setting.get(SettingBoxKey.networkPeakPeriods) as List?)
           ?.whereType<Map>()
@@ -336,10 +691,21 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  static bool get webdavBackupCdnDiagnostics => _setting.get(
-    SettingBoxKey.webdavBackupCdnDiagnostics,
+  static bool get webdavBackupCommentHistory => _setting.get(
+    SettingBoxKey.webdavBackupCommentHistory,
     defaultValue: true,
   );
+
+  static bool get webdavBackupCdnDiagnostics => _setting.get(
+    SettingBoxKey.webdavBackupCdnDiagnostics,
+    defaultValue: false,
+  );
+
+  static int get webviewUaType =>
+      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
+
+  static String get webviewUaCustom =>
+      _setting.get(SettingBoxKey.webviewUaCustom, defaultValue: '');
 
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
@@ -394,17 +760,20 @@ abstract final class Pref {
     ];
   }
 
-  static String get banWordForRecommend =>
-      _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
+  static String get banWordForRecommend => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: ''),
+  );
 
-  static String get banWordForReply =>
-      _setting.get(SettingBoxKey.banWordForReply, defaultValue: '');
+  static String get banWordForReply => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForReply, defaultValue: ''),
+  );
 
-  static String get banWordForZone =>
-      _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
+  static String get banWordForZone => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForZone, defaultValue: ''),
+  );
 
   static bool get appRcmd =>
-      _setting.get(SettingBoxKey.appRcmd, defaultValue: true);
+      _setting.get(SettingBoxKey.appRcmd, defaultValue: false);
 
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
@@ -457,7 +826,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
 
   static int get dynamicPeriod =>
-      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 5);
+      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
 
   static FlexSchemeVariant get schemeVariant =>
       FlexSchemeVariant.values[_setting.get(
@@ -498,10 +867,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showBangumiReply, defaultValue: true);
 
   static bool get alwaysExpandIntroPanel =>
-      _setting.get(SettingBoxKey.alwaysExpandIntroPanel, defaultValue: false);
+      _setting.get(SettingBoxKey.alwaysExpandIntroPanel, defaultValue: true);
 
   static bool get expandIntroPanelH =>
-      _setting.get(SettingBoxKey.expandIntroPanelH, defaultValue: false);
+      _setting.get(SettingBoxKey.expandIntroPanelH, defaultValue: true);
 
   static bool get horizontalSeasonPanel => _setting.get(
     SettingBoxKey.horizontalSeasonPanel,
@@ -573,13 +942,13 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showVipDanmaku, defaultValue: true);
 
   static bool get mergeDanmaku =>
-      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: false);
+      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: true);
 
   static bool get showHotRcmd =>
-      _setting.get(SettingBoxKey.showHotRcmd, defaultValue: false);
+      _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
 
   static String get audioNormalization =>
-      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '0');
+      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '2');
 
   static String get fallbackNormalization =>
       _setting.get(SettingBoxKey.fallbackNormalization, defaultValue: '0');
@@ -594,10 +963,10 @@ abstract final class Pref {
   }
 
   static bool get preInitPlayer =>
-      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: false);
+      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: true);
 
   static bool get mainTabBarView =>
-      _setting.get(SettingBoxKey.mainTabBarView, defaultValue: false);
+      _setting.get(SettingBoxKey.mainTabBarView, defaultValue: true);
 
   static bool get searchSuggestion =>
       _setting.get(SettingBoxKey.searchSuggestion, defaultValue: true);
@@ -615,17 +984,17 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showSeekPreview, defaultValue: true);
 
   static bool get showDmChart =>
-      _setting.get(SettingBoxKey.showDmChart, defaultValue: false);
+      _setting.get(SettingBoxKey.showDmChart, defaultValue: true);
 
   static bool get enableCommAntifraud =>
-      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: true);
 
   static bool get biliSendCommAntifraud =>
       Platform.isAndroid &&
       _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: false);
 
   static bool get enableCreateDynAntifraud =>
-      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: true);
 
   static bool get coinWithLike =>
       _setting.get(SettingBoxKey.coinWithLike, defaultValue: false);
@@ -680,7 +1049,7 @@ abstract final class Pref {
 
   static int get liveQualityCellular => _setting.get(
     SettingBoxKey.liveQualityCellular,
-    defaultValue: LiveQuality.superHD.code,
+    defaultValue: LiveQuality.smooth.code,
   );
 
   static FontWeight get appFontWeight {
@@ -729,7 +1098,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 29;
 
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
@@ -744,8 +1113,9 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
-  static String get banWordForDyn =>
-      _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
+  static String get banWordForDyn => parseBanWord(
+    _setting.get(SettingBoxKey.banWordForDyn, defaultValue: ''),
+  );
 
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);
@@ -774,19 +1144,19 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
 
   static bool get disableLikeMsg =>
-      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: true);
+      _setting.get(SettingBoxKey.disableLikeMsg, defaultValue: false);
 
   static bool get enableWordRe =>
-      _setting.get(SettingBoxKey.enableWordRe, defaultValue: false);
+      _setting.get(SettingBoxKey.enableWordRe, defaultValue: true);
 
   static bool get autoExitFullscreen =>
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get pipNoDanmaku =>
-      _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
+      _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);
 
   static bool get enableVerticalExpand =>
       _setting.get(SettingBoxKey.enableVerticalExpand, defaultValue: false);
@@ -819,7 +1189,7 @@ abstract final class Pref {
       )];
 
   static bool get enableSearchWord =>
-      _setting.get(SettingBoxKey.enableSearchWord, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSearchWord, defaultValue: true);
 
   static bool get useSideBar =>
       _setting.get(SettingBoxKey.useSideBar, defaultValue: false);
@@ -852,7 +1222,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
   static bool get enableHttp2 =>
-      _setting.get(SettingBoxKey.enableHttp2, defaultValue: false);
+      _setting.get(SettingBoxKey.enableHttp2, defaultValue: true);
 
   static ReplySortType get replySortType =>
       ReplySortType.values[_setting.get(
@@ -891,7 +1261,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -969,11 +1339,12 @@ abstract final class Pref {
       _ => (bufferSize, bufferSec),
     };
     final bufSec = seconds * playbackSpeed;
-    final bufSiz = (sizeMiB * 0x100000).toStringAsFixed(0);
+    final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
       'cache-secs': bufSec.toStringAsFixed(3),
-      'demuxer-hysteresis-secs': (bufSec / 1.5).toStringAsFixed(3),
+      'demuxer-hysteresis-secs':
+          (bufSec * 0.6666666666666666).toStringAsFixed(3),
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };
@@ -987,7 +1358,7 @@ abstract final class Pref {
     };
     return {
       'cache': 'yes',
-      'demuxer-max-bytes': (sizeMiB * 0x200000).toStringAsFixed(0),
+      'demuxer-max-bytes': (sizeMiB * 0x200000).round().toString(),
       'demuxer-max-back-bytes': '0',
     };
   }
@@ -998,23 +1369,23 @@ abstract final class Pref {
   );
 
   static bool get enableAi =>
-      _setting.get(SettingBoxKey.enableAi, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAi, defaultValue: true);
 
   static bool get enableOnlineTotal =>
-      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
+      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
 
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
 
   static bool get enableAutoLongPressSpeed =>
-      _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: true);
 
   static double get longPressSpeedFactor =>
       _setting.get(SettingBoxKey.longPressSpeedFactor, defaultValue: 2.0);
 
   static bool get enableLongPressSlideSpeed => _setting.get(
     SettingBoxKey.enableLongPressSlideSpeed,
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static double get playSpeedDefault =>
@@ -1059,7 +1430,7 @@ abstract final class Pref {
   static int? get quickFavId => _setting.get(SettingBoxKey.quickFavId);
 
   static bool get tempPlayerConf =>
-      _setting.get(SettingBoxKey.tempPlayerConf, defaultValue: false);
+      _setting.get(SettingBoxKey.tempPlayerConf, defaultValue: true);
 
   static Color? get reduceLuxColor {
     final int? color = _setting.get(SettingBoxKey.reduceLuxColor);
@@ -1088,7 +1459,7 @@ abstract final class Pref {
   }
 
   static bool get showMemberShop =>
-      _setting.get(SettingBoxKey.showMemberShop, defaultValue: false);
+      _setting.get(SettingBoxKey.showMemberShop, defaultValue: true);
 
   static SuperChatType get superChatType =>
       SuperChatType.values[_setting.get(
@@ -1169,7 +1540,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableImgMenu, defaultValue: false);
 
   static bool get showDynDispute =>
-      _setting.get(SettingBoxKey.showDynDispute, defaultValue: false);
+      _setting.get(SettingBoxKey.showDynDispute, defaultValue: true);
 
   static double get touchSlopH => _setting.get(
     SettingBoxKey.touchSlopH,
@@ -1185,6 +1556,16 @@ abstract final class Pref {
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
 
+  static bool get removeSafeAreaPortrait => _setting.get(
+    SettingBoxKey.removeSafeAreaPortrait,
+    defaultValue: removeSafeArea,
+  );
+
+  static bool get removeSafeAreaLandscape => _setting.get(
+    SettingBoxKey.removeSafeAreaLandscape,
+    defaultValue: removeSafeArea,
+  );
+
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
 
@@ -1192,7 +1573,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.playerVolume, defaultValue: 100.0);
 
   static double get maxVolume => // desktop
-      _setting.get(SettingBoxKey.maxVolume, defaultValue: 2.0);
+      _setting.get(SettingBoxKey.maxVolume, defaultValue: 1.0);
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
 

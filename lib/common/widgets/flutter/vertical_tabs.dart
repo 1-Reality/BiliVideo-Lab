@@ -371,10 +371,14 @@ double _indexChangeProgress(TabController controller) {
 }
 
 class _DividerPainter extends CustomPainter {
-  _DividerPainter({required this.dividerColor, required this.dividerWidth});
+  _DividerPainter({required this.dividerColor, required this.dividerWidth})
+    : _paint = Paint()
+        ..color = dividerColor
+        ..strokeWidth = dividerWidth;
 
   final Color dividerColor;
   final double dividerWidth;
+  final Paint _paint;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -382,13 +386,9 @@ class _DividerPainter extends CustomPainter {
       return;
     }
 
-    final Paint paint = Paint()
-      ..color = dividerColor
-      ..strokeWidth = dividerWidth;
-
     // dom
-    final dx = size.width - (paint.strokeWidth / 2);
-    canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
+    final dx = size.width - dividerWidth * 0.5;
+    canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), _paint);
   }
 
   @override
@@ -432,6 +432,7 @@ class _IndicatorPainter extends CustomPainter {
   final double? devicePixelRatio;
   final TabIndicatorAnimation indicatorAnimation;
   final TextDirection textDirection;
+  late final _dividerPaint = Paint();
 
   // _currentTabOffsets and _currentTextDirection are set each time TabBar
   // layout is completed. These values can be null when TabBar contains no
@@ -465,8 +466,8 @@ class _IndicatorPainter extends CustomPainter {
     assert(_currentTabOffsets!.isNotEmpty);
     assert(tabIndex >= 0);
     assert(tabIndex <= maxTabIndex);
-    return (_currentTabOffsets![tabIndex] + _currentTabOffsets![tabIndex + 1]) /
-        2.0;
+    return (_currentTabOffsets![tabIndex] + _currentTabOffsets![tabIndex + 1]) *
+        0.5;
   }
 
   Rect indicatorRect(Size tabBarSize, int tabIndex) {
@@ -492,7 +493,7 @@ class _IndicatorPainter extends CustomPainter {
           tabKeys[tabIndex].currentContext!.size!.height; // dom
       final EdgeInsets insets = labelPadding.resolve(_currentTextDirection);
       final double delta =
-          ((tabRight - tabLeft) - (tabWidth + insets.vertical)) / 2.0; // dom
+          ((tabRight - tabLeft) - (tabWidth + insets.vertical)) * 0.5; // dom
       tabLeft += delta + insets.top; // dom
       tabRight = tabLeft + tabWidth;
     }
@@ -541,14 +542,14 @@ class _IndicatorPainter extends CustomPainter {
       devicePixelRatio: devicePixelRatio,
     );
     if (showDivider && dividerWidth! > 0) {
-      final Paint dividerPaint = Paint()
+      _dividerPaint
         ..color = dividerColor!
         ..strokeWidth = dividerWidth!;
-      final dx = size.width - (dividerPaint.strokeWidth / 2);
+      final dx = size.width - dividerWidth! * 0.5;
       final Offset dividerP1 = Offset(dx, 0);
       final Offset dividerP2 = Offset(dx, size.height);
       // dom
-      canvas.drawLine(dividerP1, dividerP2, dividerPaint);
+      canvas.drawLine(dividerP1, dividerP2, _dividerPaint);
     }
     _painter!.paint(canvas, _currentRect!.topLeft, configuration);
   }
@@ -566,12 +567,12 @@ class _IndicatorPainter extends CustomPainter {
 
   // Ease out sine (decelerating).
   double decelerateInterpolation(double fraction) {
-    return math.sin((fraction * math.pi) / 2.0);
+    return math.sin(fraction * 1.5707963267948966);
   }
 
   // Ease in sine (accelerating).
   double accelerateInterpolation(double fraction) {
-    return 1.0 - math.cos((fraction * math.pi) / 2.0);
+    return 1.0 - math.cos(fraction * 1.5707963267948966);
   }
 
   /// Applies the elastic effect to the indicator.
@@ -1653,7 +1654,7 @@ class _VerticalTabBarState extends State<VerticalTabBar> {
     return clampDouble(
       tabCenter +
           paddingTop -
-          viewportWidth / 2.0 +
+          viewportWidth * 0.5 +
           (_mainCtr.useBottomNav &&
                   switch (_mainCtr.barHideType) {
                     .instant => _mainCtr.showBottomBar?.value ?? true,
@@ -2373,15 +2374,16 @@ class _VerticalUnderlinePainter extends BoxPainter {
 
   final VerticalUnderlineTabIndicator decoration;
   final BorderRadius? borderRadius;
+  late final Paint _paint = borderRadius != null
+      ? (Paint()..color = decoration.borderSide.color)
+      : (decoration.borderSide.toPaint()..strokeCap = StrokeCap.square);
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     assert(configuration.size != null);
     final Rect rect = offset & configuration.size!;
     final TextDirection textDirection = configuration.textDirection!;
-    final Paint paint;
     if (borderRadius != null) {
-      paint = Paint()..color = decoration.borderSide.color;
       final Rect indicator = decoration._indicatorRectFor(rect, textDirection);
       final RRect rrect = RRect.fromRectAndCorners(
         indicator,
@@ -2390,14 +2392,13 @@ class _VerticalUnderlinePainter extends BoxPainter {
         bottomRight: borderRadius!.bottomRight,
         bottomLeft: borderRadius!.bottomLeft,
       );
-      canvas.drawRRect(rrect, paint);
+      canvas.drawRRect(rrect, _paint);
     } else {
-      paint = decoration.borderSide.toPaint()..strokeCap = StrokeCap.square;
       final Rect indicator = decoration
           ._indicatorRectFor(rect, textDirection)
-          .deflate(decoration.borderSide.width / 2.0);
+          .deflate(decoration.borderSide.width * 0.5);
       // dom
-      canvas.drawLine(indicator.topLeft, indicator.bottomLeft, paint);
+      canvas.drawLine(indicator.topLeft, indicator.bottomLeft, _paint);
     }
   }
 }

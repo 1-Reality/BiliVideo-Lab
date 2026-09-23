@@ -46,13 +46,12 @@ class WhisperDetailController extends CommonListController<RspSessionMsg, Msg> {
   bool customHandleResponse(bool isRefresh, Success<RspSessionMsg> response) {
     List<Msg> msgs = response.response.messages;
     if (msgs.isNotEmpty) {
-      msgSeqno = msgs.last.msgSeqno;
-      if (msgs.length == 1 &&
-          msgs.last.msgType == 18 &&
-          msgs.last.msgSource == 18) {
+      final last = msgs.last;
+      msgSeqno = last.msgSeqno;
+      if (msgs.length == 1 && last.msgType == 18 && last.msgSource == 18) {
         //{content: [{"text":"对方主动回复或关注你前，最多发送1条消息","color_day":"#9499A0","color_nig":"#9499A0"}]}
       } else {
-        ackSessionMsg(msgs.last.msgSeqno.toInt());
+        ackSessionMsg(last.msgSeqno.toInt());
       }
       msgs.removeWhere((e) => e.msgType == MsgType.EN_MSG_TYPE_DRAW_BACK.value);
       eInfos ??= <EmotionInfo>[];

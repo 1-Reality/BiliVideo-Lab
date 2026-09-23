@@ -3,17 +3,11 @@ import 'package:material_ui/material_ui.dart';
 
 abstract final class BiliUtils {
   static bool isDefaultFav(int? attr) {
-    if (attr == null) {
-      return false;
-    }
-    return (attr & 2) == 0;
+    return attr != null && (attr & 2) == 0;
   }
 
   static String isPublicFavText(int? attr) {
-    if (attr == null) {
-      return '';
-    }
-    return isPublicFav(attr) ? '公开' : '私密';
+    return attr == null ? '' : isPublicFav(attr) ? '公开' : '私密';
   }
 
   static bool isPublicFav(int attr) {

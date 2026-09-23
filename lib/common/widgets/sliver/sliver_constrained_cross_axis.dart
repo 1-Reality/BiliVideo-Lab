@@ -44,7 +44,7 @@ class CenteredRenderSliverConstrainedCrossAxis
   void performLayout() {
     super.performLayout();
     _offset = Offset(
-      (constraints.crossAxisExtent - geometry!.crossAxisExtent!) / 2,
+      (constraints.crossAxisExtent - geometry!.crossAxisExtent!) * 0.5,
       0.0,
     );
   }

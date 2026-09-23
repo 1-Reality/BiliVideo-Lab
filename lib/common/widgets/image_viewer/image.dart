@@ -605,7 +605,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
           imgHeight > widget.containerSize.height;
       if (isLongPic) {
         final compatWidth = math.min(650.0, widget.containerSize.width);
-        minScale = compatWidth / widget.containerSize.height * imgRatio;
+        minScale = compatWidth * imgRatio / widget.containerSize.height;
         maxScale = math.max(widget.maxScale, minScale * 3);
       }
       childSize = Size(imgWidth, imgHeight);

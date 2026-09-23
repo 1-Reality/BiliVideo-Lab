@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliBro/models/model_owner.dart';
@@ -22,10 +24,283 @@ abstract final class GStorage {
   static late final Box<dynamic> localCache;
   static late final Box<dynamic> setting;
   static late final Box<dynamic> video;
+  static Box<dynamic>? _playbackStats;
+  static Future<void>? _playbackStatsInitFuture;
+  static Box<dynamic> get playbackStats => _playbackStats!;
+  static bool get playbackStatsReady => _playbackStats != null;
+  static late Box<dynamic> commentHelper;
   static late final Box<int> watchProgress;
-  static late final Box<Uint8List>? reply;
+  static Box<Uint8List>? reply;
 
-  static Future<void> init() async {
+  static const _heavyTelemetryLayoutVersionKey =
+      'heavyTelemetryLayoutVersion';
+  static const _heavyTelemetryLayoutVersion = 3;
+  static const _nextPlaybackStatsCompactAtMs =
+      'nextPlaybackStatsCompactAtMs';
+  static const _legacyCdnDiagnosticPrefix = 'cdnDiagnostic:';
+  static const _cdnDiagnosticLatestExportPrefix =
+      'cdnDiagnosticLatestV3:';
+  static const _cdnDiagnosticHistoryExportPrefix =
+      'cdnDiagnosticHistoryV3:';
+  static int? _startupBrandProfileMid;
+
+  static int? get startupBrandProfileMid => _startupBrandProfileMid;
+
+  static Future<void> completeFirstRunDeviceSetup() async {
+    final due = localCache.get(_nextPlaybackStatsCompactAtMs);
+    if (due is num && due < 0) {
+      await localCache.put(_nextPlaybackStatsCompactAtMs, -due.toInt());
+    }
+  }
+
+  static File get playbackStatsFile =>
+      File(path.join(appSupportDirPath, 'playback_stats.json'));
+
+  static File get trafficStatsFile =>
+      File(path.join(appSupportDirPath, 'traffic_stats.json'));
+
+  static File get cdnDiagnosticsFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostic_latest.json'));
+
+  static File get legacyCdnDiagnosticsFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostics.jsonl'));
+
+  static File get cdnDiagnosticsHistoryFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostic_history_v3.jsonl'));
+
+  static File get playbackStatsHiveFile =>
+      File(
+        _playbackStats?.path ??
+            path.join(appSupportDirPath, 'hive', 'playbackStats.hive'),
+      );
+
+  static File get commentHelperHiveFile =>
+      File(
+        commentHelper.path ??
+            path.join(appSupportDirPath, 'hive', 'commentHelper.hive'),
+      );
+
+  static File get replyHiveFile => File(
+        reply?.path ?? path.join(appSupportDirPath, 'hive', 'reply.hive'),
+      );
+
+  static Map<String, dynamic>? readJsonMapSync(File file) {
+    if (!file.existsSync()) return null;
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is Map) {
+        return decoded.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> writeJsonFile(File file, Object? value) async {
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(value), flush: true);
+  }
+
+  static Future<void> _deleteFileIfExists(File file) async {
+    if (await file.exists()) await file.delete();
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  readCdnDiagnosticsSync() {
+    if (!cdnDiagnosticsFile.existsSync()) return const [];
+    // A latest-result snapshot is intentionally tiny. Anything large is an
+    // obsolete per-chunk history and must never be synchronously decoded.
+    if (cdnDiagnosticsFile.lengthSync() > 1 << 23) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+      return const [];
+    }
+    final result = <({String id, Map<String, dynamic> record})>[];
+    try {
+      final decoded = jsonDecode(cdnDiagnosticsFile.readAsStringSync());
+      if (decoded is! Map || decoded['schemaVersion'] != 3) {
+        unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+        return const [];
+      }
+      for (final raw in (decoded['records'] as List? ?? const [])) {
+        if (raw is! Map) continue;
+        final record = raw.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        final id = '${record['testRunStartedAtUs']}:${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
+        result.add((id: id, record: record));
+      }
+    } catch (_) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+    }
+    return result;
+  }
+
+  static Future<void> replaceCdnDiagnostics(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) {
+      await _deleteFileIfExists(cdnDiagnosticsFile);
+      return;
+    }
+    // A file is a latest-run snapshot, never an archive. This also collapses
+    // old imported JSON that predates the one-run rule before it can grow here.
+    var latestRun = 0;
+    for (final entry in entries) {
+      final record = entry.record;
+      final run = (record['testRunStartedAtUs'] as num?)?.toInt() ??
+          (record['recordedAtUs'] as num?)?.toInt() ??
+          0;
+      if (run > latestRun) latestRun = run;
+    }
+    final latest = [
+      for (final entry in entries)
+        if (((entry.record['testRunStartedAtUs'] as num?)?.toInt() ??
+                (entry.record['recordedAtUs'] as num?)?.toInt() ??
+                0) ==
+            latestRun)
+          entry.record,
+    ];
+    await cdnDiagnosticsFile.parent.create(recursive: true);
+    final temp = File('${cdnDiagnosticsFile.path}.tmp');
+    await temp.writeAsString(
+      jsonEncode({
+        'schemaVersion': 3,
+        'records': latest,
+      }),
+      flush: true,
+    );
+    if (await cdnDiagnosticsFile.exists()) await cdnDiagnosticsFile.delete();
+    await temp.rename(cdnDiagnosticsFile.path);
+  }
+
+  static Future<void> appendCdnDiagnostic(
+    ({String id, Map<String, dynamic> record}) entry,
+  ) async {
+    await replaceCdnDiagnostics([entry]);
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  readCdnDiagnosticsHistorySync() {
+    if (!cdnDiagnosticsHistoryFile.existsSync()) return const [];
+    final result = <({String id, Map<String, dynamic> record})>[];
+    try {
+      for (final line in cdnDiagnosticsHistoryFile.readAsLinesSync()) {
+        if (line.trim().isEmpty) continue;
+        final decoded = jsonDecode(line);
+        if (decoded is! Map || decoded['schemaVersion'] != 3) {
+          throw const FormatException('unsupported CDN history schema');
+        }
+        for (final raw in (decoded['records'] as List? ?? const [])) {
+          if (raw is! Map) continue;
+          final record = raw.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          final id =
+              '${record['testRunStartedAtUs']}:${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
+          result.add((id: id, record: record));
+        }
+      }
+    } catch (_) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsHistoryFile));
+      return const [];
+    }
+    return result;
+  }
+
+  static Future<void> appendCdnDiagnosticsHistory(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) return;
+    await cdnDiagnosticsHistoryFile.parent.create(recursive: true);
+    await cdnDiagnosticsHistoryFile.writeAsString(
+      '${jsonEncode({
+        'schemaVersion': 3,
+        'records': [for (final entry in entries) entry.record],
+      })}\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+  }
+
+  static Future<void> replaceCdnDiagnosticsHistory(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) {
+      await _deleteFileIfExists(cdnDiagnosticsHistoryFile);
+      return;
+    }
+
+    final grouped = <int, List<Map<String, dynamic>>>{};
+    for (final entry in entries) {
+      final record = entry.record;
+      final run = (record['testRunStartedAtUs'] as num?)?.toInt() ??
+          (record['recordedAtUs'] as num?)?.toInt() ??
+          0;
+      (grouped[run] ??= []).add(record);
+    }
+
+    final runs = grouped.keys.toList()..sort();
+    await cdnDiagnosticsHistoryFile.parent.create(recursive: true);
+    final temp = File('${cdnDiagnosticsHistoryFile.path}.tmp');
+    final sink = temp.openWrite();
+    try {
+      for (final run in runs) {
+        sink.writeln(
+          jsonEncode({
+            'schemaVersion': 3,
+            'records': grouped[run],
+          }),
+        );
+      }
+    } finally {
+      await sink.flush();
+      await sink.close();
+    }
+    if (await cdnDiagnosticsHistoryFile.exists()) {
+      await cdnDiagnosticsHistoryFile.delete();
+    }
+    await temp.rename(cdnDiagnosticsHistoryFile.path);
+  }
+
+  static Future<void> migrateHeavyTelemetryFromVideoBox() async {
+    if (localCache.get(_heavyTelemetryLayoutVersionKey) ==
+        _heavyTelemetryLayoutVersion) {
+      return;
+    }
+
+    final keysToDelete = <dynamic>[];
+
+    final legacyTraffic = video.get(VideoBoxKey.trafficStats);
+    if (legacyTraffic is Map) {
+      if (!trafficStatsFile.existsSync()) {
+        await writeJsonFile(trafficStatsFile, legacyTraffic);
+      }
+      keysToDelete.add(VideoBoxKey.trafficStats);
+    }
+
+    // V3 is a direct migration target. Old CDN records may contain the
+    // per-buffer history that caused the original storage explosion, so they
+    // are discarded without decoding and are never mixed with the new history.
+    keysToDelete.addAll(
+      video.keys.where(
+        (key) => key is String && key.startsWith(_legacyCdnDiagnosticPrefix),
+      ),
+    );
+
+    if (keysToDelete.isNotEmpty) {
+      await video.deleteAll(keysToDelete);
+      await video.compact();
+    }
+
+    await _deleteFileIfExists(legacyCdnDiagnosticsFile);
+    await localCache.put(
+      _heavyTelemetryLayoutVersionKey,
+      _heavyTelemetryLayoutVersion,
+    );
+  }
+
+  static Future<num?> init() async {
     Hive.init(path.join(appSupportDirPath, 'hive'));
     regAdapter();
 
@@ -55,6 +330,7 @@ abstract final class GStorage {
       ).then((res) => historyWord = res),
       // 视频设置
       Hive.openBox('video').then((res) => video = res),
+      Hive.openBox('commentHelper').then((res) => commentHelper = res),
       Accounts.init(),
       Hive.openBox<int>(
         'watchProgress',
@@ -64,6 +340,8 @@ abstract final class GStorage {
         },
       ).then((res) => watchProgress = res),
     ]);
+
+    final due = await _runPlaybackMaintenanceIfDue();
 
     if (Pref.saveReply) {
       reply = await Hive.openBox<Uint8List>(
@@ -76,21 +354,146 @@ abstract final class GStorage {
     } else {
       reply = null;
     }
+    return due;
+  }
+
+  static Future<void> initializePlaybackStats() =>
+      _playbackStatsInitFuture ??= _initializePlaybackStats();
+
+  static Future<void> _initializePlaybackStats() async {
+    _playbackStats = await Hive.openBox('playbackStats');
+    if (playbackStats.isEmpty) {
+      final legacyBox = video.get(VideoBoxKey.playbackStats);
+      final legacy = readJsonMapSync(playbackStatsFile) ??
+          (legacyBox is Map
+              ? legacyBox.map(
+                  (key, value) => MapEntry(key.toString(), value),
+                )
+              : null);
+      if (legacy != null && legacy.isNotEmpty) {
+        await playbackStats.putAll(legacy);
+      }
+    }
+    if (video.containsKey(VideoBoxKey.playbackStats)) {
+      await video.delete(VideoBoxKey.playbackStats);
+    }
+    await _deleteFileIfExists(playbackStatsFile);
+  }
+
+  static Future<num?> _runPlaybackMaintenanceIfDue() async {
+    final now = DateTime.now();
+    final due = localCache.get(
+      _nextPlaybackStatsCompactAtMs,
+      defaultValue: 0,
+    );
+    if (due is! num) return null;
+    // A negative future timestamp means the one-time maintenance already ran,
+    // while the Android first-run device wizard still needs to finish.
+    if (due < 0) return due;
+    if (now.millisecondsSinceEpoch < due.toInt()) return due;
+
+    // This deliberately runs before the first home frame. Compaction is rare,
+    // while opening a bloated hot store on every launch is expensive.
+    await initializePlaybackStats();
+    await playbackStats.compact();
+
+    final updateIgnore = localCache.get(LocalCacheKey.updateIgnore);
+    if (updateIgnore is Map && updateIgnore['temporary'] == true) {
+      await localCache.delete(LocalCacheKey.updateIgnore);
+    }
+
+    final nextMaintenance =
+        _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch;
+    await localCache.put(
+      _nextPlaybackStatsCompactAtMs,
+      Platform.isAndroid && due == 0 ? -nextMaintenance : nextMaintenance,
+    );
+    if (due != 0) {
+      _startupBrandProfileMid = switch (now.millisecondsSinceEpoch % 10) {
+        0 || 8 => 1225047446,
+        1 || 9 => 501430041,
+        2 => 36259372,
+        3 => 3884200,
+        4 || 5 => 544253177,
+        6 => 17047572,
+        _ => 37858284,
+      };
+    }
+    return due;
+  }
+
+  static DateTime _nextPlaybackMaintenanceAt(DateTime now) {
+    for (final day in const [8, 18, 28]) {
+      final candidate = DateTime(now.year, now.month, day);
+      if (candidate.isAfter(now)) return candidate;
+    }
+    final nextMonth = DateTime(now.year, now.month + 1);
+    return DateTime(nextMonth.year, nextMonth.month, 8);
+  }
+
+  static String exportPortableSettings() {
+    final videoData = Map<dynamic, dynamic>.from(video.toMap())
+      ..remove(VideoBoxKey.playbackStats)
+      ..remove(VideoBoxKey.trafficStats)
+      ..removeWhere(
+        (key, _) =>
+            key is String &&
+            (key.startsWith(_legacyCdnDiagnosticPrefix) ||
+                key.startsWith(_cdnDiagnosticLatestExportPrefix) ||
+                key.startsWith(_cdnDiagnosticHistoryExportPrefix)),
+      );
+    return Utils.jsonEncoder.convert({
+      'backupMeta': {
+        'includePlaybackStats': false,
+        'includeCdnDiagnostics': false,
+        'includeTrafficStats': false,
+      },
+      setting.name: setting.toMap(),
+      video.name: videoData,
+    });
   }
 
   static String exportAllSettings({
     bool includePlaybackStats = true,
     bool includeCdnDiagnostics = true,
   }) {
-    final videoData = Map<dynamic, dynamic>.from(video.toMap());
-    if (!includePlaybackStats) {
-      videoData.remove(VideoBoxKey.playbackStats);
-    }
-    if (!includeCdnDiagnostics) {
-      videoData.removeWhere(
-        (key, _) => key is String && key.startsWith('cdnDiagnostic:'),
+    final videoData = Map<dynamic, dynamic>.from(video.toMap())
+      ..remove(VideoBoxKey.playbackStats)
+      ..remove(VideoBoxKey.trafficStats)
+      ..removeWhere(
+        (key, _) =>
+            key is String && key.startsWith(_legacyCdnDiagnosticPrefix),
       );
+
+    if (includePlaybackStats) {
+      if (playbackStatsReady && playbackStats.isNotEmpty) {
+        videoData[VideoBoxKey.playbackStats] = playbackStats.toMap();
+      }
     }
+
+    final legacyTraffic = video.get(VideoBoxKey.trafficStats);
+    final traffic =
+        readJsonMapSync(trafficStatsFile) ??
+        (legacyTraffic is Map
+            ? legacyTraffic.map(
+                (key, value) => MapEntry(key.toString(), value),
+              )
+            : null);
+    if (traffic != null) {
+      videoData[VideoBoxKey.trafficStats] = traffic;
+    }
+
+    if (includeCdnDiagnostics) {
+      for (final entry in readCdnDiagnosticsSync()) {
+        videoData['$_cdnDiagnosticLatestExportPrefix${entry.id}'] =
+            entry.record;
+      }
+      for (final entry in readCdnDiagnosticsHistorySync()) {
+        videoData['$_cdnDiagnosticHistoryExportPrefix${entry.id}'] =
+            entry.record;
+      }
+    }
+
     return Utils.jsonEncoder.convert({
       'backupMeta': {
         'includePlaybackStats': includePlaybackStats,
@@ -106,38 +509,159 @@ abstract final class GStorage {
 
   static Future<List<void>> importAllJsonSettings(
     Map<String, dynamic> map,
-  ) {
+  ) async {
+    await initializePlaybackStats();
     final meta = map['backupMeta'];
-    final preservePlayback =
-        meta is Map && meta['includePlaybackStats'] == false
-        ? video.get(VideoBoxKey.playbackStats)
-        : null;
-    final preserveDiagnostics = <dynamic, dynamic>{};
-    if (meta is Map && meta['includeCdnDiagnostics'] == false) {
-      for (final key in video.keys) {
-        if (key is String && key.startsWith('cdnDiagnostic:')) {
-          preserveDiagnostics[key] = video.get(key);
-        }
-      }
-    }
+    final keepPlayback =
+        meta is Map && meta['includePlaybackStats'] == false;
+    final keepDiagnostics =
+        meta is Map && meta['includeCdnDiagnostics'] == false;
+    final keepTraffic =
+        meta is Map && meta['includeTrafficStats'] == false;
+
     final importedSettings = Map<dynamic, dynamic>.from(
       map[setting.name] as Map? ?? const {},
     );
     final importedVideo = Map<dynamic, dynamic>.from(
       map[video.name] as Map? ?? const {},
     );
-    return Future.wait([
-      setting.clear().then((_) => setting.putAll(importedSettings)),
-      video.clear().then((_) async {
-        await video.putAll(importedVideo);
-        if (preservePlayback != null) {
-          await video.put(VideoBoxKey.playbackStats, preservePlayback);
-        }
-        if (preserveDiagnostics.isNotEmpty) {
-          await video.putAll(preserveDiagnostics);
-        }
-      }),
+
+    final importedPlayback = importedVideo.remove(VideoBoxKey.playbackStats);
+    final importedTraffic = importedVideo.remove(VideoBoxKey.trafficStats);
+    final importedLatestDiagnostics = <String, Map<String, dynamic>>{};
+    final importedHistoryDiagnostics = <String, Map<String, dynamic>>{};
+    importedVideo.removeWhere((key, value) {
+      if (key is! String) return false;
+      if (key.startsWith(_cdnDiagnosticLatestExportPrefix) && value is Map) {
+        importedLatestDiagnostics[key] = value.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        return true;
+      }
+      if (key.startsWith(_cdnDiagnosticHistoryExportPrefix) && value is Map) {
+        importedHistoryDiagnostics[key] = value.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        return true;
+      }
+      // Old CDN backup keys are deliberately not restored into the new layout.
+      return key.startsWith(_legacyCdnDiagnosticPrefix);
+    });
+
+    await Future.wait<void>([
+      setting.clear().then<void>((_) => setting.putAll(importedSettings)),
+      video.clear().then<void>((_) => video.putAll(importedVideo)),
+      if (!keepPlayback)
+        playbackStats.clear().then<void>(
+          (_) async {
+            if (importedPlayback is Map) {
+              await playbackStats.putAll(importedPlayback);
+            }
+          },
+        ),
+      if (!keepTraffic)
+        importedTraffic is Map
+            ? writeJsonFile(trafficStatsFile, importedTraffic)
+            : _deleteFileIfExists(trafficStatsFile),
+      if (!keepDiagnostics)
+        replaceCdnDiagnostics([
+          for (final entry in importedLatestDiagnostics.entries)
+            (id: entry.key, record: entry.value),
+        ]),
+      if (!keepDiagnostics)
+        replaceCdnDiagnosticsHistory([
+          for (final entry in importedHistoryDiagnostics.entries)
+            (id: entry.key, record: entry.value),
+        ]),
     ]);
+
+    return const <void>[];
+  }
+
+  static Future<void> restorePlaybackStatsHive(File source) async {
+    await initializePlaybackStats();
+    final target = playbackStatsHiveFile;
+    await playbackStats.flush();
+    await playbackStats.close();
+    try {
+      await _replaceHiveFile(source, target);
+      _playbackStats = await Hive.openBox('playbackStats');
+    } catch (_) {
+      await _rollbackHiveFile(target);
+      _playbackStats = await Hive.openBox('playbackStats');
+      rethrow;
+    }
+    try {
+      await _deleteFileIfExists(File('${target.path}.webdav-previous'));
+    } catch (_) {}
+  }
+
+  static Future<void> restoreCommentHelperHive(File source) async {
+    final target = commentHelperHiveFile;
+    await commentHelper.flush();
+    await commentHelper.close();
+    try {
+      await _replaceHiveFile(source, target);
+      commentHelper = await Hive.openBox('commentHelper');
+    } catch (_) {
+      await _rollbackHiveFile(target);
+      commentHelper = await Hive.openBox('commentHelper');
+      rethrow;
+    }
+    try {
+      await _deleteFileIfExists(File('${target.path}.webdav-previous'));
+    } catch (_) {}
+  }
+
+  static Future<void> restoreReplyHive(File source) async {
+    final target = replyHiveFile;
+    await reply?.flush();
+    await reply?.close();
+    reply = null;
+    try {
+      await _replaceHiveFile(source, target);
+      final restored = await Hive.openBox<Uint8List>(
+        'reply',
+        keyComparator: _intStrDescKeyComparator,
+        compactionStrategy: (entries, deletedEntries) {
+          return deletedEntries > 10;
+        },
+      );
+      if (Pref.saveReply) {
+        reply = restored;
+      } else {
+        await restored.close();
+      }
+    } catch (_) {
+      await _rollbackHiveFile(target);
+      if (Pref.saveReply) {
+        reply = await Hive.openBox<Uint8List>(
+          'reply',
+          keyComparator: _intStrDescKeyComparator,
+          compactionStrategy: (entries, deletedEntries) {
+            return deletedEntries > 10;
+          },
+        );
+      }
+      rethrow;
+    }
+    try {
+      await _deleteFileIfExists(File('${target.path}.webdav-previous'));
+    } catch (_) {}
+  }
+
+  static Future<void> _replaceHiveFile(File source, File target) async {
+    await target.parent.create(recursive: true);
+    final previous = File('${target.path}.webdav-previous');
+    await _deleteFileIfExists(previous);
+    if (await target.exists()) await target.rename(previous.path);
+    await source.copy(target.path);
+  }
+
+  static Future<void> _rollbackHiveFile(File target) async {
+    final previous = File('${target.path}.webdav-previous');
+    await _deleteFileIfExists(target);
+    if (await previous.exists()) await previous.rename(target.path);
   }
 
   static void regAdapter() {
@@ -152,19 +676,6 @@ abstract final class GStorage {
       ..registerAdapter(RuleFilterAdapter());
   }
 
-  static Future<List<void>> compact() {
-    return Future.wait([
-      userInfo.compact(),
-      historyWord.compact(),
-      localCache.compact(),
-      setting.compact(),
-      video.compact(),
-      Accounts.account.compact(),
-      watchProgress.compact(),
-      ?reply?.compact(),
-    ]);
-  }
-
   static Future<List<void>> close() {
     return Future.wait([
       userInfo.close(),
@@ -172,6 +683,8 @@ abstract final class GStorage {
       localCache.close(),
       setting.close(),
       video.close(),
+      if (_playbackStats case final box?) box.close(),
+      commentHelper.close(),
       Accounts.account.close(),
       watchProgress.close(),
       ?reply?.close(),
@@ -188,6 +701,11 @@ abstract final class GStorage {
       Accounts.clear(),
       watchProgress.clear(),
       ?reply?.clear(),
+      if (_playbackStats case final box?) box.clear(),
+      commentHelper.clear(),
+      _deleteFileIfExists(trafficStatsFile),
+      _deleteFileIfExists(cdnDiagnosticsFile),
+      _deleteFileIfExists(cdnDiagnosticsHistoryFile),
     ]);
   }
 

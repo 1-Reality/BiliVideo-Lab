@@ -63,15 +63,17 @@ class MemberFavoriteCtr
   ) {
     try {
       List<SpaceFavData> res = response.response!;
-      favState.value = res.first;
-      subState.value = res[1];
+      final fav = res.first;
+      final sub = res[1];
+      favState.value = fav;
+      subState.value = sub;
 
       favEnd.value =
-          (res.first.mediaListResponse?.count ?? -1) <=
-          (res.first.mediaListResponse?.list?.length ?? -1);
+          (fav.mediaListResponse?.count ?? -1) <=
+          (fav.mediaListResponse?.list?.length ?? -1);
       subEnd.value =
-          (res[1].mediaListResponse?.count ?? -1) <=
-          (res[1].mediaListResponse?.list?.length ?? -1);
+          (sub.mediaListResponse?.count ?? -1) <=
+          (sub.mediaListResponse?.list?.length ?? -1);
     } catch (e) {
       if (kDebugMode) debugPrint(e.toString());
     }

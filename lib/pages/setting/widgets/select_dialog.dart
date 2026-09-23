@@ -22,6 +22,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+final _trailingZerosRegExp = RegExp(r'0+$');
+
 class SelectDialog<T> extends StatelessWidget {
   final T? value;
   final String title;
@@ -127,10 +129,10 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
   void _syncWarmupFromTotal() {
     final total = double.tryParse(totalController.text);
     if (total == null || !total.isFinite || total <= 0) return;
-    final value = total / 8;
+    final value = total * 0.125;
     warmupController.text = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+        ? value.round().toString()
+        : value.toStringAsFixed(3).replaceFirst(_trailingZerosRegExp, '');
   }
 
   @override
@@ -160,19 +162,12 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
     }
 
     final k = Accounts.x;
-    if (!k && total > 512) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-
-    if (!k && total > 256) {
+    if (!k && total > 256 && total <= 512) {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('大流量 CDN 测试'),
-          content: Text(
-            '当前设置为 ${total.toStringAsPrecision(4)} MiB / CDN。单个 CDN 最大允许 512 MiB；继续测试会快速消耗大量流量。',
-          ),
+          title: const Text('CDN 测速'),
+          content: const Text('本次文件较大，建议不要超过 512 MiB。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -188,11 +183,13 @@ class _CdnSpeedConfigDialogState extends State<_CdnSpeedConfigDialog> {
       if (proceed != true || !mounted) return;
     }
 
-    final totalBytes = (total * 1048576).round();
+    final effectiveTotal = !k && total > 512 ? 512.0 : total;
+    final effectiveWarmup = warmup.clamp(0.0, effectiveTotal * 0.999);
+    final totalBytes = (effectiveTotal * (1 << 20)).round();
     if (!mounted) return;
     Navigator.of(context).pop((
       totalBytes: totalBytes,
-      warmupBytes: (warmup * 1048576).round(),
+      warmupBytes: (effectiveWarmup * (1 << 20)).round(),
       cooldown: Duration(microseconds: (cooldown * 1000000).round()),
       mode: mode,
     ));
@@ -392,9 +389,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           ? null
           : List<String>.of(videoItem.backupUrl!);
       try {
-        if (Platform.isAndroid && !Accounts.x) {
+        if ((Platform.isAndroid || Platform.isWindows) && !Accounts.x) {
           final usage = await TrafficStatsService.instance.currentPeriodUsage();
-          const gib = 1024 * 1024 * 1024;
+          const gib = 1 << 30;
           final projected = config.totalBytes * CDNService.values.length;
           if (usage.day + projected > 50 * gib ||
               usage.week + projected > 200 * gib ||
@@ -421,6 +418,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('CDN speed test failed: $e');
+    } finally {
+      await CdnDiagnosticsService.flushRun();
     }
   }
 
@@ -574,7 +573,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int totalBytes,
   ) async {
     final probes = <_CdnLatencyProbe>[];
-    final suggestedProbeBytes = totalBytes ~/ 256;
+    final suggestedProbeBytes = totalBytes >> 8;
     final probeBytes = suggestedProbeBytes < 1024
         ? 1024
         : suggestedProbeBytes > 16384
@@ -602,6 +601,9 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         await for (final chunk in stream) {
           if (chunk.isEmpty) continue;
           received += chunk.length;
+          TrafficStatsService.instance.recordApplicationBytes(
+            received: chunk.length,
+          );
           probes.add((
             headersUs: headersUs,
             firstByteUs: watch.elapsedMicroseconds,
@@ -642,7 +644,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? headersUs;
     int? sampleStartUs;
     var sampleStartBytes = 0;
-    final points = <_CdnPoint>[];
+    final tracker = _CdnStreamTracker();
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
       intentionalStop = true;
@@ -666,19 +668,27 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
       await for (final chunk in stream) {
         if (chunk.isEmpty) continue;
+        TrafficStatsService.instance.recordApplicationBytes(
+          received: chunk.length,
+        );
         final now = watch.elapsedMicroseconds;
-        firstByteUs ??= now;
-        final total = downloaded + chunk.length;
-        downloaded = total > limits.max ? limits.max : total;
-        points.add((elapsedUs: now, bytes: downloaded));
+        downloaded += chunk.length;
+        if (downloaded > limits.max) downloaded = limits.max;
+        if (firstByteUs == null) {
+          firstByteUs = now;
+          tracker.reset(now, downloaded, windowStartBytes: 0);
+        }
 
         if (sampleStartUs == null && downloaded >= limits.warmup) {
           sampleStartUs = now;
           sampleStartBytes = downloaded;
+          tracker.reset(now, downloaded);
           measureTimer = Timer(const Duration(seconds: 8), () {
             intentionalStop = true;
             token.cancel();
           });
+        } else {
+          tracker.add(now, downloaded);
         }
         if (downloaded >= limits.max) break;
       }
@@ -697,7 +707,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       headersUs: headersUs,
       sampleStartUs: sampleStartUs,
       sampleStartBytes: sampleStartBytes,
-      points: points,
+      tracker: tracker,
       probes: probes,
       dns: dns,
       sourceHost: Uri.parse(url).host,
@@ -723,7 +733,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     int? headersUs;
     int? sampleStartUs;
     var sampleStartBytes = 0;
-    final points = <_CdnPoint>[];
+    final tracker = _CdnStreamTracker();
+    var lastProgress = 0;
 
     final totalTimer = Timer(const Duration(seconds: 15), () {
       intentionalStop = true;
@@ -736,18 +747,26 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         cancelToken: token,
         onReceiveProgress: (count, _) {
           if (count <= 0 || intentionalStop) return;
+          final delta = math.max(0, count - lastProgress);
+          lastProgress = count;
+          TrafficStatsService.instance.recordApplicationBytes(received: delta);
           final now = watch.elapsedMicroseconds;
-          firstByteUs ??= now;
           downloaded = count > limits.max ? limits.max : count;
-          points.add((elapsedUs: now, bytes: downloaded));
+          if (firstByteUs == null) {
+            firstByteUs = now;
+            tracker.reset(now, downloaded, windowStartBytes: 0);
+          }
 
           if (sampleStartUs == null && downloaded >= limits.warmup) {
             sampleStartUs = now;
             sampleStartBytes = downloaded;
+            tracker.reset(now, downloaded);
             measureTimer = Timer(const Duration(seconds: 8), () {
               intentionalStop = true;
               token.cancel();
             });
+          } else {
+            tracker.add(now, downloaded);
           }
           if (downloaded >= limits.max) {
             intentionalStop = true;
@@ -770,7 +789,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       headersUs: headersUs,
       sampleStartUs: sampleStartUs,
       sampleStartBytes: sampleStartBytes,
-      points: points,
+      tracker: tracker,
       probes: probes,
       dns: dns,
       sourceHost: Uri.parse(url).host,
@@ -785,7 +804,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     required int? headersUs,
     required int? sampleStartUs,
     required int sampleStartBytes,
-    required List<_CdnPoint> points,
+    required _CdnStreamTracker tracker,
     required List<_CdnLatencyProbe> probes,
     required _CdnDnsResult dns,
     required String sourceHost,
@@ -811,7 +830,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       downloaded: downloaded,
       sampleStartBytes: sampleStartBytes,
       measurementStartUs: startUs,
-      points: points,
+      segmentRates: tracker.rates,
+      maxGapUs: tracker.maxGapUs,
+      gap250ms: tracker.gap250ms,
+      gap500ms: tracker.gap500ms,
+      gap1000ms: tracker.gap1000ms,
       probes: probes,
       resolvedIps: dns.addresses,
       dnsLookupUs: dns.elapsedUs,
@@ -853,7 +876,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final profile = ConnectivityUtils.current;
     final metrics = sample.hasError ? null : sample.metrics;
     return {
-      'schemaVersion': 2,
+      'schemaVersion': 3,
       'recordedAtUs': DateTime.now().microsecondsSinceEpoch,
       'testRunStartedAtUs': _testRunStartedAtUs,
       'cdn': {
@@ -912,24 +935,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
         'dnsLookupUs': sample.dnsLookupUs,
         'dnsAddresses': sample.resolvedIps,
         'dnsError': sample.dnsError,
-        'points': [
-          for (final point in sample.points)
-            {'elapsedUs': point.elapsedUs, 'bytes': point.bytes},
-        ],
-        'latencyProbes': [
-          for (final probe in sample.probes)
-            {
-              'headersUs': probe.headersUs,
-              'firstByteUs': probe.firstByteUs,
-              'bytes': probe.bytes,
-            },
-        ],
       },
       if (metrics != null)
         'derived': {
           'fixedWindowUs': _CdnMetrics.windowUs,
           'averageRateBytesPerSecond': sample.averageRate,
-          'fixedWindowRatesBytesPerSecond': metrics.segmentRates,
           'p02': metrics.p02,
           'p05': metrics.p05,
           'p50': metrics.p50,
@@ -949,7 +959,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           'gap250ms': metrics.gap250ms,
           'gap500ms': metrics.gap500ms,
           'gap1000ms': metrics.gap1000ms,
-          'latencySamplesUs': metrics.latencySamples,
           'latencyMinUs': metrics.latencyMinUs,
           'latencyMaxUs': metrics.latencyMaxUs,
           'latencyP02Us': metrics.latencyP02Us,
@@ -966,9 +975,42 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     };
   }
 
+  Map<String, dynamic> _latestDiagnosticRecord(
+    Map<String, dynamic> historyRecord,
+    _CdnSpeedSample sample,
+  ) {
+    final latest = <String, dynamic>{...historyRecord};
+    final sampleRecord = historyRecord['sample'] is Map
+        ? Map<String, dynamic>.from(historyRecord['sample'] as Map)
+        : <String, dynamic>{};
+    sampleRecord['latencyProbes'] = [
+      for (final probe in sample.probes)
+        {
+          'headersUs': probe.headersUs,
+          'firstByteUs': probe.firstByteUs,
+          'bytes': probe.bytes,
+        },
+    ];
+    latest['sample'] = sampleRecord;
+
+    if (!sample.hasError && historyRecord['derived'] is Map) {
+      final metrics = sample.metrics;
+      latest['derived'] = <String, dynamic>{
+        ...Map<String, dynamic>.from(historyRecord['derived'] as Map),
+        'fixedWindowRatesBytesPerSecond': metrics.segmentRates,
+        'latencySamplesUs': metrics.latencySamples,
+      };
+    }
+    return latest;
+  }
+
   void _updateSpeedResult(int index, _CdnSpeedSample sample) {
     _cdnResList[index].value = sample;
-    unawaited(CdnDiagnosticsService.append(_diagnosticRecord(index, sample)));
+    final historyRecord = _diagnosticRecord(index, sample);
+    CdnDiagnosticsService.append(
+      historyRecord: historyRecord,
+      latestRecord: _latestDiagnosticRecord(historyRecord, sample),
+    );
   }
 
   void _handleSpeedTestError(dynamic error, int index) {
@@ -1006,12 +1048,12 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '${(bytesPerSecond / sample.divisor).toStringAsPrecision(3)} ${sample.unit}';
 
   String _ms(num microseconds) =>
-      '${(microseconds / 1000).toStringAsPrecision(3)} ms';
+      '${(microseconds * 0.001).toStringAsPrecision(3)} ms';
 
   String _duration(int microseconds) {
     if (microseconds < 1000) return '$microseconds μs';
     if (microseconds < 1000000) return _ms(microseconds);
-    return '${(microseconds / 1000000).toStringAsPrecision(3)} s';
+    return '${(microseconds * 0.000001).toStringAsPrecision(3)} s';
   }
 
   void _sortByDiagnostics() {
@@ -1042,7 +1084,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final metrics = sample.metrics;
     final rows = [
       '测试模式：${sample.type.name}；源主机：${sample.sourceHost.isEmpty ? "未知" : sample.sourceHost}',
-      '总接收：${(sample.downloaded / 1048576).toStringAsPrecision(4)} MiB；有效测量区间：${_duration(sample.elapsedUs)}',
+      '总接收：${(sample.downloaded / (1 << 20)).toStringAsPrecision(4)} MiB；有效测量区间：${_duration(sample.elapsedUs)}',
       '固定窗口：${_CdnMetrics.windowUs ~/ 1000} ms；窗口样本：${metrics.segmentRates.length}',
       '平均带宽（计时不含前置 DNS）：${_rate(sample, sample.averageRate)}',
       '固定窗口最低／最高：${_rate(sample, metrics.minRate)} ／ ${_rate(sample, metrics.maxRate)}',
@@ -1064,7 +1106,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
       '首包 P95／P98：${_ms(metrics.latencyP95Us)} ／ ${_ms(metrics.latencyP98Us)}',
       '去极端 5%（P95−P05）延迟极差：${_ms(metrics.latencyP95Us - metrics.latencyP05Us)}',
       '去极端 2%（P98−P02）延迟极差：${_ms(metrics.latencyP98Us - metrics.latencyP02Us)}',
-      '首包平均：${_ms(metrics.latencyMeanUs)}；标准差：${_ms(metrics.latencyStdUs)}；方差 ${(metrics.latencyVariance / 1000000).toStringAsPrecision(5)} ms²',
+      '首包平均：${_ms(metrics.latencyMeanUs)}；标准差：${_ms(metrics.latencyStdUs)}；方差 ${(metrics.latencyVariance * 0.000001).toStringAsPrecision(5)} ms²',
       '首包抖动：${_ms(metrics.latencyJitterUs)}；公式同样为相邻样本绝对差的平均值',
       '综合稳定分（仅用于本次相对排序，越高越好）：${(metrics.stabilityScore / sample.divisor).toStringAsPrecision(4)}',
       '综合排序以 P05 低谷带宽为主，同时惩罚带宽抖动、CV、P95 首包延迟与最大传输空窗；不会自动改写播放优先级。',
@@ -1165,14 +1207,15 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
   void _showDiagnosticHistory(BuildContext context) {
     final encoder = const JsonEncoder.withIndent('  ');
-    var groups = CdnDiagnosticsService.groupedSnapshot();
+    var latestGroups = CdnDiagnosticsService.groupedLatestSnapshot();
+    var historyGroups = CdnDiagnosticsService.groupedHistorySnapshot();
     var editing = false;
     final selected = <int>{};
 
     String ms(num microseconds) =>
-        '${(microseconds / 1000).toStringAsPrecision(3)} ms';
+        '${(microseconds * 0.001).toStringAsPrecision(3)} ms';
     String rate(num bytesPerSecond) =>
-        '${(bytesPerSecond / 1048576).toStringAsPrecision(3)} MiB/s';
+        '${(bytesPerSecond / (1 << 20)).toStringAsPrecision(3)} MiB/s';
 
     String timestamp(int us) => us == 0
         ? '时间未知'
@@ -1188,66 +1231,83 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           builder: (dialogContext, setDialogState) => Dialog.fullscreen(
             child: Scaffold(
               appBar: AppBar(
-                title: Text('CDN 历史诊断 · ${groups.length} 次测试'),
+                title: Text('CDN 诊断 · ${historyGroups.length} 次历史'),
                 actions: [
-                  if (editing && groups.isNotEmpty)
+                  if (editing && historyGroups.isNotEmpty)
                     IconButton(
-                      tooltip: selected.length == groups.length ? '取消全选' : '全选',
+                      tooltip: selected.length == historyGroups.length
+                          ? '取消全选'
+                          : '全选历史',
                       onPressed: () => setDialogState(() {
-                        if (selected.length == groups.length) {
+                        if (selected.length == historyGroups.length) {
                           selected.clear();
                         } else {
                           selected
                             ..clear()
-                            ..addAll(groups.map((group) => group.runStartedAtUs));
+                            ..addAll(
+                              historyGroups.map(
+                                (group) => group.runStartedAtUs,
+                              ),
+                            );
                         }
                       }),
                       icon: Icon(
-                        selected.length == groups.length
+                        selected.length == historyGroups.length
                             ? Icons.deselect
                             : Icons.select_all,
                       ),
                     ),
                   if (editing && selected.isNotEmpty)
                     IconButton(
-                      tooltip: '删除选中的测试组',
+                      tooltip: '删除选中的历史测试',
                       onPressed: () async {
                         final confirmed = await showDialog<bool>(
                           context: dialogContext,
                           builder: (context) => AlertDialog(
-                            title: const Text('删除 CDN 测试记录'),
-                            content: Text('确定删除已选择的 ${selected.length} 次完整测试吗？'),
+                            title: const Text('删除 CDN 历史记录'),
+                            content: Text('确定删除已选择的 ${selected.length} 次历史测试吗？'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
                                 child: const Text('取消'),
                               ),
                               FilledButton(
-                                onPressed: () => Navigator.of(context).pop(true),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
                                 child: const Text('删除'),
                               ),
                             ],
                           ),
                         );
                         if (confirmed != true) return;
-                        await CdnDiagnosticsService.deleteRuns(Set.of(selected));
-                        groups = CdnDiagnosticsService.groupedSnapshot();
+                        await CdnDiagnosticsService.deleteHistoryRuns(
+                          Set.of(selected),
+                        );
+                        historyGroups =
+                            CdnDiagnosticsService.groupedHistorySnapshot();
                         selected.clear();
                         if (dialogContext.mounted) {
                           setDialogState(() {
-                            if (groups.isEmpty) editing = false;
+                            if (historyGroups.isEmpty) editing = false;
                           });
                         }
                       },
                       icon: const Icon(Icons.delete_outline),
                     ),
-                  if (!editing && groups.isNotEmpty)
+                  if (!editing &&
+                      (latestGroups.isNotEmpty || historyGroups.isNotEmpty))
                     IconButton(
-                      tooltip: '复制全部原始记录',
+                      tooltip: '复制全部诊断记录',
                       onPressed: () async {
                         await Clipboard.setData(
                           ClipboardData(
-                            text: encoder.convert(CdnDiagnosticsService.snapshot()),
+                            text: encoder.convert({
+                              'latest':
+                                  CdnDiagnosticsService.latestSnapshot(),
+                              'history':
+                                  CdnDiagnosticsService.historySnapshot(),
+                            }),
                           ),
                         );
                         if (dialogContext.mounted) {
@@ -1258,22 +1318,26 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                       },
                       icon: const Icon(Icons.copy_all_outlined),
                     ),
-                  IconButton(
-                    tooltip: editing ? '完成编辑' : '编辑',
-                    onPressed: () => setDialogState(() {
-                      editing = !editing;
-                      if (!editing) selected.clear();
-                    }),
-                    icon: Icon(editing ? Icons.done : Icons.edit_outlined),
-                  ),
+                  if (historyGroups.isNotEmpty)
+                    IconButton(
+                      tooltip: editing ? '完成编辑' : '编辑历史',
+                      onPressed: () => setDialogState(() {
+                        editing = !editing;
+                        if (!editing) selected.clear();
+                      }),
+                      icon: Icon(editing ? Icons.done : Icons.edit_outlined),
+                    ),
                 ],
               ),
-              body: groups.isEmpty
-                  ? const Center(child: Text('还没有保存过 CDN 诊断记录'))
+              body: latestGroups.isEmpty && historyGroups.isEmpty
+                  ? const Center(child: Text('还没有 CDN 诊断记录'))
                   : ListView.builder(
-                      itemCount: groups.length,
+                      itemCount: latestGroups.length + historyGroups.length,
                       itemBuilder: (context, index) {
-                        final group = groups[index];
+                        final isLatest = index < latestGroups.length;
+                        final group = isLatest
+                            ? latestGroups[index]
+                            : historyGroups[index - latestGroups.length];
                         final first = group.records.first;
                         final network = first['network'] is Map
                             ? first['network'] as Map
@@ -1282,18 +1346,24 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             ? first['config'] as Map
                             : const {};
                         return ListTile(
-                          leading: editing
+                          leading: editing && !isLatest
                               ? Checkbox(
-                                  value: selected.contains(group.runStartedAtUs),
+                                  value:
+                                      selected.contains(group.runStartedAtUs),
                                   onChanged: (_) => setDialogState(() {
                                     if (!selected.add(group.runStartedAtUs)) {
                                       selected.remove(group.runStartedAtUs);
                                     }
                                   }),
                                 )
-                              : const Icon(Icons.science_outlined),
+                              : Icon(
+                                  isLatest
+                                      ? Icons.bolt_outlined
+                                      : Icons.science_outlined,
+                                ),
                           title: Text(
-                            '第 ${groups.length - index} 次测试 · ${timestamp(group.runStartedAtUs)}',
+                            '${isLatest ? '最新详细测试' : '历史测试'} · '
+                            '${timestamp(group.runStartedAtUs)}',
                           ),
                           subtitle: Text(
                             '${group.records.length} 个 CDN · '
@@ -1301,9 +1371,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             '${network['useCellularPreferences'] == true ? '等效移网' : '等效宽带'} · '
                             '${config['mode'] ?? 'legacy'}',
                           ),
-                          trailing: editing ? null : const Icon(Icons.chevron_right),
+                          trailing:
+                              editing ? null : const Icon(Icons.chevron_right),
                           onTap: () {
                             if (editing) {
+                              if (isLatest) return;
                               setDialogState(() {
                                 if (!selected.add(group.runStartedAtUs)) {
                                   selected.remove(group.runStartedAtUs);
@@ -1315,46 +1387,59 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                               context: dialogContext,
                               builder: (detailContext) => MediaQuery(
                                 data: MediaQuery.of(detailContext).copyWith(
-                                  textScaler: const TextScaler.linear(0.85),
+                                  textScaler:
+                                      const TextScaler.linear(0.85),
                                 ),
                                 child: Dialog.fullscreen(
                                   child: Scaffold(
                                     appBar: AppBar(
                                       title: Text(
-                                        'CDN 测试组 · ${timestamp(group.runStartedAtUs)}',
+                                        '${isLatest ? '最新详细测试' : '历史测试'} · '
+                                        '${timestamp(group.runStartedAtUs)}',
                                       ),
                                       actions: [
                                         IconButton(
                                           tooltip: '复制本组原始记录',
                                           onPressed: () => Clipboard.setData(
                                             ClipboardData(
-                                              text: encoder.convert(group.records),
+                                              text: encoder.convert(
+                                                group.records,
+                                              ),
                                             ),
                                           ),
-                                          icon: const Icon(Icons.copy_all_outlined),
+                                          icon: const Icon(
+                                            Icons.copy_all_outlined,
+                                          ),
                                         ),
                                       ],
                                     ),
                                     body: ListView.builder(
                                       itemCount: group.records.length,
                                       itemBuilder: (context, itemIndex) {
-                                        final record = group.records[itemIndex];
+                                        final record =
+                                            group.records[itemIndex];
                                         final cdn = record['cdn'] is Map
                                             ? record['cdn'] as Map
                                             : const {};
-                                        final sample = record['sample'] is Map
+                                        final sample =
+                                            record['sample'] is Map
                                             ? record['sample'] as Map
                                             : const {};
                                         final error = sample['error'];
-                                        final derived = record['derived'] is Map
+                                        final derived =
+                                            record['derived'] is Map
                                             ? record['derived'] as Map
                                             : const {};
                                         final bandwidth =
-                                            (derived['averageRateBytesPerSecond'] as num?) ?? 0;
+                                            (derived['averageRateBytesPerSecond']
+                                                    as num?) ??
+                                                0;
                                         final firstByteUs =
-                                            (sample['firstByteUs'] as num?) ?? 0;
+                                            (sample['firstByteUs'] as num?) ??
+                                                0;
                                         final dnsUs =
-                                            (sample['dnsLookupUs'] as num?) ?? 0;
+                                            (sample['dnsLookupUs'] as num?) ??
+                                                0;
                                         return ListTile(
                                           title: Text(
                                             cdn['description']?.toString() ??
@@ -1363,33 +1448,46 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                                           ),
                                           subtitle: Text(
                                             error == null
-                                                ? '带宽 ${rate(bandwidth)} · 首包 ${ms(firstByteUs)} · DNS ${ms(dnsUs)}'
+                                                ? '带宽 ${rate(bandwidth)} · '
+                                                    '首包 ${ms(firstByteUs)} · '
+                                                    'DNS ${ms(dnsUs)}'
                                                 : error.toString(),
                                           ),
-                                          trailing: const Icon(Icons.chevron_right),
+                                          trailing: const Icon(
+                                            Icons.chevron_right,
+                                          ),
                                           onTap: () => showDialog<void>(
                                             context: detailContext,
-                                            builder: (rawContext) => Dialog.fullscreen(
+                                            builder: (rawContext) =>
+                                                Dialog.fullscreen(
                                               child: Scaffold(
                                                 appBar: AppBar(
                                                   title: Text(
-                                                    cdn['description']?.toString() ??
+                                                    cdn['description']
+                                                            ?.toString() ??
                                                         'CDN 诊断原语',
                                                   ),
                                                   actions: [
                                                     IconButton(
                                                       tooltip: '复制本条记录',
-                                                      onPressed: () => Clipboard.setData(
+                                                      onPressed: () =>
+                                                          Clipboard.setData(
                                                         ClipboardData(
-                                                          text: encoder.convert(record),
+                                                          text:
+                                                              encoder.convert(
+                                                            record,
+                                                          ),
                                                         ),
                                                       ),
-                                                      icon: const Icon(Icons.copy_outlined),
+                                                      icon: const Icon(
+                                                        Icons.copy_outlined,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
                                                 body: SingleChildScrollView(
-                                                  padding: const EdgeInsets.all(16),
+                                                  padding:
+                                                      const EdgeInsets.all(16),
                                                   child: SelectableText(
                                                     encoder.convert(record),
                                                   ),
@@ -1427,7 +1525,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
           title: const Text('CDN 优先级与网络诊断'),
           actions: [
             IconButton(
-              tooltip: '历史诊断',
+              tooltip: '诊断记录',
               onPressed: () => _showDiagnosticHistory(context),
               icon: const Icon(Icons.history),
             ),
@@ -1503,13 +1601,66 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
 
 enum _CdnSpeedSampleType { complete, partial, fallback }
 
-typedef _CdnPoint = ({int elapsedUs, int bytes});
 typedef _CdnLatencyProbe = ({int headersUs, int firstByteUs, int bytes});
 typedef _CdnDnsResult = ({
   List<String> addresses,
   int elapsedUs,
   String? error,
 });
+
+// The diagnostic needs fixed 250 ms rates and raw arrival gaps, not every
+// received chunk. Keeping only these sufficient statistics caps one CDN run at
+// roughly 32 doubles while preserving the existing formulas exactly.
+final class _CdnStreamTracker {
+  int _previousUs = 0;
+  int _previousBytes = 0;
+  int _nextWindowUs = 0;
+  double _windowBytes = 0;
+  int maxGapUs = 0;
+  int gap250ms = 0;
+  int gap500ms = 0;
+  int gap1000ms = 0;
+  final List<double> rates = [];
+
+  void reset(int elapsedUs, int bytes, {int? windowStartBytes}) {
+    _previousUs = elapsedUs;
+    _previousBytes = bytes;
+    _nextWindowUs = elapsedUs + _CdnMetrics.windowUs;
+    _windowBytes = (windowStartBytes ?? bytes).toDouble();
+    maxGapUs = 0;
+    gap250ms = 0;
+    gap500ms = 0;
+    gap1000ms = 0;
+    rates.clear();
+  }
+
+  void add(int elapsedUs, int bytes) {
+    if (_nextWindowUs == 0) {
+      reset(elapsedUs, bytes, windowStartBytes: 0);
+      return;
+    }
+    final gapUs = elapsedUs - _previousUs;
+    if (gapUs <= 0 || bytes < _previousBytes) return;
+    if (gapUs > maxGapUs) maxGapUs = gapUs;
+    if (gapUs >= 250000) gap250ms++;
+    if (gapUs >= 500000) gap500ms++;
+    if (gapUs >= 1000000) gap1000ms++;
+    if (_nextWindowUs <= elapsedUs) {
+      final bytesPerUs = (bytes - _previousBytes) / gapUs;
+      while (_nextWindowUs <= elapsedUs) {
+        final endBytes =
+            _previousBytes + (_nextWindowUs - _previousUs) * bytesPerUs;
+        rates.add(
+          (endBytes > _windowBytes ? endBytes - _windowBytes : 0.0) * 4,
+        );
+        _windowBytes = endBytes;
+        _nextWindowUs += _CdnMetrics.windowUs;
+      }
+    }
+    _previousUs = elapsedUs;
+    _previousBytes = bytes;
+  }
+}
 
 class _CdnSpeedSample {
   _CdnSpeedSample({
@@ -1520,7 +1671,11 @@ class _CdnSpeedSample {
     required this.downloaded,
     required this.sampleStartBytes,
     required this.measurementStartUs,
-    required this.points,
+    required this.segmentRates,
+    required this.maxGapUs,
+    required this.gap250ms,
+    required this.gap500ms,
+    required this.gap1000ms,
     required this.probes,
     required this.resolvedIps,
     required this.dnsLookupUs,
@@ -1542,7 +1697,11 @@ class _CdnSpeedSample {
        downloaded = 0,
        sampleStartBytes = 0,
        measurementStartUs = 0,
-       points = const [],
+       segmentRates = const [],
+       maxGapUs = 0,
+       gap250ms = 0,
+       gap500ms = 0,
+       gap1000ms = 0,
        probes = const [],
        type = _CdnSpeedSampleType.fallback;
 
@@ -1553,7 +1712,11 @@ class _CdnSpeedSample {
   final int downloaded;
   final int sampleStartBytes;
   final int measurementStartUs;
-  final List<_CdnPoint> points;
+  final List<double> segmentRates;
+  final int maxGapUs;
+  final int gap250ms;
+  final int gap500ms;
+  final int gap1000ms;
   final List<_CdnLatencyProbe> probes;
   final List<String> resolvedIps;
   final int dnsLookupUs;
@@ -1649,65 +1812,9 @@ class _CdnMetrics {
   final double stabilityScore;
 
   factory _CdnMetrics.from(_CdnSpeedSample sample) {
-    final activePoints = sample.points
-        .where((point) => point.elapsedUs >= sample.measurementStartUs)
-        .toList(growable: false);
-
-    var previousTime = sample.measurementStartUs;
-    var previousBytes = sample.sampleStartBytes;
-    var maxGapUs = 0;
-    var gap250ms = 0;
-    var gap500ms = 0;
-    var gap1000ms = 0;
-    for (final point in activePoints) {
-      final elapsed = point.elapsedUs - previousTime;
-      if (elapsed > 0 && point.bytes >= previousBytes) {
-        if (elapsed > maxGapUs) maxGapUs = elapsed;
-        if (elapsed >= 250000) gap250ms++;
-        if (elapsed >= 500000) gap500ms++;
-        if (elapsed >= 1000000) gap1000ms++;
-      }
-      previousTime = point.elapsedUs;
-      previousBytes = point.bytes;
-    }
-
-    final rates = <double>[];
-    if (activePoints.isNotEmpty) {
-      var pointIndex = 0;
-      var leftTime = sample.measurementStartUs;
-      var leftBytes = sample.sampleStartBytes.toDouble();
-
-      double bytesAt(int targetUs) {
-        while (pointIndex < activePoints.length &&
-            activePoints[pointIndex].elapsedUs < targetUs) {
-          leftTime = activePoints[pointIndex].elapsedUs;
-          leftBytes = activePoints[pointIndex].bytes.toDouble();
-          pointIndex++;
-        }
-        if (pointIndex >= activePoints.length) return leftBytes;
-        final right = activePoints[pointIndex];
-        if (right.elapsedUs == leftTime) return right.bytes.toDouble();
-        final fraction =
-            (targetUs - leftTime) / (right.elapsedUs - leftTime);
-        return leftBytes + (right.bytes - leftBytes) * fraction;
-      }
-
-      final lastUs = activePoints.last.elapsedUs;
-      var windowStartUs = sample.measurementStartUs;
-      var windowStartBytes = sample.sampleStartBytes.toDouble();
-      while (windowStartUs + windowUs <= lastUs) {
-        final windowEndUs = windowStartUs + windowUs;
-        final windowEndBytes = bytesAt(windowEndUs);
-        rates.add(
-          math.max(0, windowEndBytes - windowStartBytes) *
-              Duration.microsecondsPerSecond /
-              windowUs,
-        );
-        windowStartUs = windowEndUs;
-        windowStartBytes = windowEndBytes;
-      }
-    }
-    if (rates.isEmpty) rates.add(sample.averageRate);
+    final rates = sample.segmentRates.isEmpty
+        ? <double>[sample.averageRate]
+        : sample.segmentRates;
 
     final sorted = List<double>.of(rates)..sort();
     final mean = _mean(rates);
@@ -1722,26 +1829,42 @@ class _CdnMetrics {
       for (final probe in sample.probes) probe.firstByteUs,
       if (sample.probes.isEmpty) sample.firstByteUs,
     ];
-    final latencySorted = latency.map((e) => e.toDouble()).toList()..sort();
+    final latencyValues = [for (final value in latency) value.toDouble()];
+    final latencySorted = List<double>.of(latencyValues)..sort();
     final latencyMean = _mean(latencySorted);
     final latencyVariance = _variance(latencySorted, latencyMean);
     final latencyStd = math.sqrt(latencyVariance);
-    final latencyJitter = _meanAbsoluteDifference(
-      latency.map((e) => e.toDouble()).toList(),
-    );
+    final latencyJitter = _meanAbsoluteDifference(latencyValues);
 
-    final rolling = <double>[];
-    const rollingWindowCount = 1000000 ~/ windowUs;
-    for (var index = rollingWindowCount; index <= rates.length; index++) {
-      final window = rates.sublist(index - rollingWindowCount, index);
-      rolling.add(_mean(window));
+    const rollingWindowCount = 4;
+    const rollingScale = 0.25;
+    var rollingSum = 0.0;
+    var rollingLow = double.infinity;
+    var rollingHigh = double.negativeInfinity;
+    var earlySum = 0.0;
+    var lateSum = 0.0;
+    final split = math.max(1, rates.length >> 1);
+    for (var index = 0; index < rates.length; index++) {
+      final value = rates[index];
+      rollingSum += value;
+      if (index >= rollingWindowCount) rollingSum -= rates[index - rollingWindowCount];
+      if (index + 1 >= rollingWindowCount) {
+        final rolling = rollingSum * rollingScale;
+        if (rolling < rollingLow) rollingLow = rolling;
+        if (rolling > rollingHigh) rollingHigh = rolling;
+      }
+      if (index < split) {
+        earlySum += value;
+      } else {
+        lateSum += value;
+      }
     }
-    if (rolling.isEmpty) rolling.addAll(rates);
-
-    final split = rates.length ~/ 2 == 0 ? 1 : rates.length ~/ 2;
-    final early = _mean(rates.take(split).toList());
-    final lateRates = rates.skip(split).toList();
-    final late = lateRates.isEmpty ? early : _mean(lateRates);
+    if (!rollingLow.isFinite) {
+      rollingLow = rates.reduce((a, b) => a < b ? a : b);
+      rollingHigh = rates.reduce((a, b) => a > b ? a : b);
+    }
+    final early = earlySum / split;
+    final late = rates.length == split ? early : lateSum / (rates.length - split);
 
     final p02 = _percentile(sorted, 0.02);
     final p05 = _percentile(sorted, 0.05);
@@ -1760,8 +1883,8 @@ class _CdnMetrics {
         1 +
         relativeJitter * 2 +
         coefficientOfVariation +
-        latencyP95 / 500000 +
-        maxGapUs / 1000000;
+        latencyP95 * 0.000002 +
+        sample.maxGapUs * 0.000001;
     final stabilityScore = p05 / stabilityPenalty;
 
     return _CdnMetrics._(
@@ -1777,14 +1900,14 @@ class _CdnMetrics {
       variance: variance,
       coefficientOfVariation: coefficientOfVariation,
       relativeJitter: relativeJitter,
-      rollingLow: rolling.reduce((a, b) => a < b ? a : b),
-      rollingHigh: rolling.reduce((a, b) => a > b ? a : b),
+      rollingLow: rollingLow,
+      rollingHigh: rollingHigh,
       trendPercent: early == 0 ? 0 : late / early - 1,
       absoluteJitter: absoluteJitter,
-      maxGapUs: maxGapUs,
-      gap250ms: gap250ms,
-      gap500ms: gap500ms,
-      gap1000ms: gap1000ms,
+      maxGapUs: sample.maxGapUs,
+      gap250ms: sample.gap250ms,
+      gap500ms: sample.gap500ms,
+      gap1000ms: sample.gap1000ms,
       latencySamples: latency,
       latencyMinUs: latencySorted.first,
       latencyMaxUs: latencySorted.last,
@@ -1804,14 +1927,14 @@ class _CdnMetrics {
   static double _mean(List<double> values) =>
       values.reduce((a, b) => a + b) / values.length;
 
-  static double _variance(List<double> values, double mean) =>
-      values
-          .map((value) {
-            final delta = value - mean;
-            return delta * delta;
-          })
-          .reduce((a, b) => a + b) /
-      values.length;
+  static double _variance(List<double> values, double mean) {
+    var sum = 0.0;
+    for (final value in values) {
+      final delta = value - mean;
+      sum += delta * delta;
+    }
+    return sum / values.length;
+  }
 
   static double _meanAbsoluteDifference(List<double> values) {
     if (values.length < 2) return 0;

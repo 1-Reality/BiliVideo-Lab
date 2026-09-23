@@ -7,6 +7,7 @@ import 'package:PiliBro/models/common/video/video_decode_type.dart';
 import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/cdn_speed_setup_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
@@ -24,15 +25,15 @@ import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get videoSettings => [
   const SwitchModel(
-    title: '开启硬解',
-    subtitle: '以较低功耗播放视频，若异常卡死请关闭',
+    title: '开启专用硬件加速解码',
+    subtitle: '以较低功耗播放视频，若无增益请关闭',
     leading: Icon(Icons.flash_on_outlined),
     setKey: SettingBoxKey.enableHA,
     defaultVal: true,
   ),
   const SwitchModel(
     title: '免登录1080P',
-    subtitle: '免登录查看1080P视频',
+    subtitle: '免登录观看1080P视频',
     leading: Icon(Icons.hd_outlined),
     setKey: SettingBoxKey.p1080,
     defaultVal: true,
@@ -178,14 +179,14 @@ List<SettingsModel> get videoSettings => [
     title: '真蜂窝缓冲大小',
     leading: const Icon(Icons.signal_cellular_alt),
     getSubtitle: () =>
-        '当前：${Pref.bufferSizeCellular}MiB。只要物理接入是真蜂窝就使用，与等效宽带/等效移网判定无关',
+        '当前：${Pref.bufferSizeCellular}MiB。只要实际接入是真蜂窝就使用，与等效宽带/移网判定无关',
     onTap: _showCellularBufferSizeDialog,
   ),
   NormalModel(
     title: '真蜂窝缓冲时长',
     leading: const Icon(Icons.av_timer),
     getSubtitle: () =>
-        '当前：${Pref.bufferSecCellular}s。只要物理接入是真蜂窝就使用，与缓冲大小取先达到的一项',
+        '当前：${Pref.bufferSecCellular}s。只要实机接入是真蜂窝就使用，与缓冲大小取先达到的一项',
     onTap: _showCellularBufferSecDialog,
   ),
   const SwitchModel(
@@ -238,17 +239,18 @@ Future<void> _showCDNDialog(
   VoidCallback setState, {
   required bool cellular,
 }) async {
-  final speedConfig = Pref.cdnSpeedTest
-      ? await showCdnSpeedConfigDialog(context)
+  final speedSetup = Pref.cdnSpeedTest
+      ? await showCdnSpeedSetupDialog(context)
       : null;
-  if (Pref.cdnSpeedTest && speedConfig == null || !context.mounted) return;
+  if (!context.mounted) return;
   final res = await showDialog<List<CDNService>>(
     context: context,
     builder: (context) => CdnSelectDialog(
+      sample: speedSetup?.sample,
       initValues: cellular
           ? Pref.defaultCDNServicesCellular
           : Pref.defaultCDNServices,
-      speedConfig: speedConfig,
+      speedConfig: speedSetup?.config,
     ),
   );
   if (res != null && res.isNotEmpty) {

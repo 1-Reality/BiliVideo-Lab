@@ -5,8 +5,8 @@ import 'package:PiliBro/pages/common/common_list_controller.dart';
 class ZoneController extends CommonListController {
   ZoneController({this.rid, this.seasonType});
 
-  int? rid;
-  int? seasonType;
+  final int? rid;
+  final int? seasonType;
 
   @override
   void onInit() {
@@ -15,13 +15,9 @@ class ZoneController extends CommonListController {
   }
 
   @override
-  Future<LoadingState> customGetData() {
-    if (rid != null) {
-      return VideoHttp.getRankVideoList(rid!);
-    }
-    if (seasonType == 1) {
-      return VideoHttp.pgcRankList(seasonType: seasonType!);
-    }
-    return VideoHttp.pgcSeasonRankList(seasonType: seasonType!);
-  }
+  Future<LoadingState> customGetData() => rid != null
+      ? VideoHttp.getRankVideoList(rid!)
+      : seasonType == 1
+      ? VideoHttp.pgcRankList(seasonType: seasonType!)
+      : VideoHttp.pgcSeasonRankList(seasonType: seasonType!);
 }

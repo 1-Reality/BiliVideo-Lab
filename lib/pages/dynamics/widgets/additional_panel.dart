@@ -19,10 +19,10 @@ Widget? addWidget(
   required DynamicAddModel additional,
 }) {
   final type = additional.type;
-  late final Color bgColor = floor == 1
+  final Color bgColor = floor == 1
       ? theme.dividerColor.withValues(alpha: 0.08)
       : theme.colorScheme.surface;
-  late final borderRadius = floor == 1 ? null : Style.mdRadius;
+  final borderRadius = floor == 1 ? null : Style.mdRadius;
   Widget? child;
   try {
     switch (type) {

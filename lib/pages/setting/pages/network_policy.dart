@@ -6,6 +6,7 @@ import 'package:PiliBro/common/widgets/time_picker.dart' as pili;
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
@@ -18,6 +19,10 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+
+final _signedIntFormatters = [
+  FilteringTextInputFormatter.allow(RegExp(r'-?\d*')),
+];
 
 class NetworkPolicyPage extends StatefulWidget {
   const NetworkPolicyPage({super.key});
@@ -33,6 +38,10 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
   late int wifiMode = Pref.wifiNetworkPolicyMode;
   late int rssi = Pref.wifiRssiThreshold;
   late int wifiSpeed = Pref.wifiMinLinkSpeed;
+  late bool highBitrateHevc = Pref.desktopHighBitrateHevc;
+  late int highBitrateHevcQuality = Pref.desktopHighBitrateHevcQuality;
+  late int highBitrateHevcThresholdBps =
+      Pref.desktopHighBitrateHevcThresholdBps;
   late int cellularMode = Pref.cellularQualityMode;
   late int cellularJudgeMode = Pref.cellularQualityJudgeMode;
   late String cellularMatch = Pref.cellularQualityMatch;
@@ -41,6 +50,20 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
   late int cellularSignalLevel = Pref.cellularSignalLevelThreshold;
   bool? phonePermission;
   NetworkProfile? profile = ConnectivityUtils.current;
+
+  List<(int, String)> get _cellularJudgeOptions => cellularMode == 2
+      ? const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号和下行速率同时满足'),
+          (3, '信号或下行速率任一满足'),
+        ]
+      : const [
+          (0, '仅使用信号判断'),
+          (1, '仅使用下行速率判断'),
+          (2, '信号或下行速率任一满足'),
+          (3, '信号和下行速率同时满足'),
+        ];
 
   @override
   void initState() {
@@ -82,7 +105,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
           initialValue: text,
           keyboardType: TextInputType.numberWithOptions(signed: signed),
           inputFormatters: signed
-              ? [FilteringTextInputFormatter.allow(RegExp(r'-?\d*'))]
+              ? _signedIntFormatters
               : [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             suffixText: suffix,
@@ -155,13 +178,17 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
           (0, '关闭'),
           (1, '默认将蜂窝设为 Wi-Fi / 等效宽带'),
           (2, '默认将蜂窝设为流量 / 等效移网'),
+          (3, '上帝模式：适合「双不限」用户使用'),
         ],
       ),
     );
     if (value == null) return;
     cellularMode = value;
     await _put(SettingBoxKey.cellularQualityMode, value);
-    if (value != 0 && Platform.isAndroid && !(await Permission.phone.isGranted)) {
+    if (value != 0 &&
+        (value != 3 || cellularMatch.isNotEmpty) &&
+        Platform.isAndroid &&
+        !(await Permission.phone.isGranted)) {
       await Permission.phone.request();
       await _refreshPhonePermission();
       await _refreshStatus();
@@ -195,6 +222,42 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
     }
   }
 
+  Future<void> _setHighBitrateHevcQuality() async {
+    final value = await showDialog<int>(
+      context: context,
+      builder: (context) => SelectDialog<int>(
+        title: '画质门限',
+        value: highBitrateHevcQuality,
+        values: [
+          for (final quality in VideoQuality.values)
+            (quality.code, quality.desc),
+        ],
+      ),
+    );
+    if (value == null) return;
+    highBitrateHevcQuality = value;
+    await GStorage.setting.put(
+      SettingBoxKey.desktopHighBitrateHevcQuality,
+      value,
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setHighBitrateHevcThreshold() async {
+    final value = await _inputInt(
+      title: 'H.264 码率门限',
+      value: highBitrateHevcThresholdBps ~/ 1000,
+      suffix: 'Kbps',
+    );
+    if (value == null) return;
+    highBitrateHevcThresholdBps = value * 1000;
+    await GStorage.setting.put(
+      SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+      highBitrateHevcThresholdBps,
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _showHelp() {
     return showDialog<void>(
       context: context,
@@ -202,7 +265,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
         title: const Text('功能详细说明'),
         content: const SingleChildScrollView(
           child: Text(
-            '电脑连接的是有线还是 Wi-Fi，只能说明接入方式，未必能说明这条网络现在是否适合高码率播放。这里可以根据链路协商速率和 Wi-Fi 状态，把当前连接判断为“等效宽带”或“等效移网”，并使用对应的画质、音质和编码偏好。\n\n'
+            '电脑连接的是有线还是 Wi-Fi，未必能说明这条网络现在是否适合高码率播放。此功能可根据链路协商速率和 Wi-Fi 状态，把当前连接判断为“等效宽带”或“等效移网”，并使用对应的画质、音质和编码偏好。\n\n'
             '这看起来相似，却可能差很多：千兆有线通常比较稳定，降到百兆时可能意味着链路协商出现了变化，也可能只是身处校园网或其他共享网络；Wi-Fi 的信号强度和协商速率，则更能说明这一刻的无线连接是否适合高码率播放。USB 网络共享、手机热点等连接，也可能披着“电脑网络”的外观出现。这项功能用于让电脑在网络条件可能变差时，临时沿用蜂窝网络下的画质、音质和编码偏好。\n\n'
             '这项功能把最终判断归纳为“等效宽带”和“等效移网”。等效宽带使用普通网络下的画质、音质和编码偏好，等效移网使用移动网络下的对应配置。用户可以自行决定哪些有线或 Wi-Fi 状态需要切换，不必受设备类型限制。\n\n'
             '判断只读取当前连接类型、链路协商速率和 Wi-Fi 信号强度，不保存网络名称、IP 地址等无关信息。检测只发生在启动应用、进入播放器等关键节点，不会在播放过程中反复扫描，也不会因为信号的轻微波动频繁切换。所有门限均由用户自行设置，PiliBro 只负责按照这些规则选择对应的播放配置。\n\n'
@@ -300,6 +363,33 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
               subtitle: const Text('按小时查看上下行，并区分 Wi-Fi、等效移网与真正蜂窝流量'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Get.toNamed('/trafficStats'),
+            ),
+            const Divider(),
+            SetSwitchItem(
+              title: '极高码率 H.264 自动切换 H.265',
+              subtitle: '关闭后直接走原视频流选择路径。开启后仅在同画质至少存在 3 路视频流，且画质与 H.264 码率同时超过门限时切换',
+              setKey: SettingBoxKey.desktopHighBitrateHevc,
+              defaultVal: highBitrateHevc,
+              onChanged: (value) {
+                highBitrateHevc = value;
+                setState(() {});
+              },
+            ),
+            ListTile(
+              title: const Text('画质门限'),
+              subtitle: Text(
+                '${highBitrateHevc ? "" : "当前功能关闭；"}画质不低于 ${VideoQuality.fromCode(highBitrateHevcQuality).desc} 时参与判断',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _setHighBitrateHevcQuality,
+            ),
+            ListTile(
+              title: const Text('码率门限'),
+              subtitle: Text(
+                '${highBitrateHevc ? "" : "当前功能关闭；"}H.264 码率大于 ${highBitrateHevcThresholdBps ~/ 1000} Kbps 时参与判断',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _setHighBitrateHevcThreshold,
             ),
             const Divider(),
             SetSwitchItem(
@@ -414,6 +504,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                   '关闭：真蜂窝固定使用蜂窝播放偏好',
                   '默认将蜂窝设为 WiFi；质量低于阈值时改用流量偏好',
                   '默认将蜂窝设为流量；质量高于阈值时改用 WiFi 偏好',
+                  '上帝模式：默认按宽带，弱网时改用流量偏好；空 ISP 时不读取详细运营商字段',
                 ][cellularMode],
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -424,7 +515,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                 ListTile(
                   title: const Text('READ_PHONE_STATE'),
                   subtitle: Text(
-                    phonePermission == true
+                    cellularMode == 3 && cellularMatch.isEmpty
+                        ? '上帝模式未配置 ISP：不读取 SubscriptionInfo，无需此权限'
+                        : phonePermission == true
                         ? 'granted；SubscriptionInfo 原始字段可参与精确匹配'
                         : '未授权；仍可使用 networkOperatorName、蜂窝信号和系统带宽估计',
                   ),
@@ -441,7 +534,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                 title: const Text('配置运营商 / Subscription 原始字段'),
                 subtitle: Text(
                   cellularMatch.isEmpty
-                      ? '未配置：该功能不会生效。逗号分隔，和上方原始字段值或 path=value 完整匹配'
+                      ? cellularMode == 3
+                            ? '未配置：上帝模式对所有蜂窝生效，不读取详细运营商字段'
+                            : '未配置：该功能不会生效。逗号分隔，和上方原始字段值或 path=value 完整匹配'
                       : cellularMatch,
                 ),
                 trailing: const Icon(Icons.chevron_right),
@@ -454,13 +549,21 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                   if (value != null) {
                     cellularMatch = value;
                     await _put(SettingBoxKey.cellularQualityMatch, value);
+                    if (cellularMode == 3 &&
+                        value.isNotEmpty &&
+                        Platform.isAndroid &&
+                        !(await Permission.phone.isGranted)) {
+                      await Permission.phone.request();
+                      await _refreshPhonePermission();
+                      await _refreshStatus();
+                    }
                   }
                 },
               ),
               ListTile(
                 title: const Text('蜂窝质量判断方式'),
                 subtitle: Text(
-                  const ['仅使用信号判断', '仅使用下行速率判断', '两者同时满足', '两者任一满足'][cellularJudgeMode],
+                  _cellularJudgeOptions[cellularJudgeMode].$2,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
@@ -469,12 +572,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                     builder: (context) => SelectDialog<int>(
                       title: '蜂窝质量判断方式',
                       value: cellularJudgeMode,
-                      values: const [
-                        (0, '仅使用信号判断'),
-                        (1, '仅使用下行速率判断'),
-                        (2, '信号和下行速率同时满足'),
-                        (3, '信号或下行速率任一满足'),
-                      ],
+                      values: _cellularJudgeOptions,
                     ),
                   );
                   if (value != null) {
@@ -540,7 +638,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             ListTile(
               leading: const Icon(Icons.schedule_outlined),
               title: const Text('网络高峰期'),
-              subtitle: const Text('按时段临时覆盖编码偏好；支持增加、删除和单独停用条目'),
+              subtitle: const Text('按时段临时覆盖编码偏好；支持增加、删除和单独停用条目。记住：物理BRAS好，4134好，云化池化vBRAS、固移融合、AS 137266不如传统网！汉口独立城域网、武汉核心网万岁！不要全省大锅饭🍲！'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => showDialog<void>(
                 context: context,
@@ -569,14 +667,17 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
     await ConnectivityUtils.notifySettingsChanged();
   }
 
-  String _time(int minute) =>
-      '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
+  String _time(int minute) {
+    final hour = minute ~/ 60;
+    return '${hour.toString().padLeft(2, '0')}:${(minute - hour * 60).toString().padLeft(2, '0')}';
+  }
 
   Future<void> _setTime(int index, String key) async {
     final value = periods[index][key] as int;
+    final hour = value ~/ 60;
     final time = await pili.showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: value ~/ 60, minute: value % 60),
+      initialTime: TimeOfDay(hour: hour, minute: value - hour * 60),
     );
     if (time != null) {
       periods[index][key] = time.hour * 60 + time.minute;
@@ -735,8 +836,8 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
                     onPressed: () {
                       periods.add({
                         'enabled': true,
-                        'start': 19 * 60,
-                        'end': 23 * 60,
+                        'start': 1140,
+                        'end': 1380,
                         'scope': 0,
                       });
                       _save();

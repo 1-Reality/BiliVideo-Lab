@@ -11,7 +11,6 @@ import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/reply_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:PiliBro/utils/waterfall.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -128,11 +127,11 @@ class _MyReplyState extends State<MyReply> with DynMixin {
     setState(() {});
   }
 
-  void _onCheckReply(ReplyInfo replyInfo) {
+  void _onCheckReply(ReplyInfo replyInfo, bool strong) {
     final oid = replyInfo.oid.toInt();
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
-      biliSendCommAntifraud: Pref.biliSendCommAntifraud,
+      biliSendCommAntifraud: strong,
       sourceId: switch (oid) {
         1 => IdUtils.av2bv(oid),
         _ => oid.toString(),

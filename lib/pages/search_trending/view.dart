@@ -40,7 +40,7 @@ class _SearchTrendingPageState extends State<SearchTrendingPage> {
     final size = context.mediaQuerySize;
     final maxWidth = size.width - padding.horizontal;
     final width = size.isPortrait ? maxWidth : min(640.0, maxWidth * 0.6);
-    final height = width * 528 / 1125;
+    final height = width * 0.4693333333333333;
     _offset = height - 56 - padding.top;
     return Material(
       child: Stack(

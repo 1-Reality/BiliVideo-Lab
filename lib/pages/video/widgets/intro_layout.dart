@@ -59,7 +59,7 @@ class RenderIntroLayout extends RenderBox
       setOffset(
         playlist,
         Offset(
-          (constraints.maxWidth - playlistSize.width) / 2,
+          (constraints.maxWidth - playlistSize.width) * 0.5,
           constraints.maxHeight - playlistSize.height,
         ),
       );
@@ -68,13 +68,9 @@ class RenderIntroLayout extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    void doPaint(RenderBox? child) {
-      if (child != null) {
-        context.paintChild(child, getOffset(child) + offset);
-      }
+    context.paintChild(body, getOffset(body) + offset);
+    if (playlist case final child?) {
+      context.paintChild(child, getOffset(child) + offset);
     }
-
-    doPaint(body);
-    doPaint(playlist);
   }
 }

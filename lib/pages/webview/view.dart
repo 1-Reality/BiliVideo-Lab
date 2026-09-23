@@ -437,7 +437,7 @@ document.addEventListener('click', function(e) {
                     );
                 },
                 onProgressChanged: (controller, progress) {
-                  _progress.value = progress / 100;
+                  _progress.value = progress * 0.01;
                 },
                 onTitleChanged: (controller, title) {
                   _title.value = title ?? '';

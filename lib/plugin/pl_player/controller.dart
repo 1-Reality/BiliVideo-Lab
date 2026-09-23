@@ -1,7 +1,7 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
-import 'dart:math' show max, min;
+import 'dart:math' show min;
 import 'dart:ui' as ui;
 
 import 'package:PiliBro/common/assets.dart';
@@ -26,6 +26,7 @@ import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/duration.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/heart_beat_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
@@ -44,6 +45,8 @@ import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/orientation_policy.dart';
+import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -55,6 +58,7 @@ import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
+import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -70,7 +74,8 @@ import 'package:window_manager/window_manager.dart';
 
 typedef PlayCallback = Future<void>? Function();
 
-class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
+class PlPlayerController
+    with BlockConfigMixin, AudioNormalizationMixin, WidgetsBindingObserver {
   Player? _videoPlayerController;
   VideoController? _videoController;
 
@@ -144,6 +149,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   int? _pgcType;
   VideoType _videoType = VideoType.ugc;
   int _heartDuration = 0;
+  int _lastPositionEventSecond = -1;
+  final Stopwatch _positionClock = Stopwatch()..start();
+  late final int _statsSampleTicks = _positionClock.frequency >> 1;
+  int _nextStatsSampleTick = 0;
   int? width;
   int? height;
 
@@ -218,6 +227,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   Future<void> exitDesktopPip() {
     isDesktopPip = false;
+    PlaybackStatsService.changePlaybackForm(
+      'window',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
     return Future.wait([
       if (showWindowTitleBar)
         windowManager.setTitleBarStyle(TitleBarStyle.normal),
@@ -232,6 +245,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (isFullScreen.value) return;
 
     isDesktopPip = true;
+    PlaybackStatsService.changePlaybackForm(
+      'pip',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
 
     _lastWindowBounds = await windowManager.getBounds();
 
@@ -280,10 +297,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   static bool get _isCurrVideoPage {
     final routing = Get.routing;
-    if (routing.route is! GetPageRoute) {
-      return false;
-    }
-    return _isVideoPage(routing.current);
+    return routing.route is GetPageRoute && _isVideoPage(routing.current);
   }
 
   static bool _isVideoPage(String routeName) {
@@ -363,6 +377,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final showFsLockBtn = Pref.showFsLockBtn;
   late final keyboardControl = Pref.keyboardControl;
   late final uiScale = Pref.uiScale;
+  void Function()? onFullscreenExited;
 
   late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
@@ -397,7 +412,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   late final isRelative = Pref.useRelativeSlide;
   late final offset = isRelative
-      ? Pref.sliderDuration / 100
+      ? Pref.sliderDuration * 0.01
       : Pref.sliderDuration * 1000;
 
   num get sliderScale => isRelative ? durationInMilliseconds * offset : offset;
@@ -512,54 +527,593 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool visible = true;
 
   DeviceOrientation? _orientation;
-  late final checkIsAutoRotate = Platform.isAndroid && mode != .gravity;
+  bool? _systemLandscape;
+  bool? _proposedLandscape;
+  bool? _gravityLandscape;
+  bool _observingSystemOrientation = false;
+  int _fullScreenAllowedMask = OrientationMask.all;
+  bool _entryDirectionApplied = false;
+  bool _systemRuntimePending = false;
+  bool _systemRuntimeActivating = false;
+  int? _systemRuntimeBaselineRotation;
+  bool _gravityRuntimePending = false;
+  DeviceOrientation? _gravityRuntimeBaseline;
+  int _manualExitRemaining = 0;
+  bool? _manualExitTargetMatched;
+  FullscreenEntryCause _fullScreenEntryCause = FullscreenEntryCause.manual;
   StreamSubscription<OrientationParams>? _orientationListener;
+  StreamSubscription<int>? _proposedRotationListener;
+  late final OrientationPlan _orientationPlan = OrientationPolicy.plan;
+  late final bool _brotherMode = OrientationPolicy.isBrotherTech;
+  late final BrotherOrientationPlan _brotherPlan = OrientationPolicy.brotherPlan;
+  int _brotherAllowedMask = OrientationMask.all;
+  bool _brotherWindowedEntered = false;
+  BrotherPhaseConfig? _brotherActivePhase;
+
+  BrotherPhaseConfig get _brotherCurrentPhase =>
+      _brotherActivePhase ??
+      (isFullScreen.value ? _brotherPlan.fullscreen : _brotherPlan.windowed);
+
+  bool get _currentSystemLandscape {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return false;
+    final size = views.first.physicalSize;
+    return size.width > size.height;
+  }
+
+  bool get _manualExitConfirmationActive =>
+      isFullScreen.value &&
+      _fullScreenEntryCause == FullscreenEntryCause.manual &&
+      (_brotherMode
+          ? _brotherPlan.portraitExit &&
+                _brotherPlan.exitAllowsEntryCause(_fullScreenEntryCause) &&
+                _brotherPlan.manualExitConfirmations > 0
+          : _orientationPlan.manualExitConfirmationEnabled);
+
+  bool get _supportsProposedRotation =>
+      Platform.isAndroid && DeviceUtils.sdkInt >= 34;
+
+  bool get _manualConfirmationUsesProposedSystem =>
+      _supportsProposedRotation &&
+      _manualExitConfirmationActive &&
+      _orientationPlan.sourceUsesSystem(_orientationPlan.exitTriggerSource);
+
+  bool get _needsSystemOrientation {
+    if (controlsLock.value) return false;
+    if (_brotherMode) {
+      if (isFullScreen.value) {
+        if (!_brotherPlan.portraitExit ||
+            !_brotherPlan.exitAllowsEntryCause(_fullScreenEntryCause)) {
+          return false;
+        }
+        final mask = _manualExitConfirmationActive
+            ? _brotherPlan.manualExitSignalMask
+            : _brotherPlan.exitSignalMask;
+        return mask & BrotherOrientationSignalMask.window != 0;
+      }
+      return _brotherPlan.landscapeEnter &&
+          _brotherPlan.enterSignalMask &
+                  BrotherOrientationSignalMask.window !=
+              0;
+    }
+
+    final plan = _orientationPlan;
+    if (isFullScreen.value) {
+      if (_systemRuntimePending) return false;
+      if (!plan.triggerExit ||
+          !plan.exitAllowsCause(_fullScreenEntryCause) ||
+          !plan.sourceUsesSystem(plan.exitTriggerSource)) {
+        return false;
+      }
+      if (_manualExitConfirmationActive && Platform.isAndroid) return false;
+      return true;
+    }
+    return plan.triggerEnter &&
+        plan.sourceUsesSystem(plan.enterTriggerSource);
+  }
+
+  bool get _needsProposedRotation {
+    if (!_supportsProposedRotation) return false;
+    if (_brotherMode) {
+      if (_systemRuntimePending &&
+          (!controlsLock.value ||
+              !_brotherPlan.controlsLockOrientation)) {
+        return true;
+      }
+      if (controlsLock.value) return false;
+      if (isFullScreen.value) {
+        if (!_brotherPlan.portraitExit ||
+            !_brotherPlan.exitAllowsEntryCause(_fullScreenEntryCause)) {
+          return false;
+        }
+        final mask = _manualExitConfirmationActive
+            ? _brotherPlan.manualExitSignalMask
+            : _brotherPlan.exitSignalMask;
+        return mask & BrotherOrientationSignalMask.proposedSystem != 0;
+      }
+      return _brotherPlan.landscapeEnter &&
+          _brotherPlan.enterSignalMask &
+                  BrotherOrientationSignalMask.proposedSystem !=
+              0;
+    }
+
+    if (!isFullScreen.value) return false;
+    final plan = _orientationPlan;
+    final runtime =
+        _systemRuntimePending &&
+        (!controlsLock.value || !plan.controlsLockOrientation);
+    final confirmation =
+        !controlsLock.value && _manualConfirmationUsesProposedSystem;
+    return runtime || confirmation;
+  }
+
+  bool get _needsGravityOrientation {
+    if (_brotherMode) {
+      final phase = _brotherCurrentPhase;
+      final gravityAllowed =
+          !phase.gravityFollowSystemLock || _brotherPlan.systemAutoRotate;
+      if (!gravityAllowed) return false;
+      final runtime =
+          (!controlsLock.value || !_brotherPlan.controlsLockOrientation) &&
+          phase.runtimeMode == BrotherRuntimeMode.appGravity &&
+          _brotherAllowedMask != 0;
+      if (controlsLock.value) return runtime;
+      if (isFullScreen.value) {
+        final mask = _manualExitConfirmationActive
+            ? _brotherPlan.manualExitSignalMask
+            : _brotherPlan.exitSignalMask;
+        return runtime ||
+            _brotherPlan.portraitExit &&
+                _brotherPlan.exitAllowsEntryCause(_fullScreenEntryCause) &&
+                mask & BrotherOrientationSignalMask.appGravity != 0;
+      }
+      return runtime ||
+          _brotherPlan.landscapeEnter &&
+              _brotherPlan.enterSignalMask &
+                      BrotherOrientationSignalMask.appGravity !=
+                  0;
+    }
+
+    final plan = _orientationPlan;
+    if (!plan.gravityAllowed) return false;
+    if (isFullScreen.value) {
+      if (!controlsLock.value &&
+          plan.triggerExit &&
+          plan.exitAllowsCause(_fullScreenEntryCause) &&
+          plan.sourceUsesGravity(plan.exitTriggerSource)) {
+        return true;
+      }
+      return (!controlsLock.value || !plan.controlsLockOrientation) &&
+          plan.fullScreenRotationSource ==
+              FullScreenRotationSource.appGravity &&
+          plan.fullScreenAllowed != FullScreenAllowedOrientation.entryExact &&
+          plan.filterMask(_fullScreenAllowedMask) != 0;
+    }
+    return plan.triggerEnter &&
+        plan.sourceUsesGravity(plan.enterTriggerSource);
+  }
+
+  void _updateOrientationInputs() {
+    if (!PlatformUtils.isMobile) return;
+
+    final needsSystem = _needsSystemOrientation;
+    if (needsSystem && !_observingSystemOrientation) {
+      _systemLandscape = _currentSystemLandscape;
+      WidgetsBinding.instance.addObserver(this);
+      _observingSystemOrientation = true;
+    } else if (!needsSystem && _observingSystemOrientation) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingSystemOrientation = false;
+      _systemLandscape = null;
+    }
+
+    final needsProposed = _needsProposedRotation;
+    if (needsProposed && _proposedRotationListener == null) {
+      _proposedRotationListener =
+          OrientationPlatform.proposedRotations.listen(_onProposedRotation);
+    } else if (!needsProposed) {
+      _stopProposedRotationListener();
+    }
+
+    final needsGravity = _needsGravityOrientation;
+    if (needsGravity && _orientationListener == null) {
+      _orientationListener = NativeDeviceOrientationPlatform.instance
+          .onOrientationChanged(
+            checkIsAutoRotate: false,
+            angleDegrees: Platform.isAndroid
+                ? (_brotherMode
+                      ? _brotherCurrentPhase.angleDegrees
+                      : _orientationPlan.angleDegrees)
+                : null,
+          )
+          .listen(_onOrientationChanged);
+    } else if (!needsGravity) {
+      _stopOrientationListener();
+    }
+  }
+
+  void _stopProposedRotationListener() {
+    _proposedRotationListener?.cancel();
+    _proposedRotationListener = null;
+    _proposedLandscape = null;
+  }
 
   void _stopOrientationListener() {
     _orientationListener?.cancel();
     _orientationListener = null;
   }
 
+  @override
+  void didChangeMetrics() {
+    if (!_observingSystemOrientation) return;
+    final next = _currentSystemLandscape;
+    if (_systemLandscape == next) return;
+    _systemLandscape = next;
+    _evaluateOrientationTrigger(signal: BrotherOrientationSignalMask.window);
+  }
+
+  void _onProposedRotation(int rotation) {
+    if (rotation < 0 || rotation > 3) return;
+    final next = rotation == 1 || rotation == 3;
+    final previous = _proposedLandscape;
+    _proposedLandscape = next;
+
+    var runtimeChanged = false;
+    if (_systemRuntimePending) {
+      final baseline = _systemRuntimeBaselineRotation;
+      if (baseline == null) {
+        _systemRuntimeBaselineRotation = rotation;
+      } else if (baseline != rotation) {
+        _systemRuntimeBaselineRotation = rotation;
+        runtimeChanged = true;
+      }
+    }
+
+    if (previous != next) {
+      // Native normalizes Surface rotation to the portrait-based Flutter order.
+      _evaluateOrientationTrigger(
+        signal: BrotherOrientationSignalMask.proposedSystem,
+        triggerOrientation: DeviceOrientation.values[rotation],
+      );
+    }
+    if (runtimeChanged && !_fsProcessing) {
+      unawaited(
+        _brotherMode ? _activateBrotherSystemRuntime() : _activateSystemRuntime(),
+      );
+    }
+  }
+
+  Future<void> _activateSystemRuntime() async {
+    if (!_systemRuntimePending ||
+        _systemRuntimeActivating ||
+        !isFullScreen.value) {
+      return;
+    }
+    _systemRuntimeActivating = true;
+    try {
+      final plan = _orientationPlan;
+      final ignoreSystemLock =
+          plan.fullScreenRotationSource == FullScreenRotationSource.alwaysAuto;
+      if (!ignoreSystemLock &&
+          plan.fullScreenRotationSource ==
+              FullScreenRotationSource.followSystem &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _systemRuntimePending = false;
+        return;
+      }
+      if (_fsProcessing || !isFullScreen.value || !_systemRuntimePending) {
+        return;
+      }
+      final allowed = plan.filterMask(_fullScreenAllowedMask);
+      if (allowed == 0) {
+        _systemRuntimePending = false;
+        return;
+      }
+      _systemRuntimePending = false;
+      await OrientationPolicy.applySystemPolicy(
+        ignoreSystemLock: ignoreSystemLock,
+        allowedMask: allowed,
+        filterEnabled: allowed != OrientationMask.all,
+      );
+    } finally {
+      _systemRuntimeActivating = false;
+      _updateOrientationInputs();
+    }
+  }
+
+  Future<void> _activateBrotherSystemRuntime() async {
+    if (!_brotherMode ||
+        !_systemRuntimePending ||
+        _systemRuntimeActivating) {
+      return;
+    }
+    _systemRuntimeActivating = true;
+    try {
+      _systemRuntimePending = false;
+      await OrientationPolicy.applyBrotherRuntime(
+        _brotherCurrentPhase,
+        allowedMask: _brotherAllowedMask,
+      );
+    } finally {
+      _systemRuntimeActivating = false;
+      _updateOrientationInputs();
+    }
+  }
+
+
   void _onOrientationChanged(OrientationParams param) {
     _orientation = param.orientation;
     if (Platform.isIOS && !visible) return;
-    final orientation = param.orientation;
-    final isFullScreen = this.isFullScreen.value;
-    if (checkIsAutoRotate &&
-        param.isAutoRotate != true &&
-        (!isFullScreen ||
-            _isVertical ||
-            orientation == .portraitUp ||
-            orientation == .portraitDown)) {
+    final previousLandscape = _gravityLandscape;
+    _gravityLandscape =
+        param.orientation == DeviceOrientation.landscapeLeft ||
+        param.orientation == DeviceOrientation.landscapeRight;
+
+    if (_brotherMode) {
+      final phase = _brotherCurrentPhase;
+      var applyRuntime = false;
+      if (phase.runtimeMode == BrotherRuntimeMode.appGravity &&
+          (!controlsLock.value || !_brotherPlan.controlsLockOrientation)) {
+        if (_gravityRuntimePending) {
+          final baseline = _gravityRuntimeBaseline;
+          if (baseline == null) {
+            _gravityRuntimeBaseline = param.orientation;
+          } else if (baseline != param.orientation) {
+            _gravityRuntimePending = false;
+            applyRuntime = true;
+          }
+        } else {
+          applyRuntime = true;
+        }
+      }
+      if (previousLandscape != _gravityLandscape) {
+        _evaluateOrientationTrigger(
+          signal: BrotherOrientationSignalMask.appGravity,
+          triggerOrientation: param.orientation,
+        );
+      }
+      if (applyRuntime && !_fsProcessing) {
+        _applyBrotherGravityOrientation(param.orientation);
+      }
+      return;
+    }
+
+    var applyRuntime = false;
+    if (isFullScreen.value &&
+        _orientationPlan.fullScreenRotationSource ==
+            FullScreenRotationSource.appGravity &&
+        (!controlsLock.value || !_orientationPlan.controlsLockOrientation)) {
+      if (_gravityRuntimePending) {
+        final baseline = _gravityRuntimeBaseline;
+        if (baseline == null) {
+          _gravityRuntimeBaseline = param.orientation;
+        } else if (baseline != param.orientation) {
+          _gravityRuntimePending = false;
+          applyRuntime = true;
+        }
+      } else {
+        applyRuntime = true;
+      }
+    }
+
+    if (previousLandscape != _gravityLandscape) {
+      _evaluateOrientationTrigger(signal: BrotherOrientationSignalMask.appGravity);
+    }
+    if (applyRuntime && !_fsProcessing && isFullScreen.value) {
+      _applyGravityOrientation(param.orientation);
+    }
+  
+  }
+
+  void _applyGravityOrientation(DeviceOrientation orientation) {
+    final bit = OrientationPolicy.orientationBit(orientation);
+    if (_fullScreenAllowedMask & bit == 0 ||
+        _orientationPlan.filterMask(bit) == 0) {
       return;
     }
     switch (orientation) {
-      case .portraitUp:
-        if (!_isVertical && controlsLock.value) return;
-        if (!horizontalScreen && !_isVertical && isFullScreen) {
-          if (!isManualFS) {
-            triggerFullScreen(status: false, orientation: orientation);
-          }
-        } else {
-          portraitUpMode();
-        }
-      case .portraitDown:
-        if (!horizontalScreen) return;
-        if (!_isVertical && controlsLock.value) return;
+      case DeviceOrientation.portraitUp:
+        portraitUpMode();
+      case DeviceOrientation.portraitDown:
         portraitDownMode();
-      case .landscapeLeft:
-        if (!horizontalScreen && !isFullScreen) {
-          triggerFullScreen(orientation: orientation, isManualFS: false);
-        } else {
-          landscapeLeftMode();
-        }
-      case .landscapeRight:
-        if (!horizontalScreen && !isFullScreen) {
-          triggerFullScreen(orientation: orientation, isManualFS: false);
-        } else {
-          landscapeRightMode();
-        }
+      case DeviceOrientation.landscapeLeft:
+        landscapeLeftMode();
+      case DeviceOrientation.landscapeRight:
+        landscapeRightMode();
     }
+  }
+
+
+  void _applyBrotherGravityOrientation(DeviceOrientation orientation) {
+    final bit = OrientationPolicy.orientationBit(orientation);
+    if (_brotherAllowedMask & bit == 0 ||
+        _brotherPlan.filterMask(bit) == 0) {
+      return;
+    }
+    switch (orientation) {
+      case DeviceOrientation.portraitUp:
+        portraitUpMode();
+      case DeviceOrientation.portraitDown:
+        portraitDownMode();
+      case DeviceOrientation.landscapeLeft:
+        landscapeLeftMode();
+      case DeviceOrientation.landscapeRight:
+        landscapeRightMode();
+    }
+  }
+
+  bool? _sameAxis(bool? value, bool landscape) =>
+      value == null ? null : value == landscape;
+
+  bool? _triggerSourceMatch(
+    OrientationTriggerSource source,
+    bool landscape, {
+    bool proposedSystem = false,
+  }) {
+    final system = _sameAxis(
+      proposedSystem ? _proposedLandscape : _systemLandscape,
+      landscape,
+    );
+    final gravity = _sameAxis(_gravityLandscape, landscape);
+    return switch (source) {
+      OrientationTriggerSource.system => system,
+      OrientationTriggerSource.appGravity => gravity,
+      OrientationTriggerSource.any =>
+        system == true || gravity == true
+            ? true
+            : system == false && gravity == false
+            ? false
+            : null,
+      OrientationTriggerSource.both =>
+        system == false || gravity == false
+            ? false
+            : system == true && gravity == true
+            ? true
+            : null,
+    };
+  }
+
+
+  bool? _brotherSignalMatch(
+    int mask,
+    int requiredCount,
+    bool landscape,
+  ) {
+    final values = <bool?>[
+      if (mask & BrotherOrientationSignalMask.window != 0)
+        _sameAxis(_systemLandscape, landscape),
+      if (mask & BrotherOrientationSignalMask.proposedSystem != 0)
+        _sameAxis(_proposedLandscape, landscape),
+      if (mask & BrotherOrientationSignalMask.appGravity != 0)
+        _sameAxis(_gravityLandscape, landscape),
+    ];
+    final need = requiredCount < 0 ? 0 : requiredCount;
+    if (need == 0) return true;
+    if (values.isEmpty || need > values.length) return false;
+    var matched = 0;
+    var unknown = 0;
+    for (final value in values) {
+      if (value == true) {
+        matched++;
+      } else if (value == null) {
+        unknown++;
+      }
+    }
+    if (matched >= need) return true;
+    if (matched + unknown < need) return false;
+    return null;
+  }
+
+
+  void _evaluateOrientationTrigger({
+    required int signal,
+    DeviceOrientation? triggerOrientation,
+  }) {
+    if (_fsProcessing || controlsLock.value) return;
+    if (_brotherMode) {
+      if (!isFullScreen.value) {
+        if (_brotherPlan.landscapeEnter &&
+            _brotherPlan.enterContentAllows(_isVertical) &&
+            _brotherSignalMatch(
+                  _brotherPlan.enterSignalMask,
+                  _brotherPlan.enterSignalRequired,
+                  true,
+                ) ==
+                true) {
+          triggerFullScreen(
+            cause: FullscreenEntryCause.orientation,
+            triggerOrientation: _brotherPlan.enterSignalMask & signal != 0
+                ? triggerOrientation
+                : null,
+          );
+        }
+        return;
+      }
+      if (!_brotherPlan.portraitExit ||
+          !_brotherPlan.exitContentAllows(_isVertical) ||
+          !_brotherPlan.exitAllowsEntryCause(_fullScreenEntryCause)) {
+        return;
+      }
+
+      final confirmation = _manualExitConfirmationActive;
+      final signalMask = confirmation
+          ? _brotherPlan.manualExitSignalMask
+          : _brotherPlan.exitSignalMask;
+      final match = _brotherSignalMatch(
+        signalMask,
+        confirmation
+            ? _brotherPlan.manualExitSignalRequired
+            : _brotherPlan.exitSignalRequired,
+        false,
+      );
+      if (confirmation) {
+        if (match == null) return;
+        final previous = _manualExitTargetMatched;
+        if (previous == null) {
+          _manualExitTargetMatched = match;
+          return;
+        }
+        if (previous == match) return;
+        _manualExitTargetMatched = match;
+        if (!match) return;
+        if (_manualExitRemaining > 0) _manualExitRemaining--;
+        if (_manualExitRemaining > 0) return;
+      } else if (match != true) {
+        return;
+      }
+
+      triggerFullScreen(
+        status: false,
+        exitCause: FullscreenExitCause.orientation,
+        triggerOrientation: signalMask & signal != 0
+            ? triggerOrientation
+            : null,
+      );
+      return;
+    }
+
+    if (_fsProcessing || controlsLock.value) return;
+    final plan = _orientationPlan;
+    if (!isFullScreen.value) {
+      if (plan.triggerEnter &&
+          plan.contentAllows(_isVertical) &&
+          _triggerSourceMatch(plan.enterTriggerSource, true) == true) {
+        triggerFullScreen(cause: FullscreenEntryCause.orientation);
+      }
+      return;
+    }
+    if (!plan.triggerExit || !plan.exitAllowsCause(_fullScreenEntryCause)) {
+      return;
+    }
+
+    final confirmation = _manualExitConfirmationActive;
+    final match = _triggerSourceMatch(
+      plan.exitTriggerSource,
+      false,
+      proposedSystem: confirmation &&
+          _manualConfirmationUsesProposedSystem,
+    );
+    if (confirmation) {
+      if (match == null) return;
+      final previous = _manualExitTargetMatched;
+      if (previous == null) {
+        _manualExitTargetMatched = match;
+        return;
+      }
+      if (previous == match) return;
+      _manualExitTargetMatched = match;
+      if (!match) return;
+      if (_manualExitRemaining > 0) _manualExitRemaining--;
+      if (_manualExitRemaining > 0) return;
+    } else if (match != true) {
+      return;
+    }
+
+    triggerFullScreen(
+      status: false,
+      exitCause: FullscreenExitCause.orientation,
+    );
+  
   }
 
   // 添加一个私有构造函数
@@ -567,14 +1121,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _networkPolicySubscription = ConnectivityUtils.changes.listen((change) {
       onNetworkPolicyChanged?.call(change);
     });
-    if (PlatformUtils.isMobile) {
-      _orientationListener = NativeDeviceOrientationPlatform.instance
-          .onOrientationChanged(
-            checkIsAutoRotate: checkIsAutoRotate,
-            angleDegrees: Platform.isAndroid ? Pref.angleDegrees : null,
-          )
-          .listen(_onOrientationChanged);
-    }
+    _updateOrientationInputs();
 
     if (!Accounts.heartbeat.isLogin || Pref.historyPause) {
       enableHeart = false;
@@ -616,7 +1163,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           ? Pref.preferCodecsCellular
           : Pref.preferCodecs;
       peakPreferCodecs = peakActive
-          ? ConnectivityUtils.effectiveCodecs(cachePreferCodecs!, profile)
+          ? ConnectivityUtils.effectiveCodecs()
           : null;
     }
   }
@@ -659,6 +1206,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   // offline
   bool get isFileSource => dataSource is FileSource;
 
+  bool get _hasKnownVideoOutputSize =>
+      width != null && height != null && width! > 1 && height! > 1;
+
   // 初始化资源
   Future<void> setDataSource(
     DataSource dataSource, {
@@ -681,8 +1231,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     int? seasonId,
     int? pgcType,
     int? liveUid,
+    String? liveName,
     int? videoUpUid,
     String? videoUpName,
+    int? partitionId,
+    String? partitionName,
+    String? copyright,
+    String? codec,
+    String? quality,
     VideoType? videoType,
     VoidCallback? onInit,
     Volume? volume,
@@ -701,8 +1257,36 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       _autoPlay = autoplay;
       // 初始化数据加载状态
       dataStatus.value = DataStatus.loading;
+      if (dataSource is FileSource) {
+        final missingMedia = dataSource.missingMedia(
+          audioOnly: onlyPlayAudio.value,
+        );
+        if (missingMedia != null) {
+          dataStatus.value = DataStatus.error;
+          SmartDialog.showToast(
+            '离线缓存缺少文件：${path.basename(missingMedia)}',
+          );
+          return;
+        }
+      }
       // 初始化全屏方向
       _isVertical = isVertical ?? false;
+      if (PlatformUtils.isMobile && !isFullScreen.value) {
+        if (_brotherMode) {
+          if (!_brotherWindowedEntered) {
+            _brotherWindowedEntered = true;
+            await _activateBrotherPhase(
+              _brotherPlan.windowed,
+              action: _brotherPlan.windowed.enterAction,
+            );
+          }
+        } else if (_orientationPlan.windowedRotation !=
+            WindowedPlayerRotationMode.inheritApp) {
+          await OrientationPolicy.applyWindowedRuntime(
+            _orientationPlan.windowedRotation,
+          );
+        }
+      }
       _aid = aid;
       _bvid = bvid;
       this.cid = cid;
@@ -730,8 +1314,36 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         defaultSpeed: Pref.playSpeedDefault,
         cid: cid,
         liveUid: liveUid,
+        liveName: liveName,
         videoUpUid: videoUpUid,
         videoUpName: videoUpName,
+        partitionId: partitionId,
+        partitionName: partitionName,
+        copyright: copyright,
+        sourceDuration: duration,
+        orientation: width == null ||
+                height == null ||
+                width <= 0 ||
+                height <= 0
+            ? 'unknown'
+            : width == height
+            ? 'square'
+            : isVertical == true
+            ? 'vertical'
+            : 'horizontal',
+        contentType: dataSource is FileSource
+            ? 'local'
+            : (videoType ?? VideoType.ugc).name,
+        codec: codec,
+        quality: quality,
+        network: switch (ConnectivityUtils.current) {
+          final profile? =>
+            '${profile.transport.name}:${profile.useCellularPreferences ? 'cellularPreference' : 'broadbandPreference'}',
+          null => 'unknown',
+        },
+        subtitle: Pref.subtitlePreferenceV2.name,
+        danmakuEnabled: enableShowDanmakuAdaptive.value,
+        decoder: hwdec ?? 'software',
       );
       // 配置Player 音轨、字幕等等
       await _createVideoController(dataSource, seekTo, volume);
@@ -750,7 +1362,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       dataStatus.value = .loaded;
 
       if (autoFullScreenFlag && autoEnterFullScreen) {
-        triggerFullScreen(status: true);
+        triggerFullScreen(
+          status: true,
+          cause: FullscreenEntryCause.playbackAuto,
+        );
       }
 
       await _initializePlayer();
@@ -844,6 +1459,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _videoController = await VideoController.create(
       player,
       configuration: VideoControllerConfiguration(
+        width: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? width : null))
+            : null,
+        height: Platform.isWindows
+            ? (hwdec != null && !_hasKnownVideoOutputSize
+                  ? 1
+                  : (_hasKnownVideoOutputSize ? height : null))
+            : null,
         enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
         hwdec: hwdec,
@@ -886,9 +1511,17 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       }
     }
 
+    if (Platform.isWindows && _hasKnownVideoOutputSize) {
+      await _videoController?.setSize(width: width, height: height);
+    }
+
     final profile = playbackNetworkProfile ?? ConnectivityUtils.current;
     final bufferProfile = profile?.transport == NetworkTransport.cellular
-        ? 2
+        ? ConnectivityUtils.useAdaptiveCellularBuffer
+              ? profile?.useCellularPreferences == true
+                    ? 1
+                    : 0
+              : 2
         : profile?.useCellularPreferences == true
         ? 1
         : 0;
@@ -963,6 +1596,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   List<StreamSubscription>? _subscriptions;
   final Set<ValueChanged<Duration>> _positionListeners = {};
+  final Set<ValueChanged<Duration>> _rawPositionListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   Timer? _wakeLockTimer;
@@ -1001,6 +1635,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     assert(_subscriptions == null);
     final stream = player.stream;
     _subscriptions = [
+      if (Platform.isWindows && hwdec != null)
+        stream.videoParams.listen((params) {
+          final dw = params.dw;
+          final dh = params.dh;
+          if (dw == null || dh == null || dw < 1 || dh < 1) return;
+          final rotate = params.rotate ?? 0;
+          if (rotate == 0 || rotate == 180) {
+            _videoController?.setSize(width: dw, height: dh);
+          } else {
+            _videoController?.setSize(width: dh, height: dw);
+          }
+        }),
+
       /// playing
       stream.playing.listen((bool playing) {
         PlaybackStatsService.updatePlaying(playing, player.state.position);
@@ -1050,21 +1697,35 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
       /// position
       stream.position.listen((Duration position) {
-        PlaybackStatsService.samplePosition(position);
-        final posInSeconds = position.inSeconds;
+        final ticks = _positionClock.elapsedTicks;
+        if (ticks >= _nextStatsSampleTick) {
+          _nextStatsSampleTick = ticks + _statsSampleTicks;
+          PlaybackStatsService.samplePosition(position);
+        }
 
-        if (posInSeconds != this.position.value) {
+        for (final element in _rawPositionListeners) {
+          element(position);
+        }
+
+        final positionUs = position.inMicroseconds;
+        final lastSecond = _lastPositionEventSecond;
+        final secondStartUs = lastSecond * Duration.microsecondsPerSecond;
+        if (lastSecond < 0 ||
+            positionUs < secondStartUs ||
+            positionUs >= secondStartUs + Duration.microsecondsPerSecond) {
+          final posInSeconds = positionUs ~/ Duration.microsecondsPerSecond;
+          _lastPositionEventSecond = posInSeconds;
           if (posInSeconds == 0 && playerStatus.isPlaying) {
             _updatePlaybackState(position: position);
           }
-
-          this.position.value = posInSeconds;
+          if (!isSeeking.value) {
+            this.position.value = posInSeconds;
+          }
 
           makeHeartBeat(posInSeconds);
-        }
-
-        for (final element in _positionListeners) {
-          element(position);
+          for (final element in _positionListeners) {
+            element(position);
+          }
         }
       }),
       stream.duration.listen(updateDuration),
@@ -1106,7 +1767,22 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         })),
       stream.error.listen((String event) {
         if (dataSource is FileSource &&
-            event.startsWith("Failed to open file")) {
+            (event.startsWith('Failed to open file') ||
+                event.startsWith('Failed to open .') ||
+                event.startsWith('Cannot open') ||
+                event.startsWith('Can not open') ||
+                event.startsWith('error running'))) {
+          dataStatus.value = DataStatus.error;
+          EasyThrottle.throttle(
+            'controllerStream.localFileError',
+            const Duration(seconds: 3),
+            () => SmartDialog.showToast(
+              '离线缓存打开失败：${event.length > 160 ? '${event.substring(0, 160)}…' : event}',
+            ),
+          );
+          if (!kDebugMode) {
+            Utils.reportError('$event\n${player.state.playlist}');
+          }
           return;
         }
         if (isLive) {
@@ -1238,32 +1914,32 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }) async {
     lastPlaybackSpeed = playbackSpeed;
 
-    final unchanged = speed == _videoPlayerController?.state.rate;
+    final player = _videoPlayerController;
+    final unchanged = speed == player?.state.rate;
     if (unchanged && !forceRecordSelection) {
       return;
     }
 
     PlaybackStatsService.changeSpeed(
       speed,
-      _videoPlayerController?.state.position ?? Duration.zero,
+      player?.state.position ?? Duration.zero,
       recordSelection: recordSelection,
       temporary: temporary,
     );
 
-    if (!unchanged) await _videoPlayerController?.setRate(speed);
+    if (!unchanged) await player?.setRate(speed);
     _playbackSpeed.value = speed;
     _updatePlaybackState();
-    if (danmakuController != null) {
+    final danmaku = danmakuController;
+    if (danmaku != null) {
       try {
-        DanmakuOption currentOption = danmakuController!.option;
-        double defaultDuration = currentOption.duration * lastPlaybackSpeed;
-        double defaultStaticDuration =
-            currentOption.staticDuration * lastPlaybackSpeed;
-        DanmakuOption updatedOption = currentOption.copyWith(
-          duration: defaultDuration / speed,
-          staticDuration: defaultStaticDuration / speed,
+        final currentOption = danmaku.option;
+        final speedScale = lastPlaybackSpeed / speed;
+        final updatedOption = currentOption.copyWith(
+          duration: currentOption.duration * speedScale,
+          staticDuration: currentOption.staticDuration * speedScale,
         );
-        danmakuController!.updateOption(updatedOption);
+        danmaku.updateOption(updatedOption);
       } catch (_) {}
     }
   }
@@ -1415,7 +2091,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         _lockedLongPressSpeed = playbackSpeed;
         HapticFeedback.mediumImpact();
         SmartDialog.showToast(
-          '${playbackSpeed} 倍将在松手后保持',
+          '$playbackSpeed 倍将在松手后保持',
           displayTime: const Duration(seconds: 1),
         );
       }
@@ -1475,8 +2151,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (!longPressStatus.value || !enableLongPressSlideSpeed || steps == 0) {
       return;
     }
+    final nextSpeed = playbackSpeed + steps * 0.25;
     await setPlaybackSpeed(
-      max(0.25, playbackSpeed + steps * 0.25),
+      nextSpeed > 0.25 ? nextSpeed : 0.25,
       recordSelection: false,
       temporary: true,
     );
@@ -1551,47 +2228,422 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       showControls.refresh();
     }
     controls = !val;
+    if (PlatformUtils.isMobile && isFullScreen.value) {
+      final lockOrientation = _brotherMode
+          ? _brotherPlan.controlsLockOrientation
+          : _orientationPlan.controlsLockOrientation;
+      if (val && lockOrientation) {
+        lockedMode();
+      } else if (!val && lockOrientation) {
+        if (_brotherMode) {
+          _rearmBrotherRuntime(_brotherPlan.fullscreen);
+        } else {
+          _applyFullScreenRuntimePolicy();
+        }
+      }
+      _updateOrientationInputs();
+    }
   }
 
   void _setFullScreen(bool val) {
     isFullScreen.value = val;
+    PlaybackStatsService.changePlaybackForm(
+      val ? 'fullscreen' : 'window',
+      videoPlayerController?.state.position ?? Duration.zero,
+    );
     updateSubtitleStyle();
+    if (val) {
+      _manualExitRemaining = _manualExitConfirmationActive
+          ? (_brotherMode
+                ? _brotherPlan.manualExitConfirmations
+                : _orientationPlan.manualExitConfirmations)
+          : 0;
+      _manualExitTargetMatched = null;
+    } else {
+      _manualExitRemaining = 0;
+      _manualExitTargetMatched = null;
+      _systemRuntimePending = false;
+      _systemRuntimeActivating = false;
+      _systemRuntimeBaselineRotation = null;
+      _gravityRuntimePending = false;
+      _gravityRuntimeBaseline = null;
+    }
+    _updateOrientationInputs();
+    if (!val) onFullscreenExited?.call();
   }
 
   double screenRatio = 0.0;
   bool isManualFS = true;
-  late final FullScreenMode mode = Pref.fullScreenMode;
-  late final horizontalScreen = Pref.horizontalScreen;
-  late final removeSafeArea = Pref.removeSafeArea;
+  late final bool removeSafeAreaPortrait = Pref.removeSafeAreaPortrait;
+  late final bool removeSafeAreaLandscape = Pref.removeSafeAreaLandscape;
 
-  Future<void>? changeOrientation({
-    required bool isVertical,
-    DeviceOrientation? orientation,
-  }) {
-    if (orientation == null && (mode == .none || mode == .gravity)) {
+  bool removeSafeAreaFor({required bool portrait}) =>
+      portrait ? removeSafeAreaPortrait : removeSafeAreaLandscape;
+
+  bool get removeSafeArea => removeSafeAreaFor(
+    portrait: screenRatio > 0 ? screenRatio >= 1 : !_currentSystemLandscape,
+  );
+
+  bool get anyRemoveSafeArea =>
+      removeSafeAreaPortrait || removeSafeAreaLandscape;
+
+  int _entryAxisMask(
+    EntryOrientationPolicy policy,
+    DeviceOrientation? triggerOrientation,
+  ) {
+    if (policy == EntryOrientationPolicy.triggerDirection &&
+        triggerOrientation != null) {
+      return triggerOrientation == DeviceOrientation.portraitUp ||
+              triggerOrientation == DeviceOrientation.portraitDown
+          ? OrientationMask.portrait
+          : OrientationMask.landscape;
+    }
+    return switch (policy) {
+      EntryOrientationPolicy.portrait ||
+      EntryOrientationPolicy.portraitUp ||
+      EntryOrientationPolicy.portraitDown => OrientationMask.portrait,
+      EntryOrientationPolicy.landscape ||
+      EntryOrientationPolicy.landscapeLeft ||
+      EntryOrientationPolicy.landscapeRight => OrientationMask.landscape,
+      EntryOrientationPolicy.video =>
+        _isVertical ? OrientationMask.portrait : OrientationMask.landscape,
+      EntryOrientationPolicy.ratio =>
+        _isVertical || screenRatio < kScreenRatio
+            ? OrientationMask.portrait
+            : OrientationMask.landscape,
+      EntryOrientationPolicy.keepCurrent ||
+      EntryOrientationPolicy.triggerDirection =>
+        _currentSystemLandscape
+            ? OrientationMask.landscape
+            : OrientationMask.portrait,
+    };
+  }
+
+  void _compileFullScreenAllowedMask(
+    EntryOrientationPolicy entryPolicy,
+    DeviceOrientation? triggerOrientation,
+  ) {
+    _fullScreenAllowedMask = switch (_orientationPlan.fullScreenAllowed) {
+      FullScreenAllowedOrientation.all => OrientationMask.all,
+      FullScreenAllowedOrientation.landscape => OrientationMask.landscape,
+      FullScreenAllowedOrientation.portrait => OrientationMask.portrait,
+      FullScreenAllowedOrientation.entryAxis =>
+        _entryAxisMask(entryPolicy, triggerOrientation),
+      FullScreenAllowedOrientation.entryExact => 0,
+    };
+  }
+
+  Future<void>? _applyAxisOrientation(int mask) {
+    final filtered = _orientationPlan.filterMask(mask);
+    if (filtered == 0) return null;
+    _entryDirectionApplied = true;
+    if (mask == OrientationMask.portrait) {
+      return filtered == OrientationMask.portraitDown
+          ? portraitDownMode()
+          : portraitUpMode();
+    }
+    if (_orientation == DeviceOrientation.landscapeRight &&
+        filtered & OrientationMask.landscapeRight != 0) {
+      return landscapeRightMode();
+    }
+    return filtered == OrientationMask.landscapeRight
+        ? landscapeRightMode()
+        : landscapeLeftMode();
+  }
+
+  Future<void>? _applyConcreteOrientation(DeviceOrientation orientation) {
+    if (_orientationPlan.filterMask(
+          OrientationPolicy.orientationBit(orientation),
+        ) ==
+        0) {
       return null;
     }
-    if (orientation == null &&
-        (mode == .vertical ||
-            (mode == .auto && isVertical) ||
-            (mode == .ratio && (isVertical || screenRatio < kScreenRatio)))) {
-      return portraitUpMode();
-    } else {
-      // https://github.com/flutter/flutter/issues/73651
-      // https://github.com/flutter/flutter/issues/183708
-      if (Platform.isAndroid) {
-        if ((orientation ?? _orientation) == .landscapeRight) {
-          return landscapeRightMode();
-        } else {
-          return landscapeLeftMode();
-        }
-      } else {
-        if (orientation == .landscapeLeft) {
-          return landscapeLeftMode();
-        } else {
-          return landscapeRightMode();
-        }
+    _entryDirectionApplied = true;
+    return switch (orientation) {
+      DeviceOrientation.portraitUp => portraitUpMode(),
+      DeviceOrientation.portraitDown => portraitDownMode(),
+      DeviceOrientation.landscapeLeft => landscapeLeftMode(),
+      DeviceOrientation.landscapeRight => landscapeRightMode(),
+    };
+  }
+
+  DeviceOrientation _brotherAxisOrientation(
+    bool landscape,
+    DeviceOrientation? triggerOrientation,
+  ) {
+    final current = triggerOrientation ?? _orientation;
+    if (current != null) {
+      final currentLandscape =
+          current == DeviceOrientation.landscapeLeft ||
+          current == DeviceOrientation.landscapeRight;
+      if (currentLandscape == landscape) return current;
+    }
+    return landscape
+        ? DeviceOrientation.landscapeLeft
+        : DeviceOrientation.portraitUp;
+  }
+
+  Future<void> _activateBrotherPhase(
+    BrotherPhaseConfig phase, {
+    required BrotherDirectionAction action,
+    DeviceOrientation? triggerOrientation,
+    bool resume = false,
+  }) async {
+    OrientationPolicy.clearBrotherAppRuntimeLatch();
+    _systemRuntimePending = false;
+    _systemRuntimeBaselineRotation = null;
+    _gravityRuntimePending = false;
+    _gravityRuntimeBaseline = null;
+
+    final resumeSourceDirectionBit = resume
+        ? await OrientationPlatform.currentOrientationBit() ??
+              (_currentSystemLandscape
+                  ? OrientationMask.landscapeLeft
+                  : OrientationMask.portraitUp)
+        : null;
+    final entryDirectionBit =
+        await OrientationPolicy.applyBrotherDirectionAction(
+          action,
+          videoVertical: _isVertical,
+          screenRatio: screenRatio,
+          triggerOrientation: triggerOrientation,
+          physicalOrientation: _orientation,
+          currentDirectionBit: resumeSourceDirectionBit,
+        );
+    final runtimePhase = phase.effectiveForResume(
+      resume: resume,
+      directionBit: resumeSourceDirectionBit ?? entryDirectionBit,
+    );
+    _brotherActivePhase = runtimePhase;
+    _brotherAllowedMask = await OrientationPolicy.resolveBrotherAllowedMask(
+      phase,
+      entryDirectionBit: entryDirectionBit,
+    );
+    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
+      runtimePhase,
+      allowedMask: _brotherAllowedMask,
+      appPhase: false,
+    );
+    OrientationPolicy.setBrotherActiveAllowedMask(
+      _brotherAllowedMask,
+      runtimePhase,
+    );
+    if (_brotherAllowedMask == 0) {
+      await lockedMode();
+      _updateOrientationInputs();
+      return;
+    }
+
+    if (runtimeInterpretation.usesAppGravity) {
+      if (runtimePhase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
+        await lockedMode();
+        _updateOrientationInputs();
+        return;
       }
+      if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
+        _gravityRuntimePending = true;
+      } else if (_orientation case final orientation?) {
+        _applyBrotherGravityOrientation(orientation);
+      }
+      _updateOrientationInputs();
+      return;
+    }
+
+    if (runtimeInterpretation.waitsForSourceChange) {
+      if (!_supportsProposedRotation) {
+        _updateOrientationInputs();
+        return;
+      }
+      if (runtimePhase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _updateOrientationInputs();
+        return;
+      }
+      _systemRuntimePending = true;
+      _updateOrientationInputs();
+      return;
+    }
+
+    await OrientationPolicy.applyBrotherRuntime(
+      runtimePhase,
+      allowedMask: _brotherAllowedMask,
+    );
+    _updateOrientationInputs();
+  }
+
+  Future<void> _rearmBrotherRuntime(BrotherPhaseConfig phase) async {
+    _systemRuntimePending = false;
+    _systemRuntimeBaselineRotation = null;
+    _gravityRuntimePending = false;
+    _gravityRuntimeBaseline = null;
+    if (_brotherAllowedMask == 0) {
+      await lockedMode();
+      _updateOrientationInputs();
+      return;
+    }
+
+    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
+      phase,
+      allowedMask: _brotherAllowedMask,
+      appPhase: false,
+    );
+
+    if (runtimeInterpretation.usesAppGravity) {
+      if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
+        await lockedMode();
+        _updateOrientationInputs();
+        return;
+      }
+      if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange) {
+        _gravityRuntimePending = true;
+      } else if (_orientation case final orientation?) {
+        _applyBrotherGravityOrientation(orientation);
+      }
+      _updateOrientationInputs();
+      return;
+    }
+
+    if (runtimeInterpretation.waitsForSourceChange) {
+      if (!_supportsProposedRotation) {
+        _updateOrientationInputs();
+        return;
+      }
+      if (phase.runtimeMode == BrotherRuntimeMode.followSystemAllowed &&
+          !await OrientationPlatform.systemAutoRotate()) {
+        _updateOrientationInputs();
+        return;
+      }
+      _systemRuntimePending = true;
+      _updateOrientationInputs();
+      return;
+    }
+    await OrientationPolicy.applyBrotherRuntime(
+      phase,
+      allowedMask: _brotherAllowedMask,
+    );
+    _updateOrientationInputs();
+  }
+
+
+  void onVideoOrientationChanged(bool isVertical) {
+    _isVertical = isVertical;
+    if (!isFullScreen.value) return;
+    if (_brotherMode) {
+      final action = _brotherPlan.fullscreenEntryFor(_fullScreenEntryCause);
+      if (action == BrotherDirectionAction.video ||
+          action == BrotherDirectionAction.ratio) {
+        unawaited(
+          _activateBrotherPhase(
+            _brotherPlan.fullscreen,
+            action: action,
+          ),
+        );
+      }
+      return;
+    }
+
+    final policy = _orientationPlan.entryForCause(_fullScreenEntryCause);
+    if (policy == EntryOrientationPolicy.video ||
+        policy == EntryOrientationPolicy.ratio) {
+      final request = changeOrientation(policy: policy);
+      if (request != null) {
+        unawaited(
+          request.then((_) async {
+            if (isFullScreen.value) {
+              await _applyFullScreenRuntimePolicy(protectEntry: true);
+            }
+          }),
+        );
+      }
+    }
+  
+  }
+
+  Future<void>? changeOrientation({
+    required EntryOrientationPolicy policy,
+    DeviceOrientation? triggerOrientation,
+  }) {
+    return switch (policy) {
+      EntryOrientationPolicy.keepCurrent => null,
+      EntryOrientationPolicy.video => _applyAxisOrientation(
+          _isVertical ? OrientationMask.portrait : OrientationMask.landscape,
+        ),
+      EntryOrientationPolicy.portrait =>
+        _applyAxisOrientation(OrientationMask.portrait),
+      EntryOrientationPolicy.landscape =>
+        _applyAxisOrientation(OrientationMask.landscape),
+      EntryOrientationPolicy.ratio => _applyAxisOrientation(
+          _isVertical || screenRatio < kScreenRatio
+              ? OrientationMask.portrait
+              : OrientationMask.landscape,
+        ),
+      EntryOrientationPolicy.portraitUp =>
+        _applyConcreteOrientation(DeviceOrientation.portraitUp),
+      EntryOrientationPolicy.portraitDown =>
+        _applyConcreteOrientation(DeviceOrientation.portraitDown),
+      EntryOrientationPolicy.landscapeLeft =>
+        _applyConcreteOrientation(DeviceOrientation.landscapeLeft),
+      EntryOrientationPolicy.landscapeRight =>
+        _applyConcreteOrientation(DeviceOrientation.landscapeRight),
+      EntryOrientationPolicy.triggerDirection => triggerOrientation == null
+          ? null
+          : _applyConcreteOrientation(triggerOrientation),
+    };
+  }
+
+  Future<void> _applyFullScreenRuntimePolicy({
+    bool protectEntry = false,
+  }) async {
+    final plan = _orientationPlan;
+    final allowed = plan.filterMask(_fullScreenAllowedMask);
+    _systemRuntimePending = false;
+    _systemRuntimeBaselineRotation = null;
+    _gravityRuntimePending = false;
+    _gravityRuntimeBaseline = null;
+
+    if (plan.fullScreenAllowed == FullScreenAllowedOrientation.entryExact ||
+        allowed == 0) {
+      if (!_entryDirectionApplied) await lockedMode();
+      return;
+    }
+
+    switch (plan.fullScreenRotationSource) {
+      case FullScreenRotationSource.keepCurrent:
+        if (!_entryDirectionApplied) await lockedMode();
+        return;
+      case FullScreenRotationSource.appGravity:
+        if (protectEntry) {
+          _gravityRuntimePending = true;
+        } else if (!_entryDirectionApplied) {
+          await lockedMode();
+        } else if (_orientation case final orientation?) {
+          _applyGravityOrientation(orientation);
+        }
+        return;
+      case FullScreenRotationSource.followSystem:
+        if (protectEntry && _supportsProposedRotation) {
+          if (await OrientationPlatform.systemAutoRotate()) {
+            _systemRuntimePending = true;
+          }
+          return;
+        }
+        await OrientationPolicy.applySystemPolicy(
+          ignoreSystemLock: false,
+          allowedMask: allowed,
+          filterEnabled: allowed != OrientationMask.all,
+        );
+        return;
+      case FullScreenRotationSource.alwaysAuto:
+        if (protectEntry && _supportsProposedRotation) {
+          _systemRuntimePending = true;
+          return;
+        }
+        await OrientationPolicy.applySystemPolicy(
+          ignoreSystemLock: true,
+          allowedMask: allowed,
+          filterEnabled: allowed != OrientationMask.all,
+        );
+        return;
     }
   }
 
@@ -1600,35 +2652,58 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> triggerFullScreen({
     bool status = true,
     bool inAppFullScreen = false,
-    DeviceOrientation? orientation,
-    bool isManualFS = true,
+    FullscreenEntryCause cause = FullscreenEntryCause.manual,
+    FullscreenExitCause exitCause = FullscreenExitCause.manual,
+    DeviceOrientation? triggerOrientation,
   }) async {
     if (isDesktopPip) return;
     if (isFullScreen.value == status) return;
 
     if (_fsProcessing) return;
     _fsProcessing = true;
-    this.isManualFS = isManualFS;
+    isManualFS = status
+        ? cause == FullscreenEntryCause.manual
+        : exitCause == FullscreenExitCause.manual;
     try {
       if (status) {
+        _fullScreenEntryCause = cause;
         if (PlatformUtils.isMobile) {
           hideSystemBar();
-          await changeOrientation(
-            isVertical: isVertical,
-            orientation: orientation,
-          );
+          if (_brotherMode) {
+            await _activateBrotherPhase(
+              _brotherPlan.fullscreen,
+              action: _brotherPlan.fullscreenEntryFor(cause),
+              triggerOrientation: cause == FullscreenEntryCause.orientation
+                  ? _brotherAxisOrientation(true, triggerOrientation)
+                  : null,
+            );
+          } else {
+            _entryDirectionApplied = false;
+            final entryPolicy = _orientationPlan.entryForCause(cause);
+            final triggerOrientation = cause == FullscreenEntryCause.orientation
+                ? _orientation
+                : null;
+            _compileFullScreenAllowedMask(entryPolicy, triggerOrientation);
+            await changeOrientation(
+              policy: entryPolicy,
+              triggerOrientation: triggerOrientation,
+            );
+            await _applyFullScreenRuntimePolicy(
+              protectEntry: _entryDirectionApplied,
+            );
+          }
         } else {
           await enterDesktopFullScreen(inAppFullScreen: inAppFullScreen);
         }
       } else {
         if (PlatformUtils.isMobile) {
-          if (!removeSafeArea) {
+          if (!removeSafeAreaFor(portrait: !_currentSystemLandscape)) {
             showSystemBar();
           }
-          if (orientation == null && mode == .none) {
-            return;
-          }
-          await resetScreenRotation();
+          await resetScreenRotation(
+            exitCause: exitCause,
+            triggerOrientation: triggerOrientation,
+          );
         } else {
           await exitDesktopFullScreen();
         }
@@ -1646,6 +2721,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void removePositionListener(ValueChanged<Duration> listener) =>
       _positionListeners.remove(listener);
+
+  void addRawPositionListener(ValueChanged<Duration> listener) {
+    if (_playerCount == 0) return;
+    _rawPositionListeners.add(listener);
+  }
+
+  void removeRawPositionListener(ValueChanged<Duration> listener) =>
+      _rawPositionListeners.remove(listener);
 
   void addStatusLister(ValueChanged<PlayerStatus> listener) {
     if (_playerCount == 0) return;
@@ -1690,7 +2773,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     switch (type) {
       case .playing:
-        if (progress - _heartDuration >= 5) {
+        if (progress > _heartDuration &&
+            (progress & ~7) != (_heartDuration & ~7)) {
           _heartDuration = progress;
           return send();
         }
@@ -1729,12 +2813,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool _isCloseAll = false;
   bool get isCloseAll => _isCloseAll;
 
-  Future<void>? resetScreenRotation() {
-    if (horizontalScreen) {
-      return fullMode();
-    } else {
-      return portraitUpMode();
+  Future<void> resetScreenRotation({
+    FullscreenExitCause exitCause = FullscreenExitCause.manual,
+    DeviceOrientation? triggerOrientation,
+  }) async {
+    if (_brotherMode) {
+      await _activateBrotherPhase(
+        _brotherPlan.windowed,
+        action: _brotherPlan.windowedResumeFor(exitCause),
+        triggerOrientation: exitCause == FullscreenExitCause.orientation
+            ? _brotherAxisOrientation(false, triggerOrientation)
+            : null,
+        resume: true,
+      );
+      return;
     }
+    await switch (_orientationPlan.exitMode) {
+      ExitOrientationMode.restoreApp => OrientationPolicy.restoreApp(),
+      ExitOrientationMode.keepPlayer => OrientationPolicy.applyWindowedRuntime(
+          _orientationPlan.windowedRotation,
+        ),
+      ExitOrientationMode.lockPlayer => lockedMode() ?? Future<void>.value(),
+    };
   }
 
   void onCloseAll() {
@@ -1745,8 +2845,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void dispose() {
-    // 每次减1，最后销毁
-    resetScreenRotation();
+    // 离开播放器后统一恢复 APP 运行方向，避免视频窗口策略泄漏到其他页面。
+    if (PlatformUtils.isMobile) {
+      OrientationPolicy.restoreApp();
+    }
     cancelLongPressTimer();
     _cancelSubForSeek();
     if (!_isCloseAll && _playerCount > 1) {
@@ -1756,11 +2858,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
-    if (removeSafeArea) {
+    if (anyRemoveSafeArea) {
       showSystemBar();
     }
     danmakuController = null;
+    if (_observingSystemOrientation) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingSystemOrientation = false;
+    }
     _stopOrientationListener();
+    _stopProposedRotationListener();
     _disableAutoEnterPip();
     setPlayCallBack(null);
     dmState.clear();
@@ -1797,6 +2904,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
     _removeListeners();
     _positionListeners.clear();
+    _rawPositionListeners.clear();
     _statusListeners.clear();
     _stopWakeLockTimer();
     WakelockPlus.disable();
@@ -1845,10 +2953,18 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
     if (videoShot case Success(:final response)) {
       showPreview.value = true;
-      previewIndex.value = max(
-        0,
-        (response.index.where((item) => item <= seconds).length - 2),
-      );
+      final index = response.index;
+      var low = 0;
+      var high = index.length;
+      while (low < high) {
+        final mid = (low + high) >> 1;
+        if (index[mid] <= seconds) {
+          low = mid + 1;
+        } else {
+          high = mid;
+        }
+      }
+      previewIndex.value = low > 1 ? low - 2 : 0;
     }
   }
 
@@ -1896,7 +3012,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
               padding: const EdgeInsets.only(right: 12),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
+                  maxWidth: min(MediaQuery.widthOf(context) * 0.3333333333333333, 350),
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(

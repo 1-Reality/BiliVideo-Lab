@@ -3,6 +3,7 @@ import 'package:PiliBro/pages/article_list/view.dart';
 import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/pages/blacklist/view.dart';
 import 'package:PiliBro/pages/bubble/view.dart';
+import 'package:PiliBro/pages/comment_helper/view.dart';
 import 'package:PiliBro/pages/danmaku_block/view.dart';
 import 'package:PiliBro/pages/dlna/view.dart';
 import 'package:PiliBro/pages/download/view.dart';
@@ -59,6 +60,7 @@ import 'package:PiliBro/pages/setting/pages/display_mode.dart';
 import 'package:PiliBro/pages/setting/pages/font_setting.dart';
 import 'package:PiliBro/pages/setting/pages/logs.dart';
 import 'package:PiliBro/pages/setting/pages/network_policy.dart';
+import 'package:PiliBro/pages/setting/pages/orientation_settings.dart';
 import 'package:PiliBro/pages/setting/pages/playback_stats.dart';
 import 'package:PiliBro/pages/setting/pages/play_speed_set.dart';
 import 'package:PiliBro/pages/setting/pages/traffic_stats.dart';
@@ -125,6 +127,7 @@ class Routes {
     GetPage(name: '/cdnSettings', page: () => const CdnSettingsPage()),
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     GetPage(name: '/networkPolicy', page: () => const NetworkPolicyPage()),
+    GetPage(name: '/orientationSettings', page: () => const OrientationSettingsPage()),
     GetPage(name: '/playbackStats', page: () => const PlaybackStatsPage()),
     GetPage(name: '/trafficStats', page: () => const TrafficStatsPage()),
     // 收藏搜索
@@ -134,6 +137,7 @@ class Routes {
     GetPage(name: '/followSearch', page: () => const FollowSearchPage()),
     // 消息页面
     GetPage(name: '/whisper', page: () => const WhisperPage()),
+    GetPage(name: '/commentHelper', page: () => const CommentHelperPage()),
     // 私信详情
     GetPage(name: '/whisperDetail', page: () => const WhisperDetailPage()),
     // 回复我的

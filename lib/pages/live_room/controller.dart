@@ -114,8 +114,8 @@ class LiveRoomController extends GetxController {
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
-  late final fsSC = Rxn<SuperChatItem>();
-  late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
+  final fsSC = Rxn<SuperChatItem>();
+  final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
   LiveMessageStream? _msgStream;
@@ -124,23 +124,23 @@ class LiveRoomController extends GetxController {
   Set<int> _shieldUids = const {};
 
   late final ScrollController scrollController;
-  late final RxInt pageIndex = 0.obs;
+  final RxInt pageIndex = 0.obs;
   PageController? pageController;
 
   int? currentQn;
   final currentQnDesc = ''.obs;
   final RxBool isPortrait = false.obs;
-  late List<({int code, String desc})> acceptQnList = [];
+  List<({int code, String desc})> acceptQnList = [];
 
   late final bool isLogin;
   late final int mid;
 
   String? videoUrl;
   bool? isPlaying;
-  late bool isFullScreen = false;
+  bool isFullScreen = false;
 
   final superChatType = Pref.superChatType;
-  late final showSuperChat = superChatType != SuperChatType.disable;
+  final showSuperChat = Pref.superChatType != SuperChatType.disable;
 
   final headerKey = GlobalKey<TimeBatteryMixin>();
 
@@ -233,6 +233,7 @@ class LiveRoomController extends GetxController {
       NetworkSource(videoSource: videoUrl!, audioSource: null),
       isLive: true,
       liveUid: ruid,
+      liveName: roomInfoH5.value?.anchorInfo?.baseInfo?.uname,
       autoplay: autoplay,
       isVertical: isPortrait.value,
       autoFullScreenFlag: autoFullScreenFlag,
@@ -401,6 +402,10 @@ class LiveRoomController extends GetxController {
       roomInfoH5.value = response;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
+      PlaybackStatsService.updateLiveIdentity(
+        liveUid: response.roomInfo?.uid ?? ruid,
+        liveName: response.anchorInfo?.baseInfo?.uname,
+      );
       videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);
     } else {
       res.toast();

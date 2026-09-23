@@ -41,23 +41,19 @@ abstract final class NumUtils {
       }
     }
 
-    String format(first, second) {
-      double result = ((number / first) as double).toPrecision(1);
-      int intRes = result.toInt();
-      if (result == intRes) {
-        return '$intRes$second';
-      } else {
-        return '$result$second';
-      }
-    }
-
     if (number >= 100000000) {
-      return format(100000000, '亿');
-    } else if (number >= 10000) {
-      return format(10000, '万');
-    } else {
-      return number.toString();
+      return _formatUnit(number as num, 0.00000001, '亿');
     }
+    if (number >= 10000) {
+      return _formatUnit(number as num, 0.0001, '万');
+    }
+    return number.toString();
+  }
+
+  static String _formatUnit(num number, double scale, String suffix) {
+    final result = (number.toDouble() * scale).toPrecision(1);
+    final integer = result.toInt();
+    return result == integer ? '$integer$suffix' : '$result$suffix';
   }
 
   static String formatPositiveDecimal(int number) {

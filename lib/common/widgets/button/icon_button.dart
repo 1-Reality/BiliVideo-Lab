@@ -26,7 +26,7 @@ Widget iconButton({
       onPressed: onPressed,
       style: IconButton.styleFrom(
         padding: EdgeInsets.zero,
-        iconSize: iconSize ?? size / 2,
+        iconSize: iconSize ?? size * 0.5,
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
       ),

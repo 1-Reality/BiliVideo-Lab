@@ -85,17 +85,17 @@ List<SettingsModel> get extraSettings => [
   SplitModel(
     normalModel: const NormalModel.split(
       title: '空降助手',
-      subtitle: '点击配置',
+      subtitle: '点击配置，建议保留持久ID并备份',
       leading: Icon(CustomIcons.shield_play_arrow),
     ),
     switchModel: SwitchModel.split(
-      defaultVal: false,
+      defaultVal: true,
       setKey: SettingBoxKey.enableSponsorBlock,
       onTap: (context) => Get.toNamed('/sponsorBlock'),
     ),
   ),
   PopupModel<SkipType>(
-    title: '番剧片头/片尾跳过类型',
+    title: '番剧头尾跳过类型',
     leading: const Icon(MdiIcons.debugStepOver),
     value: () => Pref.pgcSkipType,
     items: SkipType.values,
@@ -106,7 +106,7 @@ List<SettingsModel> get extraSettings => [
   SplitModel(
     normalModel: const NormalModel.split(
       title: '检查未读动态',
-      subtitle: '点击设置检查周期(min)',
+      subtitle: '点击设置检查周期（秒）',
       leading: Icon(Icons.notifications_none),
     ),
     switchModel: SwitchModel.split(
@@ -144,16 +144,16 @@ List<SettingsModel> get extraSettings => [
     title: '默认展开视频简介',
     leading: Icon(Icons.expand_more),
     setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '横屏自动展开视频简介',
     leading: Icon(Icons.expand_more),
     setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: false,
+    defaultVal: true,
   ),
   SwitchModel(
-    title: '横屏分P/合集列表显示在Tab栏',
+    title: '横屏分P|合集列表显示在Tab栏',
     leading: const Icon(Icons.format_list_numbered_rtl_sharp),
     setKey: SettingBoxKey.horizontalSeasonPanel,
     defaultVal: Pref.horizontalScreen,
@@ -192,16 +192,16 @@ List<SettingsModel> get extraSettings => [
     onTap: _showDmHeightDialog,
   ),
   const SwitchModel(
-    title: '显示视频警告/争议信息',
+    title: '显示视频警告争议信息',
     leading: Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showArgueMsg,
     defaultVal: true,
   ),
   SwitchModel(
-    title: '显示动态警告/争议信息',
+    title: '显示动态警告争议信息',
     leading: const Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showDynDispute,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (val) => ItemModulesModel.showDynDispute = val,
   ),
   const SwitchModel(
@@ -213,7 +213,7 @@ List<SettingsModel> get extraSettings => [
   ),
   const SwitchModel(
     title: '禁用 SSL 证书验证',
-    subtitle: '谨慎开启，禁用容易受到中间人攻击',
+    subtitle: '谨慎开启，禁用可能会受到 MitM 攻击',
     leading: Icon(Icons.security),
     needReboot: true,
     setKey: SettingBoxKey.badCertificateCallback,
@@ -247,6 +247,16 @@ List<SettingsModel> get extraSettings => [
     defaultVal: false,
   ),
   NormalModel(
+    title: 'WebView User-Agent',
+    leading: const Icon(Icons.language_outlined),
+    getSubtitle: () => switch (Pref.webviewUaType) {
+      1 => 'BiliApp',
+      2 => '自定义',
+      _ => '浏览器',
+    },
+    onTap: _showWebviewUaDialog,
+  ),
+  NormalModel(
     title: '横向滑动阈值',
     getSubtitle: () => '当前:「${Pref.touchSlopH}」，系统默认值: $deviceTouchSlop',
     onTap: _showTouchSlopDialog,
@@ -270,14 +280,14 @@ List<SettingsModel> get extraSettings => [
     subtitle: '合并一段时间内获取到的相同弹幕',
     leading: Icon(Icons.merge),
     setKey: SettingBoxKey.mergeDanmaku,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '显示热门推荐',
     subtitle: '热门页面显示每周必看等推荐内容入口',
     leading: Icon(Icons.local_fire_department_outlined),
     setKey: SettingBoxKey.showHotRcmd,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   if (kDebugMode || Platform.isAndroid)
@@ -311,13 +321,13 @@ List<SettingsModel> get extraSettings => [
     subtitle: '相对减少手动播放加载时间',
     leading: Icon(Icons.play_circle_outlined),
     setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '首页切换页面动画',
     leading: Icon(Icons.home_outlined),
     setKey: SettingBoxKey.mainTabBarView,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   const SwitchModel(
@@ -333,7 +343,7 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
   ),
   SwitchModel(
-    title: '展示头像/评论/动态装饰',
+    title: '展示头像、评论、动态装饰',
     leading: const Icon(MdiIcons.stickerCircleOutline),
     setKey: SettingBoxKey.showDecorate,
     defaultVal: true,
@@ -372,7 +382,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
     leading: Icon(Icons.show_chart),
     setKey: SettingBoxKey.showDmChart,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '记录评论',
@@ -386,11 +396,12 @@ List<SettingsModel> get extraSettings => [
     subtitle: '发送评论后检查评论是否可见',
     leading: Icon(CustomIcons.shield_reply),
     setKey: SettingBoxKey.enableCommAntifraud,
-    defaultVal: false,
+    defaultVal: true,
   ),
   if (Platform.isAndroid)
     const SwitchModel(
       title: '使用「哔哩发评反诈」检查评论',
+      subtitle: '若未安装该应用，可能会导致上一开关失效；但哥哥科技版已经缓解该问题！',
       leading: Icon(
         FontAwesomeIcons.b,
         size: 22,
@@ -403,7 +414,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '发布/转发动态后检查动态是否可见',
     leading: Icon(CustomIcons.shield_published),
     setKey: SettingBoxKey.enableCreateDynAntifraud,
-    defaultVal: false,
+    defaultVal: true,
   ),
   SwitchModel(
     title: '屏蔽带货动态',
@@ -495,7 +506,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '是否展示搜索框默认词',
     leading: const Icon(Icons.whatshot_outlined),
     setKey: SettingBoxKey.enableSearchWord,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (val) {
       try {
         final controller = Get.find<HomeController>()..enableSearchWord = val;
@@ -520,7 +531,7 @@ List<SettingsModel> get extraSettings => [
     subtitle: '展示评论区搜索关键词',
     leading: const Icon(Icons.search_outlined),
     setKey: SettingBoxKey.enableWordRe,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
   ),
   const SwitchModel(
@@ -528,14 +539,14 @@ List<SettingsModel> get extraSettings => [
     subtitle: '视频详情页开启AI总结',
     leading: Icon(Icons.engineering_outlined),
     setKey: SettingBoxKey.enableAi,
-    defaultVal: false,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '消息页禁用"收到的赞"功能',
-    subtitle: '禁止打开入口，降低网络社交依赖',
+    subtitle: '禁止打开入口，减少低熵通知提醒打扰',
     leading: Icon(Icons.beach_access_outlined),
     setKey: SettingBoxKey.disableLikeMsg,
-    defaultVal: true,
+    defaultVal: false,
   ),
   const SwitchModel(
     title: '默认展示评论区',
@@ -548,7 +559,7 @@ List<SettingsModel> get extraSettings => [
     title: '启用HTTP/2',
     leading: Icon(Icons.swap_horizontal_circle_outlined),
     setKey: SettingBoxKey.enableHttp2,
-    defaultVal: false,
+    defaultVal: true,
     needReboot: true,
   ),
   const NormalModel(
@@ -599,7 +610,7 @@ List<SettingsModel> get extraSettings => [
     title: '显示UP主页小店TAB',
     leading: const Icon(Icons.shop_outlined),
     setKey: SettingBoxKey.showMemberShop,
-    defaultVal: false,
+    defaultVal: true,
     onChanged: (value) => MemberTabType.showMemberShop = value,
   ),
   const SplitModel(
@@ -783,7 +794,7 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
 }
 
 void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = Pref.dynamicPeriod.toString();
+  String dynamicPeriod = (Pref.dynamicPeriod ~/ 1000).toString();
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -794,7 +805,7 @@ void _showDynDialog(BuildContext context) {
         keyboardType: TextInputType.number,
         onChanged: (value) => dynamicPeriod = value,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'min'),
+        decoration: const InputDecoration(suffixText: 's'),
       ),
       actions: [
         TextButton(
@@ -807,10 +818,10 @@ void _showDynDialog(BuildContext context) {
         TextButton(
           onPressed: () {
             try {
-              final val = int.parse(dynamicPeriod);
+              final val = int.parse(dynamicPeriod) * 1000;
               Get.back();
               GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().dynamicPeriod = val * 60 * 1000;
+              Get.find<MainController>().setDynamicPeriod(val);
             } catch (e) {
               SmartDialog.showToast(e.toString());
             }
@@ -1150,6 +1161,66 @@ Future<void> _showDefDynDialog(
   }
 }
 
+Future<void> _showWebviewUaDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final type = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: 'WebView User-Agent',
+      value: Pref.webviewUaType,
+      values: const [
+        (0, '浏览器'),
+        (1, 'BiliApp'),
+        (2, '自定义'),
+      ],
+    ),
+  );
+  if (type == null) return;
+
+  if (type != 2) {
+    await GStorage.setting.put(SettingBoxKey.webviewUaType, type);
+    setState();
+    return;
+  }
+
+  var custom = Pref.webviewUaCustom;
+  final value = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('自定义 User-Agent'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: custom,
+        minLines: 1,
+        maxLines: 4,
+        onChanged: (value) => custom = value,
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(custom.trim()),
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+  if (value == null || value.isEmpty) return;
+
+  await Future.wait([
+    GStorage.setting.put(SettingBoxKey.webviewUaCustom, value),
+    GStorage.setting.put(SettingBoxKey.webviewUaType, type),
+  ]);
+  setState();
+}
+
 Future<void> _showMemberTabDialog(
   BuildContext context,
   VoidCallback setState,
@@ -1260,7 +1331,7 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
               Get.back();
               await GStorage.setting.put(
                 SettingBoxKey.maxCacheSize,
-                val * 1024 * 1024,
+                val * (1 << 20),
               );
               setState();
             } catch (e) {

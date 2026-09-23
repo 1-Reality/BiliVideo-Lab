@@ -91,22 +91,14 @@ class _PayCoinsPageState extends State<PayCoinsPage>
 
   final num? _coins = GlobalData().coins;
 
-  bool _canPay(int index) {
-    if (index == 1 && widget.hasCoin) {
-      return false;
-    }
-    if (_coins == null || _coins >= 1 + index) {
-      return true;
-    }
-    return false;
-  }
+  bool _canPay(int index) =>
+      (index != 1 || !widget.hasCoin) &&
+      (_coins == null || _coins >= index + 1);
 
-  String _getPayImage(int index, bool canPay) {
-    if (!canPay) {
-      return Assets.notEnough;
-    }
-    return index == 0 ? Assets.mario : Assets.gunSister;
-  }
+  String _getPayImage(int index, bool canPay) =>
+      canPay
+          ? (index == 0 ? Assets.mario : Assets.gunSister)
+          : Assets.notEnough;
 
   Color _getPayFilter(int index) =>
       _canPay(index) ? Colors.transparent : const Color(0x66000000);
@@ -142,13 +134,13 @@ class _PayCoinsPageState extends State<PayCoinsPage>
       Tween<Offset>(
         begin: Offset.zero,
         end: const Offset(0.0, -2.0),
-      ).chain(CurveTween(curve: const Interval(0.0, 2 / 3))),
+      ).chain(CurveTween(curve: const Interval(0.0, 0.6666666666666666))),
     );
     _coinFadeAnim = _coinController.drive(
       Tween<double>(
         begin: 1.0,
         end: 0.0,
-      ).chain(CurveTween(curve: const Interval(2 / 3, 1.0))),
+      ).chain(CurveTween(curve: const Interval(0.6666666666666666, 1.0))),
     );
     _boxAnimController = AnimationController(
       vsync: this,
@@ -519,7 +511,7 @@ class _PayCoinsPageState extends State<PayCoinsPage>
       _slide22Controller.reverse().whenComplete(() {
         if (_pageIndex.value == 1) {
           _thunderIndex.value += 1;
-          _timer ??= Timer.periodic(const Duration(milliseconds: 50 ~/ 3), (_) {
+          _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
             final index = _thunderIndex.value;
             if (index == _thunderImages.length) {
               _cancelTimer();

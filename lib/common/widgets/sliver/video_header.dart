@@ -40,12 +40,22 @@ class RenderVideoHeader extends RenderSliverPinnedDynamicHeader {
   RenderVideoHeader({
     required super.minExtent,
     required super.maxExtent,
-    required this.minVideoHeight,
+    required double minVideoHeight,
     required this.onScrollRatioChanged,
-  });
+  }) : _minVideoHeight = minVideoHeight,
+       _inverseScrollRange =
+           1 / (minVideoHeight - kToolbarHeight).toPrecision(2);
 
   double? _scrollRatio;
-  double minVideoHeight;
+  double _minVideoHeight;
+  double _inverseScrollRange;
+  double get minVideoHeight => _minVideoHeight;
+  set minVideoHeight(double value) {
+    if (_minVideoHeight == value) return;
+    _minVideoHeight = value;
+    _inverseScrollRange = 1 / (value - kToolbarHeight).toPrecision(2);
+    markNeedsLayout();
+  }
   final ValueChanged<double> onScrollRatioChanged;
 
   @override
@@ -54,7 +64,7 @@ class RenderVideoHeader extends RenderSliverPinnedDynamicHeader {
     final scrollOffset = constraints.scrollOffset;
     final offset = scrollOffset - (maxExtent - minVideoHeight);
     final scrollRatio = clampDouble(
-      offset.toPrecision(2) / (minVideoHeight - kToolbarHeight).toPrecision(2),
+      offset.toPrecision(2) * _inverseScrollRange,
       0.0,
       1.0,
     );
