@@ -180,7 +180,7 @@ List<SettingsModel> get playSettings => [
   NormalModel(
     title: 'SuperChat (醒目留言) 显示类型',
     leading: const Icon(Icons.live_tv),
-    getSubtitle: () => '当前:「${Pref.superChatType.title}」',
+    getSubtitle: () => '当前:「${Pref.superChatType.label}」',
     onTap: _showSuperChatDialog,
   ),
   NormalModel(
@@ -269,7 +269,7 @@ List<SettingsModel> get playSettings => [
   NormalModel(
     title: '底部进度条展示',
     leading: const Icon(Icons.border_bottom_outlined),
-    getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.desc}',
+    getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.label}',
     onTap: _showProgressBehaviorDialog,
   ),
   if (PlatformUtils.isMobile)
@@ -309,7 +309,7 @@ Future<void> _showSubtitleDialog(
     builder: (context) => SelectDialog<SubtitlePrefType>(
       title: '字幕选择偏好',
       value: Pref.subtitlePreferenceV2,
-      values: SubtitlePrefType.values.map((e) => (e, e.desc)).toList(),
+      values: SubtitlePrefType.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {
@@ -373,7 +373,7 @@ Future<void> _showSuperChatDialog(
     builder: (context) => SelectDialog<SuperChatType>(
       title: 'SuperChat (醒目留言) 显示类型',
       value: Pref.superChatType,
-      values: SuperChatType.values.map((e) => (e, e.title)).toList(),
+      values: SuperChatType.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {
@@ -391,7 +391,7 @@ Future<void> _showProgressBehaviorDialog(
     builder: (context) => SelectDialog<BtmProgressBehavior>(
       title: '底部进度条展示',
       value: Pref.btmProgressBehavior,
-      values: BtmProgressBehavior.values.map((e) => (e, e.desc)).toList(),
+      values: BtmProgressBehavior.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {
