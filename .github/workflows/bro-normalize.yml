@@ -1,0 +1,98 @@
+name: Normalize Mainback
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: normalize-mainback
+  cancel-in-progress: false
+
+jobs:
+  normalize:
+    name: Normalize mainback after upstream merge
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout workflow control branch
+        uses: actions/checkout@v7
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Save normalization helper
+        shell: bash
+        run: cp .github/scripts/normalize_mainback.py "${RUNNER_TEMP}/normalize_mainback.py"
+
+      - name: Switch to current mainback
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/mainback:refs/remotes/origin/mainback
+          git switch -C mainback origin/mainback
+          echo "before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize tracked files and paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "${RUNNER_TEMP}/normalize_mainback.py" normalize
+          git add -A
+
+      - name: Inspect result
+        id: inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "===== status ====="
+          git status --short
+          echo
+          echo "===== diff stat ====="
+          git diff --cached --stat || true
+
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push normalization
+        id: push
+        if: steps.inspect.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "chore: normalize PiliPlus identity in mainback"
+          git push origin HEAD:mainback
+
+          AFTER="$(git rev-parse HEAD)"
+          echo "after=$AFTER" >> "$GITHUB_OUTPUT"
+
+      - name: Audit residual source-brand strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "${RUNNER_TEMP}/normalize_mainback.py" audit
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Normalize Mainback"
+            echo
+            echo "- before: \`${{ steps.source.outputs.before }}\`"
+            if [[ "${{ steps.inspect.outputs.changed }}" == "true" ]]; then
+              echo "- normalization commit: \`${{ steps.push.outputs.after }}\`"
+            else
+              echo "- no file changes were needed"
+            fi
+            echo "- README / LICENSE / .github: excluded from automatic replacement"
+            echo "- push mode: normal fast-forward only; never force-push"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize the disposable Bro sync branch before it is reviewed by lab4AI."""
+"""Normalize the current mainback branch after upstream changes are merged."""
 
 from __future__ import annotations
 
@@ -20,6 +20,14 @@ REPLACEMENTS = (
     ("Piliplus", "Pilibro"),
 )
 
+# Exact compatibility strings that are intentionally kept in their old form.
+ALLOWED_LITERALS = {
+    "lib/pages/webdav/webdav.dart": (
+        "${directory}PiliPlus",
+        "piliplus_settings_${DeviceUtils.platformName}.json",
+    ),
+}
+
 LEFTOVER_RE = re.compile(r"piliplus", re.IGNORECASE)
 
 
@@ -38,6 +46,23 @@ def normalize_token(value: str) -> str:
     return value
 
 
+def mask_allowed(path: str, text: str) -> tuple[str, dict[str, str]]:
+    masked = text
+    restore: dict[str, str] = {}
+    for index, literal in enumerate(ALLOWED_LITERALS.get(path, ())):
+        token = f"__BRO_KEEP_{index}_7F3A9D__"
+        if literal in masked:
+            masked = masked.replace(literal, token)
+            restore[token] = literal
+    return masked, restore
+
+
+def restore_allowed(text: str, restore: dict[str, str]) -> str:
+    for token, literal in restore.items():
+        text = text.replace(token, literal)
+    return text
+
+
 def normalize() -> int:
     renamed = 0
     changed_files = 0
@@ -46,6 +71,7 @@ def normalize() -> int:
     for src in sorted(tracked_files(), key=lambda p: (p.count("/"), len(p)), reverse=True):
         if protected(src):
             continue
+
         dst = normalize_token(src)
         if dst == src:
             continue
@@ -79,11 +105,15 @@ def normalize() -> int:
             continue
 
         original = text
+        text, restore = mask_allowed(rel, text)
+
         for old, new in REPLACEMENTS:
             n = text.count(old)
             if n:
                 counts[old] += n
                 text = text.replace(old, new)
+
+        text = restore_allowed(text, restore)
 
         if text != original:
             path.write_bytes(text.encode("utf-8"))
@@ -97,7 +127,7 @@ def normalize() -> int:
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write("### Brand normalization\n\n")
+            f.write("### Mainback normalization\n\n")
             f.write(f"- Renamed tracked paths: **{renamed}**\n")
             f.write(f"- Changed text files: **{changed_files}**\n")
             for old, _ in REPLACEMENTS:
@@ -124,13 +154,18 @@ def audit() -> int:
 
         if b"\0" in data:
             continue
+
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError:
             continue
 
         for line_no, line in enumerate(text.splitlines(), 1):
-            if LEFTOVER_RE.search(line):
+            check_line = line
+            for literal in ALLOWED_LITERALS.get(rel, ()):
+                check_line = check_line.replace(literal, "")
+
+            if LEFTOVER_RE.search(check_line):
                 snippet = line.strip()
                 if len(snippet) > 220:
                     snippet = snippet[:217] + "..."
@@ -142,12 +177,12 @@ def audit() -> int:
             f.write(f"- Unexpected source-brand leftovers: **{len(issues)}**\n")
 
     if not issues:
-        print("Audit passed: no unexpected source-brand variants remain outside protected files.")
-        print("::notice::Bro sync audit passed.")
+        print("Audit passed: no unexpected source-brand variants remain.")
+        print("::notice::Mainback normalization audit passed.")
         return 0
 
     print(f"Audit failed: {len(issues)} unexpected occurrence(s) remain.")
-    print("The successful normalization commit has already been pushed to the Bro branch.")
+    print("Any successful normalization commit has already been pushed to mainback.")
     for rel, line_no, snippet in issues:
         if line_no:
             print(f"::error file={rel},line={line_no}::{snippet}")
