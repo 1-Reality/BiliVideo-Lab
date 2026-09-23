@@ -1,0 +1,54 @@
+name: Test workflow-directory merge permission
+
+on:
+  push:
+    branches:
+      - test/workflow-permission-base-20260923
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base test branch
+        uses: actions/checkout@v7
+        with:
+          ref: test/workflow-permission-base-20260923
+          fetch-depth: 0
+
+      - name: Fetch bro test branch
+        run: git fetch origin test/workflow-permission-bro-20260923:refs/remotes/origin/test/workflow-permission-bro-20260923
+
+      - name: Merge bro, restore .github, and inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          before=$(git rev-parse HEAD)
+          git merge --no-ff --no-commit origin/test/workflow-permission-bro-20260923
+
+          # Keep the base branch's own GitHub configuration exactly unchanged.
+          git checkout "$before" -- .github
+          git add -A
+
+          echo "===== staged changes relative to first parent ====="
+          git diff --cached --name-status
+
+          git commit -m "test: merge bro while preserving base .github"
+          after=$(git rev-parse HEAD)
+
+          echo "===== merge parents ====="
+          git show -s --format='%H%n%P' "$after"
+
+          echo "===== first-parent diff ====="
+          git diff --name-status "$before" "$after"
+
+          echo "===== .github diff against first parent ====="
+          git diff --name-status "$before" "$after" -- .github
+
+          git push origin HEAD:test/workflow-permission-base-20260923
