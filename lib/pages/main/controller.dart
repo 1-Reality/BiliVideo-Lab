@@ -232,7 +232,7 @@ class MainController extends GetxController
   }
 
   void setNavBarConfig() {
-    final navBarSort =
+    List<int>? navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
     late final List<NavigationBarType> navigationBars;
     if (navBarSort == null || navBarSort.isEmpty) {
