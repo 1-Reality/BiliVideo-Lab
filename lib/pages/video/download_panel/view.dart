@@ -62,11 +62,15 @@ class DownloadPanel extends StatefulWidget {
 }
 
 class _DownloadPanelState extends State<DownloadPanel> {
+  static VideoQuality _lastQuality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  static bool _lastAudioOnly = false;
+  bool _audioOnly = _lastAudioOnly;
+
   final DownloadService _downloadService = Get.find<DownloadService>();
   final ListController _listController = ListController();
 
   late final cidSet = widget.cidSet;
-  VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  VideoQuality _quality = _lastQuality;
 
   @override
   void initState() {
@@ -107,64 +111,81 @@ class _DownloadPanelState extends State<DownloadPanel> {
     final textStyle = TextStyle(color: theme.colorScheme.onSurfaceVariant);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 0, 12),
-      child: Row(
-        spacing: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '最高画质',
-            style: textStyle,
-          ),
-          Builder(
-            builder: (context) => PopupMenuButton<VideoQuality>(
-              initialValue: _quality,
-              onSelected: (value) {
-                _quality = value;
-                (context as Element).markNeedsBuild();
-              },
-              itemBuilder: (context) => VideoQuality.values
-                  .map(
-                    (e) => PopupMenuItem(
-                      value: e,
-                      child: Text(e.desc),
+          Row(
+            spacing: 16,
+            children: [
+              Text(
+                '最高画质',
+                style: textStyle,
+              ),
+              Builder(
+                builder: (context) => PopupMenuButton<VideoQuality>(
+                  initialValue: _quality,
+                  onSelected: (value) {
+                    _quality = _lastQuality = value;
+                    (context as Element).markNeedsBuild();
+                  },
+                  itemBuilder: (context) => VideoQuality.values
+                      .map(
+                        (e) => PopupMenuItem(
+                          value: e,
+                          child: Text(e.desc),
+                        ),
+                      )
+                      .toList(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _quality.desc,
+                          style: const TextStyle(height: 1),
+                          strutStyle: const StrutStyle(height: 1, leading: 0),
+                        ),
+                        Icon(
+                          size: 18,
+                          Icons.keyboard_arrow_down,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
                     ),
-                  )
-                  .toList(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _quality.desc,
-                      style: const TextStyle(height: 1),
-                      strutStyle: const StrutStyle(height: 1, leading: 0),
-                    ),
-                    Icon(
-                      size: 18,
-                      Icons.keyboard_arrow_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              if (kDebugMode || PlatformUtils.isMobile) ...[
+                const Spacer(),
+                StreamBuilder(
+                  stream: Connectivity().onConnectivityChanged,
+                  builder: (context, snapshot) {
+                    if (snapshot.data case final data?) {
+                      final network = data.contains(ConnectivityResult.wifi)
+                          ? 'WIFI'
+                          : '数据';
+                      return Text('当前网络：$network', style: textStyle);
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                const SizedBox(width: 4),
+              ],
+            ],
           ),
-          if (kDebugMode || PlatformUtils.isMobile) ...[
-            const Spacer(),
-            StreamBuilder(
-              stream: Connectivity().onConnectivityChanged,
-              builder: (context, snapshot) {
-                if (snapshot.data case final data?) {
-                  final network = data.contains(ConnectivityResult.wifi)
-                      ? 'WIFI'
-                      : '数据';
-                  return Text('当前网络：$network', style: textStyle);
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(width: 4),
-          ],
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: _audioOnly,
+                onChanged: (value) {
+                  setState(() => _audioOnly = _lastAudioOnly = value ?? false);
+                },
+              ),
+              const Text('仅音频'),
+            ],
+          ),
         ],
       ),
     );
@@ -292,6 +313,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             parent == null ? widget.videoDetail : null,
             parent,
             _quality,
+            audioOnly: _audioOnly,
           );
           break;
         case ugc.EpisodeItem episode:
@@ -300,6 +322,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             null,
             episode,
             _quality,
+            audioOnly: _audioOnly,
           );
           break;
         case pgc.EpisodeItem episode:
@@ -308,6 +331,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             widget.pgcItem!,
             episode,
             _quality,
+            audioOnly: _audioOnly,
           );
           break;
       }

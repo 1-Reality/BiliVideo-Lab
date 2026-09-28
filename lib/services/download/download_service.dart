@@ -112,8 +112,9 @@ class DownloadService extends GetxService {
     Part page,
     VideoDetailData? videoDetail,
     ugc.EpisodeItem? videoArc,
-    VideoQuality videoQuality,
-  ) {
+    VideoQuality videoQuality, {
+    bool audioOnly = false,
+  }) {
     final cid = page.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
       return;
@@ -164,7 +165,7 @@ class DownloadService extends GetxService {
       ownerId: videoDetail?.owner?.mid ?? videoArc?.arc?.author?.mid,
       ownerName: videoDetail?.owner?.name ?? videoArc?.arc?.author?.name,
       pageData: pageData,
-    );
+    )..audioOnly = audioOnly;
     _createDownload(entry);
   }
 
@@ -172,8 +173,9 @@ class DownloadService extends GetxService {
     int index,
     PgcInfoModel pgcItem,
     pgc.EpisodeItem episode,
-    VideoQuality quality,
-  ) {
+    VideoQuality quality, {
+    bool audioOnly = false,
+  }) {
     final cid = episode.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
       return;
@@ -233,7 +235,7 @@ class DownloadService extends GetxService {
       ownerId: pgcItem.upInfo?.mid,
       ownerName: pgcItem.upInfo?.uname,
       pageData: null,
-    );
+    )..audioOnly = audioOnly;
     _createDownload(entry);
   }
 
@@ -371,7 +373,7 @@ class DownloadService extends GetxService {
 
   Future<void> _startDownload(BiliDownloadEntryInfo entry) async {
     try {
-      if (!await downloadDanmaku(entry: entry)) {
+      if (!entry.audioOnly && !await downloadDanmaku(entry: entry)) {
         return;
       }
 
@@ -410,6 +412,18 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
+          if (entry.audioOnly) {
+            _downloadManager = DownloadManager(
+              url: mediaFileInfo.audio!.first.baseUrl,
+              path: path.join(videoDir.path, PathUtils.audioNameType2),
+              onReceiveProgress: _onReceive,
+              onDone: ([error]) {
+                if (error == null) entry.mediaType = 3;
+                _onDone(error);
+              },
+            );
+            break;
+          }
           final first = mediaFileInfo.video.first;
           _downloadManager = DownloadManager(
             url: first.baseUrl,

@@ -24,11 +24,13 @@ class DownloadDetailPage extends StatefulWidget {
   const DownloadDetailPage({
     super.key,
     required this.pageId,
+    this.audioOnly = false,
     required this.title,
     required this.progress,
   });
 
   final String pageId;
+  final bool audioOnly;
   final String title;
   final ChangeNotifier progress;
 
@@ -72,7 +74,10 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
   void _loadList() {
     final list =
         _controller.pages
-            .firstWhereOrNull((e) => e.pageId == widget.pageId)
+            .firstWhereOrNull(
+              (e) => e.pageId == widget.pageId &&
+                  e.audioOnly == widget.audioOnly,
+            )
             ?.entries
           ?..sort((a, b) => a.sortKey.compareTo(b.sortKey));
     if (list != null) {
@@ -98,7 +103,7 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
           appBar: MultiSelectAppBarWidget(
             ctr: this,
             actions: [
-              TextButton(
+              if (!widget.audioOnly) TextButton(
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),

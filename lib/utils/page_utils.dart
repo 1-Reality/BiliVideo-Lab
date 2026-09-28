@@ -9,7 +9,10 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/search.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
+import 'package:PiliBro/models/common/video/source_type.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';
+import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
@@ -19,6 +22,7 @@ import 'package:PiliBro/pages/contact/view.dart';
 import 'package:PiliBro/pages/fav_panel/view.dart';
 import 'package:PiliBro/pages/share/view.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
@@ -534,7 +538,27 @@ abstract final class PageUtils {
     bool off = false,
     bool isVertical = false,
     Dimension? dimension,
+    bool forceVideo = false,
   }) {
+    final source =
+        extraArguments?['sourceType'] as SourceType? ?? SourceType.normal;
+    if (!forceVideo &&
+        AudioFirstMode.openAudio &&
+        videoType == VideoType.ugc &&
+        source != SourceType.file) {
+      final videoAid = aid ?? IdUtils.bv2av(bvid!);
+      return AudioPage.toAudioPage(
+        oid: videoAid,
+        subId: [cid],
+        itemType: 1,
+        id: extraArguments?['mediaId'] as int?,
+        from: source.playlistSource ?? PlaylistSource.UP_ARCHIVE,
+        extraId: source.extraId,
+        bvid: bvid ?? IdUtils.av2bv(videoAid),
+        off: off,
+        start: progress == null ? null : Duration(milliseconds: progress),
+      );
+    }
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
       'bvid': bvid ?? IdUtils.av2bv(aid!),

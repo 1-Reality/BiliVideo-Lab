@@ -10,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 
 class BiliDownloadEntryInfo with MultiSelectData {
   int mediaType;
+  bool audioOnly = false; // Only applies to this run's pending download.
   bool hasDashAudio;
   bool isCompleted;
   int totalBytes;

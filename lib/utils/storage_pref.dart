@@ -50,6 +50,12 @@ import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class Pref {
+  static bool get enableAudioFirst =>
+      _setting.get(SettingBoxKey.enableAudioFirst, defaultValue: false);
+
+  static bool get preferAudioEntry =>
+      _setting.get(SettingBoxKey.preferAudioEntry, defaultValue: true);
+
   static final Box _setting = GStorage.setting;
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;

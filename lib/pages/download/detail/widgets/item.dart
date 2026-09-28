@@ -200,7 +200,14 @@ class DetailItem extends StatelessWidget {
                       },
                     ),
                   ),
-                  if (entry.videoQuality case final videoQuality?)
+                  if (entry.mediaType == 3)
+                    const PBadge(
+                      text: '音频',
+                      right: 6.0,
+                      top: 6.0,
+                      type: PBadgeType.gray,
+                    )
+                  else if (entry.videoQuality case final videoQuality?)
                     PBadge(
                       text: VideoQuality.fromCode(videoQuality).shortDesc,
                       right: 6.0,

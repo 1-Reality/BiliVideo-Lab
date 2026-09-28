@@ -38,6 +38,7 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
   final _downloadService = Get.find<DownloadService>();
   final _controller = Get.put(DownloadPageController());
   final _progress = ChangeNotifier();
+  bool _showAudio = false;
 
   @override
   void dispose() {
@@ -62,7 +63,7 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
           appBar: MultiSelectAppBarWidget(
             ctr: _controller,
             actions: [
-              TextButton(
+              if (!_showAudio) TextButton(
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
@@ -90,9 +91,23 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
               ),
             ],
             child: AppBar(
-              title: const Text('离线缓存'),
+              title: Text(_showAudio ? '下载的音频' : '离线缓存'),
               actions: [
-                IconButton(
+                PopupMenuButton<bool>(
+                  tooltip: '缓存分类',
+                  icon: const Icon(Icons.library_music_outlined),
+                  onSelected: (value) {
+                    if (_controller.enableMultiSelect.value) {
+                      _controller.handleSelect();
+                    }
+                    setState(() => _showAudio = value);
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: false, child: Text('下载的视频')),
+                    PopupMenuItem(value: true, child: Text('下载的音频')),
+                  ],
+                ),
+                if (!_showAudio) IconButton(
                   tooltip: '搜索',
                   onPressed: () async {
                     await _downloadService.waitForInitialization;
@@ -120,7 +135,7 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
             padding: EdgeInsets.only(left: padding.left, right: padding.right),
             child: CustomScrollView(
               slivers: [
-                Obx(() {
+                if (!_showAudio) Obx(() {
                   final entry =
                       _downloadService.waitDownloadQueue.firstWhereOrNull(
                         (e) => e.cid == _downloadService.curCid,
@@ -156,7 +171,10 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
                   return const SliverToBoxAdapter();
                 }),
                 Obx(() {
-                  if (_controller.pages.isNotEmpty) {
+                  final pages = _controller.pages
+                      .where((item) => item.audioOnly == _showAudio)
+                      .toList(growable: false);
+                  if (pages.isNotEmpty) {
                     return SliverMainAxisGroup(
                       slivers: [
                         SliverPadding(
@@ -167,14 +185,14 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
                                 ? 0
                                 : 7,
                           ),
-                          sliver: const SliverToBoxAdapter(
-                            child: Text('已缓存视频'),
+                          sliver: SliverToBoxAdapter(
+                            child: Text(_showAudio ? '已缓存音频' : '已缓存视频'),
                           ),
                         ),
                         SliverGrid.builder(
                           gridDelegate: gridDelegate,
                           itemBuilder: (context, index) {
-                            final item = _controller.pages[index];
+                            final item = pages[index];
                             if (item.entries.length == 1) {
                               final entry = item.entries.first;
                               return DetailItem(
@@ -198,15 +216,20 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
                             }
                             return _buildItem(theme, item, enableMultiSelect);
                           },
-                          itemCount: _controller.pages.length,
+                          itemCount: pages.length,
                         ),
                       ],
                     );
                   }
-                  if (_downloadService.waitDownloadQueue.isNotEmpty) {
+                  if (!_showAudio &&
+                      _downloadService.waitDownloadQueue.isNotEmpty) {
                     return const SliverToBoxAdapter();
                   }
-                  return const HttpError();
+                  return _showAudio
+                      ? const SliverToBoxAdapter(
+                          child: Center(child: Text('还没有下载的音频')),
+                        )
+                      : const HttpError();
                 }),
                 SliverToBoxAdapter(
                   child: SizedBox(height: padding.bottom + 100),
@@ -242,15 +265,27 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
                         await GStorage.watchProgress.deleteAll(
                           pageInfo.entries.map((e) => e.cid.toString()),
                         );
-                        _downloadService.deletePage(
-                          pageDirPath: pageInfo.dirPath,
-                        );
+                        if (_downloadService.downloadList.any(
+                          (e) => e.pageDirPath == pageInfo.dirPath &&
+                              (e.mediaType == 3) != pageInfo.audioOnly,
+                        )) {
+                          for (final entry in pageInfo.entries) {
+                            await _downloadService.deleteDownload(
+                              entry: entry, removeList: true, refresh: false,
+                            );
+                          }
+                          _downloadService.flagNotifier.refresh();
+                        } else {
+                          _downloadService.deletePage(
+                            pageDirPath: pageInfo.dirPath,
+                          );
+                        }
                       },
                     );
                   },
                   child: const Text('删除', style: TextStyle(fontSize: 14)),
                 ),
-                DialogOption(
+                if (!pageInfo.audioOnly) DialogOption(
                   onPressed: () async {
                     Get.back();
                     final res = await Future.wait(
@@ -284,6 +319,7 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
           Get.to(
             DownloadDetailPage(
               pageId: pageInfo.pageId,
+              audioOnly: pageInfo.audioOnly,
               title: pageInfo.title,
               progress: _progress,
             ),
@@ -313,7 +349,7 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
                     ),
                   ),
                   PBadge(
-                    text: '${pageInfo.entries.length}个视频',
+                    text: '${pageInfo.entries.length}个${pageInfo.audioOnly ? '音频' : '视频'}',
                     right: 6.0,
                     bottom: 6.0,
                     isBold: false,

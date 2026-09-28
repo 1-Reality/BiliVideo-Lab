@@ -45,7 +45,10 @@ class DownloadPageController extends GetxController
     final list = <DownloadPageInfo>[];
     for (final entry in _downloadService.downloadList) {
       final pageId = entry.pageId;
-      final page = list.firstWhereOrNull((e) => e.pageId == pageId);
+      final audioOnly = entry.mediaType == 3;
+      final page = list.firstWhereOrNull(
+        (e) => e.pageId == pageId && e.audioOnly == audioOnly,
+      );
       if (page != null) {
         final aSortKey = entry.sortKey;
         final bSortKey = page.sortKey;
@@ -59,6 +62,7 @@ class DownloadPageController extends GetxController
         list.add(
           DownloadPageInfo(
             pageId: pageId,
+            audioOnly: audioOnly,
             dirPath: entry.pageDirPath,
             title: entry.title,
             cover: entry.cover,
@@ -77,7 +81,7 @@ class DownloadPageController extends GetxController
   void onRemove() {
     showConfirmDialog(
       context: Get.context!,
-      title: const Text('确定删除选中视频？'),
+      title: const Text('确定删除选中缓存？'),
       onConfirm: () async {
         SmartDialog.showLoading();
         final watchProgress = GStorage.watchProgress;
@@ -85,10 +89,20 @@ class DownloadPageController extends GetxController
           await watchProgress.deleteAll(
             page.entries.map((e) => e.cid.toString()),
           );
-          await _downloadService.deletePage(
-            pageDirPath: page.dirPath,
-            refresh: false,
-          );
+          if (_downloadService.downloadList.any(
+            (e) => e.pageDirPath == page.dirPath &&
+                (e.mediaType == 3) != page.audioOnly,
+          )) {
+            for (final entry in page.entries) {
+              await _downloadService.deleteDownload(
+                entry: entry, removeList: true, refresh: false,
+              );
+            }
+          } else {
+            await _downloadService.deletePage(
+              pageDirPath: page.dirPath, refresh: false,
+            );
+          }
         }
         _downloadService.flagNotifier.refresh();
         if (enableMultiSelect.value) {
