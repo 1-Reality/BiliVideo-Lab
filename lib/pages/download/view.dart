@@ -53,10 +53,13 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
     return Obx(() {
       final enableMultiSelect = _controller.enableMultiSelect.value;
       return popScope(
-        canPop: !enableMultiSelect,
+        canPop: !enableMultiSelect && !_showAudio,
         onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
           if (enableMultiSelect) {
             _controller.handleSelect();
+          } else if (_showAudio) {
+            setState(() => _showAudio = false);
           }
         },
         child: SimpleScaffold(
@@ -92,21 +95,17 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
             ],
             child: AppBar(
               title: Text(_showAudio ? '下载的音频' : '离线缓存'),
+              leading: _showAudio
+                  ? IconButton(
+                      tooltip: '返回缓存列表',
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        if (enableMultiSelect) _controller.handleSelect();
+                        setState(() => _showAudio = false);
+                      },
+                    )
+                  : null,
               actions: [
-                PopupMenuButton<bool>(
-                  tooltip: '缓存分类',
-                  icon: const Icon(Icons.library_music_outlined),
-                  onSelected: (value) {
-                    if (_controller.enableMultiSelect.value) {
-                      _controller.handleSelect();
-                    }
-                    setState(() => _showAudio = value);
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: false, child: Text('下载的视频')),
-                    PopupMenuItem(value: true, child: Text('下载的音频')),
-                  ],
-                ),
                 if (!_showAudio) IconButton(
                   tooltip: '搜索',
                   onPressed: () async {
@@ -135,6 +134,47 @@ class _DownloadPageState extends State<DownloadPage> with GridMixin {
             padding: EdgeInsets.only(left: padding.left, right: padding.right),
             child: CustomScrollView(
               slivers: [
+                if (!_showAudio) Obx(() {
+                  final audioCount = _controller.pages
+                      .where((e) => e.audioOnly)
+                      .fold<int>(0, (count, group) => count + group.entries.length);
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      child: Material(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => setState(() => _showAudio = true),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 15),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.folder_outlined, size: 30),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('下载的音频'),
+                                      Text('$audioCount 个音频',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: theme.colorScheme.outline)),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
                 if (!_showAudio) Obx(() {
                   final entry =
                       _downloadService.waitDownloadQueue.firstWhereOrNull(

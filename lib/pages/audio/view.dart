@@ -1,4 +1,5 @@
 import 'dart:math' show min;
+import 'dart:io' show File;
 
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/style.dart';
@@ -18,6 +19,9 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/pages/audio/controller.dart';
+import 'package:PiliBro/pages/audio/session.dart';
+import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/pages/audio/volume_button.dart';
 import 'package:PiliBro/pages/video/related/controller.dart';
 import 'package:PiliBro/pages/video/related/view.dart';
@@ -38,6 +42,7 @@ import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
@@ -47,6 +52,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
+import 'package:path/path.dart' as path;
 
 class AudioPage extends StatefulWidget {
   const AudioPage({super.key});
@@ -79,11 +85,33 @@ class AudioPage extends StatefulWidget {
       'extraId': ?extraId,
       'bvid': ?bvid,
     };
-    if (off) {
+    AudioPlaybackSession.prepare(args);
+    if (off || Get.currentRoute == '/audio') {
       return Get.offNamed<void>('/audio', arguments: args);
-    } else {
-      return Get.toNamed<void>('/audio', arguments: args);
     }
+    return Get.toNamed<void>('/audio', arguments: args);
+  }
+
+  /// Open a downloaded audio track with the same controls as online playback.
+  static Future<void>? toOfflinePage(BiliDownloadEntryInfo entry) {
+    final service = Get.find<DownloadService>();
+    final tracks = service.downloadList
+        .where((e) => e.isCompleted && e.mediaType == 3)
+        .toList(growable: false)
+      ..sort((a, b) => b.timeCreateStamp.compareTo(a.timeCreateStamp));
+    final args = <String, dynamic>{
+      'oid': entry.avid,
+      'subId': [entry.cid],
+      'itemType': 1,
+      'from': PlaylistSource.UP_ARCHIVE,
+      'offlineEntry': entry,
+      'offlinePlaylist': tracks,
+    };
+    AudioPlaybackSession.prepare(args);
+    if (Get.currentRoute == '/audio') {
+      return Get.offNamed<void>('/audio', arguments: args);
+    }
+    return Get.toNamed<void>('/audio', arguments: args);
   }
 }
 
@@ -92,17 +120,21 @@ extension _ListOrderExt on ListOrder {
 }
 
 class _AudioPageState extends State<AudioPage> {
-  final _controller = Get.put(
-    AudioController(),
-    tag: Utils.generateRandomString(8),
-  );
+  final _controller = AudioPlaybackSession.attach();
   final _relatedTag = Utils.generateRandomString(12);
   RelatedController? _relatedController;
   bool _relatedOpen = false;
   Worker? _relatedWorker;
 
   @override
+  void initState() {
+    super.initState();
+    AudioPlaybackSession.onPageOpened();
+  }
+
+  @override
   void dispose() {
+    AudioPlaybackSession.onPageClosed();
     _relatedWorker?.dispose();
     if (_relatedController != null) {
       Get.delete<RelatedController>(tag: _relatedTag);
@@ -186,7 +218,8 @@ class _AudioPageState extends State<AudioPage> {
     return SimpleScaffold(
       appBar: AppBar(
         actions: [
-          if (_controller.isUgc && _controller.enableSponsorBlock)
+          if (_controller.isUgc && !_controller.isOffline &&
+              _controller.enableSponsorBlock)
             Obx(() {
               if (_controller.segmentProgressList.isNotEmpty) {
                 return IconButton(
@@ -197,7 +230,7 @@ class _AudioPageState extends State<AudioPage> {
               }
               return const SizedBox.shrink();
             }),
-          Builder(
+          if (!_controller.isOffline) Builder(
             builder: (context) {
               return PopupMenuButton<ListOrder>(
                 tooltip: '排序',
@@ -224,7 +257,13 @@ class _AudioPageState extends State<AudioPage> {
               ),
             icon: const Icon(Icons.schedule, size: 22),
           ),
-          if (_controller.isUgc)
+          if (_controller.isUgc && !_controller.isOffline)
+            IconButton(
+              tooltip: '下载当前音频',
+              onPressed: _controller.downloadCurrentAudio,
+              icon: const Icon(Icons.download_outlined, size: 22),
+            ),
+          if (_controller.isUgc && !_controller.isOffline)
             IconButton(
               tooltip: '更多',
               onPressed: _showMore,
@@ -283,7 +322,7 @@ class _AudioPageState extends State<AudioPage> {
     );
   }
 
-  Widget _buildModeActions() => !_controller.isUgc
+  Widget _buildModeActions() => !_controller.isUgc || _controller.isOffline
       ? const SizedBox.shrink()
       : Row(
           children: [
@@ -305,6 +344,34 @@ class _AudioPageState extends State<AudioPage> {
         );
 
   void _showPlaylist() {
+    if (_controller.offlinePlaylist case final tracks?) {
+      showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        isScrollControlled: true,
+        builder: (sheetContext) => SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.68,
+          child: ListView.builder(
+            itemCount: tracks.length,
+            itemBuilder: (context, index) {
+              final entry = tracks[index];
+              return ListTile(
+                selected: index == _controller.currentLocalIndex,
+                leading: const Icon(Icons.headphones_outlined),
+                title: Text(entry.showTitle, maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                subtitle: Text(entry.ownerName ?? ''),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _controller.playLocalIndex(index);
+                },
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
     if (_controller.playlist case final playlist?) {
       final initialScrollOffset = 45.0 * _controller.index!;
       final scrollController = ScrollController(
@@ -1016,6 +1083,35 @@ class _AudioPageState extends State<AudioPage> {
   Widget _buildInfo(ColorScheme colorScheme, bool isPortrait) {
     return Obx(() {
       final audioItem = _controller.audioItem.value;
+      final offline = _controller.localItem.value;
+      if (offline != null) {
+        final cover = File(path.join(offline.entryDirPath, PathUtils.coverName));
+        return Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      cover.existsSync()
+                          ? Image.file(cover, width: 170, height: 170,
+                              fit: BoxFit.cover)
+                          : const Icon(Icons.headphones_rounded, size: 120),
+                      const SizedBox(height: 16),
+                      SelectionText(offline.showTitle,
+                          style: const TextStyle(fontSize: 17)),
+                      const SizedBox(height: 8),
+                      Text(offline.ownerName ?? '本地音频',
+                          style: TextStyle(color: colorScheme.outline)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
       if (audioItem != null) {
         final cover = audioItem.arc.cover.http2https;
         return Column(

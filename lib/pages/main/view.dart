@@ -11,6 +11,7 @@ import 'package:PiliBro/common/widgets/main_layout.dart';
 import 'package:PiliBro/common/widgets/route_aware_mixin.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/pages/home/view.dart';
+import 'package:PiliBro/pages/audio/mini_player.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
@@ -561,7 +562,15 @@ class _MainAppState extends PopScopeState<MainApp>
       child: MainLayout(
         sideBar: sideBar,
         bottomNav: bottomNav,
-        body: Padding(padding: padding, child: child),
+        body: Padding(
+          padding: padding,
+          child: Column(
+            children: [
+              Expanded(child: child),
+              const AudioMiniPlayer(),
+            ],
+          ),
+        ),
       ),
     );
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
@@ -17,8 +17,11 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart'
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
+import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models/video/play/url.dart' as http_model show Volume;
 import 'package:PiliBro/pages/common/common_intro_controller.dart'
     show FavMixin;
@@ -31,6 +34,7 @@ import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
@@ -40,6 +44,7 @@ import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -52,6 +57,8 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:collection/collection.dart';
+import 'package:path/path.dart' as path;
 
 class AudioController extends GetxController
     with
@@ -61,6 +68,18 @@ class AudioController extends GetxController
         BlockConfigMixin,
         BlockMixin,
         AudioNormalizationMixin {
+  AudioController({this.launchArguments});
+  final Map<String, dynamic>? launchArguments;
+
+  final localItem = Rxn<BiliDownloadEntryInfo>();
+  List<BiliDownloadEntryInfo>? _offlineEntries;
+  int _offlineIndex = 0;
+  bool get isOffline => _offlineEntries != null;
+  List<BiliDownloadEntryInfo>? get offlinePlaylist => _offlineEntries;
+  int get currentLocalIndex => _offlineIndex;
+  final isPlayingRx = false.obs;
+  bool _downloadPending = false;
+
   late Int64 id;
   late Int64 oid;
   late List<Int64> subId;
@@ -162,26 +181,51 @@ class AudioController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    final args = Get.arguments;
-    oid = Int64(args['oid']);
+    final Map<String, dynamic> args = launchArguments ?? Get.arguments;
+    final offline = args['offlineEntry'] as BiliDownloadEntryInfo?;
+    oid = Int64(offline?.avid ?? args['oid']);
     final id = args['id'];
     this.id = id != null ? Int64(id) : oid;
-    subId = (args['subId'] as List<int>?)?.map(Int64.new).toList() ?? [oid];
-    itemType = args['itemType'];
-    from = args['from'];
+    subId = offline != null
+        ? [Int64(offline.cid)]
+        : (args['subId'] as List<int>?)?.map(Int64.new).toList() ?? [oid];
+    itemType = args['itemType'] ?? 1;
+    from = args['from'] ?? PlaylistSource.UP_ARCHIVE;
     _start = args['start'];
     final int? extraId = args['extraId'];
-    if (extraId != null) {
-      this.extraId = Int64(extraId);
-    }
+    if (extraId != null) this.extraId = Int64(extraId);
     if (args['heroTag'] case String heroTag) {
       try {
         _videoDetailController = Get.find<VideoDetailController>(tag: heroTag);
       } catch (_) {}
     }
 
-    _queryPlayList(isInit: true);
+    animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    videoPlayerServiceHandler
+      ?..onPlay = onPlay
+      ..onPause = onPause
+      ..onSeek = onSeek;
+    if (shutdownTimerService.isActive) {
+      shutdownTimerService
+        ..onPause = onPause
+        ..isPlaying = isPlaying;
+    }
 
+    if (offline != null) {
+      final entries = args['offlinePlaylist'] as List<BiliDownloadEntryInfo>?;
+      _offlineEntries = entries == null || entries.isEmpty ? [offline] : entries;
+      _offlineIndex = _offlineEntries!.indexWhere(
+        (e) => e.avid == offline.avid && e.cid == offline.cid,
+      );
+      if (_offlineIndex < 0) _offlineIndex = 0;
+      _openOffline(_offlineEntries![_offlineIndex]);
+      return;
+    }
+
+    _queryPlayList(isInit: true);
     final String? audioUrl = args['audioUrl'];
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
@@ -201,24 +245,76 @@ class AudioController extends GetxController
       _networkPolicySubscription = ConnectivityUtils.changes.listen(
         _onNetworkPolicyChanged,
       );
-      if (!hasAudioUrl) {
-        _queryPlayUrl();
-      }
+      if (!hasAudioUrl) _queryPlayUrl();
     });
-    videoPlayerServiceHandler
-      ?..onPlay = onPlay
-      ..onPause = onPause
-      ..onSeek = onSeek;
+  }
 
-    animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
+  Future<void> _openOffline(BiliDownloadEntryInfo entry) async {
+    localItem.value = entry;
+    oid = Int64(entry.avid);
+    subId = [Int64(entry.cid)];
+    final file = File(path.join(
+      entry.entryDirPath,
+      entry.typeTag!,
+      PathUtils.audioNameType2,
+    ));
+    if (!await file.exists()) {
+      SmartDialog.showToast('本地音频文件不存在');
+      return;
+    }
+    position.value = 0;
+    await _onOpenMedia(file.path);
+    if (!isClosed) {
+      videoPlayerServiceHandler?.onVideoDetailChange(
+        entry, entry.cid, hashCode.toString(),
+      );
+    }
+  }
 
-    if (shutdownTimerService.isActive) {
-      shutdownTimerService
-        ..onPause = onPause
-        ..isPlaying = isPlaying;
+  Future<void> playLocalIndex(int index) async {
+    final entries = _offlineEntries;
+    if (entries == null || index < 0 || index >= entries.length) return;
+    _offlineIndex = index;
+    _start = null;
+    await _openOffline(entries[index]);
+  }
+
+  /// Query metadata only after the user explicitly requests a download.
+  Future<void> downloadCurrentAudio() async {
+    if (!isUgc || isOffline || _downloadPending) return;
+    _downloadPending = true;
+    try {
+      final aid = oid.toInt();
+      final cid = subId.first.toInt();
+      final service = Get.find<DownloadService>();
+      await service.waitForInitialization;
+      if (service.downloadList.any((e) => e.cid == cid) ||
+          service.waitDownloadQueue.any((e) => e.cid == cid)) {
+        SmartDialog.showToast('该内容已在缓存列表中');
+        return;
+      }
+      final res = await VideoHttp.videoIntro(bvid: IdUtils.av2bv(aid));
+      if (res case Success(:final response)) {
+        final page = response.pages?.firstWhereOrNull((p) => p.cid == cid);
+        if (page == null) {
+          SmartDialog.showToast('未找到当前分P的下载信息');
+          return;
+        }
+        service.downloadVideo(
+          page,
+          response,
+          null,
+          VideoQuality.fromCode(Pref.defaultVideoQa),
+          audioOnly: true,
+        );
+        SmartDialog.showToast('已加入纯音频缓存队列');
+      } else {
+        res.toast();
+      }
+    } catch (e) {
+      SmartDialog.showToast('加入缓存失败：$e');
+    } finally {
+      _downloadPending = false;
     }
   }
 
@@ -397,11 +493,13 @@ class AudioController extends GetxController
     final extras = audioFilterExtras(volume);
     final player = this.player;
     if (player != null) {
-      player.setMediaHeader(
-        userAgent: ua,
-        // mpv cannot clear referer option
-        headers: {'Referer': ?referer},
-      );
+      if (!isOffline) {
+        player.setMediaHeader(
+          userAgent: ua,
+          // mpv cannot clear referer option
+          headers: {'Referer': ?referer},
+        );
+      }
       await player.open(
         Media(url, start: _start, extras: extras),
         play: autoplay,
@@ -478,6 +576,7 @@ class AudioController extends GetxController
         this.duration.value = duration.inSeconds;
       }),
       stream.playing.listen((playing) {
+        isPlayingRx.value = playing;
         if (playing) {
           animController.forward();
           _playerStatus = .playing;
@@ -755,6 +854,11 @@ class AudioController extends GetxController
   }
 
   bool playPrev() {
+    if (_offlineEntries case final entries?) {
+      if (_offlineIndex <= 0) return false;
+      playLocalIndex(_offlineIndex - 1);
+      return true;
+    }
     if (index != null && playlist != null && player != null) {
       final prev = index! - 1;
       if (prev >= 0) {
@@ -766,6 +870,19 @@ class AudioController extends GetxController
   }
 
   bool playNext({bool nextPart = false}) {
+    if (_offlineEntries case final entries?) {
+      final next = _offlineIndex + 1;
+      if (next < entries.length) {
+        playLocalIndex(next);
+        return true;
+      }
+      if (nextPart && playMode.value == PlayRepeat.listCycle &&
+          entries.isNotEmpty) {
+        playLocalIndex(0);
+        return true;
+      }
+      return false;
+    }
     if (nextPart) {
       if (audioItem.value case DetailItem(:final parts)) {
         if (parts.length > 1) {

@@ -13,6 +13,7 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show Playlist
 import 'package:PiliBro/models/common/video/source_type.dart' as video_source;
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/pages/audio/view.dart';
+import 'package:PiliBro/pages/audio/session.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
@@ -559,6 +560,7 @@ abstract final class PageUtils {
         start: progress == null ? null : Duration(milliseconds: progress),
       );
     }
+    AudioPlaybackSession.pauseForVideo();
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
       'bvid': bvid ?? IdUtils.av2bv(aid!),

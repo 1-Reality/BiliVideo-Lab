@@ -10,6 +10,7 @@ import 'package:PiliBro/common/widgets/progress_bar/video_progress_indicator.dar
 import 'package:PiliBro/common/widgets/select_mask.dart';
 import 'package:PiliBro/models/common/badge_type.dart';
 import 'package:PiliBro/models/common/video/source_type.dart';
+import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/pages/common/multi_select/base.dart';
@@ -111,6 +112,9 @@ class DetailItem extends StatelessWidget {
             return;
           }
           if (entry.isCompleted) {
+            if (entry.mediaType == 3) {
+              await AudioPage.toOfflinePage(entry);
+            } else {
             await PageUtils.toVideoPage(
               aid: entry.avid,
               cid: cid!,
@@ -123,6 +127,7 @@ class DetailItem extends StatelessWidget {
                 'dirPath': entry.entryDirPath,
               },
             );
+            }
             if (context.mounted) {
               Timer(const Duration(milliseconds: 400), () {
                 if (context.mounted) {
