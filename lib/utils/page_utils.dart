@@ -10,7 +10,7 @@ import 'package:PiliBro/http/search.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
-import 'package:PiliBro/models/common/video/source_type.dart';
+import 'package:PiliBro/models/common/video/source_type.dart' as video_source;
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
@@ -541,11 +541,11 @@ abstract final class PageUtils {
     bool forceVideo = false,
   }) {
     final source =
-        extraArguments?['sourceType'] as SourceType? ?? SourceType.normal;
+        extraArguments?['sourceType'] as video_source.SourceType? ?? video_source.SourceType.normal;
     if (!forceVideo &&
         AudioFirstMode.openAudio &&
         videoType == VideoType.ugc &&
-        source != SourceType.file) {
+        source != video_source.SourceType.file) {
       final videoAid = aid ?? IdUtils.bv2av(bvid!);
       return AudioPage.toAudioPage(
         oid: videoAid,

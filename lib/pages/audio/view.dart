@@ -112,10 +112,11 @@ class _AudioPageState extends State<AudioPage> {
 
   void _showRelated() {
     final bvid = IdUtils.av2bv(_controller.oid.toInt());
-    final related = _relatedController ??= Get.put(
+    final RelatedController related = _relatedController ?? Get.put(
       RelatedController(autoQuery: false, bvid: bvid),
       tag: _relatedTag,
     );
+    _relatedController ??= related;
     _relatedWorker ??= ever(_controller.audioItem, (_) {
       if (!_relatedOpen || !_controller.isUgc) return;
       final currentBvid = IdUtils.av2bv(_controller.oid.toInt());
