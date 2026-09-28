@@ -27,6 +27,7 @@ import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/danmaku/view.dart';
 import 'package:PiliBro/pages/episode_panel/view.dart';
 import 'package:PiliBro/pages/video/ai_conclusion/view.dart';
+import 'package:PiliBro/pages/audio/session.dart';
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/introduction/local/controller.dart';
 import 'package:PiliBro/pages/video/introduction/local/view.dart';
@@ -376,6 +377,15 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void dispose() {
     final playerController = videoDetailController.plPlayerController;
+    final continueListening = videoDetailController.isUgc &&
+        !videoDetailController.isFileSource &&
+        !playerController.isCloseAll &&
+        playerController.onlyPlayAudio.value &&
+        plPlayerController != null;
+    final listenAid = videoDetailController.aid;
+    final listenCid = videoDetailController.cid.value;
+    final listenProgress = videoDetailController.playedTime;
+    final listenUrl = videoDetailController.audioUrl;
     if (identical(
       playerController.onFullscreenExited,
       _fullscreenExitFocusCallback,
@@ -417,6 +427,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
     removeObserverMobile(this);
+    if (continueListening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AudioPlaybackSession.continueFromVideo(
+          aid: listenAid,
+          cid: listenCid,
+          progress: listenProgress ?? Duration.zero,
+          audioUrl: listenUrl,
+        );
+      });
+    }
 
     super.dispose();
   }

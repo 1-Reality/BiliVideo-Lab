@@ -11,6 +11,7 @@ import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -49,6 +50,14 @@ List<SettingsModel> get playSettings => [
     leading: const Icon(Icons.screen_rotation_outlined),
     title: '方向（横竖屏）设置',
     subtitle: '应用方向、全屏方向与方向感应',
+  ),
+  SwitchModel(
+    title: '启用音视频快捷切换',
+    subtitle: '开启后可在首页切换默认音频、视频播放方式',
+    leading: const Icon(Icons.headphones_outlined),
+    setKey: SettingBoxKey.enableAudioFirst,
+    defaultVal: false,
+    onChanged: AudioFirstMode.onEnabledChanged,
   ),
   const SwitchModel(
     title: '自动播放',

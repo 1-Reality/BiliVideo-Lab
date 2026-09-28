@@ -88,6 +88,8 @@ abstract final class SettingBoxKey {
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',
+      enableAudioFirst = 'enableAudioFirst',
+      preferAudioEntry = 'preferAudioEntry',
       showBatteryLevel = 'showBatteryLevel',
       playerVolume = 'playerVolume',
       maxVolume = 'maxVolume';

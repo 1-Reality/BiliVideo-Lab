@@ -4,6 +4,7 @@ import 'package:PiliBro/pages/common/multi_select/base.dart'
 
 class DownloadPageInfo with MultiSelectData {
   final String pageId;
+  final bool audioOnly;
   final String dirPath;
   final String title;
   String cover;
@@ -13,6 +14,7 @@ class DownloadPageInfo with MultiSelectData {
 
   DownloadPageInfo({
     required this.pageId,
+    this.audioOnly = false,
     required this.dirPath,
     required this.title,
     required this.cover,

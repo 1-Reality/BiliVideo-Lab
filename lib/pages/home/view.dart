@@ -6,6 +6,7 @@ import 'package:PiliBro/pages/common/common_page.dart';
 import 'package:PiliBro/pages/home/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
@@ -98,6 +99,15 @@ class _HomePageState extends CommonPageState<HomePage>
     final child = Row(
       children: [
         searchBar(),
+        Obx(() {
+          if (!AudioFirstMode.enabled.value) return const SizedBox.shrink();
+          final isAudio = AudioFirstMode.audio.value;
+          return IconButton(
+            tooltip: isAudio ? '当前音频优先，切换至视频' : '当前视频优先，切换至音频',
+            onPressed: AudioFirstMode.toggle,
+            icon: Icon(isAudio ? Icons.headphones : Icons.ondemand_video),
+          );
+        }),
         const SizedBox(width: 4),
         msgBadge(_mainController),
         const SizedBox(width: 8),

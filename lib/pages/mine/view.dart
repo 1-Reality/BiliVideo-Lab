@@ -317,6 +317,14 @@ class _MediaPageState extends CommonPageState<MinePage>
               ),
               msgBadge(_mainController),
             ],
+            IconButton(
+              iconSize: iconSize,
+              padding: padding,
+              style: style,
+              tooltip: '离线缓存',
+              onPressed: () => Get.toNamed('/download'),
+              icon: const Icon(CustomIcons.folderDownloadOutline),
+            ),
             if (GStorage.reply != null)
               IconButton(
                 iconSize: iconSize,

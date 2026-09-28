@@ -6,8 +6,9 @@ import 'package:get/get.dart';
 
 class RelatedController
     extends CommonListController<List<HotVideoItemModel>?, HotVideoItemModel> {
-  RelatedController({this.autoQuery = true});
-  String bvid = Get.arguments['bvid'];
+  RelatedController({this.autoQuery = true, String? bvid})
+      : bvid = bvid ?? Get.arguments['bvid'];
+  String bvid;
   final bool autoQuery;
 
   @override

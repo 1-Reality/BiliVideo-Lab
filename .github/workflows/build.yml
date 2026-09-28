@@ -6,6 +6,7 @@ on:
             - opened
             - reopened
             - ready_for_review
+            - synchronize
         branches:
             - dev
             - lab4AI

@@ -58,6 +58,7 @@ import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/cdn_last_video_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
 import 'package:PiliBro/utils/extension/nested_scroll_ext.dart';
@@ -499,6 +500,8 @@ class VideoDetailController extends GetxController
     isPlayAll = sourceType != SourceType.normal && !isFileSource;
     if (isFileSource) {
       initFileSource(args['entry']);
+      plPlayerController.onlyPlayAudio.value =
+          entry.mediaType == 3 || AudioFirstMode.openAudio;
     } else if (isPlayAll) {
       watchLaterTitle = args['favTitle'];
       _mediaDesc = args['desc'];
@@ -1857,6 +1860,7 @@ class VideoDetailController extends GetxController
       start: playedTime,
       audioUrl: audioUrl,
       extraId: extraId,
+      bvid: bvid,
     );
   }
 
