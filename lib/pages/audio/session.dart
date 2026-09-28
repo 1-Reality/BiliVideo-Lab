@@ -1,4 +1,5 @@
 import 'package:PiliBro/pages/audio/controller.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
 import 'package:get/get.dart';
 
 /// Keep audio playback alive while its detail route is not on screen.
@@ -47,6 +48,33 @@ abstract final class AudioPlaybackSession {
   static Future<void>? reopen() {
     if (current.value == null || _arguments == null) return null;
     return Get.toNamed<void>('/audio', arguments: _arguments);
+  }
+
+  /// Transfer a video page currently in "listen to video" mode on exit.
+  /// The video Player itself can still be disposed normally.
+  static void continueFromVideo({
+    required int aid,
+    required int cid,
+    required Duration progress,
+    String? audioUrl,
+  }) {
+    final previous = current.value;
+    if (previous != null && previous.localItem.value == null &&
+        previous.oid.toInt() == aid && previous.subId.first.toInt() == cid) {
+      previous.onSeek(progress);
+      previous.onPlay();
+      return;
+    }
+    final args = <String, dynamic>{
+      'oid': aid,
+      'subId': [cid],
+      'itemType': 1,
+      'from': PlaylistSource.UP_ARCHIVE,
+      'start': progress,
+      if (audioUrl != null && audioUrl.isNotEmpty) 'audioUrl': audioUrl,
+    };
+    prepare(args);
+    attach();
   }
 
   static void pauseForVideo() => current.value?.onPause();
