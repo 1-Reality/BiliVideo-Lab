@@ -185,6 +185,9 @@ class PlPlayerController
   /// [videoController] instance of Player
   VideoController? get videoController => _videoController;
 
+  /// Changes only when Android needs a fresh native video output.
+  final RxInt videoOutputRevision = 0.obs;
+
   bool isMuted = false;
 
   /// 听视频
@@ -1563,6 +1566,69 @@ class PlPlayerController
     );
   }
 
+  /// Recreate Android's Player + Texture after an unusually long background
+  /// interval. Re-opening media on the old Player is insufficient because the
+  /// Android VideoController caches its Surface for the same media URI.
+  /// Invoked only by the visible video page on foreground return.
+  Future<bool> recoverAndroidVideoOutput({required bool resumePlaying}) async {
+    if (!Platform.isAndroid ||
+        _processing ||
+        _playerCount == 0 ||
+        _isCloseAll ||
+        isLive ||
+        onlyPlayAudio.value) {
+      return false;
+    }
+    final previous = _videoPlayerController;
+    if (previous == null ||
+        _videoController == null ||
+        previous.current.isEmpty) {
+      return false;
+    }
+
+    _processing = true;
+    final media = previous.current.last.copyWith(start: previous.state.position);
+    final rate = previous.state.rate;
+    try {
+      await previous.pause();
+      _removeListeners();
+      _videoPlayerController = null;
+      _videoController = null;
+      await previous.dispose();
+      if (_playerCount == 0 || _isCloseAll) return false;
+
+      final replacement = await _initPlayer();
+      if (_playerCount == 0 || _isCloseAll) {
+        _removeListeners();
+        await replacement.dispose();
+        _videoController = null;
+        return false;
+      }
+      _videoPlayerController = replacement;
+      if (isAnim && superResolutionType.value != SuperResolutionType.disable) {
+        await setShader();
+      }
+      await replacement.open(media, play: false);
+      if (_playerCount == 0 || _isCloseAll) return false;
+      if (rate != replacement.state.rate) await replacement.setRate(rate);
+      videoOutputRevision.value++;
+      if (resumePlaying) {
+        await replacement.play();
+      } else {
+        playerStatus = .paused;
+      }
+      return true;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Android video output recovery failed: $error');
+        debugPrint(stackTrace.toString());
+      }
+      return false;
+    } finally {
+      _processing = false;
+    }
+  }
+
   Future<void>? refreshPlayer() {
     if (dataSource is FileSource) {
       return null;
@@ -1832,6 +1898,9 @@ class PlPlayerController
             SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
           }
         } else if (!onlyPlayAudio.value) {
+          // A damaged/partial access unit is an FFmpeg decoder diagnostic,
+          // not a Dart crash. Do not send its full signed playlist to Catcher.
+          if (event.contains('missing picture in access unit')) return;
           if (event.startsWith("error running") ||
               event.startsWith("Failed to open .") ||
               event.startsWith("Cannot open") ||
