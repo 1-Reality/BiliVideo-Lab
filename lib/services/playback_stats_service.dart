@@ -236,12 +236,18 @@ abstract final class PlaybackStatsService {
       final key = entry.key.toString();
       if (!_isShardKey(key)) data[key] = entry.value;
     }
+    // Normalize each composite exactly once. Rebuilding it for every shard
+    // recursively copies all previous shards and makes startup quadratic.
+    final composites = <String, Map<String, dynamic>>{};
     Map<String, dynamic> composite(String key) {
+      final cached = composites[key];
+      if (cached != null) return cached;
       final current = data[key];
       final value = current is Map
           ? _stringMap(current)
           : <String, dynamic>{};
       data[key] = value;
+      composites[key] = value;
       return value;
     }
 
@@ -255,8 +261,11 @@ abstract final class PlaybackStatsService {
           final month = shard.substring(0, separator);
           final field = shard.substring(separator + 1);
           final months = composite('months');
-          final monthValue = months[month] is Map
-              ? _stringMap(months[month] as Map)
+          final currentMonth = months[month];
+          final monthValue = currentMonth is Map<String, dynamic>
+              ? currentMonth
+              : currentMonth is Map
+              ? _stringMap(currentMonth)
               : <String, dynamic>{};
           monthValue[field] = value is Map ? _stringMap(value) : value;
           months[month] = monthValue;
@@ -302,8 +311,11 @@ abstract final class PlaybackStatsService {
     if (separator <= 0) return;
     final axis = shard.substring(0, separator);
     final axisValue = shard.substring(separator + 1);
-    final values = target[axis] is Map
-        ? _stringMap(target[axis] as Map)
+    final currentAxis = target[axis];
+    final values = currentAxis is Map<String, dynamic>
+        ? currentAxis
+        : currentAxis is Map
+        ? _stringMap(currentAxis)
         : <String, dynamic>{};
     values[axisValue] = _stringMap(value);
     target[axis] = values;
