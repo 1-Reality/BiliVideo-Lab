@@ -130,7 +130,6 @@ class PLVideoPlayer extends StatefulWidget {
 class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
-  late VideoController videoController;
   late final CommonIntroController introController = widget.introController!;
   late final VideoDetailController videoDetailController =
       widget.videoDetailController!;
@@ -150,6 +149,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   Offset? _initialFocalPoint;
 
   bool _pauseDueToPauseUponEnteringBackgroundMode = false;
+  DateTime? _enteredBackgroundAt;
 
   StreamSubscription? _brightnessListener;
   void _onBrightnessChanged(double value) {
@@ -260,7 +260,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    videoController = plPlayerController.videoController!;
 
     if (PlatformUtils.isMobile) {
       Future.microtask(() {
@@ -330,6 +329,26 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final currentPlayer = plPlayerController.videoPlayerController;
     final isBackground = state == .paused || state == .detached;
+    if (Platform.isAndroid && isBackground) {
+      _enteredBackgroundAt ??= DateTime.now();
+    }
+    final recoverOutput = Platform.isAndroid &&
+        state == .resumed &&
+        _enteredBackgroundAt != null &&
+        DateTime.now().difference(_enteredBackgroundAt!) >=
+            const Duration(minutes: 1) &&
+        Get.currentRoute == '/videoV' &&
+        !plPlayerController.isPipMode &&
+        !plPlayerController.onlyPlayAudio.value &&
+        !plPlayerController.isLive &&
+        !plPlayerController.processing &&
+        plPlayerController.videoController != null &&
+        currentPlayer != null &&
+        currentPlayer.current.isNotEmpty;
+    if (state == .resumed) _enteredBackgroundAt = null;
+
+    final resumePlaying = (currentPlayer?.state.playing ?? false) ||
+        _pauseDueToPauseUponEnteringBackgroundMode;
     PlaybackStatsService.changePlaybackForm(
       isBackground
           ? (plPlayerController.isPipMode ? 'pip' : 'background')
@@ -345,8 +364,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         }
       } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
         _pauseDueToPauseUponEnteringBackgroundMode = false;
-        currentPlayer?.play();
+        if (!recoverOutput) currentPlayer?.play();
       }
+    }
+    if (recoverOutput) {
+      // A fresh Player also creates a fresh Android SurfaceTexture. Merely
+      // reopening the same URL can reuse the stale Surface in media_kit.
+      unawaited(plPlayerController.recoverAndroidVideoOutput(
+        resumePlaying: resumePlaying,
+      ));
     }
   }
 
@@ -1432,12 +1458,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: IgnorePointer(
               ignoring: !plPlayerController.enableDragSubtitle,
               child: Obx(
-                () => SubtitleView(
-                  controller: videoController,
-                  configuration: plPlayerController.subtitleConfig.value,
-                  enableDragSubtitle: plPlayerController.enableDragSubtitle,
-                  onUpdatePadding: plPlayerController.onUpdatePadding,
-                ),
+                () {
+                  final revision = plPlayerController.videoOutputRevision.value;
+                  final controller = plPlayerController.videoController;
+                  if (controller == null) return const SizedBox.shrink();
+                  return SubtitleView(
+                    key: ValueKey(revision),
+                    controller: controller,
+                    configuration: plPlayerController.subtitleConfig.value,
+                    enableDragSubtitle: plPlayerController.enableDragSubtitle,
+                    onUpdatePadding: plPlayerController.onUpdatePadding,
+                  );
+                },
               ),
             ),
           ),
@@ -2116,6 +2148,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: Obx(
               () {
                 final videoFit = plPlayerController.videoFit.value;
+                final revision = plPlayerController.videoOutputRevision.value;
+                final controller = plPlayerController.videoController;
+                if (controller == null) return const SizedBox.shrink();
                 return Transform.flip(
                   flipX: plPlayerController.flipX.value,
                   flipY: plPlayerController.flipY.value,
@@ -2123,7 +2158,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     fit: videoFit.boxFit,
                     alignment: widget.alignment,
                     child: SimpleVideo(
-                      controller: plPlayerController.videoController!,
+                      key: ValueKey(revision),
+                      controller: controller,
                       fill: widget.fill,
                       aspectRatio: videoFit.aspectRatio,
                     ),
