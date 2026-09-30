@@ -18,6 +18,7 @@ import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -114,6 +115,11 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       // after this migration the startup-critical video box stays small.
       await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
+      unawaited(PlaybackArchiveService.archiveIfDue().catchError(
+        (Object error, StackTrace stack) {
+          if (kDebugMode) debugPrint('Playback archive: $error\n$stack');
+        },
+      ));
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
       await GStorage.migrateHeavyTelemetryFromVideoBox();

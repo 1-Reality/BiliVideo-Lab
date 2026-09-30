@@ -4,7 +4,9 @@ import 'dart:io' show File;
 import 'dart:math' show max;
 
 import 'package:PiliBro/utils/storage.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:PiliBro/services/playback_archive_service.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, debugPrint, kDebugMode;
 import 'package:flutter/widgets.dart';
 
 abstract final class PlaybackStatsService {
@@ -201,8 +203,110 @@ abstract final class PlaybackStatsService {
     _queueLegacyCompositeMigration();
     _flushTimer ??= Timer.periodic(
       _flushInterval,
-      (_) => flush(),
+      (_) {
+        unawaited(_periodicFlushAndArchive());
+      },
     );
+  }
+
+  static Future<void> _periodicFlushAndArchive() async {
+    try {
+      await flush();
+      await PlaybackArchiveService.archiveIfDue();
+    } catch (error) {
+      if (kDebugMode) debugPrint('Playback maintenance: $error');
+    }
+  }
+
+  // Keep the cutover at 8/18/28 even if the player is still open. This is an
+  // independent ten-day measurement period, not an accounting month.
+  static Future<void> prepareArchiveRollover() async {
+    _snapshotting = true;
+    try {
+      // A media callback may arrive while the asynchronous disk write is in
+      // progress. Drain that last increment before swapping the active map.
+      do {
+        await flush(force: true);
+        await _writeChain;
+      } while (_dirty);
+      beginArchiveRollover();
+    } catch (_) {
+      _snapshotting = false;
+      rethrow;
+    }
+  }
+
+  // Called only after the prior hot file has been flushed, before rotation.
+  // Other playback events may already write into this fresh in-memory period;
+  // their writes are deferred until the new hot Box is ready.
+  static void beginArchiveRollover() {
+    _snapshotting = true;
+    _stats = {
+      'schemaVersion': schemaVersion,
+      'metricDefinitionVersion': metricDefinitionVersion,
+      'storageLayoutVersion': storageLayoutVersion,
+      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
+    };
+    _dirty = true;
+    _dirtyKeys
+      ..clear()
+      ..addAll(_stats!.keys);
+    _dirtyMonths.clear();
+    _dirtyVideoUpUids.clear();
+    _dirtyLiveUids.clear();
+    _dirtyDimensions.clear();
+    _dirtyCrossDimensions.clear();
+    _legacyCompositeKeys.clear();
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
+    final now = _clock.elapsedMicroseconds;
+    _appLastWallUs = now;
+    _pageLastWallUs = now;
+    _commentPanelLastWallUs = now;
+    // Continuing playback starts fresh counters in the new active file. The
+    // archived UP and session history is deliberately not consulted here.
+    _rewind = null;
+    _pendingPositionUs = null;
+    _clearTrailingPause();
+    if (_active) {
+      if (_live) {
+        _add('liveOpenCount', 1);
+        final uid = _liveUid ?? 'unknown';
+        _map('liveByUid')[uid] = {'openCount': 1, 'watchUs': 0};
+        _markLiveDirty(uid);
+      } else {
+        _add('videoStarts', 1);
+        _videoUpStartRecorded = false;
+        _recordVideoUpStart();
+        _recordSourceSpeed(_rate, _defaultRate);
+        if (_completedIdle) {
+          _videoSessionOpen = false;
+          _coveredIntervals.clear();
+        } else {
+          _beginVideoSession(
+            _lastPositionUs,
+            _sourceDurationUs,
+            resetContext: false,
+          );
+        }
+      }
+      _lastWallUs = now;
+    }
+  }
+
+  static void endArchiveRollover() {
+    _snapshotting = false;
   }
 
   static Map<String, dynamic> _stringMap(Map raw) => raw.map(
@@ -2330,19 +2434,27 @@ abstract final class PlaybackStatsService {
     }
   }
 
-  static Future<void> restoreHiveSnapshot(File source) async {
+  static Future<void> restoreHiveSnapshot(
+    File source, {File? archiveSource}
+  ) async {
+    await PlaybackArchiveService.waitForMaintenance();
     _snapshotting = true;
     try {
       await flush(force: true);
       await GStorage.restorePlaybackStatsHive(source);
+      await GStorage.restorePlaybackArchiveHive(archiveSource);
       reloadFromStorage();
     } finally {
       _snapshotting = false;
+    }
+    if (archiveSource == null) {
+      unawaited(PlaybackArchiveService.archiveIfDue());
     }
   }
 
   static Future<void> reset() async {
     _ensureInitialized();
+    await PlaybackArchiveService.resetArchive();
     await GStorage.playbackStats.clear();
     _stats = {
       'schemaVersion': schemaVersion,

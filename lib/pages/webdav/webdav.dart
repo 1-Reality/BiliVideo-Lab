@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/pair.dart';
 import 'package:PiliBro/services/comment_helper_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -24,6 +26,7 @@ typedef _WebDavConfig = ({
 abstract final class _ComponentName {
   static const settings = 'settings';
   static const playbackStats = 'playbackStats';
+  static const playbackArchive = 'playbackArchive';
   static const replyHistory = 'replyHistory';
   static const commentHelper = 'commentHelper';
   static const trafficStats = 'trafficStats';
@@ -131,7 +134,12 @@ class WebDav {
     }
     _busy = true;
     final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
+    var archiveLocked = false;
     try {
+      if (Pref.webdavBackupPlaybackStats) {
+        await PlaybackArchiveService.beginExplicitAccess();
+        archiveLocked = true;
+      }
       await TrafficStatsService.instance.initialize();
       await GStorage.initializePlaybackStats();
       final config = _getConfig();
@@ -172,6 +180,12 @@ class WebDav {
         );
         components[_ComponentName.playbackStats] = await _snapshotFile(
           playbackSnapshot,
+        );
+        final archiveSnapshot = await PlaybackArchiveService.copyArchiveSnapshot(
+          File(path.join(temp.path, 'playback_archive.hive')),
+        );
+        components[_ComponentName.playbackArchive] = await _snapshotFile(
+          archiveSnapshot,
         );
       }
 
@@ -228,6 +242,7 @@ class WebDav {
     } catch (e) {
       SmartDialog.showToast('备份失败: $e');
     } finally {
+      if (archiveLocked) PlaybackArchiveService.endExplicitAccess();
       _busy = false;
       try {
         await temp.delete(recursive: true);
@@ -243,7 +258,12 @@ class WebDav {
     _busy = true;
     final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
     var localMutationStarted = false;
+    var archiveLocked = false;
     try {
+      if (Pref.webdavBackupPlaybackStats) {
+        await PlaybackArchiveService.beginExplicitAccess();
+        archiveLocked = true;
+      }
       await TrafficStatsService.instance.initialize();
       await GStorage.initializePlaybackStats();
       final config = _getConfig();
@@ -264,7 +284,10 @@ class WebDav {
       final selected = <String>{
         _ComponentName.settings,
         _ComponentName.trafficStats,
-        if (Pref.webdavBackupPlaybackStats) _ComponentName.playbackStats,
+        if (Pref.webdavBackupPlaybackStats) ...[
+          _ComponentName.playbackStats,
+          _ComponentName.playbackArchive,
+        ],
         if (Pref.webdavBackupCommentHistory) ...[
           _ComponentName.replyHistory,
           _ComponentName.commentHelper,
@@ -292,7 +315,10 @@ class WebDav {
       await GStorage.importAllSettings(await settingsFile.readAsString());
 
       if (downloaded[_ComponentName.playbackStats] case final file?) {
-        await PlaybackStatsService.restoreHiveSnapshot(file);
+        await PlaybackArchiveService.waitForMaintenance();
+        await PlaybackStatsService.restoreHiveSnapshot(
+          file, archiveSource: downloaded[_ComponentName.playbackArchive],
+        );
       }
       if (downloaded[_ComponentName.replyHistory] case final file?) {
         await GStorage.restoreReplyHive(file);
@@ -315,6 +341,10 @@ class WebDav {
         await _restoreLegacyBackup(e);
       }
     } finally {
+      if (archiveLocked) PlaybackArchiveService.endExplicitAccess();
+      if (localMutationStarted && archiveLocked) {
+        unawaited(PlaybackArchiveService.archiveIfDue());
+      }
       _busy = false;
       try {
         await temp.delete(recursive: true);
@@ -333,6 +363,7 @@ class WebDav {
         try {
           final data = await client.read(remotePath);
           await GStorage.importAllSettings(utf8.decode(data));
+          PlaybackStatsService.reloadFromStorage();
           SmartDialog.showToast('已恢复旧版设置备份');
           return;
         } catch (_) {}

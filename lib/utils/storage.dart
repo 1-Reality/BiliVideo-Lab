@@ -37,6 +37,8 @@ abstract final class GStorage {
   static const _heavyTelemetryLayoutVersion = 3;
   static const _nextPlaybackStatsCompactAtMs =
       'nextPlaybackStatsCompactAtMs';
+  static const _archiveLayoutKey = 'playbackColdArchiveVersion';
+  static const _archivePendingIdKey = 'playbackColdArchivePendingId';
   static const _legacyCdnDiagnosticPrefix = 'cdnDiagnostic:';
   static const _cdnDiagnosticLatestExportPrefix =
       'cdnDiagnosticLatestV3:';
@@ -73,6 +75,101 @@ abstract final class GStorage {
         _playbackStats?.path ??
             path.join(appSupportDirPath, 'hive', 'playbackStats.hive'),
       );
+
+  static File get playbackArchiveHiveFile =>
+      File(path.join(appSupportDirPath, 'hive', 'playbackArchive.hive'));
+
+  static File get playbackStatsPendingHiveFile =>
+      File(path.join(appSupportDirPath, 'hive', 'playbackStatsPending.hive'));
+
+  static bool get playbackArchiveDue {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final due = localCache.get(_nextPlaybackStatsCompactAtMs, defaultValue: 0);
+    return localCache.get(_archiveLayoutKey) != 1 ||
+        (due is num && due >= 0 && now >= due.toInt());
+  }
+
+  static String? get playbackArchiveId =>
+      localCache.get(_archivePendingIdKey) as String?;
+
+  static Future<void> preparePlaybackArchiveId() async {
+    if (playbackArchiveId == null) {
+      await localCache.put(
+        _archivePendingIdKey,
+        DateTime.now().microsecondsSinceEpoch.toString(),
+      );
+    }
+  }
+
+  static Future<void> rotatePlaybackStats() async {
+    final target = playbackStatsHiveFile;
+    final pending = playbackStatsPendingHiveFile;
+    if (await pending.exists()) {
+      throw StateError('Previous playback archive remains unfinished');
+    }
+    await playbackStats.flush();
+    await playbackStats.close();
+    _playbackStats = null;
+    try {
+      if (await target.exists()) await target.rename(pending.path);
+      _playbackStats = await Hive.openBox('playbackStats');
+    } catch (_) {
+      // The old file may already have been renamed. Re-open whichever source
+      // exists; next launch will always finish a pending archive first.
+      _playbackStats = await Hive.openBox('playbackStats');
+      rethrow;
+    }
+  }
+
+  static Future<void> completePlaybackArchive() async {
+    await localCache.put(_archiveLayoutKey, 1);
+    final next = _nextPlaybackMaintenanceAt(DateTime.now()).millisecondsSinceEpoch;
+    await localCache.put(_nextPlaybackStatsCompactAtMs, next);
+    // Retain the ID until the immutable pending file has been deleted.
+  }
+
+  static Future<void> finishPlaybackArchive() =>
+      localCache.delete(_archivePendingIdKey);
+
+  static Future<void> discardOrphanPlaybackArchiveId() async {
+    if (playbackArchiveId != null) await finishPlaybackArchive();
+  }
+
+  static Future<void> markPlaybackArchiveReset() async {
+    await localCache.put(_archiveLayoutKey, 1);
+    await localCache.delete(_archivePendingIdKey);
+    await localCache.put(
+      _nextPlaybackStatsCompactAtMs,
+      _nextPlaybackMaintenanceAt(DateTime.now()).millisecondsSinceEpoch,
+    );
+  }
+
+  static Future<void> markLegacyPlaybackImported() async {
+    await localCache.put(_archiveLayoutKey, 0);
+    await localCache.put(_nextPlaybackStatsCompactAtMs, 0);
+  }
+
+  static Future<void> restorePlaybackArchiveHive(File? source) async {
+    final target = playbackArchiveHiveFile;
+    if (source == null) {
+      if (await target.exists()) await target.delete();
+      await markLegacyPlaybackImported();
+      return;
+    }
+    try {
+      await _replaceHiveFile(source, target);
+      // Verify that the imported archive is an actual readable Hive file.
+      final archive = await Hive.openLazyBox<dynamic>(
+        'playbackArchive', path: target.path,
+      );
+      await archive.close();
+    } catch (_) {
+      await _rollbackHiveFile(target);
+      rethrow;
+    }
+    await _deleteFileIfExists(File('${target.path}.webdav-previous'));
+    await localCache.put(_archiveLayoutKey, 1);
+  }
 
   static File get commentHelperHiveFile =>
       File(
@@ -392,22 +489,15 @@ abstract final class GStorage {
     if (due < 0) return due;
     if (now.millisecondsSinceEpoch < due.toInt()) return due;
 
-    // This deliberately runs before the first home frame. Compaction is rare,
-    // while opening a bloated hot store on every launch is expensive.
-    await initializePlaybackStats();
-    await playbackStats.compact();
+    // Only lightweight scheduling/branding happens before the first frame.
+    // The actual cold archive runs after the first frame, never in init().
 
     final updateIgnore = localCache.get(LocalCacheKey.updateIgnore);
     if (updateIgnore is Map && updateIgnore['temporary'] == true) {
       await localCache.delete(LocalCacheKey.updateIgnore);
     }
 
-    final nextMaintenance =
-        _nextPlaybackMaintenanceAt(now).millisecondsSinceEpoch;
-    await localCache.put(
-      _nextPlaybackStatsCompactAtMs,
-      Platform.isAndroid && due == 0 ? -nextMaintenance : nextMaintenance,
-    );
+    // Advance the due date ONLY after a successful physical archive.
     if (due != 0) {
       _startupBrandProfileMid = switch (now.millisecondsSinceEpoch % 10) {
         0 || 8 => 1225047446,
@@ -456,6 +546,7 @@ abstract final class GStorage {
   static String exportAllSettings({
     bool includePlaybackStats = true,
     bool includeCdnDiagnostics = true,
+    Map<String, dynamic>? playbackArchive,
   }) {
     final videoData = Map<dynamic, dynamic>.from(video.toMap())
       ..remove(VideoBoxKey.playbackStats)
@@ -498,7 +589,10 @@ abstract final class GStorage {
       'backupMeta': {
         'includePlaybackStats': includePlaybackStats,
         'includeCdnDiagnostics': includeCdnDiagnostics,
+        'archiveFormat': playbackArchive == null ? null : 1,
       },
+      if (includePlaybackStats && playbackArchive != null)
+        'playbackArchive': playbackArchive,
       setting.name: setting.toMap(),
       video.name: videoData,
     });
@@ -574,6 +668,36 @@ abstract final class GStorage {
             (id: entry.key, record: entry.value),
         ]),
     ]);
+    if (!keepPlayback) {
+      // A full JSON import replaces both halves; settings-only imports retain both.
+      final historical = map['playbackArchive'];
+      if (await playbackArchiveHiveFile.exists()) {
+        await Hive.deleteBoxFromDisk(
+          'playbackArchive', path: playbackArchiveHiveFile.path,
+        );
+      }
+      if (historical is Map && meta is Map && meta['archiveFormat'] == 1) {
+        final archive = await Hive.openLazyBox<dynamic>(
+          'playbackArchive', path: playbackArchiveHiveFile.path,
+        );
+        try {
+          final importId = DateTime.now().microsecondsSinceEpoch.toString();
+          for (final entry in historical.entries) {
+            await archive.put(entry.key.toString(), {
+              '_sourceId': importId,
+              '_value': entry.value,
+            });
+          }
+          await archive.flush();
+        } finally {
+          await archive.close();
+        }
+        await localCache.put(_archiveLayoutKey, 1);
+      } else {
+        // Pre-archive JSON is a single hot dataset: archive it once after import.
+        await markLegacyPlaybackImported();
+      }
+    }
 
     return const <void>[];
   }

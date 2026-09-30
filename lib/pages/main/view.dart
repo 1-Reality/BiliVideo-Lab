@@ -15,6 +15,7 @@ import 'package:PiliBro/pages/audio/mini_player.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
@@ -142,6 +143,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Future<void> _flushTelemetryAndCloseStorage() async {
     await PlaybackStatsService.flush();
+    await PlaybackArchiveService.waitForMaintenance();
     await TrafficStatsService.instance.dispose();
     await GStorage.close();
   }
@@ -212,6 +214,7 @@ class _MainAppState extends PopScopeState<MainApp>
     _windowGeometryTimer?.cancel();
     await _saveWindowGeometry();
     await PlaybackStatsService.flush();
+    await PlaybackArchiveService.waitForMaintenance();
     await TrafficStatsService.instance.dispose();
     await GStorage.close();
     await trayManager.destroy();

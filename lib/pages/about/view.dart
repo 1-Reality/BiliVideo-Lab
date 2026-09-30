@@ -13,6 +13,7 @@ import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
@@ -312,15 +313,37 @@ Commit Hash: ${BuildConfig.commitHash}''',
             onTap: () async {
               final options = await _selectSettingsBackupOptions();
               if (options == null || !context.mounted) return;
+              // Explicit export only. Hold both halves still while capturing.
+              await PlaybackArchiveService.beginExplicitAccess();
+              late final String exportJson;
+              try {
+                final archived = options.playbackStats
+                    ? await PlaybackArchiveService.loadRawArchive()
+                    : null;
+                exportJson = GStorage.exportAllSettings(
+                  includePlaybackStats: options.playbackStats,
+                  includeCdnDiagnostics: options.cdnDiagnostics,
+                  playbackArchive: archived,
+                );
+              } finally {
+                PlaybackArchiveService.endExplicitAccess();
+              }
+              if (!context.mounted) return;
               await showImportExportDialog<Map<String, dynamic>>(
                 context,
                 title: '设置',
                 localFileName: () => 'setting_${DeviceUtils.platformName}',
-                onExport: () => GStorage.exportAllSettings(
-                  includePlaybackStats: options.playbackStats,
-                  includeCdnDiagnostics: options.cdnDiagnostics,
-                ),
-                onImport: GStorage.importAllJsonSettings,
+                onExport: () => exportJson,
+                onImport: (json) async {
+                  await PlaybackArchiveService.beginExplicitAccess();
+                  try {
+                    await GStorage.importAllJsonSettings(json);
+                    PlaybackStatsService.reloadFromStorage();
+                  } finally {
+                    PlaybackArchiveService.endExplicitAccess();
+                  }
+                  unawaited(PlaybackArchiveService.archiveIfDue());
+                },
               );
             },
           ),

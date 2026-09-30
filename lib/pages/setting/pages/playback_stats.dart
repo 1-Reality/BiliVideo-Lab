@@ -2,6 +2,7 @@ import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -19,6 +20,22 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   static final _trailingDot = RegExp(r'\.$');
 
   late Map<String, dynamic> stats = PlaybackStatsService.snapshot();
+  bool _advancedExpanded = false;
+  bool _advancedLoading = false;
+  String? _advancedData;
+
+  Future<void> _loadAdvanced() async {
+    if (_advancedData != null || _advancedLoading) return;
+    setState(() => _advancedLoading = true);
+    try {
+      final result = await PlaybackArchiveService.advancedJson();
+      if (mounted) setState(() => _advancedData = result);
+    } catch (e) {
+      if (mounted) SmartDialog.showToast('历史统计读取失败: $e');
+    } finally {
+      if (mounted) setState(() => _advancedLoading = false);
+    }
+  }
 
   num _value(String key) => stats[key] as num? ?? 0;
   Map<String, dynamic> get _derived => stats['derived'] as Map<String, dynamic>;
@@ -81,7 +98,11 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
     );
     if (confirmed == true) {
       await PlaybackStatsService.reset();
-      if (mounted) setState(() => stats = PlaybackStatsService.snapshot());
+      if (mounted) setState(() {
+        stats = PlaybackStatsService.snapshot();
+        _advancedData = null;
+        _advancedExpanded = false;
+      });
     }
   }
 
@@ -105,9 +126,6 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         (a, b) => ((b.value as Map)['activePlaybackUs'] as num? ?? 0)
             .compareTo((a.value as Map)['activePlaybackUs'] as num? ?? 0),
       );
-    final now = DateTime.now();
-    final currentMonth =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
     return SimpleScaffold(
       appBar: AppBar(
@@ -214,7 +232,6 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 subtitle: const Text('按 UID 汇总，并保留逐月原语'),
                 children: upEntries!.map((entry) {
                   final item = entry.value as Map;
-                  final month = (item['months'] as Map?)?[currentMonth] as Map?;
                   final active = item['activePlaybackUs'] as num? ?? 0;
                   final media = item['mediaAdvanceUs'] as num? ?? 0;
                   final nominal = item['nominalMediaUs'] as num? ?? 0;
@@ -230,7 +247,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
-                      'UID ${entry.key} · 本月 ${_duration(month?['activePlaybackUs'] as num? ?? 0)}'
+                      'UID ${entry.key} · 本月 ${_duration(active)}'
                       ' · 名义 ${_speed(nominal * activeScale)}'
                       ' · 含长按 ${_speed(nominalLong * activeScale)}\n'
                       '推进 ${_speed(media * activeScale)}'
@@ -271,7 +288,11 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             _item('直播累计观看时间', _duration(_value('liveWatchUs'))),
             ExpansionTile(
               title: const Text('高级参数回看'),
-              subtitle: const Text('查看可供重新计算或交给 AI 分析的原始统计量'),
+              subtitle: const Text('主动展开时才读取历史归档'),
+              onExpansionChanged: (expanded) {
+                setState(() => _advancedExpanded = expanded);
+                if (expanded) _loadAdvanced();
+              },
               childrenPadding: const .fromLTRB(16, 0, 16, 20),
               children: [
                 if (speedSelections?.isNotEmpty == true)
@@ -292,29 +313,32 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () {
-                      Clipboard.setData(
-                        ClipboardData(
-                          text: PlaybackStatsService.advancedJson(),
-                        ),
-                      );
-                      SmartDialog.showToast('高级参数已复制');
-                    },
-                    icon: const Icon(Icons.copy_outlined),
-                    label: const Text('复制高级参数'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: SelectableText(
-                    PlaybackStatsService.advancedJson(),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
+                if (_advancedExpanded) ...[
+                  if (_advancedLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_advancedData case final data?) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: data));
+                          SmartDialog.showToast('高级参数已复制');
+                        },
+                        icon: const Icon(Icons.copy_outlined),
+                        label: const Text('复制高级参数'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SelectableText(
+                        data,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ] else
+                    TextButton(onPressed: _loadAdvanced, child: const Text('重试读取历史')),
+                ],
               ],
             ),
           ],
