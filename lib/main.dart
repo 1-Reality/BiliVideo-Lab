@@ -115,11 +115,6 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       // after this migration the startup-critical video box stays small.
       await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
-      unawaited(PlaybackArchiveService.archiveIfDue().catchError(
-        (Object error, StackTrace stack) {
-          if (kDebugMode) debugPrint('Playback archive: $error\n$stack');
-        },
-      ));
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
       await GStorage.migrateHeavyTelemetryFromVideoBox();
@@ -135,6 +130,7 @@ void main() async {
   late final num? due;
   try {
     due = await GStorage.init();
+    await PlaybackArchiveService.archiveIfDue();
   } catch (e) {
     await Utils.copyText(e.toString(), needToast: false);
     if (kDebugMode) debugPrint('GStorage init error: $e');

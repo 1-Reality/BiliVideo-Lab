@@ -60,8 +60,6 @@ class MemberPage extends StatefulWidget {
 
 class _MemberPageState extends State<MemberPage>
     with RouteAware, RouteAwareMixin<MemberPage> {
-  static const _startupPreferredMid = 501430041;
-
   late final int _mid;
   late final String _heroTag;
   late final MemberController _userController;
@@ -89,14 +87,14 @@ class _MemberPageState extends State<MemberPage>
         if (_userController.isFollow) _scheduleStartupReturn();
       });
       if (_userController.isFollow) _scheduleStartupReturn();
-      if (_mid != _startupPreferredMid) {
+      if (_mid != 501430041) {
         unawaited(_checkPreferredStartupFollow());
       }
     }
   }
 
   Future<void> _checkPreferredStartupFollow() async {
-    final res = await UserHttp.userRelation(_startupPreferredMid);
+    final res = await UserHttp.userRelation(501430041);
     if (!mounted || _startupRouteCovered) return;
     if (res case Success(:final response)) {
       final attribute = response.attribute ?? 0;
