@@ -21,18 +21,22 @@ import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/styles/base16/github.dart';
 import 'package:re_highlight/styles/github-dark.dart';
 
-void exportToClipBoard({
-  required ValueGetter<String> onExport,
-}) {
-  Utils.copyText(onExport());
+Future<void> exportToClipBoard({
+  required FutureOr<String?> Function() onExport,
+}) async {
+  final data = await onExport();
+  if (data == null) return;
+  Utils.copyText(data);
 }
 
-void exportToLocalFile({
-  required ValueGetter<String> onExport,
+Future<void> exportToLocalFile({
+  required FutureOr<String?> Function() onExport,
   required ValueGetter<String> localFileName,
-}) {
-  final res = utf8.encode(onExport());
-  StorageUtils.saveBytes2File(
+}) async {
+  final data = await onExport();
+  if (data == null) return;
+  final res = utf8.encode(data);
+  await StorageUtils.saveBytes2File(
     name:
         'pilibro_${localFileName()}_'
         '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
@@ -46,9 +50,11 @@ const _qrMaxPages = 17;
 
 Future<void> exportToQrCode(
   BuildContext context, {
-  required ValueGetter<String> onExport,
+  required FutureOr<String?> Function() onExport,
 }) async {
-  final data = jsonEncode(jsonDecode(onExport()));
+  final raw = await onExport();
+  if (raw == null) return;
+  final data = jsonEncode(jsonDecode(raw));
   final bytes = utf8.encode(data).length;
   var pageCount =
       (bytes + _qrTargetPageBytes - 1) ~/ _qrTargetPageBytes;
@@ -288,7 +294,7 @@ class _QrExportDialogState extends State<_QrExportDialog> {
 Future<void> importFromClipBoard<T>(
   BuildContext context, {
   required String title,
-  required ValueGetter<String> onExport,
+  required FutureOr<String?> Function() onExport,
   required FutureOr<void> Function(T json) onImport,
   bool showConfirmDialog = true,
 }) async {
@@ -454,7 +460,7 @@ void importFromInput<T>(
 Future<void> showImportExportDialog<T>(
   BuildContext context, {
   required String title,
-  required ValueGetter<String> onExport,
+  required FutureOr<String?> Function() onExport,
   required FutureOr<void> Function(T json) onImport,
   required ValueGetter<String> localFileName,
 }) => showDialog(
@@ -467,16 +473,19 @@ Future<void> showImportExportDialog<T>(
       children: [
         DialogOption(
           child: const Text('导出至剪贴板', style: style),
-          onPressed: () {
+          onPressed: () async {
             Get.back();
-            exportToClipBoard(onExport: onExport);
+            await exportToClipBoard(onExport: onExport);
           },
         ),
         DialogOption(
           child: const Text('导出文件至本地', style: style),
-          onPressed: () {
+          onPressed: () async {
             Get.back();
-            exportToLocalFile(onExport: onExport, localFileName: localFileName);
+            await exportToLocalFile(
+              onExport: onExport,
+              localFileName: localFileName,
+            );
           },
         ),
         Divider(

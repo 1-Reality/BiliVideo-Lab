@@ -39,6 +39,8 @@ abstract final class GStorage {
       'nextPlaybackStatsCompactAtMs';
   static const _archiveLayoutKey = 'playbackColdArchiveVersion';
   static const _archivePendingIdKey = 'playbackColdArchivePendingId';
+  static const _archivePathLayoutKey = 'playbackColdArchivePathVersion';
+  static const _archivePathLayoutVersion = 1;
   static const _legacyCdnDiagnosticPrefix = 'cdnDiagnostic:';
   static const _cdnDiagnosticLatestExportPrefix =
       'cdnDiagnosticLatestV3:';
@@ -73,14 +75,53 @@ abstract final class GStorage {
   static File get playbackStatsHiveFile =>
       File(
         _playbackStats?.path ??
-            path.join(appSupportDirPath, 'hive', 'playbackStats.hive'),
+            path.join(appSupportDirPath, 'hive', 'playbackstats.hive'),
       );
 
   static File get playbackArchiveHiveFile =>
-      File(path.join(appSupportDirPath, 'hive', 'playbackArchive.hive'));
+      File(path.join(appSupportDirPath, 'hive', 'playbackarchive.hive'));
 
   static File get playbackStatsPendingHiveFile =>
-      File(path.join(appSupportDirPath, 'hive', 'playbackStatsPending.hive'));
+      File(path.join(appSupportDirPath, 'hive', 'playbackstatspending.hive'));
+
+  static Future<void> _repairPlaybackArchivePaths() async {
+    if (localCache.get(_archivePathLayoutKey) == _archivePathLayoutVersion) {
+      return;
+    }
+
+    final hiveDir = path.join(appSupportDirPath, 'hive');
+    final legacyPending = File(path.join(hiveDir, 'playbackStatsPending.hive'));
+    final pending = playbackStatsPendingHiveFile;
+    if (await legacyPending.exists() && !await pending.exists()) {
+      await legacyPending.rename(pending.path);
+    }
+
+    // The broken archive build passed a FILE path to Hive's path: argument.
+    // Hive treated it as a directory and nested playbackarchive.hive inside it.
+    final brokenArchiveDir = Directory(
+      path.join(hiveDir, 'playbackArchive.hive'),
+    );
+    if (await brokenArchiveDir.exists()) {
+      final nestedArchive = File(
+        path.join(brokenArchiveDir.path, 'playbackarchive.hive'),
+      );
+      if (await nestedArchive.exists() &&
+          !await playbackArchiveHiveFile.exists()) {
+        final repairTemp = File(path.join(hiveDir, '.playbackarchive.repair'));
+        if (await repairTemp.exists()) await repairTemp.delete();
+        await nestedArchive.copy(repairTemp.path);
+        await brokenArchiveDir.delete(recursive: true);
+        await repairTemp.rename(playbackArchiveHiveFile.path);
+      } else {
+        await brokenArchiveDir.delete(recursive: true);
+      }
+    }
+
+    await localCache.put(
+      _archivePathLayoutKey,
+      _archivePathLayoutVersion,
+    );
+  }
 
   static bool get playbackArchiveDue {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -159,9 +200,7 @@ abstract final class GStorage {
     try {
       await _replaceHiveFile(source, target);
       // Verify that the imported archive is an actual readable Hive file.
-      final archive = await Hive.openLazyBox<dynamic>(
-        'playbackArchive', path: target.path,
-      );
+      final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
       await archive.close();
     } catch (_) {
       await _rollbackHiveFile(target);
@@ -438,6 +477,8 @@ abstract final class GStorage {
       ).then((res) => watchProgress = res),
     ]);
 
+    await _repairPlaybackArchivePaths();
+
     final due = await _runPlaybackMaintenanceIfDue();
 
     if (Pref.saveReply) {
@@ -672,14 +713,10 @@ abstract final class GStorage {
       // A full JSON import replaces both halves; settings-only imports retain both.
       final historical = map['playbackArchive'];
       if (await playbackArchiveHiveFile.exists()) {
-        await Hive.deleteBoxFromDisk(
-          'playbackArchive', path: playbackArchiveHiveFile.path,
-        );
+        await Hive.deleteBoxFromDisk('playbackArchive');
       }
       if (historical is Map && meta is Map && meta['archiveFormat'] == 1) {
-        final archive = await Hive.openLazyBox<dynamic>(
-          'playbackArchive', path: playbackArchiveHiveFile.path,
-        );
+        final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
         try {
           final importId = DateTime.now().microsecondsSinceEpoch.toString();
           for (final entry in historical.entries) {

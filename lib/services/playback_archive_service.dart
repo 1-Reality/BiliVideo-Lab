@@ -82,9 +82,7 @@ abstract final class PlaybackArchiveService {
     }
     await _mergePending();
     await GStorage.completePlaybackArchive();
-    await Hive.deleteBoxFromDisk(
-      'playbackStatsPending', path: GStorage.playbackStatsPendingHiveFile.path,
-    );
+    await Hive.deleteBoxFromDisk('playbackStatsPending');
     await GStorage.finishPlaybackArchive();
   }
 
@@ -124,12 +122,8 @@ abstract final class PlaybackArchiveService {
   static Future<void> _mergePending() async {
     final id = GStorage.playbackArchiveId;
     if (id == null) throw StateError('Missing playback archive transaction ID');
-    final pending = await Hive.openLazyBox<dynamic>(
-      'playbackStatsPending', path: GStorage.playbackStatsPendingHiveFile.path,
-    );
-    final archive = await Hive.openLazyBox<dynamic>(
-      'playbackArchive', path: GStorage.playbackArchiveHiveFile.path,
-    );
+    final pending = await Hive.openLazyBox<dynamic>('playbackStatsPending');
+    final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
     try {
       final writes = <dynamic, dynamic>{};
       for (final key in pending.keys) {
@@ -167,9 +161,7 @@ abstract final class PlaybackArchiveService {
     await waitForMaintenance();
     final historical = <String, dynamic>{};
     if (!await GStorage.playbackArchiveHiveFile.exists()) return historical;
-    final archive = await Hive.openLazyBox<dynamic>(
-      'playbackArchive', path: GStorage.playbackArchiveHiveFile.path,
-    );
+    final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
     try {
       var count = 0;
       for (final key in archive.keys) {
@@ -206,9 +198,7 @@ abstract final class PlaybackArchiveService {
   static Future<File> copyArchiveSnapshot(File destination) async {
     await waitForMaintenance();
     if (!await GStorage.playbackArchiveHiveFile.exists()) {
-      final archive = await Hive.openLazyBox<dynamic>(
-        'playbackArchive', path: GStorage.playbackArchiveHiveFile.path,
-      );
+      final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
       try {
         await archive.put('__archiveFormat', 1);
         await archive.flush();
@@ -224,15 +214,10 @@ abstract final class PlaybackArchiveService {
     await beginExplicitAccess();
     try {
       if (await GStorage.playbackArchiveHiveFile.exists()) {
-        await Hive.deleteBoxFromDisk(
-          'playbackArchive', path: GStorage.playbackArchiveHiveFile.path,
-        );
+        await Hive.deleteBoxFromDisk('playbackArchive');
       }
       if (await GStorage.playbackStatsPendingHiveFile.exists()) {
-        await Hive.deleteBoxFromDisk(
-          'playbackStatsPending',
-          path: GStorage.playbackStatsPendingHiveFile.path,
-        );
+        await Hive.deleteBoxFromDisk('playbackStatsPending');
       }
       await GStorage.markPlaybackArchiveReset();
     } finally {
