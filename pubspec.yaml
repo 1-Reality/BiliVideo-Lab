@@ -111,6 +111,7 @@ dependencies:
       ref: dev
   hive_ce: ^2.19.3
   html: ^0.15.4
+  image: ^4.10.1
   http2: ^2.3.1
   image_cropper: ^12.0.0
   image_picker: ^1.1.2

@@ -2,10 +2,15 @@ package com.example.pilibro
 
 import android.app.UiModeManager
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.telephony.TelephonyManager
 import android.os.Bundle
@@ -16,6 +21,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.security.MessageDigest
 import java.util.function.IntConsumer
 
 class MainActivity : AudioServiceActivity() {
@@ -53,6 +59,42 @@ class MainActivity : AudioServiceActivity() {
                     stopProposedRotation()
                 }
             })
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/desktop_icon")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getCurrentBuiltInIcon" -> {
+                        val fileNames = call.argument<List<String>>("fileNames") ?: emptyList()
+                        result.success(currentBuiltInLauncherIcon(fileNames))
+                    }
+                    "setBuiltInIcon" -> {
+                        val fileName = call.argument<String>("fileName")
+                        result.success(setBuiltInLauncherIcon(fileName))
+                    }
+                    "setCustomDesktopIcon" -> {
+                        val bytes = call.argument<ByteArray>("bytes")
+                        if (bytes == null) {
+                            result.error("INVALID_ICON", "Missing icon bytes", null)
+                            return@setMethodCallHandler
+                        }
+                        Thread {
+                            try {
+                                val status = setCustomDesktopIcon(bytes)
+                                runOnUiThread { result.success(status) }
+                            } catch (e: Throwable) {
+                                runOnUiThread {
+                                    result.error(
+                                        "ICON_ERROR",
+                                        e.message ?: e.javaClass.simpleName,
+                                        null,
+                                    )
+                                }
+                            }
+                        }.start()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/device")
             .setMethodCallHandler { call, result ->
@@ -184,4 +226,163 @@ class MainActivity : AudioServiceActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
+
+    private fun desktopIconComponent(fileName: String): ComponentName {
+        val packageName = MainActivity::class.java.packageName
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(fileName.toByteArray(Charsets.UTF_8))
+        val id = digest.take(12).joinToString("") {
+            "%02x".format(it.toInt() and 0xff)
+        }
+        return ComponentName(
+            this.packageName,
+            packageName + ".DesktopIcon_" + id,
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun desktopIconComponents(): List<ComponentName> {
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        val classPrefix = MainActivity::class.java.packageName + ".DesktopIcon_"
+        return packageManager
+            .queryIntentActivities(
+                launcherIntent,
+                PackageManager.MATCH_DISABLED_COMPONENTS,
+            )
+            .mapNotNull { info ->
+                val name = info.activityInfo?.name ?: return@mapNotNull null
+                if (name.startsWith(classPrefix)) {
+                    ComponentName(packageName, name)
+                } else {
+                    null
+                }
+            }
+            .distinct()
+    }
+
+    private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
+        if (
+            packageManager.getComponentEnabledSetting(defaultComponent) !=
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        ) {
+            return null
+        }
+
+        val namesByComponent = fileNames.associateBy {
+            desktopIconComponent(it).className
+        }
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        @Suppress("DEPRECATION")
+        val activities = packageManager.queryIntentActivities(
+            launcherIntent,
+            PackageManager.MATCH_DISABLED_COMPONENTS,
+        )
+        return activities.firstOrNull { info ->
+            val name = info.activityInfo?.name ?: return@firstOrNull false
+            if (name !in namesByComponent) return@firstOrNull false
+            packageManager.getComponentEnabledSetting(
+                ComponentName(packageName, name),
+            ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }?.activityInfo?.name?.let(namesByComponent::get)
+    }
+
+    private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
+        val aliases = desktopIconComponents()
+        val target = fileName?.let(::desktopIconComponent)
+        if (target != null && target !in aliases) {
+            return false
+        }
+
+        val settings = buildList {
+            add(
+                PackageManager.ComponentEnabledSetting(
+                    defaultComponent,
+                    if (target == null) {
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    } else {
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    },
+                    PackageManager.DONT_KILL_APP,
+                ),
+            )
+            aliases.forEach { alias ->
+                add(
+                    PackageManager.ComponentEnabledSetting(
+                        alias,
+                        if (alias == target) {
+                            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        } else {
+                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        },
+                        PackageManager.DONT_KILL_APP,
+                    ),
+                )
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.setComponentEnabledSettings(settings)
+        } else {
+            settings.forEach {
+                packageManager.setComponentEnabledSetting(
+                    it.componentName!!,
+                    it.enabledState,
+                    it.enabledFlags,
+                )
+            }
+        }
+        return true
+    }
+
+    private fun setCustomDesktopIcon(bytes: ByteArray): Int {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: return 0
+        val shortcutIntent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            @Suppress("DEPRECATION")
+            sendBroadcast(Intent("com.android.launcher.action.INSTALL_SHORTCUT").apply {
+                putExtra(Intent.EXTRA_SHORTCUT_NAME, "PiliBro")
+                putExtra(Intent.EXTRA_SHORTCUT_ICON, bitmap)
+                putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent)
+            })
+            return 1
+        }
+
+        val manager = getSystemService(ShortcutManager::class.java) ?: return 0
+        if (!manager.isRequestPinShortcutSupported) return 0
+
+        val shortcut = ShortcutInfo.Builder(this, "custom_desktop_icon")
+            .setShortLabel("PiliBro")
+            .setIcon(Icon.createWithAdaptiveBitmap(bitmap))
+            .setIntent(shortcutIntent)
+            .build()
+
+        val pinned = manager.pinnedShortcuts.any {
+            it.id == "custom_desktop_icon"
+        }
+        return if (pinned) {
+            if (manager.updateShortcuts(listOf(shortcut))) 2 else 0
+        } else if (manager.requestPinShortcut(shortcut, null)) {
+            1
+        } else {
+            0
+        }
+    }
+
+
 }

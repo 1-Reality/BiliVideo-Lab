@@ -12,6 +12,7 @@ import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/webdav/view.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/desktop_icon.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/utils.dart';
@@ -189,6 +190,16 @@ class _SettingPageState extends State<SettingPage> {
             title: Text('电视机快速登录与遥控器配置', style: titleStyle),
             subtitle: Text(
               '折叠屏、大平板等特殊屏幕配置，屏幕方向校准，登录、设置导出',
+              style: subTitleStyle,
+            ),
+          ),
+        if (Platform.isAndroid)
+          ListTile(
+            onTap: () => Get.to(() => const DesktopIconPage()),
+            leading: const Icon(Icons.apps_outlined),
+            title: Text('桌面图标', style: titleStyle),
+            subtitle: Text(
+              '选择内置图标或添加自定义桌面快捷方式',
               style: subTitleStyle,
             ),
           ),
