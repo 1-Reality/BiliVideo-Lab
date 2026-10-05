@@ -46,7 +46,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
         '<style>#E{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:red}</style>'
         '<body><div id="E"></div>'
         '<script>'
-        '${Platform.isLinux ? "R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))" : "R=(n,o)=>window.flutter_inappwebview?.callHandler(n,o)"};$js'
+        '${Platform.isLinux ? "R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))" : "R=(n,o)=>location.href='pilibro-geetest://'+n+'?data='+encodeURIComponent(JSON.stringify(o))"};$js'
         '</script>'
         '<script src="$_geetestJsUri" onload="G()" onerror="E()"></script>'
         '<script src="$_geetestConfigUri?gt=$gt&callback=geetest_$ts" onerror="E()"></script>'
@@ -125,6 +125,30 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
             pageZoom: Platform.isIOS ? 3 : 1,
           ),
           initialData: InAppWebViewInitialData(data: html),
+          shouldOverrideUrlLoading: (controller, navigationAction) async {
+            final url = navigationAction.request.url;
+            if (url?.scheme == 'pilibro-geetest') {
+              final value = url.toString();
+              final i = value.indexOf('?data=');
+              final data = i >= 0 ? Uri.decodeComponent(value.substring(i + 6)) : null;
+              if (url.host == 'success' && data != null) {
+                try {
+                  final result = jsonDecode(data);
+                  if (result is Map) {
+                    Get.back(result: Map<String, dynamic>.from(result));
+                  }
+                } catch (e) {
+                  debugPrint('geetest decode error: $e');
+                }
+              } else if (url.host == 'error') {
+                debugPrint('geetest error: $data');
+              } else if (url.host == 'close') {
+                Get.back();
+              }
+              return .CANCEL;
+            }
+            return .ALLOW;
+          },
           onWebViewCreated: (ctr) {
             ctr
               ..openDevTools()
