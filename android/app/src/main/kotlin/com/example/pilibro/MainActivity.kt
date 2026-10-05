@@ -330,6 +330,7 @@ class MainActivity : AudioServiceActivity() {
                     ),
                 )
             }
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             packageManager.setComponentEnabledSettings(settings)
