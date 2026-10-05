@@ -7,15 +7,17 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
 # followed by an optional build number separated by a +.
-# Both the version and the builder number may be overridden in flutter
-# build by specifying --build-name and --build-number, respectively.
-# In Android, build-name is used as versionName while build-number used as versionCode.
-# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
-# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Both the version and the builder number may be overridden in
+# flutter build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used
+# as versionCode. Read more about Android versioning at
+# https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number
+# is used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-# In Windows, build-name is used as the major, minor, and patch parts
-# of the product and file versions while build-number is used as the build suffix.
+# In Windows, build-name is used as the major, minor, and patch parts of the
+# product and file versions while build-number is used as the build suffix.
 # Fallback version for local/PR builds. Release builds can override this from the GitHub Action tag.
 version: 2.1.7+1
 
@@ -23,14 +25,10 @@ environment:
   sdk: ">=3.13.0"
   flutter: 3.47.5
 
-# Dependencies specify other packages that your package needs in order to work.
+# Dependencies specify other packages that your package needs to work.
 # To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
+# consider running `flutter pub upgrade --major-versions`.
 dependencies:
-  gt3_flutter_plugin: ^0.1.0
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -58,6 +56,7 @@ dependencies:
   catcher_2:
     git:
       url: https://github.com/My-Responsitories/catcher_2.git
+      path: catcher_2
       ref: dev
   characters: ^1.4.1
   chat_bottom_container:
@@ -126,7 +125,6 @@ dependencies:
       url: https://github.com/bggRGjQaUbCoE/material_design_icons_flutter.git
       ref: const
   material_new_shapes: ^1.0.0
-  material_ui: ^1.0.0
   media_kit: 1.1.11
   media_kit_libs_video: 1.0.5
   media_kit_video: 1.2.5
@@ -268,7 +266,7 @@ flutter:
       platforms: [linux, macos]
     - path: assets/images/live/
     - path: assets/images/paycoins/
-    - path: assets/shaders/
+    - path: assets/images/shaders/
 
   fonts:
     - family: digital_id_num
