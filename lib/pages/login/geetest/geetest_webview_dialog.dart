@@ -190,8 +190,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
           ),
           onWebViewCreated: (ctr) {
             ctr
-              ..openDevTools()
-              ..addJavaScriptHandler(
+                            ..addJavaScriptHandler(
                 handlerName: 'success',
                 callback: (args) {
                   if (args.isNotEmpty) {
