@@ -4,8 +4,12 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.telephony.TelephonyManager
 import android.os.Bundle
