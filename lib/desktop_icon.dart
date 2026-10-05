@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:PiliBro/common/widgets/flutter/list_tile.dart' as app;
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -148,7 +149,7 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
     final missing = fileName != null &&
         _icons != null &&
         !_icons!.contains(fileName);
-    return ListTile(
+    return app.ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: _iconPreview(fileName),
       title: Text(title),
@@ -199,7 +200,7 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
                       ),
                     ),
                     const Divider(height: 1),
-                    ListTile(
+                    app.ListTile(
                       onTap: _addCustomShortcut,
                       leading: const Icon(
                         Icons.add_to_home_screen_outlined,
