@@ -12,7 +12,7 @@ const _launcherAssetPrefix = 'assets/images/logo/launcher_';
 const _launcherExtensions = {'png', 'jpg', 'jpeg', 'webp'};
 
 const _desktopIconNames = <String, String>{
-  // 'launcher_xxx.jpg': '显示名称',
+  'launcher_realoriginalpic.jpg': '米山舞',
 };
 
 class DesktopIconPage extends StatefulWidget {
