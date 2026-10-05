@@ -188,4 +188,23 @@ class MainActivity : AudioServiceActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
+
+    private fun setCustomDesktopIcon(bytes: ByteArray): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return false
+        val manager = getSystemService(ShortcutManager::class.java) ?: return false
+        if (!manager.isRequestPinShortcutSupported) return false
+
+        val shortcut = ShortcutInfo.Builder(this, "custom_desktop_icon")
+            .setShortLabel("PiliBro")
+            .setIcon(Icon.createWithBitmap(bitmap))
+            .setIntent(Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_MAIN
+            })
+            .build()
+
+        return manager.requestPinShortcut(shortcut, null)
+    }
+
+
 }
