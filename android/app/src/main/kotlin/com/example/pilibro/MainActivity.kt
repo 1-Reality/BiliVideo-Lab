@@ -326,17 +326,17 @@ class MainActivity : AudioServiceActivity() {
                         } else {
                             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                         },
-                    PackageManager.DONT_KILL_APP,
+                        PackageManager.DONT_KILL_APP,
+                    ),
                 )
             }
-        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             packageManager.setComponentEnabledSettings(settings)
         } else {
             settings.forEach {
                 packageManager.setComponentEnabledSetting(
-                    it.componentName,
+                    it.componentName!!,
                     it.enabledState,
                     it.enabledFlags,
                 )
