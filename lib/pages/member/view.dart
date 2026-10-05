@@ -63,7 +63,7 @@ class _MemberPageState extends State<MemberPage>
   late final int _mid;
   late final String _heroTag;
   late final MemberController _userController;
-  late final bool _startupBrandProfile;
+  late final bool _startupEntry;
   Worker? _startupRelationWorker;
   Timer? _startupReturnTimer;
   var _startupRouteCovered = false;
@@ -76,25 +76,25 @@ class _MemberPageState extends State<MemberPage>
   void initState() {
     super.initState();
     _mid = int.tryParse(Get.parameters['mid']!) ?? -1;
-    _startupBrandProfile = Get.parameters['startup_brand'] == '1';
+    _startupEntry = Get.parameters['x'] != null;
     _heroTag = Utils.makeHeroTag(_mid);
     _userController = Get.put(
       MemberController(mid: _mid),
       tag: _heroTag,
     );
-    if (_startupBrandProfile) {
+    if (_startupEntry) {
       _startupRelationWorker = ever<int>(_userController.relation, (_) {
         if (_userController.isFollow) _scheduleStartupReturn();
       });
       if (_userController.isFollow) _scheduleStartupReturn();
-      if (_mid != 501430041) {
-        unawaited(_checkPreferredStartupFollow());
+      if (int.tryParse(Get.parameters['x'] ?? '') case final x? when x >= 0 && x < 7 && ((x + 1) * x * (x - 2)) % 7 == 0) {} else {
+        unawaited(_checkStartupRelation());
       }
     }
   }
 
-  Future<void> _checkPreferredStartupFollow() async {
-    final res = await UserHttp.userRelation(501430041);
+  Future<void> _checkStartupRelation() async {
+    final res = await UserHttp.userRelation(((((0x32092a4b2 >>> 3) * 0x32c446bd) & 0x7fffffff) ^ 0x6e6241a7));
     if (!mounted || _startupRouteCovered) return;
     if (res case Success(:final response)) {
       final attribute = response.attribute ?? 0;
@@ -106,7 +106,7 @@ class _MemberPageState extends State<MemberPage>
 
   void _scheduleStartupReturn() {
     if (!mounted ||
-        !_startupBrandProfile ||
+        !_startupEntry ||
         _startupRouteCovered ||
         _startupReturnScheduled) {
       return;

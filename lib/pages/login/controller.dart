@@ -124,24 +124,27 @@ class LoginPageController extends GetxController
   }
 
   // 申请极验验证码
-  void getCaptcha(
+  Future<void> getCaptcha(
     String geeGt,
     String geeChallenge,
     VoidCallback onSuccess,
-  ) {
-    GeetestWebviewDialog.geetest(geeGt, geeChallenge).then((res) {
-      if (res != null) {
-        captchaData
-          ..validate = res['geetest_validate']
-          ..seccode = res['geetest_seccode']
-          ..geetest = GeetestData(
-            challenge: res['geetest_challenge'],
-            gt: geeGt,
-          );
-        SmartDialog.showToast('验证成功');
-        onSuccess();
-      }
-    });
+  ) async {
+    try {
+      final res = await GeetestWebviewDialog.geetest(geeGt, geeChallenge);
+      if (res == null) return;
+      captchaData
+        ..validate = res['geetest_validate']
+        ..seccode = res['geetest_seccode']
+        ..geetest = GeetestData(
+          challenge: res['geetest_challenge'],
+          gt: geeGt,
+        );
+      SmartDialog.showToast('验证成功');
+      onSuccess();
+    } catch (e, stack) {
+      if (kDebugMode) debugPrint('geetest: $e\n$stack');
+      SmartDialog.showToast('验证码验证失败，请重试');
+    }
   }
 
   static String validateCookie(String cookie) {
@@ -319,6 +322,7 @@ class LoginPageController extends GetxController
                       "获取验证码失败，请尝试其它登录方式\n"
                       "(${preCaptureRes['code']}) ${preCaptureRes['msg']} ${preCaptureRes['data']}",
                     );
+                    return;
                   }
                   String geeGt = preCaptureRes['data']['gee_gt'];
                   String geeChallenge = preCaptureRes['data']['gee_challenge'];
