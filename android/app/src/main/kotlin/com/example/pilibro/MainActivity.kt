@@ -58,6 +58,34 @@ class MainActivity : AudioServiceActivity() {
                 }
             })
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/desktop_icon")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setCustomDesktopIcon" -> {
+                        val bytes = call.argument<ByteArray>("bytes")
+                        if (bytes == null) {
+                            result.error("INVALID_ICON", "Missing icon bytes", null)
+                            return@setMethodCallHandler
+                        }
+                        Thread {
+                            try {
+                                val status = setCustomDesktopIcon(bytes)
+                                runOnUiThread { result.success(status) }
+                            } catch (e: Throwable) {
+                                runOnUiThread {
+                                    result.error(
+                                        "ICON_ERROR",
+                                        e.message ?: e.javaClass.simpleName,
+                                        null,
+                                    )
+                                }
+                            }
+                        }.start()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/device")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -189,21 +217,42 @@ class MainActivity : AudioServiceActivity() {
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
 
-    private fun setCustomDesktopIcon(bytes: ByteArray): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return false
-        val manager = getSystemService(ShortcutManager::class.java) ?: return false
-        if (!manager.isRequestPinShortcutSupported) return false
+    private fun setCustomDesktopIcon(bytes: ByteArray): Int {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: return 0
+        val shortcutIntent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            @Suppress("DEPRECATION")
+            sendBroadcast(Intent("com.android.launcher.action.INSTALL_SHORTCUT").apply {
+                putExtra(Intent.EXTRA_SHORTCUT_NAME, "PiliBro")
+                putExtra(Intent.EXTRA_SHORTCUT_ICON, bitmap)
+                putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent)
+            })
+            return 1
+        }
+
+        val manager = getSystemService(ShortcutManager::class.java) ?: return 0
+        if (!manager.isRequestPinShortcutSupported) return 0
 
         val shortcut = ShortcutInfo.Builder(this, "custom_desktop_icon")
             .setShortLabel("PiliBro")
-            .setIcon(Icon.createWithBitmap(bitmap))
-            .setIntent(Intent(this, MainActivity::class.java).apply {
-                action = Intent.ACTION_MAIN
-            })
+            .setIcon(Icon.createWithAdaptiveBitmap(bitmap))
+            .setIntent(shortcutIntent)
             .build()
 
-        return manager.requestPinShortcut(shortcut, null)
+        val pinned = manager.pinnedShortcuts.any {
+            it.id == "custom_desktop_icon"
+        }
+        return if (pinned) {
+            if (manager.updateShortcuts(listOf(shortcut))) 2 else 0
+        } else if (manager.requestPinShortcut(shortcut, null)) {
+            1
+        } else {
+            0
+        }
     }
 
 
