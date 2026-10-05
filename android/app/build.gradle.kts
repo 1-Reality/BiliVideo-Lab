@@ -208,16 +208,12 @@ android {
     }
 }
 
-androidComponents {
-    onVariants {
-        sources.res?.addGeneratedSourceDirectory(
-            desktopIconResourcesTask,
-            GenerateDesktopIconResources::resourceDirectory,
-        )
-        sources.manifests.addGeneratedManifestFile(
-            desktopIconResourcesTask,
-            GenerateDesktopIconResources::manifestFile,
-        )
+android {
+    sourceSets {
+        getByName("main") {
+            res.srcDir(desktopIconResourcesTask.map { it.resourceDirectory })
+            manifest.srcFile(desktopIconResourcesTask.map { it.manifestFile })
+        }
     }
 }
 
