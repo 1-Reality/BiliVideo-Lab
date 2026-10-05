@@ -32,7 +32,6 @@ class GeetestWebviewDialog extends StatefulWidget {
 class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   static const _geetestJsUri =
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
-  static const _geetestConfigUri = 'https://api.geetest.com/gettype.php';
 
   late final Future<LoadingState<String>> _future;
 
@@ -87,58 +86,62 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
     return Error(res.data['message']);
   }
 
-  static String _buildHtml(String gt, String challenge) {
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final js =
-        'var C,S,T,t;'
-        'T=()=>{if(C&&S&&!t){t=Geetest(C).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}};'
-        'geetest_$ts=(d)=>{'
-        'if(!d||d.status!="success"){R("error",JSON.stringify(d));return};'
-        'C=Object.assign({gt:"$gt",challenge:"$challenge",offline:false,new_captcha:true,product:"bind",width:"100%",https:true,protocol:"https://"},d.data);T()'
-        '};'
-        'G=()=>{S=1;T()};'
-        'E=()=>{document.getElementById("E").textContent="验证码加载失败";R("error","geetest script load failed")}';
-
-    return '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"></head>'
-        '<style>#E{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:red}</style>'
-        '<body><div id="E"></div>'
-        '<script>'
-        '${Platform.isLinux ? "R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))" : "R=(n,o)=>window.flutter_inappwebview?.callHandler(n,o)"};$js'
-        '</script>'
-        '<script src="$_geetestJsUri" onload="G()" onerror="E()"></script>'
-        '<script src="$_geetestConfigUri?gt=$gt&callback=geetest_$ts" onerror="E()"></script>'
-        '</body></html>';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final html = _buildHtml(widget.gt, widget.challenge);
-
     if (Platform.isLinux) {
       return AlertDialog(
         title: const Text('验证码'),
         content: SizedBox(
           width: 300,
           height: 400,
-          child: LinuxWebview(
-            initialHtml: html,
-            userAgent: BrowserUa.mob,
-            incognito: true,
-            onWebMessageReceived: (msg) {
-              final msgStr = msg.toString();
-              if (msgStr.startsWith("success:")) {
-                final dataStr = msgStr.substring("success:".length);
-                try {
-                  final data = jsonDecode(dataStr);
-                  Get.back(result: data);
-                } catch (e) {
-                  debugPrint('geetest decode error: $e');
-                }
-              } else if (msgStr.startsWith("error:")) {
-                debugPrint('geetest error: $msgStr');
-              } else if (msgStr.startsWith('close:')) {
-                Get.back();
+          child: FutureBuilder(
+            future: _future,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
               }
+              final config = snapshot.data!;
+              if (config case Error()) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    config.toast();
+                    Get.back();
+                  }
+                });
+                return const SizedBox.shrink();
+              }
+              final response = (config as Success<String>).response;
+              final html =
+                  '''
+<!DOCTYPE html><html><head></head><body>
+<script src="$_geetestJsUri"></script>
+<script>
+  R=window.webkit.messageHandlers.msgToNative.postMessage
+  ${_showJs(response)}
+</script>
+</body></html>
+''';
+              return LinuxWebview(
+                initialHtml: html,
+                userAgent: BrowserUa.mob,
+                incognito: true,
+                onWebMessageReceived: (msg) {
+                  final msgStr = msg.toString();
+                  if (msgStr.startsWith("success:")) {
+                    final dataStr = msgStr.substring("success:".length);
+                    try {
+                      final data = jsonDecode(dataStr);
+                      Get.back(result: data);
+                    } catch (e) {
+                      debugPrint('geetest decode error: $e');
+                    }
+                  } else if (msgStr.startsWith("error:")) {
+                    debugPrint('geetest error: $msgStr');
+                  } else if (msgStr.startsWith('close:')) {
+                    Get.back();
+                  }
+                },
+              );
             },
           ),
         ),
