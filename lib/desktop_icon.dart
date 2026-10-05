@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -148,15 +147,51 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
     final missing = fileName != null &&
         _icons != null &&
         !_icons!.contains(fileName);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: _iconPreview(fileName),
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: _current == fileName
-          ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
-          : null,
+    return InkWell(
       onTap: missing ? null : () => _select(fileName),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: _iconPreview(fileName),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (_current == fileName)
+                Icon(
+                  Icons.check_circle,
+                  color: theme.colorScheme.primary,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -164,53 +199,86 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final icons = _icons;
-    return SimpleScaffold(
+    return Scaffold(
       appBar: AppBar(title: const Text('桌面图标')),
-      body: _error != null
-          ? Center(child: Text('图标列表读取失败：$_error'))
-          : icons == null
-              ? const Center(child: CircularProgressIndicator())
-              : ListView(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewPaddingOf(context).bottom + 24,
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-                      child: Text(
-                        '内置图标',
-                        style: theme.textTheme.titleMedium,
+      body: SafeArea(
+        child: _error != null
+            ? Center(child: Text('图标列表读取失败：$_error'))
+            : icons == null
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewPaddingOf(context).bottom + 24,
+                    ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                        child: Text(
+                          '内置图标',
+                          style: theme.textTheme.titleMedium,
+                        ),
                       ),
-                    ),
-                    _buildIconTile(
-                      fileName: null,
-                      title: '默认',
-                      subtitle: '使用应用当前默认图标',
-                      theme: theme,
-                    ),
-                    ...icons.map(
-                      (fileName) => _buildIconTile(
-                        fileName: fileName,
-                        title: _desktopIconNames[fileName] ?? fileName,
-                        subtitle: _desktopIconNames.containsKey(fileName)
-                            ? fileName
-                            : '内置图标',
+                      _buildIconTile(
+                        fileName: null,
+                        title: '默认',
+                        subtitle: '使用应用当前默认图标',
                         theme: theme,
                       ),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      onTap: _addCustomShortcut,
-                      leading: const Icon(
-                        Icons.add_to_home_screen_outlined,
+                      ...icons.map(
+                        (fileName) => _buildIconTile(
+                          fileName: fileName,
+                          title: _desktopIconNames[fileName] ?? fileName,
+                          subtitle: _desktopIconNames.containsKey(fileName)
+                              ? fileName
+                              : '内置图标',
+                          theme: theme,
+                        ),
                       ),
-                      title: const Text('添加任意图片到桌面'),
-                      subtitle: const Text(
-                        '选择手机中的图片，作为桌面快捷方式',
+                      const Divider(height: 1),
+                      InkWell(
+                        onTap: _addCustomShortcut,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.add_to_home_screen_outlined,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '添加任意图片到桌面',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '选择手机中的图片，作为桌面快捷方式',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+      ),
     );
   }
 }
