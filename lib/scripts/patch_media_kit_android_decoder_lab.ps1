@@ -8,12 +8,41 @@ if (-not (Test-Path $GitCacheDir)) {
     throw "pub git cache not found: $GitCacheDir"
 }
 
+$LockText = [IO.File]::ReadAllText(
+    (Join-Path $env:GITHUB_WORKSPACE "pubspec.lock"),
+)
+$ResolvedRefMatch = [regex]::Match(
+    $LockText,
+    '(?ms)^  media_kit_video:\s.*?^      resolved-ref: "([0-9a-f]+)"',
+)
+if (-not $ResolvedRefMatch.Success) {
+    throw "media_kit_video resolved-ref not found in pubspec.lock"
+}
+$ResolvedRef = $ResolvedRefMatch.Groups[1].Value
+
 $MediaKitDir = Get-ChildItem $GitCacheDir -Directory |
-    Where-Object { Test-Path (Join-Path $_.FullName $RelativePath) } |
-    Select-Object -Last 1
+    Where-Object {
+        $candidate = Join-Path $_.FullName $RelativePath
+        if (-not (Test-Path $candidate)) {
+            return $false
+        }
+
+        $head = (git -C $_.FullName rev-parse HEAD 2>$null)
+        $remote = (git -C $_.FullName config --get remote.origin.url 2>$null)
+        return (
+            $head.Trim() -eq $ResolvedRef -and
+            $remote.Trim().ToLowerInvariant().Contains("my-responsitories/media-kit")
+        )
+    } |
+    Select-Object -First 1
 
 if (-not $MediaKitDir) {
-    throw "media-kit checkout containing $RelativePath not found"
+    throw "media-kit checkout for resolved commit $ResolvedRef not found"
+}
+
+git -C $MediaKitDir.FullName reset --hard HEAD
+if ($LASTEXITCODE -ne 0) {
+    throw "failed to reset media-kit checkout to HEAD"
 }
 
 $Target = Join-Path $MediaKitDir.FullName $RelativePath
