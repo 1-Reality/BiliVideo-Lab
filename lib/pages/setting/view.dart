@@ -334,13 +334,12 @@ class _SettingPageState extends State<SettingPage> {
       final status = await DesktopIcon.chooseAndSet();
       SmartDialog.dismiss();
       if (!mounted) return;
-      switch (status) {
-        case 2:
-          SmartDialog.showToast('桌面图标已更新');
-        case 1:
-          SmartDialog.showToast('已请求添加桌面图标，请在系统提示中确认');
-        default:
-          SmartDialog.showToast('当前桌面不支持添加快捷方式');
+      if (status == 2) {
+        SmartDialog.showToast('桌面图标已更新');
+      } else if (status == 1) {
+        SmartDialog.showToast('已请求添加桌面图标，请在系统提示中确认');
+      } else {
+        SmartDialog.showToast('当前桌面不支持添加快捷方式');
       }
     } catch (e) {
       SmartDialog.dismiss();
