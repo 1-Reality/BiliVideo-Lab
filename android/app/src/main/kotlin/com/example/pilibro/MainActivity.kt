@@ -312,7 +312,7 @@ class MainActivity : AudioServiceActivity() {
                     if (target == null) {
                         PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                     } else {
-                        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                     },
                     PackageManager.DONT_KILL_APP,
                 ),
@@ -324,10 +324,9 @@ class MainActivity : AudioServiceActivity() {
                         if (alias == target) {
                             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         } else {
-                            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                         },
-                        PackageManager.DONT_KILL_APP,
-                    ),
+                    PackageManager.DONT_KILL_APP,
                 )
             }
         }
