@@ -16,6 +16,11 @@ if (-not $MediaKitDir) {
     throw "media-kit checkout containing $RelativePath not found"
 }
 
+git -C $MediaKitDir.FullName reset --hard HEAD
+if ($LASTEXITCODE -ne 0) {
+    throw "failed to reset media-kit checkout"
+}
+
 $Target = Join-Path $MediaKitDir.FullName $RelativePath
 $Text = [IO.File]::ReadAllText($Target)
 
