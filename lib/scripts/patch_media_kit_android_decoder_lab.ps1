@@ -9,7 +9,14 @@ if (-not (Test-Path $GitCacheDir)) {
 }
 
 $MediaKitDir = Get-ChildItem $GitCacheDir -Directory |
-    Where-Object { Test-Path (Join-Path $_.FullName $RelativePath) } |
+    Where-Object {
+        $candidate = Join-Path $_.FullName $RelativePath
+        if (-not (Test-Path $candidate)) {
+            return $false
+        }
+        $candidateText = [IO.File]::ReadAllText($candidate)
+        return $candidateText -match "(?m)^  /// --vo\r?\n  String get vo => configuration\.vo \?\? 'gpu';$"
+    } |
     Select-Object -Last 1
 
 if (-not $MediaKitDir) {
