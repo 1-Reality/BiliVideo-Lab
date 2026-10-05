@@ -2,6 +2,7 @@ package com.example.pilibro
 
 import android.app.UiModeManager
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ShortcutInfo
@@ -20,6 +21,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.security.MessageDigest
 import java.util.function.IntConsumer
 
 class MainActivity : AudioServiceActivity() {
@@ -61,6 +63,14 @@ class MainActivity : AudioServiceActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/desktop_icon")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "getCurrentBuiltInIcon" -> {
+                        val fileNames = call.argument<List<String>>("fileNames") ?: emptyList()
+                        result.success(currentBuiltInLauncherIcon(fileNames))
+                    }
+                    "setBuiltInIcon" -> {
+                        val fileName = call.argument<String>("fileName")
+                        result.success(setBuiltInLauncherIcon(fileName))
+                    }
                     "setCustomDesktopIcon" -> {
                         val bytes = call.argument<ByteArray>("bytes")
                         if (bytes == null) {
@@ -215,6 +225,125 @@ class MainActivity : AudioServiceActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration?) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         AndroidHelper.isPipMode = isInPictureInPictureMode
+    }
+
+    private fun desktopIconComponent(fileName: String): ComponentName {
+        val packageName = MainActivity::class.java.packageName
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(fileName.toByteArray(Charsets.UTF_8))
+        val id = digest.take(12).joinToString("") {
+            "%02x".format(it.toInt() and 0xff)
+        }
+        return ComponentName(
+            this.packageName,
+            packageName + ".DesktopIcon_" + id,
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun desktopIconComponents(): List<ComponentName> {
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        val classPrefix = MainActivity::class.java.packageName + ".DesktopIcon_"
+        return packageManager
+            .queryIntentActivities(
+                launcherIntent,
+                PackageManager.MATCH_DISABLED_COMPONENTS,
+            )
+            .mapNotNull { info ->
+                val name = info.activityInfo?.name ?: return@mapNotNull null
+                if (name.startsWith(classPrefix)) {
+                    ComponentName(packageName, name)
+                } else {
+                    null
+                }
+            }
+            .distinct()
+    }
+
+    private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
+        if (
+            packageManager.getComponentEnabledSetting(defaultComponent) !=
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        ) {
+            return null
+        }
+
+        val namesByComponent = fileNames.associateBy {
+            desktopIconComponent(it).className
+        }
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        @Suppress("DEPRECATION")
+        val activities = packageManager.queryIntentActivities(
+            launcherIntent,
+            PackageManager.MATCH_DISABLED_COMPONENTS,
+        )
+        return activities.firstOrNull { info ->
+            val name = info.activityInfo?.name ?: return@firstOrNull false
+            if (name !in namesByComponent) return@firstOrNull false
+            packageManager.getComponentEnabledSetting(
+                ComponentName(packageName, name),
+            ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }?.activityInfo?.name?.let(namesByComponent::get)
+    }
+
+    private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
+        val aliases = desktopIconComponents()
+        val target = fileName?.let(::desktopIconComponent)
+        if (target != null && target !in aliases) {
+            return false
+        }
+
+        val settings = buildList {
+            add(
+                PackageManager.ComponentEnabledSetting(
+                    defaultComponent,
+                    if (target == null) {
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    } else {
+                        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                    },
+                    PackageManager.DONT_KILL_APP,
+                ),
+            )
+            aliases.forEach { alias ->
+                add(
+                    PackageManager.ComponentEnabledSetting(
+                        alias,
+                        if (alias == target) {
+                            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        } else {
+                            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+                        },
+                        PackageManager.DONT_KILL_APP,
+                    ),
+                )
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.setComponentEnabledSettings(settings)
+        } else {
+            settings.forEach {
+                packageManager.setComponentEnabledSetting(
+                    it.componentName,
+                    it.enabledState,
+                    it.enabledFlags,
+                )
+            }
+        }
+        return true
     }
 
     private fun setCustomDesktopIcon(bytes: ByteArray): Int {

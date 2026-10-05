@@ -12,7 +12,7 @@ import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/webdav/view.dart';
 import 'package:PiliBro/utils/accounts.dart';
-import 'package:PiliBro/utils/desktop_icon.dart';
+import 'package:PiliBro/desktop_icon.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/utils.dart';
@@ -195,11 +195,11 @@ class _SettingPageState extends State<SettingPage> {
           ),
         if (Platform.isAndroid)
           ListTile(
-            onTap: _setDesktopIcon,
-            leading: const Icon(Icons.add_to_home_screen_outlined),
-            title: Text('自定义桌面图标', style: titleStyle),
+            onTap: () => Get.to(() => const DesktopIconPage()),
+            leading: const Icon(Icons.apps_outlined),
+            title: Text('桌面图标', style: titleStyle),
             subtitle: Text(
-              '从手机选择图片，添加到桌面作为启动图标',
+              '选择内置图标或添加自定义桌面快捷方式',
               style: subTitleStyle,
             ),
           ),
@@ -326,27 +326,6 @@ class _SettingPageState extends State<SettingPage> {
         );
       },
     );
-  }
-
-  Future<void> _setDesktopIcon() async {
-    try {
-      SmartDialog.showLoading(msg: '处理中');
-      final status = await DesktopIcon.chooseAndSet();
-      SmartDialog.dismiss();
-      if (!mounted) return;
-      if (status == 2) {
-        SmartDialog.showToast('桌面图标已更新');
-      } else if (status == 1) {
-        SmartDialog.showToast('已请求添加桌面图标，请在系统提示中确认');
-      } else {
-        SmartDialog.showToast('当前桌面不支持添加快捷方式');
-      }
-    } catch (e) {
-      SmartDialog.dismiss();
-      if (mounted) {
-        SmartDialog.showToast('图标处理失败：$e');
-      }
-    }
   }
 
   Widget _buildSearchItem(ThemeData theme) => Padding(
