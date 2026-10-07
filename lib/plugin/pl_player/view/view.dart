@@ -476,16 +476,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: Obx(() {
               final locked = controller.controlsLock.value;
               final expanded = controller.showControls.value && !locked;
-              final seeking = controller.isSeeking.value;
+              final showByPolicy = switch (controller.progressType) {
+                .alwaysShow => true,
+                .alwaysHide => false,
+                .onlyShowFullScreen => isFullScreen,
+                .onlyHideFullScreen => !isFullScreen,
+              };
               final visible =
-                  expanded ||
-                  seeking ||
-                  switch (controller.progressType) {
-                    .alwaysShow => true,
-                    .alwaysHide => false,
-                    .onlyShowFullScreen => isFullScreen,
-                    .onlyHideFullScreen => !isFullScreen,
-                  };
+                  expanded || showByPolicy || controller.isSeeking.value;
 
               return Offstage(
                 offstage: !visible,
