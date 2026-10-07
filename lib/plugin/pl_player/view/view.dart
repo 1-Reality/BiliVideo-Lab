@@ -447,114 +447,90 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       bottom: -2.2,
       left: 0,
       right: 0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRect(
-            child: RepaintBoundary(
-              child: AppBarAni(
-                isTop: false,
-                controller: _animationController,
-                isFullScreen: isFullScreen,
-                removeSafeArea: controller.removeSafeArea,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: controller.bottomControlSideSpace,
-                    vertical: 12,
-                  ),
-                  child:
-                      widget.bottomControl ??
-                      buildBottomControl(detail, maxWidth > maxHeight),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: controller.progressBarSideSpace,
-            ),
-            child: Obx(() {
-              final locked = controller.controlsLock.value;
-              final expanded = controller.showControls.value && !locked;
-              final showByPolicy = switch (controller.progressType) {
-                .alwaysShow => true,
-                .alwaysHide => false,
-                .onlyShowFullScreen => isFullScreen,
-                .onlyHideFullScreen => !isFullScreen,
-              };
-              final visible =
-                  expanded || showByPolicy || controller.isSeeking.value;
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: controller.progressBarSideSpace,
+        ),
+        child: Obx(() {
+          final locked = controller.controlsLock.value;
+          final expanded = controller.showControls.value && !locked;
+          final showByPolicy = switch (controller.progressType) {
+            .alwaysShow => true,
+            .alwaysHide => false,
+            .onlyShowFullScreen => isFullScreen,
+            .onlyHideFullScreen => !isFullScreen,
+          };
+          final visible =
+              expanded || showByPolicy || controller.isSeeking.value;
 
-              return Offstage(
-                offstage: !visible,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    IgnorePointer(
-                      ignoring: !expanded,
-                      child: SizedBox(
-                        height: 14,
-                        child: Obx(
-                          () => ProgressBar(
-                            progress: controller.progress,
-                            buffered: controller.buffered.value,
-                            total: controller.duration.value,
-                            progressBarColor: primary,
-                            baseBarColor: const Color(0x33FFFFFF),
-                            bufferedBarColor: bufferedBarColor,
-                            thumbColor: primary,
-                            thumbGlowColor: thumbGlowColor,
-                            barHeight: 3.5,
-                            barBaseline: 2.5,
-                            thumbRadius: expanded ? 7 : 2.5,
-                            thumbGlowRadius: 25,
-                            snapDistance: 12,
-                            onDragStart: _onProgressDragStart,
-                            onDragUpdate: _onProgressDragUpdate,
-                            onSeek: _onProgressSeek,
-                          ),
-                        ),
+          return Offstage(
+            offstage: !visible,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
+              children: [
+                IgnorePointer(
+                  ignoring: !expanded,
+                  child: SizedBox(
+                    height: 14,
+                    child: Obx(
+                      () => ProgressBar(
+                        progress: controller.progress,
+                        buffered: controller.buffered.value,
+                        total: controller.duration.value,
+                        progressBarColor: primary,
+                        baseBarColor: const Color(0x33FFFFFF),
+                        bufferedBarColor: bufferedBarColor,
+                        thumbColor: primary,
+                        thumbGlowColor: thumbGlowColor,
+                        barHeight: 3.5,
+                        barBaseline: 2.5,
+                        thumbRadius: expanded ? 7 : 2.5,
+                        thumbGlowRadius: 25,
+                        snapDistance: 12,
+                        onDragStart: _onProgressDragStart,
+                        onDragUpdate: _onProgressDragUpdate,
+                        onSeek: _onProgressSeek,
                       ),
                     ),
-                    if (controller.enableBlock &&
-                        detail.segmentProgressList.isNotEmpty)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0.75,
-                        child: SegmentProgressBar(
-                          segments: detail.segmentProgressList,
-                        ),
-                      ),
-                    if (controller.showViewPoints &&
-                        detail.viewPointList.isNotEmpty &&
-                        detail.showVP.value)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4.25),
-                        child: IgnorePointer(
-                          ignoring:
-                              locked ||
-                              (expanded
-                                  ? !PlatformUtils.isDesktop
-                                  : !PlatformUtils.isMobile),
-                          child: ViewPointSegmentProgressBar(
-                            segments: detail.viewPointList,
-                            onSeek: (position) =>
-                                controller.seekTo(position, isSeek: false),
-                          ),
-                        ),
-                      ),
-                    if ((expanded || controller.showDmChart) &&
-                        detail.showDmTrendChart.value)
-                      if (detail.dmTrend.value?.dataOrNull case final list?)
-                        buildDmChart(primary, list, detail),
-                  ],
+                  ),
                 ),
-              );
-            }),
-          ),
-        ],
+                if (controller.enableBlock &&
+                    detail.segmentProgressList.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0.75,
+                    child: SegmentProgressBar(
+                      segments: detail.segmentProgressList,
+                    ),
+                  ),
+                if (controller.showViewPoints &&
+                    detail.viewPointList.isNotEmpty &&
+                    detail.showVP.value)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.25),
+                    child: IgnorePointer(
+                      ignoring:
+                          locked ||
+                          (expanded
+                              ? !PlatformUtils.isDesktop
+                              : !PlatformUtils.isMobile),
+                      child: ViewPointSegmentProgressBar(
+                        segments: detail.viewPointList,
+                        onSeek: (position) =>
+                            controller.seekTo(position, isSeek: false),
+                      ),
+                    ),
+                  ),
+                if ((expanded || controller.showDmChart) &&
+                    detail.showDmTrendChart.value)
+                  if (detail.dmTrend.value?.dataOrNull case final list?)
+                    buildDmChart(primary, list, detail),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -1845,25 +1821,37 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           )
                         : widget.headerControl,
                   ),
-                  if (!fixedProgress)
-                    AppBarAni(
-                      isTop: false,
-                      controller: _animationController,
-                      isFullScreen: isFullScreen,
-                      removeSafeArea: plPlayerController.removeSafeArea,
-                      child:
-                          widget.bottomControl ??
-                          BottomControl(
-                            maxWidth: maxWidth,
-                            isFullScreen: isFullScreen,
-                            controller: plPlayerController,
-                            videoDetailController: videoDetailController,
-                            buildBottomControl: () => buildBottomControl(
-                              videoDetailController,
-                              maxWidth > maxHeight,
+                  AppBarAni(
+                    isTop: false,
+                    controller: _animationController,
+                    isFullScreen: isFullScreen,
+                    removeSafeArea: plPlayerController.removeSafeArea,
+                    child: fixedProgress
+                        ? Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal:
+                                  plPlayerController.bottomControlSideSpace,
+                              vertical: 12,
                             ),
-                          ),
-                    ),
+                            child:
+                                widget.bottomControl ??
+                                buildBottomControl(
+                                  videoDetailController,
+                                  maxWidth > maxHeight,
+                                ),
+                          )
+                        : widget.bottomControl ??
+                              BottomControl(
+                                maxWidth: maxWidth,
+                                isFullScreen: isFullScreen,
+                                controller: plPlayerController,
+                                videoDetailController: videoDetailController,
+                                buildBottomControl: () => buildBottomControl(
+                                  videoDetailController,
+                                  maxWidth > maxHeight,
+                                ),
+                              ),
+                  ),
                 ],
               ),
             ),
