@@ -46,6 +46,13 @@ class BottomControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (controller.progressPosition == .fixedBottom) {
+      return Padding(
+        padding: const .symmetric(horizontal: 10, vertical: 12),
+        child: buildBottomControl(),
+      );
+    }
+
     final colorScheme = ColorScheme.of(context);
     final primary = colorScheme.isLight
         ? colorScheme.inversePrimary
