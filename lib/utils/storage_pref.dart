@@ -566,6 +566,15 @@ abstract final class Pref {
         defaultValue: BtmProgressBehavior.alwaysShow.index,
       )];
 
+  static bool get fixedBottomProgress =>
+      _setting.get(SettingBoxKey.fixedBottomProgress, defaultValue: true);
+
+  static double get progressBarSideSpace =>
+      _setting.get(SettingBoxKey.progressBarSideSpace, defaultValue: 20.0);
+
+  static double get bottomControlSideSpace =>
+      _setting.get(SettingBoxKey.bottomControlSideSpace, defaultValue: 10.0);
+
   static SubtitlePrefType get subtitlePreferenceV2 =>
       SubtitlePrefType.values[_setting.get(
         SettingBoxKey.subtitlePreferenceV2,

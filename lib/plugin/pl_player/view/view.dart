@@ -418,6 +418,149 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     super.dispose();
   }
 
+  void _onProgressDragStart(ThumbDragDetails details) {
+    feedBack();
+    plPlayerController.onSeekStart(details.seconds);
+  }
+
+  void _onProgressDragUpdate(ThumbDragDetails details) {
+    if (!plPlayerController.isFileSource && plPlayerController.showSeekPreview) {
+      plPlayerController.updatePreviewIndex(details.seconds);
+    }
+    plPlayerController.seekPosition.value = details.seconds;
+  }
+
+  void _onProgressSeek(int milliseconds) {
+    plPlayerController
+      ..position.value = milliseconds ~/ 1000
+      ..onSeekEnd()
+      ..seekTo(Duration(milliseconds: milliseconds), isSeek: false);
+  }
+
+  Widget _buildFixedBottomControl(Color primary) {
+    final controller = plPlayerController;
+    final detail = videoDetailController;
+    final thumbGlowColor = primary.withAlpha(80);
+    final bufferedBarColor = primary.withValues(alpha: 0.4);
+
+    return Positioned(
+      bottom: -2.2,
+      left: 0,
+      right: 0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRect(
+            child: RepaintBoundary(
+              child: AppBarAni(
+                isTop: false,
+                controller: _animationController,
+                isFullScreen: isFullScreen,
+                removeSafeArea: controller.removeSafeArea,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: controller.bottomControlSideSpace,
+                    vertical: 12,
+                  ),
+                  child:
+                      widget.bottomControl ??
+                      buildBottomControl(detail, maxWidth > maxHeight),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: controller.progressBarSideSpace,
+            ),
+            child: Obx(() {
+              final locked = controller.controlsLock.value;
+              final expanded = controller.showControls.value && !locked;
+              final seeking = controller.isSeeking.value;
+              final visible =
+                  expanded ||
+                  seeking ||
+                  switch (controller.progressType) {
+                    .alwaysShow => true,
+                    .alwaysHide => false,
+                    .onlyShowFullScreen => isFullScreen,
+                    .onlyHideFullScreen => !isFullScreen,
+                  };
+
+              return Offstage(
+                offstage: !visible,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    IgnorePointer(
+                      ignoring: !expanded,
+                      child: SizedBox(
+                        height: 14,
+                        child: Obx(
+                          () => ProgressBar(
+                            progress: controller.progress,
+                            buffered: controller.buffered.value,
+                            total: controller.duration.value,
+                            progressBarColor: primary,
+                            baseBarColor: const Color(0x33FFFFFF),
+                            bufferedBarColor: bufferedBarColor,
+                            thumbColor: primary,
+                            thumbGlowColor: thumbGlowColor,
+                            barHeight: 3.5,
+                            barBaseline: 2.5,
+                            thumbRadius: expanded ? 7 : 2.5,
+                            thumbGlowRadius: 25,
+                            snapDistance: 12,
+                            onDragStart: _onProgressDragStart,
+                            onDragUpdate: _onProgressDragUpdate,
+                            onSeek: _onProgressSeek,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (controller.enableBlock &&
+                        detail.segmentProgressList.isNotEmpty)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0.75,
+                        child: SegmentProgressBar(
+                          segments: detail.segmentProgressList,
+                        ),
+                      ),
+                    if (controller.showViewPoints &&
+                        detail.viewPointList.isNotEmpty &&
+                        detail.showVP.value)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4.25),
+                        child: IgnorePointer(
+                          ignoring:
+                              locked ||
+                              (expanded
+                                  ? !PlatformUtils.isDesktop
+                                  : !PlatformUtils.isMobile),
+                          child: ViewPointSegmentProgressBar(
+                            segments: detail.viewPointList,
+                            onSeek: (position) =>
+                                controller.seekTo(position, isSeek: false),
+                          ),
+                        ),
+                      ),
+                    if ((expanded || controller.showDmChart) &&
+                        detail.showDmTrendChart.value)
+                      if (detail.dmTrend.value?.dataOrNull case final list?)
+                        buildDmChart(primary, list, detail),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 动态构建底部控制条
   Widget buildBottomControl(
     VideoDetailController videoDetailController,
@@ -1443,6 +1586,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       fontSize: 12,
     );
     final isLive = plPlayerController.isLive;
+    final fixedProgress = !isLive && plPlayerController.fixedBottomProgress;
 
     final child = Stack(
       fit: StackFit.passthrough,
@@ -1703,24 +1847,25 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           )
                         : widget.headerControl,
                   ),
-                  AppBarAni(
-                    isTop: false,
-                    controller: _animationController,
-                    isFullScreen: isFullScreen,
-                    removeSafeArea: plPlayerController.removeSafeArea,
-                    child:
-                        widget.bottomControl ??
-                        BottomControl(
-                          maxWidth: maxWidth,
-                          isFullScreen: isFullScreen,
-                          controller: plPlayerController,
-                          videoDetailController: videoDetailController,
-                          buildBottomControl: () => buildBottomControl(
-                            videoDetailController,
-                            maxWidth > maxHeight,
+                  if (!fixedProgress)
+                    AppBarAni(
+                      isTop: false,
+                      controller: _animationController,
+                      isFullScreen: isFullScreen,
+                      removeSafeArea: plPlayerController.removeSafeArea,
+                      child:
+                          widget.bottomControl ??
+                          BottomControl(
+                            maxWidth: maxWidth,
+                            isFullScreen: isFullScreen,
+                            controller: plPlayerController,
+                            videoDetailController: videoDetailController,
+                            buildBottomControl: () => buildBottomControl(
+                              videoDetailController,
+                              maxWidth > maxHeight,
+                            ),
                           ),
-                        ),
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -1792,7 +1937,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ),
 
         /// 进度条 live模式下禁用
-        if (!isLive)
+        if (fixedProgress)
+          _buildFixedBottomControl(primary)
+        else if (!isLive)
           Positioned(
             bottom: -2.2,
             left: 0,

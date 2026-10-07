@@ -131,7 +131,7 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.grid_view_outlined),
     title: '卡片间距与页面边距（dp）',
     getSubtitle: () =>
-        '当前: 卡片间距${Pref.cardSpace.toInt()}dp 左右边距${Pref.safeSpace.toInt()}dp。数值越小封面越大，作用于主页推荐和直播页。',
+        '当前: 卡片间距${Pref.cardSpace}dp 左右边距${Pref.safeSpace}dp。数值越小封面越大，作用于主页推荐和直播页。',
     onTap: _showSpaceDialog,
   ),
   const SwitchModel(
@@ -703,6 +703,7 @@ Future<void> _showSpaceDialog(
       divisions: 24,
       suffix: 'dp',
       precise: 0,
+      enableInput: true,
     ),
   );
   if (res != null) {

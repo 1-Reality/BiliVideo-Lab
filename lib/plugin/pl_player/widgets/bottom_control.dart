@@ -59,8 +59,12 @@ class BottomControl extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            // 进度条左右不再缩进，和隐藏控件时贴底的那根细进度条两端对齐
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 7),
+            padding: EdgeInsets.fromLTRB(
+              controller.progressBarSideSpace,
+              0,
+              controller.progressBarSideSpace,
+              7,
+            ),
             child: Obx(
               () => Offstage(
                 offstage: !controller.showControls.value,
@@ -81,6 +85,7 @@ class BottomControl extends StatelessWidget {
                         barHeight: 3.5,
                         thumbRadius: 7,
                         thumbGlowRadius: 25,
+                        snapDistance: 12,
                         onDragStart: onDragStart,
                         onDragUpdate: onDragUpdate,
                         onSeek: onSeek,
@@ -119,7 +124,9 @@ class BottomControl extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: controller.bottomControlSideSpace,
+            ),
             child: buildBottomControl(),
           ),
         ],
