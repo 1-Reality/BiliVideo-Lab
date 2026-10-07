@@ -52,7 +52,7 @@ class _LivePageState extends State<LivePage>
     final ThemeData theme = Theme.of(context);
     return Container(
       clipBehavior: Clip.hardEdge,
-      margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
+      margin: EdgeInsets.symmetric(horizontal: Grid.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
         onRefresh: controller.onRefresh,
@@ -61,8 +61,8 @@ class _LivePageState extends State<LivePage>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.only(
-                top: Style.cardSpace,
+              padding: EdgeInsets.only(
+                top: Grid.cardSpace,
                 bottom: 100,
               ),
               sliver: SliverMainAxisGroup(
@@ -177,8 +177,8 @@ class _LivePageState extends State<LivePage>
   }
 
   late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    mainAxisSpacing: Style.cardSpace,
-    crossAxisSpacing: Style.cardSpace,
+    mainAxisSpacing: Grid.cardSpace,
+    crossAxisSpacing: Grid.cardSpace,
     maxCrossAxisExtent: Grid.smallCardWidth,
     childAspectRatio: Style.aspectRatio,
     mainAxisExtent: textScaler.scale(90),
