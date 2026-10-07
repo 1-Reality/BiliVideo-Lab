@@ -43,6 +43,7 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
+    this.edgeSnapDistance = 0,
   });
 
   /// The elapsed playing time of the media.
@@ -172,6 +173,7 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// a few seconds. The progress label still indicates that playback
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
+  final double edgeSnapDistance;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
@@ -192,6 +194,7 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
+      edgeSnapDistance: edgeSnapDistance,
     );
   }
 
@@ -216,7 +219,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbColor = thumbColor
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
-      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar;
+      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
+      ..edgeSnapDistance = edgeSnapDistance;
   }
 
   @override
@@ -341,6 +345,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
+    this._edgeSnapDistance = 0,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
@@ -461,7 +466,15 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
         : rawPosition > _barWidth
         ? _barWidth
         : rawPosition;
-    _thumbValue = position * _inverseBarWidth;
+    final snap = _edgeSnapDistance < _barWidth * 0.5
+        ? _edgeSnapDistance
+        : _barWidth * 0.5;
+    final snapped = snap > 0 && position <= snap
+        ? 0.0
+        : snap > 0 && position >= _barWidth - snap
+        ? _barWidth
+        : position;
+    _thumbValue = snapped * _inverseBarWidth;
     _progress = _currentThumbDuration();
     markNeedsPaint();
   }
@@ -653,6 +666,12 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     markNeedsPaint();
   }
 
+  double _edgeSnapDistance;
+  double get edgeSnapDistance => _edgeSnapDistance;
+  set edgeSnapDistance(double value) {
+    _edgeSnapDistance = value;
+  }
+
   // The smallest that this widget would ever want to be.
   static const _minDesiredWidth = 100.0;
 
@@ -741,10 +760,11 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       }
     }
     final center = Offset(thumbDx, _barCenterY);
-    canvas
-      ..drawLine(_barStartPoint, _barEndPoint, _baseBarPaint)
-      ..drawLine(_barStartPoint, _bufferedPoint, _bufferedBarPaint)
-      ..drawLine(_barStartPoint, center, _progressBarPaint);
+    canvas.drawLine(_barStartPoint, _barEndPoint, _baseBarPaint);
+    if (_bufferedPoint.dx > center.dx) {
+      canvas.drawLine(center, _bufferedPoint, _bufferedBarPaint);
+    }
+    canvas.drawLine(_barStartPoint, center, _progressBarPaint);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }
