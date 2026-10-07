@@ -225,6 +225,12 @@ abstract final class Pref {
   static double get recommendCardWidth =>
       _setting.get(SettingBoxKey.recommendCardWidth, defaultValue: 240.0);
 
+  static double get cardSpace =>
+      _setting.get(SettingBoxKey.cardSpace, defaultValue: 8.0);
+
+  static double get safeSpace =>
+      _setting.get(SettingBoxKey.safeSpace, defaultValue: 12.0);
+
   static UpPanelPosition get upPanelPosition =>
       UpPanelPosition.values[_setting.get(
         SettingBoxKey.upPanelPosition,
@@ -557,6 +563,17 @@ abstract final class Pref {
         SettingBoxKey.btmProgressBehavior,
         defaultValue: BtmProgressBehavior.alwaysShow.index,
       )];
+
+  static BtmProgressPosition get btmProgressPosition =>
+      BtmProgressPosition.values[_setting.get(
+        SettingBoxKey.btmProgressPosition,
+        defaultValue: BtmProgressPosition.fixedBottom.index,
+      )];
+
+  static double get progressBarSideSpace => _setting.get(
+    SettingBoxKey.progressBarSideSpace,
+    defaultValue: 6.0,
+  );
 
   static SubtitlePrefType get subtitlePreferenceV2 =>
       SubtitlePrefType.values[_setting.get(
