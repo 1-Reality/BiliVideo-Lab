@@ -11,3 +11,13 @@ enum BtmProgressBehavior implements EnumWithLabel {
   final String label;
   const BtmProgressBehavior(this.label);
 }
+
+enum BtmProgressPosition implements EnumWithLabel {
+  followControls('跟随控制栏'),
+  fixedBottom('固定在底部'),
+  ;
+
+  @override
+  final String label;
+  const BtmProgressPosition(this.label);
+}
