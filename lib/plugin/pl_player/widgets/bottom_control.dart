@@ -54,12 +54,13 @@ class BottomControl extends StatelessWidget {
     final bufferedBarColor = primary.withValues(alpha: 0.4);
 
     return Padding(
-      padding: const .symmetric(horizontal: 10, vertical: 12),
+      padding: const .symmetric(vertical: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
+            // 进度条左右不再缩进，和隐藏控件时贴底的那根细进度条两端对齐
+            padding: const EdgeInsets.only(bottom: 7),
             child: Obx(
               () => Offstage(
                 offstage: !controller.showControls.value,
@@ -117,7 +118,10 @@ class BottomControl extends StatelessWidget {
               ),
             ),
           ),
-          buildBottomControl(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: buildBottomControl(),
+          ),
         ],
       ),
     );
