@@ -127,6 +127,13 @@ List<SettingsModel> get styleSettings => [
         '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
     onTap: _showCardWidthDialog,
   ),
+  NormalModel(
+    leading: const Icon(Icons.grid_view_outlined),
+    title: '卡片间距与页面边距（dp）',
+    getSubtitle: () =>
+        '当前: 卡片间距${Pref.cardSpace}dp 左右边距${Pref.safeSpace}dp。数值越小封面越大，作用于主页推荐和直播页。',
+    onTap: _showSpaceDialog,
+  ),
   const SwitchModel(
     title: '视频播放页使用深色主题',
     leading: Icon(Icons.dark_mode_outlined),
@@ -673,6 +680,36 @@ Future<void> _showCardWidthDialog(
     await GStorage.setting.putAll({
       SettingBoxKey.recommendCardWidth: res.$1,
       SettingBoxKey.smallCardWidth: res.$2,
+    });
+    SmartDialog.showToast('重启生效');
+    setState();
+  }
+}
+
+Future<void> _showSpaceDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(double, double)>(
+    context: context,
+    builder: (context) => DualSliderDialog(
+      title: const Text('卡片间距与页面边距'),
+      value1: Pref.cardSpace,
+      value2: Pref.safeSpace,
+      description1: const Text('卡片之间的缝隙（默认8dp）'),
+      description2: const Text('页面左右边距（默认12dp）'),
+      min: 0.0,
+      max: 24.0,
+      divisions: 24,
+      suffix: 'dp',
+      precise: 0,
+      enableInput: true,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.putAll({
+      SettingBoxKey.cardSpace: res.$1,
+      SettingBoxKey.safeSpace: res.$2,
     });
     SmartDialog.showToast('重启生效');
     setState();

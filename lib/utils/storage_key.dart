@@ -2,6 +2,9 @@
 
 abstract final class SettingBoxKey {
   static const String btmProgressBehavior = 'btmProgressBehavior',
+      fixedBottomProgress = 'fixedBottomProgress',
+      progressBarSideSpace = 'progressBarSideSpace',
+      bottomControlSideSpace = 'bottomControlSideSpace',
       defaultVideoQa = 'defaultVideoQa',
       defaultVideoQaCellular = 'defaultVideoQaCellular',
       defaultAudioQa = 'defaultAudioQa',
@@ -315,6 +318,8 @@ abstract final class SettingBoxKey {
       displayMode = 'displayMode',
       smallCardWidth = 'smallCardWidth',
       recommendCardWidth = 'recommendCardWidth',
+      cardSpace = 'cardSpace',
+      safeSpace = 'safeSpace',
       dynamicsWaterfallFlow = 'dynamicsWaterfallFlow',
       upPanelPosition = 'upPanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',

@@ -54,12 +54,17 @@ class BottomControl extends StatelessWidget {
     final bufferedBarColor = primary.withValues(alpha: 0.4);
 
     return Padding(
-      padding: const .symmetric(horizontal: 10, vertical: 12),
+      padding: const .symmetric(vertical: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
+            padding: EdgeInsets.fromLTRB(
+              controller.progressBarSideSpace,
+              0,
+              controller.progressBarSideSpace,
+              7,
+            ),
             child: Obx(
               () => Offstage(
                 offstage: !controller.showControls.value,
@@ -80,6 +85,7 @@ class BottomControl extends StatelessWidget {
                         barHeight: 3.5,
                         thumbRadius: 7,
                         thumbGlowRadius: 25,
+                        snapDistance: 12,
                         onDragStart: onDragStart,
                         onDragUpdate: onDragUpdate,
                         onSeek: onSeek,
@@ -117,7 +123,12 @@ class BottomControl extends StatelessWidget {
               ),
             ),
           ),
-          buildBottomControl(),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: controller.bottomControlSideSpace,
+            ),
+            child: buildBottomControl(),
+          ),
         ],
       ),
     );

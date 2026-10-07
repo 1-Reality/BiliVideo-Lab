@@ -43,6 +43,8 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
+    this.barBaseline,
+    this.snapDistance = 0,
   });
 
   /// The elapsed playing time of the media.
@@ -173,6 +175,12 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
+  /// Distance from the bottom of the box to the track center.
+  final double? barBaseline;
+
+  /// Drag distance from a track endpoint that selects that endpoint.
+  final double snapDistance;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
     return RenderProgressBar(
@@ -192,6 +200,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
+      barBaseline: barBaseline,
+      snapDistance: snapDistance,
     );
   }
 
@@ -216,7 +226,9 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbColor = thumbColor
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
-      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar;
+      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
+      ..barBaseline = barBaseline
+      ..snapDistance = snapDistance;
   }
 
   @override
@@ -341,10 +353,13 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
+    double? barBaseline,
+    this.snapDistance = 0,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
        _thumbRadius = thumbRadius,
+       _barBaseline = barBaseline,
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
        _hitTestSelf = onDragStart != null,
@@ -456,9 +471,9 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     // start of the line (and after the end of the line). The cap radius is
     // equal to half of the line width, which in this case is the bar height.
     final rawPosition = dx - _barStart;
-    final position = rawPosition < 0
+    final position = rawPosition <= snapDistance
         ? 0.0
-        : rawPosition > _barWidth
+        : rawPosition >= _barWidth - snapDistance
         ? _barWidth
         : rawPosition;
     _thumbValue = position * _inverseBarWidth;
@@ -653,6 +668,16 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     markNeedsPaint();
   }
 
+  double snapDistance;
+
+  double? get barBaseline => _barBaseline;
+  double? _barBaseline;
+  set barBaseline(double? value) {
+    if (_barBaseline == value) return;
+    _barBaseline = value;
+    markNeedsLayout();
+  }
+
   // The smallest that this widget would ever want to be.
   static const _minDesiredWidth = 100.0;
 
@@ -694,7 +719,9 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     _barStart = barCapRadius;
     _barWidth = size.width - _barHeight;
     _inverseBarWidth = 1 / _barWidth;
-    _barCenterY = _heightWhenNoLabels() * 0.5;
+    _barCenterY = _barBaseline == null
+        ? _heightWhenNoLabels() * 0.5
+        : size.height - _barBaseline!;
     _barStartPoint = Offset(barCapRadius, _barCenterY);
     _barEndPoint = Offset(_barWidth + barCapRadius, _barCenterY);
     _updateBufferedPoint();
@@ -741,10 +768,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       }
     }
     final center = Offset(thumbDx, _barCenterY);
-    canvas
-      ..drawLine(_barStartPoint, _barEndPoint, _baseBarPaint)
-      ..drawLine(_barStartPoint, _bufferedPoint, _bufferedBarPaint)
-      ..drawLine(_barStartPoint, center, _progressBarPaint);
+    canvas.drawLine(_barStartPoint, _barEndPoint, _baseBarPaint);
+    // 缓冲条从当前进度点开始画，而不是从 0 开始：
+    // 跳转到未缓冲位置后，缓冲是从该位置开始的，这样显示才和实际一致。
+    // 正常播放时 0~进度点 会被已播放部分盖住，所以视觉上没有变化。
+    if (_bufferedPoint.dx > center.dx) {
+      canvas.drawLine(center, _bufferedPoint, _bufferedBarPaint);
+    }
+    canvas.drawLine(_barStartPoint, center, _progressBarPaint);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }

@@ -6,6 +6,7 @@ import 'package:PiliBro/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc_size.dart';
+import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
@@ -281,6 +282,21 @@ List<SettingsModel> get playSettings => [
     getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.label}',
     onTap: _showProgressBehaviorDialog,
   ),
+  const SwitchModel(
+    title: '进度条固定在底部',
+    subtitle: '关闭后随控制栏上移',
+    leading: Icon(Icons.vertical_align_bottom),
+    setKey: SettingBoxKey.fixedBottomProgress,
+    defaultVal: true,
+    needReboot: true,
+  ),
+  NormalModel(
+    title: '播放器左右留白（dp）',
+    leading: const Icon(Icons.space_bar_outlined),
+    getSubtitle: () =>
+        '进度条${Pref.progressBarSideSpace}dp 按钮${Pref.bottomControlSideSpace}dp',
+    onTap: _showPlayerSpaceDialog,
+  ),
   if (PlatformUtils.isMobile)
     SwitchModel(
       title: '后台音频服务',
@@ -387,6 +403,36 @@ Future<void> _showSuperChatDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.superChatType, res.index);
+    setState();
+  }
+}
+
+Future<void> _showPlayerSpaceDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(double, double)>(
+    context: context,
+    builder: (context) => DualSliderDialog(
+      title: const Text('播放器左右留白'),
+      value1: Pref.progressBarSideSpace,
+      value2: Pref.bottomControlSideSpace,
+      description1: const Text('进度条左右边距（默认20dp）'),
+      description2: const Text('底部按钮左右边距（默认10dp）'),
+      min: 0,
+      max: 24,
+      divisions: 24,
+      suffix: 'dp',
+      precise: 0,
+      enableInput: true,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.putAll({
+      SettingBoxKey.progressBarSideSpace: res.$1,
+      SettingBoxKey.bottomControlSideSpace: res.$2,
+    });
+    SmartDialog.showToast('重启生效');
     setState();
   }
 }
