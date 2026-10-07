@@ -410,6 +410,8 @@ class PlPlayerController
   }
 
   late final progressType = Pref.btmProgressBehavior;
+  late final progressPosition = Pref.btmProgressPosition;
+  late final progressBarSideSpace = Pref.progressBarSideSpace;
   late final enableQuickDouble = Pref.enableQuickDouble;
   late final fullScreenGestureReverse = Pref.fullScreenGestureReverse;
 
