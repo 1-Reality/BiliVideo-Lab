@@ -741,10 +741,14 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       }
     }
     final center = Offset(thumbDx, _barCenterY);
-    canvas
-      ..drawLine(_barStartPoint, _barEndPoint, _baseBarPaint)
-      ..drawLine(_barStartPoint, _bufferedPoint, _bufferedBarPaint)
-      ..drawLine(_barStartPoint, center, _progressBarPaint);
+    canvas.drawLine(_barStartPoint, _barEndPoint, _baseBarPaint);
+    // 缓冲条从当前进度点开始画，而不是从 0 开始：
+    // 跳转到未缓冲位置后，缓冲是从该位置开始的，这样显示才和实际一致。
+    // 正常播放时 0~进度点 会被已播放部分盖住，所以视觉上没有变化。
+    if (_bufferedPoint.dx > center.dx) {
+      canvas.drawLine(center, _bufferedPoint, _bufferedBarPaint);
+    }
+    canvas.drawLine(_barStartPoint, center, _progressBarPaint);
     if (_userIsDraggingThumb && _paintThumbGlow) {
       canvas.drawCircle(center, thumbGlowRadius, _thumbGlowPaint);
     }
