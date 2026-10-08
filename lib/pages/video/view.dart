@@ -1419,7 +1419,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         top: 0,
         left: controller.progressBarSideSpace,
         right: controller.progressBarSideSpace,
-        height: 7,
+        height: 18.105,
         child: ExcludeSemantics(
           child: player.ProgressBar(
             progress: 0,
