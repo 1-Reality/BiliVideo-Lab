@@ -472,7 +472,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 IgnorePointer(
                   ignoring: !expanded,
                   child: SizedBox(
-                    height: 24,
+                    height: 20.905,
                     child: Obx(
                       () => ProgressBar(
                         progress: controller.progress,
