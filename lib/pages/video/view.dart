@@ -7,6 +7,8 @@ import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/keep_alive_wrapper.dart';
+import 'package:PiliBro/common/widgets/progress_bar/audio_video_progress_bar.dart'
+    as player;
 import 'package:PiliBro/common/widgets/route_aware_mixin.dart';
 import 'package:PiliBro/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
@@ -62,6 +64,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
+import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/max_screen_size.dart';
 import 'package:PiliBro/utils/mobile_observer.dart';
@@ -1383,6 +1386,63 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         : child;
   }
 
+  void _onFixedProgressOverflowDragStart(player.ThumbDragDetails details) {
+    feedBack();
+    videoDetailController.plPlayerController.onSeekStart(details.seconds);
+  }
+
+  void _onFixedProgressOverflowDragUpdate(player.ThumbDragDetails details) {
+    final controller = videoDetailController.plPlayerController;
+    if (!controller.isFileSource && controller.showSeekPreview) {
+      controller.updatePreviewIndex(details.seconds);
+    }
+    controller.seekPosition.value = details.seconds;
+  }
+
+  void _onFixedProgressOverflowSeek(int milliseconds) {
+    final controller = videoDetailController.plPlayerController;
+    controller
+      ..position.value = milliseconds ~/ 1000
+      ..onSeekEnd()
+      ..seekTo(Duration(milliseconds: milliseconds), isSeek: false);
+  }
+
+  Widget _fixedProgressOverflowDragArea() {
+    final controller = videoDetailController.plPlayerController;
+    return Obx(() {
+      final expanded =
+          controller.showControls.value && !controller.controlsLock.value;
+      if (!expanded) {
+        return const SizedBox.shrink();
+      }
+      return Positioned(
+        top: 0,
+        left: controller.progressBarSideSpace,
+        right: controller.progressBarSideSpace,
+        height: 7,
+        child: ExcludeSemantics(
+          child: player.ProgressBar(
+            progress: 0,
+            buffered: 0,
+            total: controller.duration.value,
+            barHeight: 3.5,
+            thumbRadius: 0,
+            thumbGlowRadius: 0,
+            snapDistance: 12,
+            baseBarColor: Colors.transparent,
+            progressBarColor: Colors.transparent,
+            bufferedBarColor: Colors.transparent,
+            thumbColor: Colors.transparent,
+            thumbGlowColor: Colors.transparent,
+            onDragStart: _onFixedProgressOverflowDragStart,
+            onDragUpdate: _onFixedProgressOverflowDragUpdate,
+            onSeek: _onFixedProgressOverflowSeek,
+          ),
+        ),
+      );
+    });
+  }
+
   Widget buildTabBar({
     bool needIndicator = true,
     String? introText,
@@ -1473,6 +1533,95 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       );
     }
 
+    final tabBarRow = Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              if (tabs.isNotEmpty)
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
+                  child: tabBar(),
+                ),
+              Expanded(
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 38,
+                    child: IconButton(
+                      tooltip: '全屏',
+                      onPressed: () => videoDetailController
+                          .plPlayerController
+                          .triggerFullScreen(status: true),
+                      icon: Icon(
+                        Icons.fullscreen,
+                        size: 22,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 32,
+          child: TextButton(
+            style: const ButtonStyle(
+              padding: WidgetStatePropertyAll(.zero),
+            ),
+            onPressed: videoDetailController.showShootDanmakuSheet,
+            child: Text(
+              '发弹幕',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        SizedBox.square(
+          dimension: 38,
+          child: Obx(
+            () {
+              final ctr = videoDetailController.plPlayerController;
+              final enableShowDanmaku = ctr.enableShowDanmaku.value;
+              return IconButton(
+                onPressed: () {
+                  final newVal = !enableShowDanmaku;
+                  final position = ctr.videoPlayerController?.state.position ??
+                      Duration.zero;
+                  PlaybackStatsService.samplePosition(position);
+                  PlaybackStatsService.updateVideoContext(
+                    danmakuEnabled: newVal,
+                  );
+                  ctr.enableShowDanmaku.value = newVal;
+                  if (!ctr.tempPlayerConf) {
+                    GStorage.setting.put(
+                      SettingBoxKey.enableShowDanmaku,
+                      newVal,
+                    );
+                  }
+                },
+                icon: Icon(
+                  size: 22,
+                  enableShowDanmaku
+                      ? CustomIcons.dm_on
+                      : CustomIcons.dm_off,
+                  color: enableShowDanmaku
+                      ? colorScheme.secondary
+                      : colorScheme.outline,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 14),
+      ],
+    );
+    final controller = videoDetailController.plPlayerController;
+    final fixedProgress = !controller.isLive && controller.fixedBottomProgress;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(
@@ -1483,92 +1632,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ),
       child: SizedBox(
         height: 45,
-        child: Row(
-          children: [
-            Expanded(
-              child: Row(
+        child: fixedProgress
+            ? Stack(
                 children: [
-                  if (tabs.isNotEmpty)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: 96.0 * tabs.length),
-                      child: tabBar(),
-                    ),
-                  Expanded(
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 38,
-                        child: IconButton(
-                          tooltip: '全屏',
-                          onPressed: () => videoDetailController
-                              .plPlayerController
-                              .triggerFullScreen(status: true),
-                          icon: Icon(
-                            Icons.fullscreen,
-                            size: 22,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  tabBarRow,
+                  _fixedProgressOverflowDragArea(),
                 ],
-              ),
-            ),
-            SizedBox(
-              height: 32,
-              child: TextButton(
-                style: const ButtonStyle(
-                  padding: WidgetStatePropertyAll(.zero),
-                ),
-                onPressed: videoDetailController.showShootDanmakuSheet,
-                child: Text(
-                  '发弹幕',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox.square(
-              dimension: 38,
-              child: Obx(
-                () {
-                  final ctr = videoDetailController.plPlayerController;
-                  final enableShowDanmaku = ctr.enableShowDanmaku.value;
-                  return IconButton(
-                    onPressed: () {
-                      final newVal = !enableShowDanmaku;
-                      final position = ctr.videoPlayerController?.state.position ??
-                          Duration.zero;
-                      PlaybackStatsService.samplePosition(position);
-                      PlaybackStatsService.updateVideoContext(
-                        danmakuEnabled: newVal,
-                      );
-                      ctr.enableShowDanmaku.value = newVal;
-                      if (!ctr.tempPlayerConf) {
-                        GStorage.setting.put(
-                          SettingBoxKey.enableShowDanmaku,
-                          newVal,
-                        );
-                      }
-                    },
-                    icon: Icon(
-                      size: 22,
-                      enableShowDanmaku
-                          ? CustomIcons.dm_on
-                          : CustomIcons.dm_off,
-                      color: enableShowDanmaku
-                          ? colorScheme.secondary
-                          : colorScheme.outline,
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 14),
-          ],
-        ),
+              )
+            : tabBarRow,
       ),
     );
   }

@@ -472,7 +472,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 IgnorePointer(
                   ignoring: !expanded,
                   child: SizedBox(
-                    height: 14,
+                    height: 24,
                     child: Obx(
                       () => ProgressBar(
                         progress: controller.progress,
@@ -1563,6 +1563,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final fixedProgress = !isLive && plPlayerController.fixedBottomProgress;
 
     final child = Stack(
+      clipBehavior: fixedProgress ? Clip.none : Clip.hardEdge,
       fit: StackFit.passthrough,
       key: _playerKey,
       children: <Widget>[
