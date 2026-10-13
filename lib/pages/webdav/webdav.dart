@@ -8,6 +8,7 @@ import 'package:PiliBro/services/comment_helper_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -31,6 +32,7 @@ abstract final class _ComponentName {
   static const commentHelper = 'commentHelper';
   static const trafficStats = 'trafficStats';
   static const cdnLatest = 'cdnLatest';
+  static const watchLog = 'watchLog:';
 }
 
 class WebDav {
@@ -156,6 +158,7 @@ class WebDav {
       ]);
 
       final components = <String, Map<String, dynamic>>{};
+      final sources = <String, File?>{};
       final settingsFile = File(path.join(temp.path, 'settings.json'));
       await settingsFile.writeAsString(
         GStorage.exportAllSettings(
@@ -187,6 +190,34 @@ class WebDav {
         components[_ComponentName.playbackArchive] = await _snapshotFile(
           archiveSnapshot,
         );
+        Map? remote;
+        try {
+          remote =
+              jsonDecode(
+                    utf8.decode(
+                      await client.read('$remoteDirectory/manifest.json'),
+                    ),
+                  )['components']
+                  as Map?;
+        } catch (_) {}
+        for (final file in await WatchLogService.files()) {
+          final name = path.basename(file.path);
+          final key = '${_ComponentName.watchLog}$name';
+          if (name == 'watchlog.jsonl') {
+            components[key] = await _copySnapshot(file, temp, name);
+            continue;
+          }
+          final old = remote?[key];
+          if (old is Map &&
+              old['file'] == name &&
+              old['bytes'] == await file.length()) {
+            components[key] = Map<String, dynamic>.from(old);
+            sources[key] = null;
+          } else {
+            components[key] = await _snapshotFile(file);
+            sources[key] = file;
+          }
+        }
       }
 
       if (Pref.webdavBackupCommentHistory) {
@@ -213,11 +244,12 @@ class WebDav {
         );
       }
 
-      for (final component in components.values) {
+      for (final MapEntry(:key, value: component) in components.entries) {
         final fileName = component['file'] as String;
+        if (sources.containsKey(key) && sources[key] == null) continue;
         await _uploadReplacing(
           client,
-          File(path.join(temp.path, fileName)),
+          sources[key] ?? File(path.join(temp.path, fileName)),
           '$remoteDirectory/$fileName',
         );
       }
@@ -293,6 +325,9 @@ class WebDav {
           _ComponentName.commentHelper,
         ],
         if (Pref.webdavBackupCdnDiagnostics) _ComponentName.cdnLatest,
+        if (Pref.webdavBackupPlaybackStats)
+          for (final name in components.keys)
+            if (name.startsWith(_ComponentName.watchLog)) name,
       };
       final downloaded = <String, File>{};
       for (final name in selected) {
@@ -320,6 +355,11 @@ class WebDav {
           file, archiveSource: downloaded[_ComponentName.playbackArchive],
         );
       }
+      final logs = [
+        for (final MapEntry(:key, :value) in downloaded.entries)
+          if (key.startsWith(_ComponentName.watchLog)) value,
+      ];
+      if (logs.isNotEmpty) await WatchLogService.restore(logs);
       if (downloaded[_ComponentName.replyHistory] case final file?) {
         await GStorage.restoreReplyHive(file);
       }

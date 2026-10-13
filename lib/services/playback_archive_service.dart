@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -78,6 +79,7 @@ abstract final class PlaybackArchiveService {
       } finally {
         PlaybackStatsService.endArchiveRollover();
       }
+      await WatchLogService.rotate();
       await PlaybackStatsService.flush(force: true);
     }
     await _mergePending();
