@@ -14,6 +14,12 @@ const _launcherExtensions = {'png', 'jpg', 'jpeg', 'webp'};
 
 const _desktopIconNames = <String, String>{
   'launcher_realoriginalpic.jpg': '米山舞',
+  'launcher_speed.png': '倍速表盘',
+  'launcher_hourglass.png': '时间都去哪了',
+  'launcher_ge.png': '哥',
+  'launcher_progress.png': '吸底进度条',
+  'launcher_pixel.png': '像素播放',
+  'launcher_jsonl.png': '流水账',
 };
 
 class DesktopIconPage extends StatefulWidget {
