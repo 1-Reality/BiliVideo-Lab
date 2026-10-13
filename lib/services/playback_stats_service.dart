@@ -1684,13 +1684,20 @@ abstract final class PlaybackStatsService {
     final iv = [
       for (final r in _coveredIntervals) [r.start ~/ 1000, r.end ~/ 1000],
     ];
-    while (iv.length > 32) {
-      var k = 1;
-      for (var i = 2; i < iv.length; i++) {
-        if (iv[i][0] - iv[i - 1][1] < iv[k][0] - iv[k - 1][1]) k = i;
+    if (iv.length > 32) {
+      // Close the n-32 smallest gaps in one pass (ties may close a few more).
+      final cut = ([
+        for (var i = 1; i < iv.length; i++) iv[i][0] - iv[i - 1][1],
+      ]..sort())[iv.length - 33];
+      var j = 0;
+      for (var i = 1; i < iv.length; i++) {
+        if (iv[i][0] - iv[j][1] <= cut) {
+          iv[j][1] = iv[i][1];
+        } else {
+          iv[++j] = iv[i];
+        }
       }
-      iv[k - 1][1] = iv[k][1];
-      iv.removeAt(k);
+      iv.length = j + 1;
     }
     return {
       'k': 'v',
@@ -2466,6 +2473,7 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
+    if (!_dirty) return;
     if (_videoSessionOpen) {
       WatchLogService.checkpoint(
         _videoLogRecord(DateTime.now()),
@@ -2477,7 +2485,6 @@ abstract final class PlaybackStatsService {
         Accounts.heartbeat.mid,
       );
     }
-    if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
     final keys = Set<String>.of(_dirtyKeys)

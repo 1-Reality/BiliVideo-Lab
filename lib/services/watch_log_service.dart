@@ -130,9 +130,14 @@ abstract final class WatchLogService {
   }
 
   static Future<void> restore(Iterable<File> sources) => _run(() async {
+    // _init already folded any crash leftover into the log being replaced; a
+    // live .open here is the session still playing, and must not be folded in
+    // again as a crashed record on top of its own final append.
     for (final e in await dir.list().toList()) {
       if (e is File &&
-          (e.path.endsWith('.jsonl') || e.path.endsWith('.jsonl.gz'))) {
+          (e.path.endsWith('.jsonl') ||
+              e.path.endsWith('.jsonl.gz') ||
+              e.path.startsWith(_open.path))) {
         await e.delete();
       }
     }
