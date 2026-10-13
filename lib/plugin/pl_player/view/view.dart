@@ -472,7 +472,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 IgnorePointer(
                   ignoring: !expanded,
                   child: SizedBox(
-                    height: 14,
+                    height: 20.905,
                     child: Obx(
                       () => ProgressBar(
                         progress: controller.progress,
@@ -1563,13 +1563,20 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final fixedProgress = !isLive && plPlayerController.fixedBottomProgress;
 
     final child = Stack(
+      clipBehavior: fixedProgress ? Clip.none : Clip.hardEdge,
       fit: StackFit.passthrough,
       key: _playerKey,
       children: <Widget>[
         _videoWidget,
 
         if (widget.danmuWidget case final danmaku?)
-          Positioned.fill(top: 4, child: danmaku),
+          Positioned.fill(
+            top: 4,
+            // 固定底部进度条模式下外层 Stack 是 Clip.none（为了让进度条圆点
+            // 能画出播放器底边），弹幕层原本依赖外层裁剪，这里单独补上，
+            // 否则弹幕会画到播放器范围之外。普通模式外层本来就裁剪，不重复加。
+            child: fixedProgress ? ClipRect(child: danmaku) : danmaku,
+          ),
 
         if (!isLive)
           Positioned.fill(
