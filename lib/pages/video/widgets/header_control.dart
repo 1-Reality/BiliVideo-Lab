@@ -1923,6 +1923,16 @@ class HeaderControlState extends State<HeaderControl>
                         style: btnStyle,
                         onPressed: () {
                           final newVal = !enableShowDanmaku;
+                          PlaybackStatsService.samplePosition(
+                            plPlayerController
+                                    .videoPlayerController
+                                    ?.state
+                                    .position ??
+                                Duration.zero,
+                          );
+                          PlaybackStatsService.updateVideoContext(
+                            danmakuEnabled: newVal,
+                          );
                           plPlayerController.enableShowDanmaku.value = newVal;
                           if (!plPlayerController.tempPlayerConf) {
                             setting.put(
@@ -1997,48 +2007,6 @@ class HeaderControlState extends State<HeaderControl>
                     size: 19,
                     color: Colors.white,
                   ),
-                ),
-              ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () {
-                    final enableShowDanmaku =
-                        plPlayerController.enableShowDanmaku.value;
-                    return IconButton(
-                      tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
-                      style: btnStyle,
-                      onPressed: () {
-                        final newVal = !enableShowDanmaku;
-                        final position =
-                            plPlayerController.videoPlayerController?.state.position ??
-                            Duration.zero;
-                        PlaybackStatsService.samplePosition(position);
-                        PlaybackStatsService.updateVideoContext(
-                          danmakuEnabled: newVal,
-                        );
-                        plPlayerController.enableShowDanmaku.value = newVal;
-                        if (!plPlayerController.tempPlayerConf) {
-                          setting.put(
-                            SettingBoxKey.enableShowDanmaku,
-                            newVal,
-                          );
-                        }
-                      },
-                      icon: enableShowDanmaku
-                          ? const Icon(
-                              size: 20,
-                              CustomIcons.dm_on,
-                              color: Colors.white,
-                            )
-                          : const Icon(
-                              size: 20,
-                              CustomIcons.dm_off,
-                              color: Colors.white,
-                            ),
-                    );
-                  },
                 ),
               ),
             ],

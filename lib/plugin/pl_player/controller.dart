@@ -411,6 +411,7 @@ class PlPlayerController
 
   late final progressType = Pref.btmProgressBehavior;
   late final fixedBottomProgress = Pref.fixedBottomProgress;
+  late final fixedBottomProgressFs = Pref.fixedBottomProgressFs;
   late final progressBarSideSpace = Pref.progressBarSideSpace;
   late final bottomControlSideSpace = Pref.bottomControlSideSpace;
   late final enableQuickDouble = Pref.enableQuickDouble;

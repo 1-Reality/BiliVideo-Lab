@@ -3,6 +3,7 @@
 abstract final class SettingBoxKey {
   static const String btmProgressBehavior = 'btmProgressBehavior',
       fixedBottomProgress = 'fixedBottomProgress',
+      fixedBottomProgressFs = 'fixedBottomProgressFs',
       progressBarSideSpace = 'progressBarSideSpace',
       bottomControlSideSpace = 'bottomControlSideSpace',
       defaultVideoQa = 'defaultVideoQa',
