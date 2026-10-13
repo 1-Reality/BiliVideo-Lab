@@ -51,10 +51,12 @@ abstract final class Update {
         }
       } else {
         SmartDialog.show(
+          useSystem: true,
           animationType: SmartAnimationType.centerFade_otherSlide,
           builder: (context) {
             final colorScheme = ColorScheme.of(context);
             Widget downloadBtn(String text, {String? ext}) => TextButton(
+              autofocus: ext == null,
               onPressed: () => onDownload(data, ext: ext),
               child: Text(text),
             );

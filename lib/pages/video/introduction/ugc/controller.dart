@@ -120,6 +120,11 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         videoUpUid: response.owner?.mid,
         videoUpName: response.owner?.name,
       );
+      PlaybackStatsService.setVideoMeta(
+        cid: cid.value,
+        title: response.title,
+        pubdate: response.pubdate,
+      );
       final page = response.pages?.firstWhereOrNull(
         (item) => item.cid == cid.value,
       );
@@ -233,6 +238,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
     final result = await VideoHttp.ugcTriple(bvid: bvid);
     if (result case Success(:final response)) {
+      PlaybackStatsService.markInteraction(
+        8 |
+            (response.like == true ? 1 : 0) |
+            (response.coin == true ? 2 : 0) |
+            (response.fav == true ? 4 : 0),
+      );
       late final stat = videoDetail.value.stat;
       if (response.like == true && !hasLike.value) {
         stat?.like++;
@@ -276,6 +287,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       hasLike.value = newVal;
       if (newVal) {
         hasDislike.value = false;
+        PlaybackStatsService.markInteraction(1);
       }
     } else {
       result.toast();

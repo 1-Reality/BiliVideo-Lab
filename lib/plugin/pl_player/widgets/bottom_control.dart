@@ -66,9 +66,11 @@ class BottomControl extends StatelessWidget {
               7,
             ),
             child: Obx(
-              () => Offstage(
-                offstage: !controller.showControls.value,
-                child: Stack(
+              () {
+                if (!controller.showControls.value) {
+                  return const SizedBox.shrink();
+                }
+                return Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: [
@@ -119,8 +121,8 @@ class BottomControl extends StatelessWidget {
                           case final list?)
                         buildDmChart(primary, list, videoDetailController, 4.5),
                   ],
-                ),
-              ),
+                );
+              },
             ),
           ),
           Padding(

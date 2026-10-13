@@ -569,6 +569,9 @@ abstract final class Pref {
   static bool get fixedBottomProgress =>
       _setting.get(SettingBoxKey.fixedBottomProgress, defaultValue: true);
 
+  static bool get fixedBottomProgressFs =>
+      _setting.get(SettingBoxKey.fixedBottomProgressFs, defaultValue: false);
+
   static double get progressBarSideSpace =>
       _setting.get(SettingBoxKey.progressBarSideSpace, defaultValue: 20.0);
 

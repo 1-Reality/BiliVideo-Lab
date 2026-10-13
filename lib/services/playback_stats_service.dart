@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:math' show max;
 
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, debugPrint, kDebugMode;
 import 'package:flutter/widgets.dart';
@@ -107,6 +109,19 @@ abstract final class PlaybackStatsService {
   static bool _sessionCompleted = false;
   static bool _videoSessionOpen = false;
   static final List<({int start, int end})> _coveredIntervals = [];
+  static int _sessionStartMs = 0;
+  static int _sessionFlags = 0;
+  static String _sessionSrc = 'other';
+  static String _entryPage = 'other';
+  static String? _logBvid;
+  static int? _logAid;
+  static int? _logEpid;
+  static int? _logSeasonId;
+  static String? _logTitle;
+  static String? _logEpTitle;
+  static int? _logPubdate;
+  static int _liveSessionStartMs = 0;
+  static int _liveSessionUs = 0;
   static String _orientation = 'unknown';
   static String _contentType = 'ugc';
   static String _partitionId = 'unknown';
@@ -1201,6 +1216,10 @@ abstract final class PlaybackStatsService {
     required double speed,
     required double defaultSpeed,
     int? cid,
+    int? aid,
+    String? bvid,
+    int? epid,
+    int? seasonId,
     int? liveUid,
     int? videoUpUid,
     String? videoUpName,
@@ -1239,6 +1258,7 @@ abstract final class PlaybackStatsService {
         _reclassifyTrailingPauseAsComment();
         _finalizeVideoSession();
       }
+      _finalizeLiveSession();
       _finishRewind(now, completed: false);
       _active = false;
       _mediaKey = null;
@@ -1254,6 +1274,7 @@ abstract final class PlaybackStatsService {
         _reclassifyTrailingPauseAsComment();
         _finalizeVideoSession();
       }
+      _finalizeLiveSession();
       _finishRewind(now, completed: false);
       if (isLive) {
         _videoUpUid = null;
@@ -1261,6 +1282,8 @@ abstract final class PlaybackStatsService {
         _videoUpStartRecorded = false;
         _liveUid = liveUid?.toString() ?? 'unknown';
         _liveName = liveName;
+        _liveSessionStartMs = DateTime.now().millisecondsSinceEpoch;
+        _liveSessionUs = 0;
         _add('liveOpenCount', 1);
         final byUid = _map('liveByUid');
         final item = _mutableMap(byUid[_liveUid]);
@@ -1277,6 +1300,13 @@ abstract final class PlaybackStatsService {
         _videoUpUid = videoUpUid?.toString();
         _videoUpName = videoUpName;
         _videoUpStartRecorded = false;
+        _logBvid = bvid;
+        _logAid = aid;
+        _logEpid = epid;
+        _logSeasonId = seasonId;
+        _logTitle = null;
+        _logEpTitle = null;
+        _logPubdate = null;
         _recordVideoUpStart();
         _add('videoStarts', 1);
         _recordSourceSpeed(speed, defaultSpeed);
@@ -1411,6 +1441,9 @@ abstract final class PlaybackStatsService {
     _sessionMaxPositionUs = initialPositionUs;
     _sessionCompleted = false;
     _coveredIntervals.clear();
+    _sessionStartMs = DateTime.now().millisecondsSinceEpoch;
+    _sessionFlags = 0;
+    _sessionSrc = _entryPage;
     _dimensionContextVersion++;
     if (!resetContext) return;
     _orientation = 'unknown';
@@ -1518,6 +1551,10 @@ abstract final class PlaybackStatsService {
     if (!_videoSessionOpen) return;
     _flushPlaybackPending();
     _videoSessionOpen = false;
+    WatchLogService.append(
+      _videoLogRecord(DateTime.now()),
+      Accounts.heartbeat.mid,
+    );
     final played = _sessionActiveUs > 0;
     final sessionPrimitives = <String, num>{
       'sessionOpenedCount': 1,
@@ -1625,6 +1662,103 @@ abstract final class PlaybackStatsService {
       lower = upper;
     }
     _addBucket(key, bucket, 1);
+  }
+
+  static void setVideoMeta({
+    required int cid,
+    String? title,
+    String? episodeTitle,
+    int? pubdate,
+  }) {
+    if (!_active || _live || _mediaKey != 'cid:$cid') return;
+    if (title != null) _logTitle = title;
+    if (episodeTitle != null) _logEpTitle = episodeTitle;
+    if (pubdate != null) _logPubdate = pubdate;
+  }
+
+  static void markInteraction(int bits) {
+    if (_videoSessionOpen) _sessionFlags |= bits;
+  }
+
+  static Map<String, Object> _videoLogRecord(DateTime now) {
+    final iv = [
+      for (final r in _coveredIntervals) [r.start ~/ 1000, r.end ~/ 1000],
+    ];
+    if (iv.length > 32) {
+      // Close the n-32 smallest gaps in one pass (ties may close a few more).
+      final cut = ([
+        for (var i = 1; i < iv.length; i++) iv[i][0] - iv[i - 1][1],
+      ]..sort())[iv.length - 33];
+      var j = 0;
+      for (var i = 1; i < iv.length; i++) {
+        if (iv[i][0] - iv[j][1] <= cut) {
+          iv[j][1] = iv[i][1];
+        } else {
+          iv[++j] = iv[i];
+        }
+      }
+      iv.length = j + 1;
+    }
+    return {
+      'k': 'v',
+      't0': _sessionStartMs,
+      't1': now.millisecondsSinceEpoch,
+      'z': now.timeZoneOffset.inMinutes,
+      'bv': ?_logBvid,
+      'av': ?_logAid,
+      'cid': ?int.tryParse(_mediaKey?.substring(4) ?? ''),
+      'ep': ?_logEpid,
+      'ss': ?_logSeasonId,
+      'ti': ?_logTitle,
+      'et': ?_logEpTitle,
+      'pd': ?_logPubdate,
+      'up': ?int.tryParse(_videoUpUid ?? ''),
+      'un': ?_videoUpName,
+      'tid': ?int.tryParse(_partitionId),
+      'tn': _partitionName,
+      'ct': _contentType,
+      'd': _sourceDurationUs ~/ 1000,
+      'a': _sessionActiveUs ~/ 1000,
+      'm': _sessionMediaAdvanceUs ~/ 1000,
+      'n': (_sessionNominalMediaUs * 0.001).round(),
+      'nl': (_sessionNominalIncludingLongPressUs * 0.001).round(),
+      'ps': _sessionPausedUs ~/ 1000,
+      'uc': _sessionUniqueCoveredUs ~/ 1000,
+      'rc': _sessionRepeatCoveredUs ~/ 1000,
+      'mx': _sessionMaxPositionUs ~/ 1000,
+      if (_sessionCompleted) 'done': 1,
+      if (iv.isNotEmpty) 'iv': iv,
+      'or': _orientation,
+      'cd': _codec,
+      'q': _quality,
+      'nw': _network,
+      'fm': _playbackForm,
+      'sb': _subtitle,
+      'dm': _danmaku,
+      'cr': _copyright,
+      'dec': _decoder,
+      'src': _sessionSrc,
+      if (_sessionFlags != 0) 'fl': _sessionFlags,
+    };
+  }
+
+  static Map<String, Object> _liveLogRecord(DateTime now) => {
+    'k': 'l',
+    't0': _liveSessionStartMs,
+    't1': now.millisecondsSinceEpoch,
+    'z': now.timeZoneOffset.inMinutes,
+    'up': ?int.tryParse(_liveUid ?? ''),
+    'un': ?_liveName,
+    'a': _liveSessionUs ~/ 1000,
+  };
+
+  static void _finalizeLiveSession() {
+    if (_liveSessionStartMs == 0) return;
+    WatchLogService.append(
+      _liveLogRecord(DateTime.now()),
+      Accounts.heartbeat.mid,
+    );
+    _liveSessionStartMs = 0;
   }
 
   static void setVideoUpUid({
@@ -1785,6 +1919,7 @@ abstract final class PlaybackStatsService {
     final now = _clock.elapsedMicroseconds;
     if (_live) {
       _settleLive(now);
+      _finalizeLiveSession();
     } else {
       _settleVideo(position.inMicroseconds, now);
       _reclassifyTrailingPauseAsComment();
@@ -1824,6 +1959,7 @@ abstract final class PlaybackStatsService {
     final delta = now - _lastWallUs;
     final elapsed = delta > 0 ? delta : 0;
     if (elapsed > 0) {
+      _liveSessionUs += elapsed;
       _add('liveWatchUs', elapsed);
       final uid = _liveUid;
       if (uid != null) {
@@ -2337,6 +2473,17 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
+    if (_videoSessionOpen) {
+      WatchLogService.checkpoint(
+        _videoLogRecord(DateTime.now()),
+        Accounts.heartbeat.mid,
+      );
+    } else if (_liveSessionStartMs != 0) {
+      WatchLogService.checkpoint(
+        _liveLogRecord(DateTime.now()),
+        Accounts.heartbeat.mid,
+      );
+    }
     if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
@@ -2556,6 +2703,11 @@ final class PlaybackPageRouteObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     PlaybackStatsService._onPageRouteChanged(route.settings.name);
+    if (route.settings.name == '/videoV') {
+      PlaybackStatsService._entryPage = PlaybackStatsService._routeCategory(
+        previousRoute?.settings.name,
+      );
+    }
   }
 
   @override

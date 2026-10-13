@@ -283,11 +283,19 @@ List<SettingsModel> get playSettings => [
     onTap: _showProgressBehaviorDialog,
   ),
   const SwitchModel(
-    title: '进度条固定在底部',
+    title: '进度条固定在底部（非全屏）',
     subtitle: '关闭后随控制栏上移',
     leading: Icon(Icons.vertical_align_bottom),
     setKey: SettingBoxKey.fixedBottomProgress,
     defaultVal: true,
+    needReboot: true,
+  ),
+  const SwitchModel(
+    title: '进度条固定在底部（全屏）',
+    subtitle: '关闭后随控制栏上移',
+    leading: Icon(Icons.vertical_align_bottom),
+    setKey: SettingBoxKey.fixedBottomProgressFs,
+    defaultVal: false,
     needReboot: true,
   ),
   NormalModel(

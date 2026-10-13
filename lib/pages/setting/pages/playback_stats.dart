@@ -3,10 +3,13 @@ import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:share_plus/share_plus.dart';
 
 class PlaybackStatsPage extends StatefulWidget {
   const PlaybackStatsPage({super.key});
@@ -131,6 +134,23 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
       appBar: AppBar(
         title: const Text('倍速统计详情'),
         actions: [
+          IconButton(
+            tooltip: '导出观看日志',
+            onPressed: () async {
+              final files = await WatchLogService.files();
+              if (files.isEmpty) {
+                SmartDialog.showToast('还没有观看日志');
+                return;
+              }
+              await SharePlus.instance.share(
+                ShareParams(
+                  files: [for (final f in files) XFile(f.path)],
+                  sharePositionOrigin: await ShareUtils.sharePositionOrigin,
+                ),
+              );
+            },
+            icon: const Icon(Icons.share_outlined),
+          ),
           TextButton(onPressed: _reset, child: const Text('清空')),
           const SizedBox(width: 8),
         ],

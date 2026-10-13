@@ -19,6 +19,7 @@ import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/dynamics_repost/view.dart';
 import 'package:PiliBro/pages/video/reply/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/feed_back.dart';
@@ -110,6 +111,7 @@ class PgcIntroController extends CommonIntroController {
       SmartDialog.showToast(newVal ? response : '取消赞');
       pgcItem.stat?.like += newVal ? 1 : -1;
       hasLike.value = newVal;
+      if (newVal) PlaybackStatsService.markInteraction(1);
     } else {
       result.toast();
     }
@@ -395,6 +397,12 @@ class PgcIntroController extends CommonIntroController {
     }
     final result = await VideoHttp.pgcTriple(epId: epId!, seasonId: seasonId);
     if (result case Success(:final response)) {
+      PlaybackStatsService.markInteraction(
+        8 |
+            (response.like == 1 ? 1 : 0) |
+            (response.coin == 1 ? 2 : 0) |
+            (response.favorite == 1 ? 4 : 0),
+      );
       late final stat = pgcItem.stat;
       if (response.like == 1 && !hasLike.value) {
         stat?.like++;

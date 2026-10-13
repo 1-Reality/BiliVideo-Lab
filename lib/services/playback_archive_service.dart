@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -79,6 +80,12 @@ abstract final class PlaybackArchiveService {
         PlaybackStatsService.endArchiveRollover();
       }
       await PlaybackStatsService.flush(force: true);
+    }
+    // Also on the pending path: a kill between the Hive rename and here must
+    // not let the hot log run into the next period. The header time makes it
+    // idempotent — a hot log begun after the cutover is left alone.
+    if (int.tryParse(GStorage.playbackArchiveId ?? '') case final id?) {
+      await WatchLogService.rotate(id ~/ 1000);
     }
     await _mergePending();
     await GStorage.completePlaybackArchive();

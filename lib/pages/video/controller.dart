@@ -1031,6 +1031,31 @@ class VideoDetailController extends GetxController
 
     if (isClosed) return;
 
+    try {
+      if (isFileSource) {
+        PlaybackStatsService.setVideoMeta(cid: cid.value, title: entry.title);
+      } else if (isUgc) {
+        final detail =
+            Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+        if (detail.bvid == bvid) {
+          PlaybackStatsService.setVideoMeta(
+            cid: cid.value,
+            title: detail.title,
+            pubdate: detail.pubdate,
+          );
+        }
+      } else {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        final ep = item.episodes?.firstWhereOrNull((e) => e.epId == epId);
+        PlaybackStatsService.setVideoMeta(
+          cid: cid.value,
+          title: item.title,
+          episodeTitle: ep?.showTitle ?? ep?.longTitle,
+          pubdate: ep?.pubTime,
+        );
+      }
+    } catch (_) {}
+
     if (!isFileSource) {
       if (plPlayerController.enableBlock) {
         initSkip();
