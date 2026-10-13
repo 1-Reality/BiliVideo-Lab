@@ -2473,7 +2473,6 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
-    if (!_dirty) return;
     if (_videoSessionOpen) {
       WatchLogService.checkpoint(
         _videoLogRecord(DateTime.now()),
@@ -2485,6 +2484,7 @@ abstract final class PlaybackStatsService {
         Accounts.heartbeat.mid,
       );
     }
+    if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
     final keys = Set<String>.of(_dirtyKeys)

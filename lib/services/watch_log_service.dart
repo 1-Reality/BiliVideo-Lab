@@ -77,14 +77,28 @@ abstract final class WatchLogService {
 
   static void append(Map<String, Object> rec, int viewer) => _run(() async {
     await _line(_encode(rec, viewer));
+    _lastCheckpoint = null;
     if (await _open.exists()) await _open.delete();
   });
 
+  // Last checkpoint body without 't1' (the only field that changes every tick).
+  static String? _lastCheckpoint;
+
+  // Writes only when the session content changed since the last checkpoint, so
+  // a paused or idle session costs one in-memory encode per tick, no disk I/O.
   static void checkpoint(Map<String, Object> rec, int viewer) =>
       _run(() async {
-        final tmp = File('${_open.path}.tmp');
-        await tmp.writeAsString(_encode(rec, viewer), flush: true);
-        await tmp.rename(_open.path);
+        final t1 = rec.remove('t1');
+        final body = _encode(rec, viewer);
+        if (body != _lastCheckpoint) {
+          final tmp = File('${_open.path}.tmp');
+          rec['t1'] = t1!;
+          await tmp.writeAsString(jsonEncode(rec), flush: true);
+          await tmp.rename(_open.path);
+          _lastCheckpoint = body;
+        } else {
+          rec['t1'] = t1!;
+        }
       });
 
   static String _ymd(int ms) {
@@ -105,6 +119,7 @@ abstract final class WatchLogService {
       }
       await _hot.rename(segment.path);
       _ac = null;
+      _lastCheckpoint = null;
     }
     for (final e in await dir.list().toList()) {
       if (e is File &&
@@ -145,5 +160,6 @@ abstract final class WatchLogService {
       await f.copy(path.join(dir.path, path.basename(f.path)));
     }
     _ready = false;
+    _lastCheckpoint = null;
   });
 }
