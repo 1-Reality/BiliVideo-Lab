@@ -92,8 +92,8 @@ abstract final class WatchLogService {
     return '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
   }
 
-  static Future<void> rotate() => _run(() async {
-    if (await _hot.exists()) {
+  static Future<void> rotate(int cutoffMs) => _run(() async {
+    if (await _hot.exists() && _from < cutoffMs) {
       final now = DateTime.now().millisecondsSinceEpoch;
       var segment = File(
         path.join(dir.path, 'watchlog-${_ymd(_from)}-${_ymd(now)}.jsonl'),
