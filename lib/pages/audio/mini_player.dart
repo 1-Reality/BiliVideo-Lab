@@ -2,15 +2,16 @@ import 'dart:io' show File;
 
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/pages/audio/session.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
 
 /// Floating capsule for the retained audio-only Player, laid out by
-/// MainLayout above the bottom navigation. With no audio session it is a
-/// zero-size box; the Obx only rebuilds when a session starts, stops or the
-/// audio page is shown/hidden.
+/// MainLayout above the bottom navigation. Not built at all when its setting
+/// is off; otherwise a zero-size box with no audio session, rebuilt only when
+/// a session starts, stops or the audio page is shown/hidden.
 class AudioMiniPlayer extends StatelessWidget {
   const AudioMiniPlayer({super.key, required this.bottomInset});
 
@@ -112,11 +113,26 @@ class AudioMiniPlayer extends StatelessWidget {
                   ),
                   onPressed: controller.playOrPause,
                 ),
-                IconButton(
-                  tooltip: '打开播放页',
-                  icon: const Icon(Icons.queue_music_rounded),
-                  onPressed: AudioPlaybackSession.reopen,
-                ),
+                // One-off switch to watching the same item as video; the home
+                // default (AudioFirstMode) is left alone.
+                if (controller.isUgc && !controller.isOffline)
+                  IconButton(
+                    tooltip: '切换为视频观看',
+                    icon: const Icon(Icons.queue_music_rounded),
+                    onPressed: () {
+                      final aid = controller.oid.toInt();
+                      final cid = controller.subId.first.toInt();
+                      final progress =
+                          controller.player?.state.position.inMilliseconds;
+                      AudioPlaybackSession.stop();
+                      PageUtils.toVideoPage(
+                        aid: aid,
+                        cid: cid,
+                        progress: progress,
+                        forceVideo: true,
+                      );
+                    },
+                  ),
                 IconButton(
                   tooltip: '关闭音频播放',
                   icon: const Icon(Icons.close_rounded),

@@ -22,6 +22,14 @@ import 'package:material_ui/material_ui.dart';
 /// switch in player settings. Audio CDN and audio quality stay with the CDN and
 /// quality settings they belong to.
 List<SettingsModel> get audioSettings => [
+  const SwitchModel(
+    title: '底部音频播放条',
+    subtitle: '离开听视频页后在首页底栏上方显示控制条；与音视频快捷切换无关。关闭后首页不再构建它',
+    leading: Icon(Icons.call_to_action_outlined),
+    setKey: SettingBoxKey.showAudioMiniPlayer,
+    defaultVal: true,
+    needReboot: true,
+  ),
   if (PlatformUtils.isMobile)
     SwitchModel(
       title: '后台音频服务',

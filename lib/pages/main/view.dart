@@ -26,6 +26,7 @@ import 'package:PiliBro/utils/mobile_observer.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show ExcludeFocus;
 import 'package:get/get.dart';
@@ -52,6 +53,8 @@ class _MainAppState extends PopScopeState<MainApp>
   final _mainController = Get.put(MainController());
   late final _setting = GStorage.setting;
   late EdgeInsets _padding;
+  // Read once: when off, MainLayout has no mini player child at all.
+  late final bool _showAudioMiniPlayer = Pref.showAudioMiniPlayer;
   late ColorScheme _colorScheme;
   Brightness? _brightness;
   Timer? _windowGeometryTimer;
@@ -566,9 +569,11 @@ class _MainAppState extends PopScopeState<MainApp>
         sideBar: sideBar,
         bottomNav: bottomNav,
         body: Padding(padding: padding, child: child),
-        miniPlayer: AudioMiniPlayer(
-          bottomInset: bottomNav == null ? _padding.bottom : 0,
-        ),
+        miniPlayer: _showAudioMiniPlayer
+            ? AudioMiniPlayer(
+                bottomInset: bottomNav == null ? _padding.bottom : 0,
+              )
+            : null,
       ),
     );
 

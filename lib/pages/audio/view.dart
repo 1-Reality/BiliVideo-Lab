@@ -248,22 +248,17 @@ class _AudioPageState extends State<AudioPage> {
               );
             },
           ),
-          Obx(() {
-            final on = AudioFirstMode.openAudio;
-            return IconButton(
-              tooltip: on ? '下次默认进入音频模式：开' : '下次默认进入音频模式：关',
+          // Discovery for people who never found the quick switch; once it is
+          // on, the home toggle covers this. Decided when the page is built.
+          if (!AudioFirstMode.enabled.value)
+            IconButton(
+              tooltip: '下次默认进入音频模式',
               onPressed: () {
-                AudioFirstMode.setDefaultAudio(!on);
-                SmartDialog.showToast(
-                  on ? '下次打开视频将进入视频模式' : '下次打开视频将默认进入音频模式',
-                );
+                AudioFirstMode.setDefaultAudio(true);
+                SmartDialog.showToast('下次打开视频将默认进入音频模式，可在首页右上角切回');
               },
-              icon: Icon(
-                on ? Icons.headphones : Icons.headphones_outlined,
-                size: 22,
-              ),
-            );
-          }),
+              icon: const Icon(Icons.headphones_outlined, size: 22),
+            ),
           IconButton(
             tooltip: '定时关闭',
             onPressed: () => shutdownTimerService

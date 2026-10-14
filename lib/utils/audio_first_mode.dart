@@ -13,8 +13,7 @@ abstract final class AudioFirstMode {
   // The SwitchModel already persists the setting.
   static void onEnabledChanged(bool value) => enabled.value = value;
 
-  /// From the audio page. Turning it on also enables the quick switch, since
-  /// the preference has no effect otherwise.
+  /// From the audio page: enable the quick switch with audio as the default.
   static void setDefaultAudio(bool value) {
     if (value && !enabled.value) {
       enabled.value = true;
