@@ -514,6 +514,9 @@ class VideoDetailController extends GetxController
     sourceType = args['sourceType'] ?? SourceType.normal;
     isFileSource = sourceType == SourceType.file;
     isPlayAll = sourceType != SourceType.normal && !isFileSource;
+    // Opened from the playback bar's note key: listen inside the video page,
+    // so only the audio stream is fetched (the audio page cannot serve PGC).
+    if (args['audioOnly'] == true) plPlayerController.onlyPlayAudio.value = true;
     if (isFileSource) {
       initFileSource(args['entry']);
       plPlayerController.onlyPlayAudio.value =

@@ -143,24 +143,41 @@ class PlaybackMiniBar extends StatelessWidget {
       forceVideo: true,
     ),
     actions: [
-      if (video.videoType == VideoType.ugc)
-        IconButton(
-          tooltip: '切换为音频收听',
-          icon: const Icon(Icons.queue_music_rounded),
-          onPressed: () {
-            PlaybackBar.lastVideo.value = null;
-            AudioPage.toAudioPage(
-              oid: video.aid,
-              subId: [video.cid],
-              itemType: 1,
-              from: PlaylistSource.UP_ARCHIVE,
+      IconButton(
+        tooltip: '切换为音频收听',
+        icon: const Icon(Icons.queue_music_rounded),
+        onPressed: () {
+          PlaybackBar.lastVideo.value = null;
+          // The listener API behind the audio page serves UGC only; PGC is
+          // heard in the video page with just its audio stream opened.
+          if (video.videoType != VideoType.ugc) {
+            PageUtils.toVideoPage(
+              videoType: video.videoType,
+              aid: video.aid,
               bvid: video.bvid,
-              start: video.progressMs == null
-                  ? null
-                  : Duration(milliseconds: video.progressMs!),
+              cid: video.cid,
+              epId: video.epId,
+              seasonId: video.seasonId,
+              cover: video.cover,
+              title: video.title,
+              progress: video.progressMs,
+              forceVideo: true,
+              extraArguments: const {'audioOnly': true},
             );
-          },
-        ),
+            return;
+          }
+          AudioPage.toAudioPage(
+            oid: video.aid,
+            subId: [video.cid],
+            itemType: 1,
+            from: PlaylistSource.UP_ARCHIVE,
+            bvid: video.bvid,
+            start: video.progressMs == null
+                ? null
+                : Duration(milliseconds: video.progressMs!),
+          );
+        },
+      ),
       IconButton(
         tooltip: '关闭',
         icon: const Icon(Icons.close_rounded),
