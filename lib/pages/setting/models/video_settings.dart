@@ -154,13 +154,6 @@ List<SettingsModel> get videoSettings => [
     leading: const Icon(Icons.lan_outlined),
     onTap: (_, _) => Get.toNamed('/networkPolicy'),
   ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音频输出设备',
-      leading: const Icon(Icons.speaker_outlined),
-      getSubtitle: () => '当前：${Pref.audioOutput}',
-      onTap: _showAudioOutputDialog,
-    ),
   NormalModel(
     title: '缓冲大小',
     leading: const Icon(Icons.storage_outlined),
@@ -463,7 +456,7 @@ Future<void> _showCellularCodecsDialog(
   }
 }
 
-Future<void> _showAudioOutputDialog(
+Future<void> showAudioOutputDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {

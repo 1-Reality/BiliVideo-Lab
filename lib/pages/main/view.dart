@@ -565,14 +565,9 @@ class _MainAppState extends PopScopeState<MainApp>
       child: MainLayout(
         sideBar: sideBar,
         bottomNav: bottomNav,
-        body: Padding(
-          padding: padding,
-          child: Column(
-            children: [
-              Expanded(child: child),
-              const AudioMiniPlayer(),
-            ],
-          ),
+        body: Padding(padding: padding, child: child),
+        miniPlayer: AudioMiniPlayer(
+          bottomInset: bottomNav == null ? _padding.bottom : 0,
         ),
       ),
     );

@@ -32,6 +32,7 @@ import 'package:PiliBro/pages/video/widgets/header_control.dart'
     show HeaderControlState;
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
@@ -49,6 +50,7 @@ import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
@@ -246,6 +248,22 @@ class _AudioPageState extends State<AudioPage> {
               );
             },
           ),
+          Obx(() {
+            final on = AudioFirstMode.openAudio;
+            return IconButton(
+              tooltip: on ? '下次默认进入音频模式：开' : '下次默认进入音频模式：关',
+              onPressed: () {
+                AudioFirstMode.setDefaultAudio(!on);
+                SmartDialog.showToast(
+                  on ? '下次打开视频将进入视频模式' : '下次打开视频将默认进入音频模式',
+                );
+              },
+              icon: Icon(
+                on ? Icons.headphones : Icons.headphones_outlined,
+                size: 22,
+              ),
+            );
+          }),
           IconButton(
             tooltip: '定时关闭',
             onPressed: () => shutdownTimerService
