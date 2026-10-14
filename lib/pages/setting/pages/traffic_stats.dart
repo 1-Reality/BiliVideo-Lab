@@ -87,8 +87,17 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
     return result;
   }
 
-  // IEC binary prefixes: Ki is a capital K followed by i.
+  // Short binary units for the detail rows: 1024-based, B/K/M/G/T.
   String _bytes(int value) {
+    if (value >= 1 << 40) return '${(value / (1 << 40)).toStringAsFixed(3)}T';
+    if (value >= 1 << 30) return '${(value / (1 << 30)).toStringAsFixed(3)}G';
+    if (value >= 1 << 20) return '${(value / (1 << 20)).toStringAsFixed(3)}M';
+    if (value >= 1 << 10) return '${(value / (1 << 10)).toStringAsFixed(3)}K';
+    return '${value}B';
+  }
+
+  // IEC binary prefixes: Ki is a capital K followed by i.
+  String _iecBytes(int value) {
     if (value >= 1 << 40) return '${(value / (1 << 40)).toStringAsFixed(3)} TiB';
     if (value >= 1 << 30) return '${(value / (1 << 30)).toStringAsFixed(3)} GiB';
     if (value >= 1 << 20) return '${(value / (1 << 20)).toStringAsFixed(3)} MiB';
@@ -107,7 +116,7 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
 
   Widget _totalRow(String label, int value) => Row(
     children: [
-      Expanded(child: Text('$label ${_bytes(value)}')),
+      Expanded(child: Text('$label ${_iecBytes(value)}')),
       Text(_decimalBytes(value)),
     ],
   );

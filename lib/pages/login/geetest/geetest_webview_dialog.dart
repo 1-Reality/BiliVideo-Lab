@@ -34,6 +34,17 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   static const _geetestJsUri =
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
 
+  // The WebView's own reason for the geetest script failing to load; the page
+  // itself only sees that Geetest is undefined.
+  String? _scriptError;
+
+  // A captcha that never appears blocks login, so the reason stays on screen
+  // long enough to read or screenshot.
+  static void _toastError(String detail) => SmartDialog.showToast(
+    '验证码加载失败：$detail',
+    displayTime: const Duration(seconds: 10),
+  );
+
   late final Future<LoadingState<String>> _future;
 
   static String _showJs(String response) =>
@@ -106,7 +117,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               if (config case Error()) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
-                    config.toast();
+                    _toastError(config.toString());
                     Get.back();
                   }
                 });
@@ -138,7 +149,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                       debugPrint('geetest decode error: $e');
                     }
                   } else if (msgStr.startsWith("error:")) {
-                    SmartDialog.showToast('验证码加载失败：${msgStr.substring(6)}');
+                    _toastError(msgStr.substring(6));
                   } else if (msgStr.startsWith('close:')) {
                     Get.back();
                   }
@@ -207,7 +218,13 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               ..addJavaScriptHandler(
                 handlerName: 'error',
                 callback: (args) {
-                  SmartDialog.showToast('验证码加载失败：${args.join(' ')}');
+                  final error = args.isEmpty ? null : args.first;
+                  _toastError(
+                    error is Map
+                        ? '${error['error_code'] ?? error['code'] ?? ''} '
+                              '${error['msg'] ?? error['user_error'] ?? error}'
+                        : _scriptError ?? '$error',
+                  );
                 },
               )
               ..addJavaScriptHandler(
@@ -215,13 +232,24 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                 callback: (args) => Get.back(),
               );
           },
+          onReceivedError: (_, request, error) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError = error.description;
+            }
+          },
+          onReceivedHttpError: (_, request, response) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError =
+                  'HTTP ${response.statusCode} ${response.reasonPhrase ?? ''}';
+            }
+          },
           onLoadStop: (ctr, _) async {
             final config = await _future;
             if (!mounted) return;
             if (config case Success(:final response)) {
               ctr.evaluateJavascript(source: _showJs(response));
             } else {
-              config.toast();
+              _toastError(config.toString());
               Get.back();
             }
           },

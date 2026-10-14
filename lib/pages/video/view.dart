@@ -2075,18 +2075,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   Widget get _replyStreamMetrics => Obx(() {
-    final current = videoDetailController.streamSizeAndBitrate;
-    final others = videoDetailController.otherStreamSizeAndBitrates;
-    if (current == null && others.isEmpty) return const SizedBox.shrink();
+    final info = videoDetailController.streamInfo.value;
+    if (info == null) return const SizedBox.shrink();
+    final current = info.current;
+    final others = info.others;
     return Padding(
       padding: const .fromLTRB(12, 8, 12, 4),
       child: Column(
         crossAxisAlignment: .start,
         children: [
-          if (current != null)
-            Text(
-              '$current${others.length < 2 ? ' · ${videoDetailController.currentStreamCodec}' : ''}',
-            ),
+          if (current != null) Text(current),
           for (final row in others) Text(row),
         ],
       ),

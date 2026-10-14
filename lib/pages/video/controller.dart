@@ -121,18 +121,31 @@ class VideoDetailController extends GetxController
   // 请求返回的视频信息
   late PlayUrlModel data;
   final RxBool videoState = false.obs;
-  // Bumped once per opened stream so the size/bitrate lines follow codec and
-  // audio switches at the same quality; read only by those two getters.
-  final RxInt streamRevision = 0.obs;
+  // Computed once per opened stream (onInit) and shared by the intro and the
+  // comment header; null while no stream is open.
+  final streamInfo = Rxn<({String? current, List<String> others})>();
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
 
-  String? get streamSizeAndBitrate {
-    streamRevision.value;
-    if (!videoState.value) return null;
+  void _updateStreamInfo() {
+    final current = _streamSizeAndBitrate();
+    final others = _otherStreamSizeAndBitrates();
+    streamInfo.value = current == null && others.isEmpty
+        ? null
+        : (
+            current: current == null
+                ? null
+                : others.length < 2
+                ? '$current · ${_codecDisplayName(currentDecodeFormats)}'
+                : current,
+            others: others,
+          );
+  }
+
+  String? _streamSizeAndBitrate() {
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
         (item) => item.id == currentAudioQa?.code,
@@ -164,9 +177,8 @@ class VideoDetailController extends GetxController
     }
   }
 
-  List<String> get otherStreamSizeAndBitrates {
-    streamRevision.value;
-    if (!videoState.value || data.dash?.video == null) return const [];
+  List<String> _otherStreamSizeAndBitrates() {
+    if (data.dash?.video == null) return const [];
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
         (item) => item.id == currentAudioQa?.code,
@@ -225,8 +237,6 @@ class VideoDetailController extends GetxController
         : '${(bitrate * 0.001).round()} kb/s';
     return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
   }
-
-  String get currentStreamCodec => _codecDisplayName(currentDecodeFormats);
 
   String _codecDisplayName(VideoDecodeFormatType format) => switch (format) {
     VideoDecodeFormatType.AVC => 'H264',
@@ -1031,7 +1041,7 @@ class VideoDetailController extends GetxController
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;
-        streamRevision.value++;
+        _updateStreamInfo();
         setSubtitle(vttSubtitlesIndex.value);
       },
       width: firstVideo.width,
@@ -1374,6 +1384,7 @@ class VideoDetailController extends GetxController
           SmartDialog.showToast('视频资源不存在');
           _autoPlay.value = false;
           videoState.value = false;
+          streamInfo.value = null;
           if (plPlayerController.isFullScreen.value) {
             plPlayerController.triggerFullScreen(status: false);
           }
@@ -1400,6 +1411,7 @@ class VideoDetailController extends GetxController
       } else {
         _autoPlay.value = false;
         videoState.value = false;
+        streamInfo.value = null;
         if (plPlayerController.isFullScreen.value) {
           plPlayerController.triggerFullScreen(status: false);
         }
