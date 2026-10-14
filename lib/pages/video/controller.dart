@@ -74,6 +74,7 @@ import 'package:PiliBro/utils/utils.dart';
 import 'package:PiliBro/utils/video_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show Options;
+import 'package:easy_debounce/easy_throttle.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
@@ -863,6 +864,10 @@ class VideoDetailController extends GetxController
         'CDN 无法连接，已从 ${previous.desc} 回退到 ${_currentCdn.desc}',
         displayTime: const Duration(seconds: 4),
       );
+      // The player's error handler throttles on this tag for 10 s; without
+      // clearing it, the next CDN's open failure would be swallowed and the
+      // chain would stop after one hop.
+      EasyThrottle.cancel('controllerStream.error.listen');
       await playerInit(autoplay: true);
       return true;
     } catch (_) {
@@ -1220,6 +1225,9 @@ class VideoDetailController extends GetxController
           hevcVideo != null) {
         currentDecodeFormats = VideoDecodeFormatType.HEVC;
         preferredVideo = hevcVideo;
+        SmartDialog.showToast(
+          'H.264 码率 ${avcBandwidth ~/ 1000} Kbps 超过门限，已切换 H.265',
+        );
       }
     } else {
       for (final video in videoList) {
