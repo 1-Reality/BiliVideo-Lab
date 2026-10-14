@@ -10,8 +10,10 @@ import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/cdn_speed_setup_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
+import 'package:PiliBro/plugin/pl_player/decoder_lab.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliBro/utils/filtering_text.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -22,6 +24,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:share_plus/share_plus.dart';
 
 List<SettingsModel> get videoSettings => [
   const SwitchModel(
@@ -232,6 +235,34 @@ List<SettingsModel> get videoSettings => [
     getSubtitle: () => '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec）',
     onTap: _showHwDecDialog,
   ),
+  if (Platform.isAndroid) ...[
+    const SwitchModel(
+      title: 'MediaCodec Embed 直出（实验）',
+      subtitle:
+          '开启后固定 vo=mediacodec_embed + hwdec=mediacodec，忽略上方硬解顺序；'
+          '不经过 mpv 渲染，超分着色器和 mpv 字幕不生效；同时写 mpv 调试日志。重新进入视频生效',
+      leading: Icon(Icons.science_outlined),
+      setKey: SettingBoxKey.mediacodecEmbed,
+    ),
+    NormalModel(
+      title: '导出 mpv 日志',
+      subtitle: '直出模式或解码实验室写下的 mpv 调试日志',
+      leading: const Icon(Icons.share_outlined),
+      onTap: (_, _) async {
+        final log = File(decoderLabLogPath);
+        if (!await log.exists()) {
+          SmartDialog.showToast('还没有 mpv 日志');
+          return;
+        }
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(log.path)],
+            sharePositionOrigin: await ShareUtils.sharePositionOrigin,
+          ),
+        );
+      },
+    ),
+  ],
 ];
 
 Future<void> _showCDNDialog(

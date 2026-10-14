@@ -20,6 +20,7 @@ import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
 import 'package:PiliBro/pages/danmaku/danmaku_model.dart';
 import 'package:PiliBro/pages/sponsor_block/block_mixin.dart';
+import 'package:PiliBro/plugin/pl_player/decoder_lab.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
@@ -398,6 +399,11 @@ class PlPlayerController
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
+  // MediaCodec renders straight into the Flutter SurfaceTexture; mpv's GL
+  // renderer (shaders, mpv subtitles) is bypassed. Only hwdec=mediacodec can
+  // feed it, so the user's hwdec list is not used while this is on.
+  late final bool mediacodecEmbed =
+      Platform.isAndroid && hwdec != null && Pref.mediacodecEmbed;
   bool _hwdecFallbackToastShown = false;
   String? get _automaticHwdecFallback {
     final modes = hwdec?.split(',') ?? const <String>[];
@@ -1457,6 +1463,9 @@ class PlPlayerController
     if (autosync != '0') {
       opt['autosync'] = autosync;
     }
+    if (mediacodecEmbed) {
+      opt['log-file'] = decoderLabLogPath;
+    }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
@@ -1482,7 +1491,8 @@ class PlPlayerController
             : null,
         enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
-        hwdec: hwdec,
+        vo: mediacodecEmbed ? 'mediacodec_embed' : null,
+        hwdec: mediacodecEmbed ? 'mediacodec' : hwdec,
       ),
     );
 
