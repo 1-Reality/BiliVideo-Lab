@@ -9,6 +9,7 @@ import 'package:PiliBro/plugin/linux_webview.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -36,7 +37,8 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   late final Future<LoadingState<String>> _future;
 
   static String _showJs(String response) =>
-      't=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())';
+      'if(typeof Geetest=="undefined"){document.body.textContent="验证码加载失败";R("error","geetest script load failed")}'
+      'else{t=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}';
 
   @override
   void initState() {
@@ -116,7 +118,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
 <!DOCTYPE html><html><head></head><body>
 <script src="$_geetestJsUri"></script>
 <script>
-  R=window.webkit.messageHandlers.msgToNative.postMessage
+  R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))
   ${_showJs(response)}
 </script>
 </body></html>
@@ -136,7 +138,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                       debugPrint('geetest decode error: $e');
                     }
                   } else if (msgStr.startsWith("error:")) {
-                    debugPrint('geetest error: $msgStr');
+                    SmartDialog.showToast('验证码加载失败：${msgStr.substring(6)}');
                   } else if (msgStr.startsWith('close:')) {
                     Get.back();
                   }
@@ -205,7 +207,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               ..addJavaScriptHandler(
                 handlerName: 'error',
                 callback: (args) {
-                  debugPrint('geetest error: $args');
+                  SmartDialog.showToast('验证码加载失败：${args.join(' ')}');
                 },
               )
               ..addJavaScriptHandler(

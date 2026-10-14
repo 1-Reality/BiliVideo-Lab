@@ -121,6 +121,9 @@ class VideoDetailController extends GetxController
   // 请求返回的视频信息
   late PlayUrlModel data;
   final RxBool videoState = false.obs;
+  // Bumped once per opened stream so the size/bitrate lines follow codec and
+  // audio switches at the same quality; read only by those two getters.
+  final RxInt streamRevision = 0.obs;
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
@@ -128,6 +131,7 @@ class VideoDetailController extends GetxController
   late VideoDecodeFormatType currentDecodeFormats;
 
   String? get streamSizeAndBitrate {
+    streamRevision.value;
     if (!videoState.value) return null;
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
@@ -161,6 +165,7 @@ class VideoDetailController extends GetxController
   }
 
   List<String> get otherStreamSizeAndBitrates {
+    streamRevision.value;
     if (!videoState.value || data.dash?.video == null) return const [];
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
@@ -1026,6 +1031,7 @@ class VideoDetailController extends GetxController
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;
+        streamRevision.value++;
         setSubtitle(vttSubtitlesIndex.value);
       },
       width: firstVideo.width,
