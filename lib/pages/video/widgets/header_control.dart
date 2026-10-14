@@ -844,6 +844,7 @@ class HeaderControlState extends State<HeaderControl>
     required NativePlayer player,
   }) {
     final hwdec = player.getProperty('hwdec-current');
+    final vo = player.getProperty('current-vo');
     final volume = player.getProperty('volume');
     showDialog(
       context: context,
@@ -919,6 +920,12 @@ class HeaderControlState extends State<HeaderControl>
                       title: const Text('hwdec'),
                       subtitle: Text(hwdec),
                       onTap: () => Utils.copyText('hwdec\n$hwdec'),
+                    ),
+                    ListTile(
+                      dense: true,
+                      title: const Text('vo'),
+                      subtitle: Text(vo),
+                      onTap: () => Utils.copyText('vo\n$vo'),
                     ),
                   ],
                 ),
