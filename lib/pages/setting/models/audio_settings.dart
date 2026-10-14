@@ -7,6 +7,8 @@ import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/extra_settings.dart'
     show audioNormalization;
 import 'package:PiliBro/pages/setting/models/model.dart';
+import 'package:PiliBro/pages/setting/models/play_settings.dart'
+    show showMaxVolumeDialog, showPlayerVolumeDialog;
 import 'package:PiliBro/pages/setting/models/video_settings.dart'
     show showAudioOutputDialog;
 import 'package:PiliBro/services/service_locator.dart';
@@ -18,13 +20,14 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Background playback and audio output, gathered under the audio/video quick
-/// switch in player settings. Audio CDN and audio quality stay with the CDN and
-/// quality settings they belong to.
+/// Background playback, the bottom playback bar and audio output, placed under
+/// the audio/video quick switch in player settings purely as a menu location;
+/// none of them depend on that switch. Audio CDN and audio quality stay with
+/// the CDN and quality settings they belong to.
 List<SettingsModel> get audioSettings => [
   const SwitchModel(
-    title: '底部音频播放条',
-    subtitle: '离开听视频页后在首页底栏上方显示控制条；与音视频快捷切换无关。关闭后首页不再构建它',
+    title: '底部播放条',
+    subtitle: '离开视频或听视频页后，在首页底栏上方显示一条：点主体回到原模式，点音符切换视频/音频。与音视频快捷切换无关；关闭后既不记录也不构建',
     leading: Icon(Icons.call_to_action_outlined),
     setKey: SettingBoxKey.showAudioMiniPlayer,
     defaultVal: true,
@@ -80,6 +83,20 @@ List<SettingsModel> get audioSettings => [
           Get.find<MainController>().pauseOnMinimize = value;
         } catch (_) {}
       },
+    ),
+  if (PlatformUtils.isMobile)
+    NormalModel(
+      title: '播放器音量',
+      leading: const Icon(Icons.volume_up),
+      getSubtitle: () => '当前:「${Pref.playerVolume.round()}%」',
+      onTap: showPlayerVolumeDialog,
+    )
+  else
+    NormalModel(
+      title: '最高音量',
+      leading: const Icon(Icons.volume_up),
+      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
+      onTap: showMaxVolumeDialog,
     ),
   if (kDebugMode || Platform.isAndroid)
     NormalModel(
