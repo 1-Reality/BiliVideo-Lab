@@ -20,7 +20,6 @@ import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
 import 'package:PiliBro/pages/danmaku/danmaku_model.dart';
 import 'package:PiliBro/pages/sponsor_block/block_mixin.dart';
-import 'package:PiliBro/plugin/pl_player/decoder_lab.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
@@ -399,21 +398,14 @@ class PlPlayerController
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
-  // MediaCodec renders straight into the Flutter SurfaceTexture; mpv's GL
-  // renderer (shaders, mpv subtitles) is bypassed. Only hwdec=mediacodec can
-  // feed it, so the user's hwdec list is not used while this is on.
+  // The list is taken literally: mpv tries the entries in order and decodes in
+  // software only where 'no' is listed. Without 'no', a file none of them can
+  // decode fails to play.
+  late final bool _hwdecAllowsSoftware =
+      hwdec == null || hwdec!.split(',').contains('no');
+  // Settings only allow this entry alone.
   late final bool mediacodecEmbed =
-      Platform.isAndroid && hwdec != null && Pref.mediacodecEmbed;
-  bool _hwdecFallbackToastShown = false;
-  String? get _automaticHwdecFallback {
-    final modes = hwdec?.split(',') ?? const <String>[];
-    for (final mode in modes.skip(1)) {
-      if (mode == 'auto' || mode == 'auto-safe' || mode == 'auto-copy') {
-        return mode;
-      }
-    }
-    return null;
-  }
+      Platform.isAndroid && hwdec == 'mediacodec_embed';
 
   late final progressType = Pref.btmProgressBehavior;
   late final fixedBottomProgress = Pref.fixedBottomProgress;
@@ -1266,7 +1258,6 @@ class PlPlayerController
       this.width = width;
       this.height = height;
       this.dataSource = dataSource;
-      _hwdecFallbackToastShown = false;
       _autoPlay = autoplay;
       // 初始化数据加载状态
       dataStatus.value = DataStatus.loading;
@@ -1463,13 +1454,14 @@ class PlPlayerController
     if (autosync != '0') {
       opt['autosync'] = autosync;
     }
-    if (mediacodecEmbed) {
-      opt['log-file'] = decoderLabLogPath;
+    if (!_hwdecAllowsSoftware) {
+      opt['hwdec-software-fallback'] = 'no';
     }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
-        logLevel: kDebugMode ? .warn : .error,
+        // warn carries vd's "Software decoding fallback is disabled."
+        logLevel: kDebugMode || !_hwdecAllowsSoftware ? .warn : .error,
         options: opt,
       ),
     );
@@ -1849,6 +1841,22 @@ class PlPlayerController
             debugPrint(log.toString());
           }
         })),
+      if (!_hwdecAllowsSoftware)
+        stream.log.listen((PlayerLog log) {
+          if (log.prefix != 'vd' ||
+              !log.text.startsWith('Software decoding fallback is disabled')) {
+            return;
+          }
+          // Android's on_unload sets vo=null and mpv rebuilds the decoder
+          // against it while tearing down; that pass lands here too.
+          if (player.getProperty('current-vo') == 'null') return;
+          player.pause();
+          dataStatus.value = DataStatus.error;
+          SmartDialog.showToast(
+            '硬解列表 $hwdec 中没有可用的解码器，未勾选 no，不回退软解',
+            displayTime: const Duration(seconds: 5),
+          );
+        }),
       stream.error.listen((String event) {
         if (dataSource is FileSource &&
             (event.startsWith('Failed to open file') ||
@@ -1905,16 +1913,7 @@ class PlPlayerController
             },
           );
         } else if (event.startsWith('Could not open codec')) {
-          final fallback = _automaticHwdecFallback;
-          if (fallback != null && !_hwdecFallbackToastShown) {
-            _hwdecFallbackToastShown = true;
-            SmartDialog.showToast(
-              '首选硬解模式不可用，已交由 $fallback 继续兜底',
-              displayTime: const Duration(seconds: 3),
-            );
-          } else if (fallback == null) {
-            SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
-          }
+          SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
         } else if (!onlyPlayAudio.value) {
           // A damaged/partial access unit is an FFmpeg decoder diagnostic,
           // not a Dart crash. Do not send its full signed playlist to Catcher.

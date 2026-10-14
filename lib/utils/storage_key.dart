@@ -17,7 +17,6 @@ abstract final class SettingBoxKey {
       defaultToastOp = 'defaultToastOp',
       defaultPicQa = 'defaultPicQa',
       enableHA = 'enableHA',
-      mediacodecEmbed = 'mediacodecEmbed',
       audioOutput = 'audioOutput',
       bufferSize = 'bufferSize',
       bufferSec = 'bufferSec',

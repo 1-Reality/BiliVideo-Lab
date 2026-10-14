@@ -28,6 +28,11 @@ enum HwDecType {
   vdpauCopy('vdpau-copy', 'VDPAU (Linux) (非直通)'),
   mediacodec('mediacodec', 'MediaCodec (Android)'),
   mediacodecCopy('mediacodec-copy', 'MediaCodec (Android) (非直通)'),
+  // Not an mpv hwdec value: selects vo=mediacodec_embed + hwdec=mediacodec.
+  mediacodecEmbed(
+    'mediacodec_embed',
+    'MediaCodec 直出 (Android) (不经 mpv 渲染，超分/mpv 字幕无效，只能单选)',
+  ),
   cuda('cuda', 'CUDA (NVIDIA独占) (过时)'),
   cudaCopy('cuda-copy', 'CUDA (NVIDIA独占) (过时) (非直通)'),
   crystalhd('crystalhd', 'CrystalHD (全平台) (过时)'),
@@ -43,8 +48,8 @@ enum HwDecType {
   const HwDecType(this.hwdec, this.desc);
 
   static final String androidDefault = kDebugMode
-      ? autoSafe.hwdec
-      : [mediacodec.hwdec, autoSafe.hwdec].join(',');
+      ? [autoSafe.hwdec, no.hwdec].join(',')
+      : [mediacodec.hwdec, autoSafe.hwdec, no.hwdec].join(',');
 
   static final String windowsDefault = [
     d3d12va.hwdec,
@@ -58,11 +63,12 @@ enum HwDecType {
     qsvCopy.hwdec,
     d3d12vaCopy.hwdec,
     auto.hwdec,
+    no.hwdec,
   ].join(',');
 
   static final String kHwdec = Platform.isAndroid
       ? androidDefault
       : Platform.isWindows
       ? windowsDefault
-      : auto.hwdec;
+      : [auto.hwdec, no.hwdec].join(',');
 }

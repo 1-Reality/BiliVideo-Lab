@@ -55,7 +55,9 @@ class MpvConvertWebp {
         'ofopts': 'loop=0',
         'ovcopts': 'preset=${preset.flag}',
         if (enableHA) 'vo': 'gpu',
-        if (enableHA) 'hwdec': '${Pref.hardwareDecoding},auto-copy', // transcode only support copy
+        if (enableHA)
+          'hwdec':
+              '${Pref.hardwareDecoding.replaceAll('mediacodec_embed', 'mediacodec-copy')},auto-copy', // transcode only support copy
       },
     );
     _mpv.mpv_request_event(

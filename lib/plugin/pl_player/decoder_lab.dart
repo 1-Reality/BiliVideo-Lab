@@ -82,22 +82,24 @@ extension DecoderLabController on PlPlayerController {
     return [
       DecoderLabMode(
         label: '当前设置 · $current',
-        hwdec: current,
+        hwdec: mediacodecEmbed ? 'mediacodec' : current,
+        vo: mediacodecEmbed ? 'mediacodec_embed' : null,
         primary: true,
       ),
-      if (Platform.isAndroid)
-        const DecoderLabMode(
-          label: 'mediacodec + mediacodec_embed · MediaCodec Embed',
-          hwdec: 'mediacodec',
-          vo: 'mediacodec_embed',
-          primary: true,
-        ),
       for (final type in HwDecType.values)
-        DecoderLabMode(
-          label: '${type.hwdec} · ${type.desc}',
-          hwdec: type.hwdec,
-          primary: _decoderLabPrimary(type.hwdec),
-        ),
+        if (type != HwDecType.mediacodecEmbed)
+          DecoderLabMode(
+            label: '${type.hwdec} · ${type.desc}',
+            hwdec: type.hwdec,
+            primary: _decoderLabPrimary(type.hwdec),
+          )
+        else if (Platform.isAndroid)
+          DecoderLabMode(
+            label: '${type.hwdec} · ${type.desc}',
+            hwdec: 'mediacodec',
+            vo: 'mediacodec_embed',
+            primary: true,
+          ),
     ];
   }
 
