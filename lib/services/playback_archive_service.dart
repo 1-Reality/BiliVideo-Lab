@@ -100,7 +100,8 @@ abstract final class PlaybackArchiveService {
       key == 'lastSelectedSpeed';
 
   // Per-shard merge. No archive.toMap(), no cumulative composite recopy.
-  static dynamic _merge(dynamic oldValue, dynamic increment, String key) {
+  // Also used by the explicit full-statistics view to add the active period.
+  static dynamic merge(dynamic oldValue, dynamic increment, String key) {
     if (increment == null) return oldValue;
     if (oldValue == null) return increment;
     if (oldValue is num && increment is num) {
@@ -116,7 +117,7 @@ abstract final class PlaybackArchiveService {
     if (oldValue is Map && increment is Map) {
       final merged = <dynamic, dynamic>{...oldValue};
       for (final entry in increment.entries) {
-        merged[entry.key] = _merge(
+        merged[entry.key] = merge(
           merged[entry.key], entry.value, entry.key.toString(),
         );
       }
@@ -143,7 +144,7 @@ abstract final class PlaybackArchiveService {
             : null;
         writes[name] = {
           '_sourceId': id,
-          '_value': _merge(oldValue, fresh, name),
+          '_value': merge(oldValue, fresh, name),
         };
         if (writes.length == 24) {
           await archive.putAll(writes);

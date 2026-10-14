@@ -67,6 +67,15 @@ class _HistoryPageState extends State<HistoryPage>
         physics: const AlwaysScrollableScrollPhysics(),
         controller: _historyController.scrollController,
         slivers: [
+          if (widget.type == null)
+            SliverToBoxAdapter(
+              child: ListTile(
+                leading: const Icon(Icons.phone_android_outlined),
+                title: const Text('本机记录的详细历史'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Get.toNamed('/watchLog'),
+              ),
+            ),
           SliverPadding(
             padding: EdgeInsets.only(
               top: 7,
