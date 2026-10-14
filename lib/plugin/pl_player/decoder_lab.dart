@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/utils/path_utils.dart';
+import 'package:path/path.dart' as path;
 
 class DecoderLabMode {
   const DecoderLabMode({
@@ -34,6 +36,10 @@ class DecoderBenchmarkResult {
       ? 0
       : mediaTime.inMilliseconds / wallTime.inMilliseconds;
 }
+
+// mpv debug log (fflush per line) of every decoder-lab switch in this player
+// instance; truncated when the player first opens it, closed with the player.
+final decoderLabLogPath = path.join(appSupportDirPath, 'mpv-decoder-lab.log');
 
 extension DecoderLabController on PlPlayerController {
   static const _androidVoProperty = 'user-data/pilibro-decoder-lab-vo';
@@ -121,6 +127,7 @@ extension DecoderLabController on PlPlayerController {
       // wid is still 0 from the on_unload hook; mpv recreates the VO at once
       // (UPDATE_VO + force-window) and mediacodec_embed's
       // mp_assert(WinID != 0) aborts the process.
+      await player.command(['set', 'log-file', decoderLabLogPath]);
       await player.command(['set', _androidVoProperty, labVo]);
       await player.command(['set', _androidHwdecProperty, mode.hwdec]);
       await player.command(['set', _androidFallbackProperty, fallback]);

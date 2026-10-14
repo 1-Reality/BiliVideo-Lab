@@ -13,9 +13,11 @@ import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/path_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:path/path.dart' as path;
+import 'package:share_plus/share_plus.dart';
 
 class LocalIntroPanel extends StatefulWidget {
   const LocalIntroPanel({super.key, required this.heroTag});
@@ -254,6 +256,24 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                     icon: const Icon(Icons.speed),
                     label: Text(_benchmarking ? '跑分中…' : 'Benchmark'),
                   ),
+                  if (Platform.isAndroid)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final log = File(decoderLabLogPath);
+                        if (!await log.exists()) {
+                          setState(() => _labMessage = '还没有 mpv 日志：先切换一次解码模式');
+                          return;
+                        }
+                        await SharePlus.instance.share(
+                          ShareParams(
+                            files: [XFile(log.path)],
+                            sharePositionOrigin: await ShareUtils.sharePositionOrigin,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.share_outlined),
+                      label: const Text('导出 mpv 日志'),
+                    ),
                 ],
               ),
               if (_labMessage case final message?)
