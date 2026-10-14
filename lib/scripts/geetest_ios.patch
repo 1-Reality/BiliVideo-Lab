@@ -118,7 +118,7 @@ diff --git a/lib/pages/login/geetest/geetest_webview_dialog.dart b/lib/pages/log
 index 339f0fcda..41d953998 100644
 --- a/lib/pages/login/geetest/geetest_webview_dialog.dart
 +++ b/lib/pages/login/geetest/geetest_webview_dialog.dart
-@@ -7,9 +7,10 @@ import 'package:PiliBro/main.dart';
+@@ -7,6 +7,7 @@ import 'package:PiliBro/main.dart';
  import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
  import 'package:get/get.dart';
  import 'package:material_ui/material_ui.dart';
