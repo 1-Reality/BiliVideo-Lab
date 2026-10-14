@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
+import 'dart:isolate' show Isolate;
 import 'dart:math' show max;
 
 import 'package:PiliBro/utils/accounts.dart';
@@ -342,8 +343,11 @@ abstract final class PlaybackStatsService {
       ? _stringMap(value)
       : <String, dynamic>{};
 
-  static Map<String, dynamic> _loadStatsFromStorage() {
-    final raw = GStorage.playbackStats.toMap();
+  static Map<String, dynamic> _loadStatsFromStorage() =>
+      _assemble(GStorage.playbackStats.toMap());
+
+  // Shard keys (hot box or cold archive) -> the nested in-memory layout.
+  static Map<String, dynamic> _assemble(Map raw) {
     if (raw.isEmpty) {
       return <String, dynamic>{
         'schemaVersion': schemaVersion,
@@ -2293,7 +2297,34 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
-    final raw = Map<String, dynamic>.from(_stats!);
+    return _withDerived(Map<String, dynamic>.from(_stats!));
+  }
+
+  /// Explicit and heavy: the cold archive plus the active period, combined
+  /// with the same per-field rules as the 8/18/28 rollover. Assembly, merge
+  /// and derivation run off the UI isolate.
+  static Future<Map<String, dynamic>> fullSnapshot() async {
+    await PlaybackArchiveService.beginExplicitAccess();
+    final Map<String, dynamic> active;
+    final Map<String, dynamic> archived;
+    try {
+      // Taken while explicit access holds rollover off, so no period is
+      // counted in both.
+      active = snapshot()..remove('derived');
+      archived = await PlaybackArchiveService.loadRawArchive();
+    } finally {
+      PlaybackArchiveService.endExplicitAccess();
+    }
+    return Isolate.run(
+      () => _withDerived(
+        Map<String, dynamic>.from(
+          PlaybackArchiveService.merge(_assemble(archived), active, '') as Map,
+        ),
+      ),
+    );
+  }
+
+  static Map<String, dynamic> _withDerived(Map<String, dynamic> raw) {
     final source = _numericMap(raw['sourceSpeedSelections']);
     final manual = _numericMap(raw['manualSpeedSelections']);
     final selections = <String, num>{...source};

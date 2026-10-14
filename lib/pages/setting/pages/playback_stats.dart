@@ -23,6 +23,9 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   static final _trailingDot = RegExp(r'\.$');
 
   late Map<String, dynamic> stats = PlaybackStatsService.snapshot();
+  // Opening shows only the active period; the archive is read on request.
+  bool _full = false;
+  bool _fullLoading = false;
   bool _advancedExpanded = false;
   bool _advancedLoading = false;
   String? _advancedData;
@@ -37,6 +40,23 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
       if (mounted) SmartDialog.showToast('历史统计读取失败: $e');
     } finally {
       if (mounted) setState(() => _advancedLoading = false);
+    }
+  }
+
+  Future<void> _loadFull() async {
+    setState(() => _fullLoading = true);
+    try {
+      final result = await PlaybackStatsService.fullSnapshot();
+      if (mounted) {
+        setState(() {
+          stats = result;
+          _full = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) SmartDialog.showToast('全量统计读取失败: $e');
+    } finally {
+      if (mounted) setState(() => _fullLoading = false);
     }
   }
 
@@ -103,6 +123,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
       await PlaybackStatsService.reset();
       if (mounted) setState(() {
         stats = PlaybackStatsService.snapshot();
+        _full = false;
         _advancedData = null;
         _advancedExpanded = false;
       });
@@ -132,8 +153,12 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
 
     return SimpleScaffold(
       appBar: AppBar(
-        title: const Text('倍速统计详情'),
+        title: Text(_full ? '倍速统计详情 · 全量' : '倍速统计详情'),
         actions: [
+          TextButton(
+            onPressed: _fullLoading ? null : _loadFull,
+            child: Text(_fullLoading ? '读取中…' : '读取全量并计算'),
+          ),
           IconButton(
             tooltip: '导出观看日志',
             onPressed: () async {
@@ -159,6 +184,13 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         child: ListView(
           padding: .only(bottom: MediaQuery.viewPaddingOf(context).bottom + 48),
           children: [
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('本地历史'),
+              subtitle: const Text('本机记录的每一次观看'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Get.toNamed('/watchLog'),
+            ),
             Padding(
               padding: const .fromLTRB(16, 12, 16, 4),
               child: Text(
@@ -267,7 +299,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
-                      'UID ${entry.key} · 本月 ${_duration(active)}'
+                      'UID ${entry.key} · ${_full ? '全量' : '本月'} ${_duration(active)}'
                       ' · 名义 ${_speed(nominal * activeScale)}'
                       ' · 含长按 ${_speed(nominalLong * activeScale)}\n'
                       '推进 ${_speed(media * activeScale)}'

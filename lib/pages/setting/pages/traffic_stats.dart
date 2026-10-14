@@ -87,12 +87,47 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
     return result;
   }
 
+  // Short binary units for the detail rows: 1024-based, B/K/M/G/T.
   String _bytes(int value) {
-    if (value >= 1000000000) return '${(value * 0.000000001).toStringAsFixed(3)} GB';
-    if (value >= 1000000) return '${(value * 0.000001).toStringAsFixed(3)} MB';
-    if (value >= 1000) return '${(value * 0.001).toStringAsFixed(3)} kB';
+    if (value >= 1 << 40) return '${(value / (1 << 40)).toStringAsFixed(3)}T';
+    if (value >= 1 << 30) return '${(value / (1 << 30)).toStringAsFixed(3)}G';
+    if (value >= 1 << 20) return '${(value / (1 << 20)).toStringAsFixed(3)}M';
+    if (value >= 1 << 10) return '${(value / (1 << 10)).toStringAsFixed(3)}K';
+    return '${value}B';
+  }
+
+  // IEC binary prefixes: Ki is a capital K followed by i.
+  String _iecBytes(int value) {
+    if (value >= 1 << 40) return '${(value / (1 << 40)).toStringAsFixed(3)} TiB';
+    if (value >= 1 << 30) return '${(value / (1 << 30)).toStringAsFixed(3)} GiB';
+    if (value >= 1 << 20) return '${(value / (1 << 20)).toStringAsFixed(3)} MiB';
+    if (value >= 1 << 10) return '${(value / (1 << 10)).toStringAsFixed(3)} KiB';
     return '$value B';
   }
+
+  // SI decimal prefixes: kilo is a lowercase k; M, G, T are uppercase.
+  String _decimalBytes(int value) {
+    if (value >= 1000000000000) return '${(value * 1e-12).toStringAsFixed(3)} TB';
+    if (value >= 1000000000) return '${(value * 1e-9).toStringAsFixed(3)} GB';
+    if (value >= 1000000) return '${(value * 1e-6).toStringAsFixed(3)} MB';
+    if (value >= 1000) return '${(value * 1e-3).toStringAsFixed(3)} kB';
+    return '$value B';
+  }
+
+  Widget _totalRow(String label, int value) => Row(
+    children: [
+      Expanded(child: Text('$label ${_iecBytes(value)}')),
+      Text(_decimalBytes(value)),
+    ],
+  );
+
+  Widget _total(String title, int received, int sent) => ListTile(
+    title: Text(title),
+    subtitle: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [_totalRow('下行', received), _totalRow('上行', sent)],
+    ),
+  );
 
   String _date(DateTime value) =>
       '${value.year}-${value.month.toString().padLeft(2, '0')}-'
@@ -175,23 +210,18 @@ class _TrafficStatsPageState extends State<TrafficStatsPage> {
               onTap: _selectRange,
             ),
             if (Platform.isWindows) ...[
-              ListTile(
-                title: const Text('范围合计 · 本应用观察值'),
-                subtitle: Text(
-                  '下行 ${_bytes(appTotal.received)} · 上行 ${_bytes(appTotal.sent)}',
-                ),
+              _total(
+                '范围合计 · 本应用观察值',
+                appTotal.received,
+                appTotal.sent,
               ),
-              ListTile(
-                title: const Text('范围合计 · 活动网卡总量'),
-                subtitle: Text(
-                  '下行 ${_bytes(interfaceTotal.received)} · 上行 ${_bytes(interfaceTotal.sent)}',
-                ),
+              _total(
+                '范围合计 · 活动网卡总量',
+                interfaceTotal.received,
+                interfaceTotal.sent,
               ),
             ] else
-              ListTile(
-                title: const Text('范围合计'),
-                subtitle: Text('下行 ${_bytes(received)} · 上行 ${_bytes(sent)}'),
-              ),
+              _total('范围合计', received, sent),
             const Divider(),
             for (final item in totals.entries)
               ListTile(

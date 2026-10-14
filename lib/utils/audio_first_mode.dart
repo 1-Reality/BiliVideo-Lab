@@ -13,6 +13,16 @@ abstract final class AudioFirstMode {
   // The SwitchModel already persists the setting.
   static void onEnabledChanged(bool value) => enabled.value = value;
 
+  /// From the audio page: enable the quick switch with audio as the default.
+  static void setDefaultAudio(bool value) {
+    if (value && !enabled.value) {
+      enabled.value = true;
+      GStorage.setting.put(SettingBoxKey.enableAudioFirst, true);
+    }
+    audio.value = value;
+    GStorage.setting.put(SettingBoxKey.preferAudioEntry, value);
+  }
+
   static void toggle() {
     audio.toggle();
     GStorage.setting.put(SettingBoxKey.preferAudioEntry, audio.value);

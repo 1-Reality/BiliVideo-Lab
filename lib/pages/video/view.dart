@@ -29,6 +29,8 @@ import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/danmaku/view.dart';
 import 'package:PiliBro/pages/episode_panel/view.dart';
 import 'package:PiliBro/pages/video/ai_conclusion/view.dart';
+import 'package:PiliBro/pages/audio/mini_player.dart'
+    show LastVideo, PlaybackBar;
 import 'package:PiliBro/pages/audio/session.dart';
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/introduction/local/controller.dart';
@@ -75,6 +77,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, clampDouble;
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
@@ -377,6 +380,44 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
+  /// Feeds the bottom playback bar; called only while it is enabled.
+  void _recordLastVideo() {
+    final ctr = videoDetailController;
+    String? title;
+    String? upName;
+    String? upFace;
+    if (ctr.isUgc) {
+      final detail = ugcIntroController.videoDetail.value;
+      if (detail.bvid == ctr.bvid) {
+        title = detail.title;
+        upName = detail.owner?.name;
+        upFace = detail.owner?.face;
+      }
+    } else {
+      final item = pgcIntroController.pgcItem;
+      final ep = item.episodes?.firstWhereOrNull((e) => e.epId == ctr.epId);
+      final epTitle = ep?.showTitle ?? ep?.longTitle;
+      title = epTitle == null ? item.title : '${item.title} $epTitle';
+    }
+    final LastVideo video = (
+      videoType: ctr.videoType,
+      aid: ctr.aid,
+      bvid: ctr.bvid,
+      cid: ctr.cid.value,
+      epId: ctr.epId,
+      seasonId: ctr.seasonId,
+      title: title,
+      cover: ctr.cover.value,
+      upName: upName,
+      upFace: upFace,
+      progressMs: ctr.playedTime?.inMilliseconds,
+    );
+    // Dispose runs while the tree is locked; update the bar after the frame.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => PlaybackBar.lastVideo.value = video,
+    );
+  }
+
   @override
   void dispose() {
     final playerController = videoDetailController.plPlayerController;
@@ -405,6 +446,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     Get.delete<HorizontalMemberPageController>(
       tag: videoDetailController.heroTag,
     );
+
+    if (PlaybackBar.enabled &&
+        !continueListening &&
+        !videoDetailController.isFileSource &&
+        !playerController.isCloseAll) {
+      _recordLastVideo();
+    }
 
     if (!videoDetailController.isFileSource) {
       if (videoDetailController.isUgc) {
@@ -2075,18 +2123,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   Widget get _replyStreamMetrics => Obx(() {
-    final current = videoDetailController.streamSizeAndBitrate;
-    final others = videoDetailController.otherStreamSizeAndBitrates;
-    if (current == null && others.isEmpty) return const SizedBox.shrink();
+    final info = videoDetailController.streamInfo.value;
+    if (info == null) return const SizedBox.shrink();
+    final current = info.current;
+    final others = info.others;
     return Padding(
       padding: const .fromLTRB(12, 8, 12, 4),
       child: Column(
         crossAxisAlignment: .start,
         children: [
-          if (current != null)
-            Text(
-              '$current${others.length < 2 ? ' · ${videoDetailController.currentStreamCodec}' : ''}',
-            ),
+          if (current != null) Text(current),
           for (final row in others) Text(row),
         ],
       ),

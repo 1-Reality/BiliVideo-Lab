@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate' show Isolate;
 
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/path_utils.dart';
@@ -142,6 +143,40 @@ abstract final class WatchLogService {
             (e.path.endsWith('.jsonl') || e.path.endsWith('.jsonl.gz')))
           e,
     ]..sort((a, b) => a.path.compareTo(b.path));
+  }
+
+  /// Every finished session, newest first. Read and decoded off the UI
+  /// isolate; a line still being appended is skipped.
+  static Future<List<Map<String, dynamic>>> records() async {
+    final paths = [for (final f in await files()) f.path];
+    return Isolate.run(() {
+      final out = <Map<String, dynamic>>[];
+      for (final p in paths) {
+        final bytes = File(p).readAsBytesSync();
+        final text = utf8.decode(
+          p.endsWith('.gz') ? gzip.decode(bytes) : bytes,
+          allowMalformed: true,
+        );
+        int? ac;
+        for (final line in const LineSplitter().convert(text)) {
+          if (line.isEmpty) continue;
+          final Object? value;
+          try {
+            value = jsonDecode(line);
+          } catch (_) {
+            continue;
+          }
+          if (value is! Map<String, dynamic>) continue;
+          if (value['k'] == null) {
+            ac = value['ac'] as int?;
+            continue;
+          }
+          value['ac'] ??= ac;
+          out.add(value);
+        }
+      }
+      return out.reversed.toList();
+    });
   }
 
   static Future<void> restore(Iterable<File> sources) => _run(() async {

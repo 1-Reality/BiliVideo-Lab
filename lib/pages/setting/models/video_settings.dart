@@ -154,13 +154,6 @@ List<SettingsModel> get videoSettings => [
     leading: const Icon(Icons.lan_outlined),
     onTap: (_, _) => Get.toNamed('/networkPolicy'),
   ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音频输出设备',
-      leading: const Icon(Icons.speaker_outlined),
-      getSubtitle: () => '当前：${Pref.audioOutput}',
-      onTap: _showAudioOutputDialog,
-    ),
   NormalModel(
     title: '缓冲大小',
     leading: const Icon(Icons.storage_outlined),
@@ -229,7 +222,8 @@ List<SettingsModel> get videoSettings => [
   NormalModel(
     title: '硬解模式',
     leading: const Icon(Icons.memory_outlined),
-    getSubtitle: () => '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec）',
+    getSubtitle: () =>
+        '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec，按顺序尝试；未勾选 no 时全部失败即无法播放）',
     onTap: _showHwDecDialog,
   ),
 ];
@@ -462,7 +456,7 @@ Future<void> _showCellularCodecsDialog(
   }
 }
 
-Future<void> _showAudioOutputDialog(
+Future<void> showAudioOutputDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {
@@ -523,10 +517,20 @@ Future<void> _showHwDecDialog(
       title: '硬解模式',
       initValues: Pref.hardwareDecoding.split(','),
       values: {
-        for (final e in HwDecType.values) e.hwdec: '${e.hwdec}\n${e.desc}',
+        for (final e in HwDecType.values)
+          if (e != HwDecType.mediacodecEmbed || Platform.isAndroid)
+            e.hwdec: '${e.hwdec}\n${e.desc}',
       },
     ),
   );
+  if (res != null &&
+      res.length > 1 &&
+      res.contains(HwDecType.mediacodecEmbed.hwdec)) {
+    // The VO is fixed when the player is created; nothing after it in the list
+    // could ever display, so the combination is refused instead of ignored.
+    SmartDialog.showToast('mediacodec_embed 只能单独选择');
+    return;
+  }
   if (res != null && res.isNotEmpty) {
     await GStorage.setting.put(
       SettingBoxKey.hardwareDecoding,

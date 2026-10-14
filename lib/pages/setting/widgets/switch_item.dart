@@ -80,13 +80,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final titleStyle =
-        widget.titleStyle ??
-        theme.textTheme.titleMedium!.copyWith(
-          color: widget.onTap != null && !val
-              ? theme.colorScheme.outline
-              : null,
-        );
+    final titleStyle = widget.titleStyle ?? theme.textTheme.titleMedium!;
     final subTitleStyle = theme.textTheme.labelMedium!.copyWith(
       color: theme.colorScheme.outline,
     );
@@ -102,7 +96,6 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
 
     Widget child(Widget? trailing) => ListTile(
       contentPadding: widget.contentPadding,
-      enabled: widget.onTap == null || val,
       onTap: widget.onTap == null ? switchChange : () => widget.onTap!(context),
       title: Text(widget.title, style: titleStyle),
       subtitle: widget.subtitle != null

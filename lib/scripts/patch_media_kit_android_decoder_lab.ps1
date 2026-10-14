@@ -96,5 +96,37 @@ if ($LoadCount -ne 1) {
 }
 $Text = $Text.Replace($OldLoad, $NewLoad)
 
+$OldField = @'
+  String? _current;
+'@
+$NewField = @'
+  String? _current;
+  String? _surfaceVo;
+'@
+$FieldCount = ([regex]::Matches($Text, [regex]::Escape($OldField))).Count
+if ($FieldCount -ne 1) {
+    throw "expected exactly one AndroidVideoController _current field, found $FieldCount"
+}
+$Text = $Text.Replace($OldField, $NewField)
+
+$OldSurface = @'
+        if (_current != current) {
+          _current = current;
+'@
+$NewSurface = @'
+        // A Surface that already served another VO type must not be reused:
+        // native_window_api_connect fails with -22 on the second connection.
+        // Reopening the same path with a different decoder-lab vo hits this.
+        final surfaceVo = vo;
+        if (_current != current || _surfaceVo != surfaceVo) {
+          _current = current;
+          _surfaceVo = surfaceVo;
+'@
+$SurfaceCount = ([regex]::Matches($Text, [regex]::Escape($OldSurface))).Count
+if ($SurfaceCount -ne 1) {
+    throw "expected exactly one AndroidVideoController Surface block, found $SurfaceCount"
+}
+$Text = $Text.Replace($OldSurface, $NewSurface)
+
 [IO.File]::WriteAllText($Target, $Text, [Text.UTF8Encoding]::new($false))
 Write-Host "media-kit Android decoder-lab hwdec/VO hook applied: $Target"

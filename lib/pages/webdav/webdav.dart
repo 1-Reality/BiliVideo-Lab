@@ -404,7 +404,7 @@ class WebDav {
           final data = await client.read(remotePath);
           await GStorage.importAllSettings(utf8.decode(data));
           PlaybackStatsService.reloadFromStorage();
-          SmartDialog.showToast('已恢复旧版设置备份');
+          SmartDialog.showToast('新版备份不可用（$snapshotError），已恢复旧版设置备份');
           return;
         } catch (_) {}
       }

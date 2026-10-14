@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/models/common/super_chat_type.dart';
 import 'package:PiliBro/models/common/video/subtitle_pref_type.dart';
-import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
@@ -11,7 +10,6 @@ import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
@@ -52,13 +50,18 @@ List<SettingsModel> get playSettings => [
     title: '方向（横竖屏）设置',
     subtitle: '应用方向、全屏方向与方向感应',
   ),
-  SwitchModel(
-    title: '启用音视频快捷切换',
-    subtitle: '开启后可在首页切换默认音频、视频播放方式',
-    leading: const Icon(Icons.headphones_outlined),
-    setKey: SettingBoxKey.enableAudioFirst,
-    defaultVal: false,
-    onChanged: AudioFirstMode.onEnabledChanged,
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: '音视频快捷切换 · 音频与后台',
+      subtitle: '开关：首页切换默认音频/视频；点击：后台播放、画中画、音频服务、音量均衡等',
+      leading: Icon(Icons.headphones_outlined),
+    ),
+    switchModel: SwitchModel.split(
+      setKey: SettingBoxKey.enableAudioFirst,
+      needReboot: true,
+      onChanged: AudioFirstMode.onEnabledChanged,
+      onTap: (context) => Get.toNamed('/audioSettings'),
+    ),
   ),
   const SwitchModel(
     title: '自动播放',
@@ -111,20 +114,6 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableSlideFS,
     defaultVal: true,
   ),
-  if (PlatformUtils.isMobile)
-    NormalModel(
-      title: '播放器音量',
-      leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${Pref.playerVolume.round()}%」',
-      onTap: showPlayerVolumeDialog,
-    )
-  else
-    NormalModel(
-      title: '最高音量',
-      leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
-      onTap: _showMaxVolumeDialog,
-    ),
   getVideoFilterSelectModel(
     title: '双击快进/快退时长',
     suffix: 's',
@@ -162,18 +151,6 @@ List<SettingsModel> get playSettings => [
         : 'UP 主粉丝少于 ${Pref.subtitleFollowerThreshold} 时，非静音也启用 AI 字幕',
     onTap: _showSubtitleFollowerThresholdDialog,
   ),
-  if (PlatformUtils.isDesktop)
-    SwitchModel(
-      title: '最小化时暂停/还原时播放',
-      leading: const Icon(Icons.pause_circle_outline),
-      setKey: SettingBoxKey.pauseOnMinimize,
-      defaultVal: false,
-      onChanged: (value) {
-        try {
-          Get.find<MainController>().pauseOnMinimize = value;
-        } catch (_) {}
-      },
-    ),
   const SwitchModel(
     title: '启用键盘控制',
     leading: Icon(Icons.keyboard_alt_outlined),
@@ -227,35 +204,6 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableLongShowControl,
     defaultVal: false,
   ),
-  if (PlatformUtils.isMobile)
-    const SwitchModel(
-      title: '后台播放',
-      subtitle: '进入后台时继续播放',
-      leading: Icon(Icons.motion_photos_pause_outlined),
-      setKey: SettingBoxKey.continuePlayInBackground,
-      defaultVal: false,
-    ),
-  if (Platform.isAndroid) ...[
-    SwitchModel(
-      title: '后台画中画',
-      subtitle: '进入后台时以小窗形式（PiP）播放',
-      leading: const Icon(Icons.picture_in_picture_outlined),
-      setKey: SettingBoxKey.autoPiP,
-      defaultVal: false,
-      onChanged: (val) {
-        if (val && !videoPlayerServiceHandler!.enableBackgroundPlay) {
-          SmartDialog.showToast('建议开启后台音频服务');
-        }
-      },
-    ),
-    const SwitchModel(
-      title: '画中画不加载弹幕',
-      subtitle: '当弹幕开关开启时，小窗屏蔽弹幕以获得较好的体验',
-      leading: Icon(CustomIcons.dm_off),
-      setKey: SettingBoxKey.pipNoDanmaku,
-      defaultVal: true,
-    ),
-  ],
   const SwitchModel(
     title: '全屏手势反向',
     subtitle: '默认播放器中部向上滑动进入全屏，向下退出\n开启后向下全屏，向上退出',
@@ -305,16 +253,6 @@ List<SettingsModel> get playSettings => [
         '进度条${Pref.progressBarSideSpace}dp 按钮${Pref.bottomControlSideSpace}dp',
     onTap: _showPlayerSpaceDialog,
   ),
-  if (PlatformUtils.isMobile)
-    SwitchModel(
-      title: '后台音频服务',
-      subtitle: '避免画中画没有播放暂停功能',
-      leading: const Icon(Icons.volume_up_outlined),
-      setKey: SettingBoxKey.enableBackgroundPlay,
-      defaultVal: true,
-      onChanged: (value) =>
-          videoPlayerServiceHandler!.enableBackgroundPlay = value,
-    ),
   PopupModel(
     title: '播放顺序',
     leading: const Icon(Icons.repeat),
@@ -484,7 +422,7 @@ Future<void> showPlayerVolumeDialog(
   );
 }
 
-Future<void> _showMaxVolumeDialog(
+Future<void> showMaxVolumeDialog(
   BuildContext context,
   VoidCallback setState,
 ) {

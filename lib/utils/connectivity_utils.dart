@@ -7,6 +7,7 @@ import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/windows/network_info.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class ConnectivityUtils {
   static final _changes = StreamController<NetworkPolicyChange>.broadcast(
@@ -143,7 +144,15 @@ abstract final class ConnectivityUtils {
       return;
     }
     _bufferingWeak = true;
-    _refresh();
+    final wasCellular = _current?.useCellularPreferences ?? false;
+    _refresh().then((next) {
+      if (!wasCellular && next.useCellularPreferences) {
+        SmartDialog.showToast(
+          '播放连续卡顿 5 秒，当前 Wi-Fi 改按等效移网处理，直到网络切换',
+          displayTime: const Duration(seconds: 4),
+        );
+      }
+    });
   }
 
   static bool get useAdaptiveCellularBuffer => _cellularQualityMode == 3;
