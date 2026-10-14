@@ -99,15 +99,16 @@ class _HomePageState extends CommonPageState<HomePage>
     final child = Row(
       children: [
         searchBar(),
-        Obx(() {
-          if (!AudioFirstMode.enabled.value) return const SizedBox.shrink();
-          final isAudio = AudioFirstMode.audio.value;
-          return IconButton(
-            tooltip: isAudio ? '当前音频优先，切换至视频' : '当前视频优先，切换至音频',
-            onPressed: AudioFirstMode.toggle,
-            icon: Icon(isAudio ? Icons.headphones : Icons.ondemand_video),
-          );
-        }),
+        // Not built at all while the quick switch is off (applies on restart).
+        if (AudioFirstMode.enabled.value)
+          Obx(() {
+            final isAudio = AudioFirstMode.audio.value;
+            return IconButton(
+              tooltip: isAudio ? '当前音频优先，切换至视频' : '当前视频优先，切换至音频',
+              onPressed: AudioFirstMode.toggle,
+              icon: Icon(isAudio ? Icons.headphones : Icons.ondemand_video),
+            );
+          }),
         const SizedBox(width: 4),
         msgBadge(_mainController),
         const SizedBox(width: 8),

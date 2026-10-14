@@ -58,6 +58,7 @@ List<SettingsModel> get playSettings => [
     ),
     switchModel: SwitchModel.split(
       setKey: SettingBoxKey.enableAudioFirst,
+      needReboot: true,
       onChanged: AudioFirstMode.onEnabledChanged,
       onTap: (context) => Get.toNamed('/audioSettings'),
     ),

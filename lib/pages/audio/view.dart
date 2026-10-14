@@ -255,7 +255,7 @@ class _AudioPageState extends State<AudioPage> {
               tooltip: '下次默认进入音频模式',
               onPressed: () {
                 AudioFirstMode.setDefaultAudio(true);
-                SmartDialog.showToast('下次打开视频将默认进入音频模式，可在首页右上角切回');
+                SmartDialog.showToast('下次打开视频将默认进入音频模式；重启后首页右上角可切回视频');
               },
               icon: const Icon(Icons.headphones_outlined, size: 22),
             ),
