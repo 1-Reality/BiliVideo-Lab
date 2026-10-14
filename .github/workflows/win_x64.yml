@@ -61,6 +61,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch_media_kit_decoder_lab.ps1
 
+      - name: Pin libmpv build with D3D11 zero-copy
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_libmpv.ps1
+
       - name: Build Windows
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
