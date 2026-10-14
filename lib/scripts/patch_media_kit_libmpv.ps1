@@ -34,7 +34,7 @@ $Target = Join-Path $MediaKitDir.FullName $RelativePath
 $Text = [IO.File]::ReadAllText($Target)
 
 if ($Text.Contains($NewName)) {
-    Write-Host "libmpv already pinned to $NewName: $Target"
+    Write-Host "libmpv already pinned to ${NewName}: $Target"
     return
 }
 
@@ -56,4 +56,4 @@ foreach ($r in $Replacements) {
 }
 
 [IO.File]::WriteAllText($Target, $Text, [Text.UTF8Encoding]::new($false))
-Write-Host "media-kit Windows libmpv pinned to $NewName: $Target"
+Write-Host "media-kit Windows libmpv pinned to ${NewName}: $Target"
