@@ -116,15 +116,11 @@ extension DecoderLabController on PlPlayerController {
       final labVo = mode.vo ?? 'gpu';
       final fallback = labVo == 'mediacodec_embed' ? 'no' : '3';
 
-      // Apply the experiment as per-file options as well as through media_kit's
-      // Android on_load hook. This puts hwdec/vo on the same load lifecycle,
-      // before decoder probing begins, rather than changing hwdec globally and
-      // hoping the later Surface/VO recreation observes it.
-      extras
-        ..['hwdec'] = mode.hwdec
-        ..['vo'] = labVo
-        ..['hwdec-software-fallback'] = fallback;
-
+      // vo/hwdec/hwdec-software-fallback are applied ONLY by media_kit's
+      // on_load hook. As per-file options they would be applied earlier, while
+      // wid is still 0 from the on_unload hook; mpv recreates the VO at once
+      // (UPDATE_VO + force-window) and mediacodec_embed's
+      // mp_assert(WinID != 0) aborts the process.
       await player.command(['set', _androidVoProperty, labVo]);
       await player.command(['set', _androidHwdecProperty, mode.hwdec]);
       await player.command(['set', _androidFallbackProperty, fallback]);
