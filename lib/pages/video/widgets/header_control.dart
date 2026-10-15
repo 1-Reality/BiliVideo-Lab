@@ -416,6 +416,13 @@ class HeaderControlState extends State<HeaderControl>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 14),
               children: [
+                if (plPlayerController.videoPlayerController case final player?)
+                  ListTile(
+                    dense: true,
+                    title: const Text('播放信息', style: titleStyle),
+                    leading: const Icon(Icons.info_outline, size: 20),
+                    onTap: () => showPlayerInfo(context, player: player),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -811,13 +818,6 @@ class HeaderControlState extends State<HeaderControl>
                     leading: const Icon(Icons.download_outlined, size: 20),
                     title: const Text('保存字幕', style: titleStyle),
                   ),
-                if (plPlayerController.videoPlayerController case final player?)
-                  ListTile(
-                    dense: true,
-                    title: const Text('播放信息', style: titleStyle),
-                    leading: const Icon(Icons.info_outline, size: 20),
-                    onTap: () => showPlayerInfo(context, player: player),
-                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -828,7 +828,7 @@ class HeaderControlState extends State<HeaderControl>
                     Get.back();
                     PageUtils.reportVideo(videoDetailCtr.aid);
                   },
-                  leading: const Icon(Icons.error_outline, size: 20),
+                  leading: const Icon(Icons.flag_outlined, size: 20),
                   title: const Text('举报', style: titleStyle),
                 ),
               ],
