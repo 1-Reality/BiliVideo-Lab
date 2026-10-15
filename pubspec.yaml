@@ -270,7 +270,10 @@ flutter:
     - path: assets/images/paycoins/
     - path: assets/shaders/
     - path: assets/BroTech/
-
+    - path: assets/BroTech/ZTE/LICENSE/
+    - path: assets/BroTech/ZTE/
+    - path: assets/BroTech/Mi/
+    - path: assets/BroTech/general/
   fonts:
     - family: digital_id_num
       fonts:
