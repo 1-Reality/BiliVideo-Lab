@@ -683,7 +683,7 @@ abstract final class PlaybackStatsService {
       '/subscription' ||
       '/subDetail' => 'library',
       '/setting' ||
-      '/cdnSettings' ||
+      '/avSettings' ||
       '/playSpeedSet' ||
       '/networkPolicy' ||
       '/playbackStats' ||

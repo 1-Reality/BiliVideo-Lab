@@ -22,7 +22,6 @@ import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliBro/models/common/super_resolution_type.dart';
 import 'package:PiliBro/models/dynamics/result.dart'
     show DynamicsDataModel, ItemModulesModel;
-import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/common/slide/common_slide_page.dart';
 import 'package:PiliBro/pages/home/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
@@ -624,11 +623,6 @@ List<SettingsModel> get extraSettings => [
         Update.checkUpdate(false);
       }
     },
-  ),
-  NormalModel(
-    title: '路由器增强（临时入口）',
-    leading: const Icon(Icons.router_outlined),
-    onTap: (context, setState) => Get.to(() => const BroTechPage()),
   ),
 ];
 

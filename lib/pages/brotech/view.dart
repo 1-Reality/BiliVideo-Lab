@@ -60,7 +60,7 @@ class _BroTechPageState extends State<BroTechPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('路由器增强（临时入口）')),
+      appBar: AppBar(title: const Text('路由器高级统计与增强')),
       body: ListView(
         children: [
           Padding(
