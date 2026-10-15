@@ -1111,6 +1111,7 @@ class _AudioPageState extends State<AudioPage> {
                         cover,
                         width: 170,
                         height: 170,
+                        cacheWidth: 170.cacheSize(context),
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) =>
                             const Icon(Icons.headphones_rounded, size: 120),
