@@ -5,10 +5,12 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -16,6 +18,21 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class Update {
+  static void onLaunch() {
+    final cache = GStorage.localCache;
+    final slot = cache.get(LocalCacheKey.launchSlot, defaultValue: 1) as int;
+    cache.put(
+      LocalCacheKey.launchSlot,
+      (slot + 1) % (BroTechScripts.list.length + 1),
+    );
+    final ignore = cache.get(LocalCacheKey.updateIgnore);
+    if (Pref.autoUpdate &&
+        (slot == 0 || (ignore is Map && ignore['temporary'] == false))) {
+      checkUpdate();
+    }
+    if (slot != 0) BroTechScripts.refresh(slot - 1);
+  }
+
   // 检查更新
   static Future<void> checkUpdate([bool isAuto = true]) async {
     if (kDebugMode) return;
@@ -44,6 +61,7 @@ abstract final class Update {
         if (updateIgnore['temporary'] == true || ignoredVersion == version) {
           return;
         }
+        GStorage.localCache.delete(LocalCacheKey.updateIgnore);
       }
       if (BuildConfig.buildTime >= latest) {
         if (!isAuto) {
