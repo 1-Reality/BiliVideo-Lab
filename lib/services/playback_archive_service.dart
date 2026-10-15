@@ -1,6 +1,7 @@
 import 'dart:async' show Completer;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate' show Isolate;
 
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/watch_log_service.dart';
@@ -169,16 +170,14 @@ abstract final class PlaybackArchiveService {
     await waitForMaintenance();
     final historical = <String, dynamic>{};
     if (!await GStorage.playbackArchiveHiveFile.exists()) return historical;
-    final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
+    // Every value is needed here, so one sequential read of the whole file
+    // beats a per-key round trip through a LazyBox. Callers hold the explicit
+    // lock, so no rollover has the box open meanwhile.
+    final archive = await Hive.openBox<dynamic>('playbackArchive');
     try {
-      var count = 0;
-      for (final key in archive.keys) {
-        final data = await archive.get(key);
+      for (final MapEntry(:key, value: data) in archive.toMap().entries) {
         if (data is Map && data.containsKey('_value')) {
           historical[key.toString()] = data['_value'];
-        }
-        if (++count % 24 == 0) {
-          await Future<void>.delayed(Duration.zero);
         }
       }
     } finally {
@@ -192,11 +191,13 @@ abstract final class PlaybackArchiveService {
     await beginExplicitAccess();
     try {
       final historical = await loadRawArchive();
-      final active = jsonDecode(PlaybackStatsService.advancedJson());
-      return const JsonEncoder.withIndent('  ').convert({
-        '活动统计': active,
-        '历史归档原语': historical,
-      });
+      final active = PlaybackStatsService.advancedData();
+      return Isolate.run(
+        () => const JsonEncoder.withIndent('  ').convert({
+          '活动统计': active,
+          '历史归档原语': historical,
+        }),
+      );
     } finally {
       endExplicitAccess();
     }

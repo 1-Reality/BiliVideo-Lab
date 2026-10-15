@@ -2439,10 +2439,12 @@ abstract final class PlaybackStatsService {
 
   static num _number(dynamic value) => value is num ? value : 0;
 
-  static String advancedJson() {
+  /// The active period for the advanced view, left as a map so the archive
+  /// service can format it together with the history off the UI isolate.
+  static Map<String, dynamic> advancedData() {
     final data = snapshot();
     final derived = data.remove('derived');
-    return const JsonEncoder.withIndent('  ').convert({
+    return {
       '说明': {
         'schemaVersion': schemaVersion,
         'timeUnit': 'microseconds',
@@ -2470,7 +2472,7 @@ abstract final class PlaybackStatsService {
       },
       '原语': data,
       '当前推导值': derived,
-    });
+    };
   }
 
   static Map<String, dynamic> _storageCopy(Map value) =>
