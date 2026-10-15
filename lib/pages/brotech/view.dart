@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io' show FileSystemEntityType;
+import 'dart:io' show FileSystemEntityType, Platform;
 
 import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/brotech_scripts.dart';
@@ -10,8 +10,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Temporary entry for wiring the router tools end to end; the real UI
-/// replaces this page, the service layer stays as is.
+/// 路由器高级统计与增强: saved entries on top, the fixed brand list below.
 class BroTechPage extends StatefulWidget {
   const BroTechPage({super.key});
 
@@ -26,15 +25,7 @@ class _BroTechPageState extends State<BroTechPage> {
     (e) => e.key == GStorage.localCache.get(_runAtKey),
     orElse: () => BroTechRunAt.end,
   );
-
-  @override
-  void initState() {
-    super.initState();
-    BroTechScripts.defaultHost().then((host) {
-      if (mounted && _host.text.isEmpty) _host.text = 'http://$host';
-    });
-  }
-
+  List<BroTechPreset> _presets = const [];
   late Future<List<int?>> _cached = _stat();
 
   static Future<List<int?>> _stat() => Future.wait([
@@ -45,26 +36,223 @@ class _BroTechPageState extends State<BroTechPage> {
   ]);
 
   @override
+  void initState() {
+    super.initState();
+    BroTechScripts.defaultHost().then((host) {
+      if (mounted && _host.text.isEmpty) _host.text = 'http://$host';
+    });
+    BroTechPresets.load().then((value) {
+      if (mounted) setState(() => _presets = value);
+    });
+  }
+
+  @override
   void dispose() {
     _host.dispose();
     super.dispose();
   }
 
-  void _open(int index) {
-    Get.to(
-      () => BroTechWebPage(index: index, url: _host.text.trim(), runAt: _runAt),
-    )
-        ?.then((_) => setState(() => _cached = _stat()));
+  Future<void> _savePresets() => BroTechPresets.save(_presets);
+
+  Future<void> _launch(BroTechPreset preset, {required bool isNew}) async {
+    String? user;
+    String? pass;
+    await Get.to(
+      () => BroTechWebPage(
+        preset: preset,
+        onCredential: (u, p) {
+          user = u;
+          pass = p;
+        },
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _cached = _stat());
+    if (isNew) {
+      preset
+        ..user = user
+        ..pass = pass;
+      if (await _edit(preset, title: '保存为快捷入口？') == true) {
+        setState(() => _presets = [..._presets, preset]);
+        await _savePresets();
+      }
+    } else if (pass != null && pass != preset.pass) {
+      final update = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('更新已保存的密码？'),
+          content: Text('「${preset.title}」这次登录用了新密码'),
+          actions: [
+            TextButton(onPressed: Get.back, child: const Text('不用')),
+            TextButton(
+              onPressed: () => Get.back(result: true),
+              child: const Text('更新'),
+            ),
+          ],
+        ),
+      );
+      if (update == true) {
+        preset
+          ..user = user
+          ..pass = pass;
+        await _savePresets();
+      }
+    }
+  }
+
+  /// Edits [preset] in place. Returns true to keep it, false to delete it,
+  /// null when cancelled.
+  Future<bool?> _edit(
+    BroTechPreset preset, {
+    required String title,
+    bool deletable = false,
+  }) {
+    final name = TextEditingController(text: preset.name);
+    final host = TextEditingController(text: preset.host);
+    final user = TextEditingController(text: preset.user);
+    final pass = TextEditingController(text: preset.pass);
+    var id = preset.id;
+    var runAt = preset.runAt;
+    var obscure = true;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 12,
+              children: [
+                TextField(
+                  controller: name,
+                  decoration: InputDecoration(
+                    labelText: '名称（可不填）',
+                    hintText: BroTechScripts.list[preset.index].name,
+                  ),
+                ),
+                DropdownButtonFormField<int>(
+                  initialValue: id,
+                  decoration: const InputDecoration(labelText: '品牌'),
+                  items: [
+                    for (final e in BroTechScripts.list)
+                      DropdownMenuItem(value: e.id, child: Text(e.name)),
+                  ],
+                  onChanged: (value) => id = value!,
+                ),
+                TextField(
+                  controller: host,
+                  decoration: const InputDecoration(labelText: '地址'),
+                ),
+                DropdownButtonFormField<BroTechRunAt>(
+                  initialValue: runAt,
+                  decoration: const InputDecoration(labelText: '注入时机'),
+                  items: [
+                    for (final e in BroTechRunAt.values)
+                      DropdownMenuItem(value: e, child: Text(e.label)),
+                  ],
+                  onChanged: (value) => runAt = value!,
+                ),
+                if (Platform.isAndroid) ...[
+                  TextField(
+                    controller: user,
+                    decoration: const InputDecoration(
+                      labelText: '账号（后台只有密码框时留空）',
+                    ),
+                  ),
+                  TextField(
+                    controller: pass,
+                    obscureText: obscure,
+                    decoration: InputDecoration(
+                      labelText: '密码（仅保存在本机）',
+                      suffixIcon: IconButton(
+                        onPressed: () =>
+                            setDialogState(() => obscure = !obscure),
+                        icon: Icon(
+                          obscure ? Icons.visibility : Icons.visibility_off,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            if (deletable)
+              TextButton(
+                onPressed: () => Get.back(result: false),
+                child: Text(
+                  '删除',
+                  style: TextStyle(color: ColorScheme.of(context).error),
+                ),
+              ),
+            TextButton(onPressed: Get.back, child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                String? text(TextEditingController c) =>
+                    c.text.isEmpty ? null : c.text;
+                preset
+                  ..id = id
+                  ..host = host.text.trim()
+                  ..runAt = runAt
+                  ..name = text(name)
+                  ..user = text(user)
+                  ..pass = text(pass);
+                Get.back(result: true);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editExisting(BroTechPreset preset) async {
+    final keep = await _edit(preset, title: '编辑快捷入口', deletable: true);
+    if (keep == null) return;
+    setState(() {
+      if (!keep) _presets = [..._presets]..remove(preset);
+    });
+    await _savePresets();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.of(context);
+    Widget header(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(
+        text,
+        style: TextStyle(color: colorScheme.primary, fontSize: 13),
+      ),
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('路由器高级统计与增强')),
       body: ListView(
         children: [
+          if (_presets.isNotEmpty) ...[
+            header('快捷入口（长按编辑）'),
+            for (final preset in _presets)
+              ListTile(
+                leading: const Icon(Icons.bookmark_outline),
+                title: Text(preset.title),
+                subtitle: Text(
+                  preset.runAt == BroTechRunAt.end
+                      ? preset.host
+                      : '${preset.host} · ${preset.runAt.key}',
+                ),
+                trailing: preset.pass == null
+                    ? null
+                    : const Icon(Icons.key_outlined, size: 18),
+                onTap: () => _launch(preset, isNew: false),
+                onLongPress: () => _editExisting(preset),
+              ),
+          ],
+          header('新建：填好地址和注入时机后点品牌'),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: TextField(
               controller: _host,
               decoration: const InputDecoration(
@@ -105,7 +293,14 @@ class _BroTechPageState extends State<BroTechPage> {
                       }}'
                       '${BroTechScripts.lastError[index] == null ? '' : '\n上次下载失败：${BroTechScripts.lastError[index]}'}',
                     ),
-                    onTap: () => _open(index),
+                    onTap: () => _launch(
+                      BroTechPreset(
+                        id: script.id,
+                        host: _host.text.trim(),
+                        runAt: _runAt,
+                      ),
+                      isNew: true,
+                    ),
                   ),
               ],
             ),
@@ -119,21 +314,22 @@ class _BroTechPageState extends State<BroTechPage> {
 class BroTechWebPage extends StatefulWidget {
   const BroTechWebPage({
     super.key,
-    required this.index,
-    required this.url,
-    required this.runAt,
+    required this.preset,
+    required this.onCredential,
   });
 
-  final int index;
-  final String url;
-  final BroTechRunAt runAt;
+  final BroTechPreset preset;
+
+  /// The last user name and password typed into the page (Android only).
+  final void Function(String user, String pass) onCredential;
 
   @override
   State<BroTechWebPage> createState() => _BroTechWebPageState();
 }
 
 class _BroTechWebPageState extends State<BroTechWebPage> {
-  late final int _id = BroTechScripts.list[widget.index].id;
+  late final int _index = widget.preset.index;
+  late final int _id = widget.preset.id;
   late final Future<UserScript?> _ready = _prepare();
   late String _source;
   late UserScriptMeta _meta;
@@ -142,7 +338,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
   Timer? _reregister;
 
   Future<UserScript?> _prepare() async {
-    final source = await BroTechScripts.load(widget.index);
+    final source = await BroTechScripts.load(_index);
     if (source == null) return null;
     _source = source;
     _meta = UserScriptMeta.parse(source);
@@ -155,7 +351,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
     source: _source,
     meta: _meta,
     values: _values,
-    runAt: widget.runAt,
+    runAt: widget.preset.runAt,
   );
 
   // The injected source carries the values, so a reload must see the latest
@@ -178,6 +374,15 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
     });
   }
 
+  Future<void> _fill() async {
+    final ok = await _controller?.evaluateJavascript(
+      source:
+          '(()=>{let ok=false;for(const f of [window,...Array.from(window.frames)])'
+          'try{ok=f.__broFill(true)||ok}catch(e){}return ok})()',
+    );
+    if (ok != true) SmartDialog.showToast('没有找到可见的密码框');
+  }
+
   @override
   void dispose() {
     _reregister?.cancel();
@@ -186,10 +391,17 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
 
   @override
   Widget build(BuildContext context) {
+    final credentials = Platform.isAndroid;
     return Scaffold(
       appBar: AppBar(
-        title: Text(BroTechScripts.list[widget.index].name),
+        title: Text(widget.preset.title),
         actions: [
+          if (credentials && widget.preset.pass != null)
+            IconButton(
+              tooltip: '填充密码',
+              onPressed: _fill,
+              icon: const Icon(Icons.key_outlined),
+            ),
           IconButton(
             tooltip: '刷新',
             onPressed: () => _controller?.reload(),
@@ -217,7 +429,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
             return Center(
               child: Text(
                 '脚本下载失败，本地也没有缓存：'
-                '${snapshot.error ?? BroTechScripts.lastError[widget.index] ?? ''}',
+                '${snapshot.error ?? BroTechScripts.lastError[_index] ?? ''}',
               ),
             );
           }
@@ -229,8 +441,21 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
                 useHybridComposition: true,
                 mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
               ),
-              initialUserScripts: UnmodifiableListView([script]),
-              initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+              initialUserScripts: UnmodifiableListView([
+                script,
+                if (credentials)
+                  buildBroTechCredentialScript(
+                    user: widget.preset.user,
+                    pass: widget.preset.pass,
+                  ),
+              ]),
+              initialUrlRequest: URLRequest(
+                url: WebUri(
+                  widget.preset.host.contains('://')
+                      ? widget.preset.host
+                      : 'http://${widget.preset.host}',
+                ),
+              ),
               onWebViewCreated: (controller) {
                 _controller = controller
                   ..addJavaScriptHandler(handlerName: 'broGM', callback: _onGm)
@@ -241,6 +466,15 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
                       displayTime: const Duration(seconds: 4),
                     ),
                   );
+                if (credentials) {
+                  controller.addJavaScriptHandler(
+                    handlerName: 'broCred',
+                    callback: (args) => widget.onCredential(
+                      args[1] as String,
+                      args[0] as String,
+                    ),
+                  );
+                }
               },
             ),
           );
