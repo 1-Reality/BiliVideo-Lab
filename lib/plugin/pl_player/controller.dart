@@ -47,6 +47,7 @@ import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/plugin/pl_player/utils/tempo_rate.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -395,6 +396,8 @@ class PlPlayerController
   List<VideoDecodeFormatType>? cachePreferCodecs;
   List<VideoDecodeFormatType>? peakPreferCodecs;
   NetworkProfile? playbackNetworkProfile;
+  // 当前点播网络流的缓冲时长（墙钟秒）；本地文件与直播为 null。
+  double? _bufferSecBase;
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
@@ -1538,6 +1541,9 @@ class PlPlayerController
         : profile?.useCellularPreferences == true
         ? 1
         : 0;
+    _bufferSecBase = dataSource is FileSource || isLive
+        ? null
+        : Pref.bufferSecFor(bufferProfile);
     final Map<String, String> extras = {
       if (dataSource is FileSource)
         'cache': 'no'
@@ -1597,8 +1603,11 @@ class PlPlayerController
     }
 
     _processing = true;
-    final media = previous.current.last.copyWith(start: previous.state.position);
     final rate = previous.state.rate;
+    final media = _withRateBuffer(
+      previous.current.last.copyWith(start: previous.state.position),
+      rate,
+    );
     try {
       await previous.pause();
       _removeListeners();
@@ -1620,7 +1629,7 @@ class PlPlayerController
       }
       await replacement.open(media, play: false);
       if (_playerCount == 0 || _isCloseAll) return false;
-      if (rate != replacement.state.rate) await replacement.setRate(rate);
+      if (rate != replacement.state.rate) await replacement.setTempoRate(rate);
       videoOutputRevision.value++;
       if (resumePlaying) {
         await replacement.play();
@@ -1646,10 +1655,25 @@ class PlPlayerController
     if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
       PlaybackStatsService.rebase(ctr.state.position);
       var media = ctr.current.last;
-      if (!isLive) media = media.copyWith(start: ctr.state.position);
+      if (!isLive) {
+        media = _withRateBuffer(
+          media.copyWith(start: ctr.state.position),
+          ctr.state.rate,
+        );
+      }
       return ctr.open(media, play: true);
     }
     return null;
+  }
+
+  // 重开同一媒体时沿用的是首次打开的 extras，其中缓冲时长按当时倍速算；
+  // 期间倍速变过就要按当前倍速重算。
+  Media _withRateBuffer(Media media, double rate) {
+    final base = _bufferSecBase;
+    if (base == null) return media;
+    return media.copyWith(
+      extras: {...?media.extras, ...Pref.cacheSecs(base, rate)},
+    );
   }
 
   // 开始播放
@@ -2013,7 +2037,15 @@ class PlPlayerController
       temporary: temporary,
     );
 
-    if (!unchanged) await player?.setRate(speed);
+    if (!unchanged && player != null) {
+      await player.setTempoRate(speed);
+      if (_bufferSecBase case final base?) {
+        for (final MapEntry(:key, :value)
+            in Pref.cacheSecs(base, speed).entries) {
+          await player.command(['set', key, value]);
+        }
+      }
+    }
     _playbackSpeed.value = speed;
     _updatePlaybackState();
     final danmaku = danmakuController;
@@ -2028,13 +2060,6 @@ class PlPlayerController
         danmaku.updateOption(updatedOption);
       } catch (_) {}
     }
-  }
-
-  // 还原默认速度
-  double playSpeedDefault = Pref.playSpeedDefault;
-  Future<void> setDefaultSpeed() async {
-    await _videoPlayerController?.setRate(playSpeedDefault);
-    _playbackSpeed.value = playSpeedDefault;
   }
 
   /// 播放视频

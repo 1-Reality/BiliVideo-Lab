@@ -33,6 +33,7 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/plugin/pl_player/utils/tempo_rate.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
@@ -116,7 +117,7 @@ class AudioController extends GetxController
   void setSpeed(double value) {
     if (player case final player?) {
       speed = value;
-      player.setRate(value);
+      player.setTempoRate(value);
       _updatePlaybackState();
     }
   }
