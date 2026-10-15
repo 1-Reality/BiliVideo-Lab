@@ -6,6 +6,7 @@ import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -197,7 +198,14 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
               initialUrlRequest: URLRequest(url: WebUri(widget.url)),
               onWebViewCreated: (controller) {
                 _controller = controller
-                  ..addJavaScriptHandler(handlerName: 'broGM', callback: _onGm);
+                  ..addJavaScriptHandler(handlerName: 'broGM', callback: _onGm)
+                  ..addJavaScriptHandler(
+                    handlerName: 'broLog',
+                    callback: (args) => SmartDialog.showToast(
+                      args.join(' '),
+                      displayTime: const Duration(seconds: 4),
+                    ),
+                  );
               },
             ),
           );

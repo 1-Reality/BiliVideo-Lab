@@ -107,7 +107,10 @@ abstract final class BroTechScripts {
   }
 }
 
-/// The parts of a userscript header the injector honours.
+/// The parts of a userscript header the injector reads. @include/@match/
+/// @exclude and @run-at are deliberately ignored: the user already chose this
+/// script for this router page, so it is injected into every page of that
+/// WebView at document end.
 class UserScriptMeta {
   UserScriptMeta._(this.values, this.noframes);
 
@@ -139,49 +142,6 @@ class UserScriptMeta {
   }
 
   String? first(String key) => values[key]?.first;
-
-  bool get atDocumentStart => first('run-at') == 'document-start';
-
-  /// JS expression list of RegExp objects for @include/@match or @exclude.
-  String _patterns(Iterable<String> globs, Iterable<String> matches) => [
-    for (final g in globs) _globToJs(g),
-    for (final m in matches) _matchToJs(m),
-  ].join(',');
-
-  String get includeJs =>
-      _patterns(values['include'] ?? const [], values['match'] ?? const []);
-
-  String get excludeJs =>
-      _patterns(values['exclude'] ?? const [], values['exclude-match'] ?? const []);
-
-  static final _special = RegExp(r'[.+?^${}()|[\]\\/]');
-
-  static String _escape(String s) =>
-      s.replaceAllMapped(_special, (m) => '\\${m[0]}');
-
-  static String _globToJs(String glob) {
-    if (glob.length > 2 && glob.startsWith('/') && glob.lastIndexOf('/') > 0) {
-      return glob;
-    }
-    return '/^${_escape(glob).replaceAll('*', '.*')}\$/';
-  }
-
-  static final _matchParts = RegExp(r'^(\*|[a-z]+):\/\/([^/]*)(\/.*)?$');
-
-  static String _matchToJs(String pattern) {
-    if (pattern == '<all_urls>') return '/^https?:\\/\\//';
-    final m = _matchParts.firstMatch(pattern);
-    if (m == null) return '/(?!)/';
-    final scheme = m[1] == '*' ? 'https?' : _escape(m[1]!);
-    final host = m[2]!;
-    final hostJs = host == '*'
-        ? '[^/]*'
-        : host.startsWith('*.')
-        ? '(?:[^/]*\\.)?${_escape(host.substring(2))}(?::\\d+)?'
-        : '${_escape(host)}(?::\\d+)?';
-    final pathJs = _escape(m[3] ?? '/').replaceAll('*', '.*');
-    return '/^$scheme:\\/\\/$hostJs$pathJs\$/';
-  }
 }
 
 /// GM storage, one Hive box opened the first time a router page needs it.
@@ -234,24 +194,26 @@ UserScript buildBroTechUserScript({
   });
   final js =
       '''
-(()=>{const h=location.href;if(![${meta.includeJs}].some(r=>r.test(h))||[${meta.excludeJs}].some(r=>r.test(h)))return;
-const __v=${jsonEncode(values)},__q=[];
-const __p=(k,j)=>{const b=window.flutter_inappwebview;b&&b.callHandler?b.callHandler('broGM',$id,k,j):__q.push([k,j]);};
-window.addEventListener('flutterInAppWebViewPlatformReady',()=>{for(const a of __q.splice(0))window.flutter_inappwebview.callHandler('broGM',$id,a[0],a[1]);});
+(()=>{const __v=${jsonEncode(values)},__q=[];
+const __c=(...a)=>{const b=window.flutter_inappwebview;b&&b.callHandler?b.callHandler(...a):__q.push(a);};
+window.addEventListener('flutterInAppWebViewPlatformReady',()=>{for(const a of __q.splice(0))window.flutter_inappwebview.callHandler(...a);});
+const __p=(k,j)=>__c('broGM',$id,k,j);
+__c('broLog','已注入 '+location.href);
+window.addEventListener('error',e=>__c('broLog','错误 '+e.message+' @'+e.filename+':'+e.lineno));
 const GM_info=$info,unsafeWindow=window;
 const GM_getValue=(k,d)=>Object.prototype.hasOwnProperty.call(__v,k)?JSON.parse(__v[k]):d;
 const GM_setValue=(k,v)=>{const j=JSON.stringify(v);if(j===undefined)return GM_deleteValue(k);__v[k]=j;__p(k,j);};
 const GM_deleteValue=k=>{delete __v[k];__p(k,null);};
 const GM_listValues=()=>Object.keys(__v);
+try{
 $source
+}catch(e){__c('broLog','错误 '+(e&&e.stack||e));}
 })();
 ''';
   return UserScript(
     groupName: 'broTech',
     source: js,
-    injectionTime: meta.atDocumentStart
-        ? UserScriptInjectionTime.AT_DOCUMENT_START
-        : UserScriptInjectionTime.AT_DOCUMENT_END,
+    injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
     forMainFrameOnly: meta.noframes,
   );
 }
