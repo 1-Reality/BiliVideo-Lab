@@ -95,6 +95,7 @@ class _BroTechPageState extends State<BroTechPage> {
   Future<void> _launch(BroTechPreset preset, {required bool isNew}) async {
     String? user;
     String? pass;
+    var saved = !isNew;
     await Get.to(
       () => BroTechWebPage(
         preset: preset,
@@ -102,19 +103,30 @@ class _BroTechPageState extends State<BroTechPage> {
           user = u;
           pass = p;
         },
+        onSave: isNew
+            ? () async {
+                if (!saved) {
+                  preset
+                    ..user = user
+                    ..pass = pass;
+                }
+                final keep = await _edit(
+                  preset,
+                  title: saved ? '编辑快捷入口' : '保存为快捷入口',
+                );
+                if (keep != true || !mounted) return;
+                if (!saved) {
+                  saved = true;
+                  setState(() => _presets = [..._presets, preset]);
+                }
+                await _savePresets();
+              }
+            : null,
       ),
     );
     if (!mounted) return;
     setState(() => _cached = _stat());
-    if (isNew) {
-      preset
-        ..user = user
-        ..pass = pass;
-      if (await _edit(preset, title: '保存为快捷入口？') == true) {
-        setState(() => _presets = [..._presets, preset]);
-        await _savePresets();
-      }
-    } else if (pass != null && pass != preset.pass) {
+    if (saved && pass != null && pass != preset.pass) {
       final update = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -351,9 +363,13 @@ class BroTechWebPage extends StatefulWidget {
     super.key,
     required this.preset,
     required this.onCredential,
+    this.onSave,
   });
 
   final BroTechPreset preset;
+
+  /// Only for an entry opened from the brand list: saves it as a shortcut.
+  final Future<void> Function()? onSave;
 
   /// The last user name and password typed into the page (Android only).
   final void Function(String user, String pass) onCredential;
@@ -436,6 +452,12 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
               tooltip: '填充密码',
               onPressed: _fill,
               icon: const Icon(Icons.key_outlined),
+            ),
+          if (widget.onSave case final onSave?)
+            IconButton(
+              tooltip: '保存为快捷入口',
+              onPressed: onSave,
+              icon: const Icon(Icons.bookmark_add_outlined),
             ),
           IconButton(
             tooltip: '刷新',
