@@ -806,9 +806,19 @@ class _AudioPageState extends State<AudioPage> {
                   ),
                 ),
               ),
+              if (_controller.player case final infoPlayer?)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.info_outline, size: 20),
+                  title: const Text('播放信息', style: TextStyle(fontSize: 14)),
+                  onTap: () {
+                    Get.back();
+                    HeaderControlState.showPlayerInfo(context, player: infoPlayer);
+                  },
+                ),
               ListTile(
                 dense: true,
-                leading: const Icon(Icons.warning_amber_rounded, size: 20),
+                leading: const Icon(Icons.flag_outlined, size: 20),
                 title: const Text('举报', style: TextStyle(fontSize: 14)),
                 onTap: () {
                   Get.back();
@@ -816,15 +826,6 @@ class _AudioPageState extends State<AudioPage> {
                 },
               ),
               if (_controller.player case final player?) ...[
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.info_outline, size: 20),
-                  title: const Text('播放信息', style: TextStyle(fontSize: 14)),
-                  onTap: () {
-                    Get.back();
-                    HeaderControlState.showPlayerInfo(context, player: player);
-                  },
-                ),
                 if (PlatformUtils.isMobile)
                   ListTile(
                     dense: true,
