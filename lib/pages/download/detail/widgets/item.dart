@@ -178,30 +178,29 @@ class DetailItem extends StatelessWidget {
                         } else {
                           cacheHeight = maxHeight.cacheSize(context);
                         }
-                        return cover.existsSync()
-                            ? ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: Image.file(
-                                  cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: cacheWidth,
-                                  cacheHeight: cacheHeight,
-                                  colorBlendMode: NetworkImgLayer.reduce
-                                      ? BlendMode.modulate
-                                      : null,
-                                  color: NetworkImgLayer.reduce
-                                      ? NetworkImgLayer.reduceLuxColor
-                                      : null,
-                                ),
-                              )
-                            : NetworkImgLayer(
-                                src: entry.cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                                cacheWidth: entry.pageData?.cacheWidth,
-                              );
+                        return ClipRRect(
+                          borderRadius: Style.mdRadius,
+                          child: Image.file(
+                            cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                            fit: BoxFit.cover,
+                            cacheWidth: cacheWidth,
+                            cacheHeight: cacheHeight,
+                            colorBlendMode: NetworkImgLayer.reduce
+                                ? BlendMode.modulate
+                                : null,
+                            color: NetworkImgLayer.reduce
+                                ? NetworkImgLayer.reduceLuxColor
+                                : null,
+                            errorBuilder: (_, _, _) => NetworkImgLayer(
+                              src: entry.cover,
+                              width: maxWidth,
+                              height: maxHeight,
+                              cacheWidth: entry.pageData?.cacheWidth,
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),

@@ -79,9 +79,10 @@ abstract final class CdnDiagnosticsService {
     return records;
   }
 
-  static List<Map<String, dynamic>> historySnapshot() {
+  static Future<List<Map<String, dynamic>>> historySnapshot() async {
     final records = [
-      for (final entry in GStorage.readCdnDiagnosticsHistorySync()) entry.record,
+      for (final entry in await GStorage.readCdnDiagnosticsHistory())
+        entry.record,
     ];
     _sortRecords(records);
     return records;
@@ -98,8 +99,8 @@ abstract final class CdnDiagnosticsService {
   static List<CdnDiagnosticGroup> groupedLatestSnapshot() =>
       _group(latestSnapshot());
 
-  static List<CdnDiagnosticGroup> groupedHistorySnapshot() =>
-      _group(historySnapshot());
+  static Future<List<CdnDiagnosticGroup>> groupedHistorySnapshot() async =>
+      _group(await historySnapshot());
 
   static List<CdnDiagnosticGroup> _group(
     List<Map<String, dynamic>> records,
@@ -130,7 +131,7 @@ abstract final class CdnDiagnosticsService {
         if (runStartedAtUs.isEmpty) return;
 
         final keep = <({String id, Map<String, dynamic> record})>[];
-        for (final entry in GStorage.readCdnDiagnosticsHistorySync()) {
+        for (final entry in await GStorage.readCdnDiagnosticsHistory()) {
           final value = entry.record;
           final run = (value['testRunStartedAtUs'] as num?)?.toInt() ??
               (value['recordedAtUs'] as num?)?.toInt() ??

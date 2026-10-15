@@ -366,8 +366,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      cover.existsSync()
-                          ? ClipRRect(
+                      ClipRRect(
                               borderRadius: Style.mdRadius,
                               child: Image.file(
                                 cover,
@@ -386,12 +385,12 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                                 color: NetworkImgLayer.reduce
                                     ? NetworkImgLayer.reduceLuxColor
                                     : null,
+                                errorBuilder: (_, _, _) => NetworkImgLayer(
+                                  src: entry.cover,
+                                  width: 160,
+                                  height: 100,
+                                ),
                               ),
-                            )
-                          : NetworkImgLayer(
-                              src: entry.cover,
-                              width: 160,
-                              height: 100,
                             ),
                       PBadge(
                         text: DurationUtils.formatDuration(

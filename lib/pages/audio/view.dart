@@ -1107,10 +1107,14 @@ class _AudioPageState extends State<AudioPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      cover.existsSync()
-                          ? Image.file(cover, width: 170, height: 170,
-                              fit: BoxFit.cover)
-                          : const Icon(Icons.headphones_rounded, size: 120),
+                      Image.file(
+                        cover,
+                        width: 170,
+                        height: 170,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.headphones_rounded, size: 120),
+                      ),
                       const SizedBox(height: 16),
                       SelectionText(offline.showTitle,
                           style: const TextStyle(fontSize: 17)),

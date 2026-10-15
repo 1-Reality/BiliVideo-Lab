@@ -1205,10 +1205,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     );
   }
 
-  void _showDiagnosticHistory(BuildContext context) {
+  Future<void> _showDiagnosticHistory(BuildContext context) async {
     final encoder = const JsonEncoder.withIndent('  ');
     var latestGroups = CdnDiagnosticsService.groupedLatestSnapshot();
-    var historyGroups = CdnDiagnosticsService.groupedHistorySnapshot();
+    var historyGroups = await CdnDiagnosticsService.groupedHistorySnapshot();
+    if (!context.mounted) return;
     var editing = false;
     final selected = <int>{};
 
@@ -1284,8 +1285,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                         await CdnDiagnosticsService.deleteHistoryRuns(
                           Set.of(selected),
                         );
-                        historyGroups =
-                            CdnDiagnosticsService.groupedHistorySnapshot();
+                        historyGroups = await CdnDiagnosticsService
+                            .groupedHistorySnapshot();
                         selected.clear();
                         if (dialogContext.mounted) {
                           setDialogState(() {
@@ -1305,8 +1306,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             text: encoder.convert({
                               'latest':
                                   CdnDiagnosticsService.latestSnapshot(),
-                              'history':
-                                  CdnDiagnosticsService.historySnapshot(),
+                              'history': await CdnDiagnosticsService
+                                  .historySnapshot(),
                             }),
                           ),
                         );

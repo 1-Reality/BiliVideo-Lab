@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate' show Isolate;
 import 'dart:typed_data';
 
 import 'package:PiliBro/models/model_owner.dart';
@@ -153,11 +154,17 @@ abstract final class GStorage {
     _playbackStats = null;
     try {
       if (await target.exists()) await target.rename(pending.path);
-      _playbackStats = await Hive.openBox('playbackStats');
+      _playbackStats = await Hive.openBox(
+        'playbackStats',
+        compactionStrategy: _compactWhenHalfStale,
+      );
     } catch (_) {
       // The old file may already have been renamed. Re-open whichever source
       // exists; next launch will always finish a pending archive first.
-      _playbackStats = await Hive.openBox('playbackStats');
+      _playbackStats = await Hive.openBox(
+        'playbackStats',
+        compactionStrategy: _compactWhenHalfStale,
+      );
       rethrow;
     }
   }
@@ -328,32 +335,60 @@ abstract final class GStorage {
     await replaceCdnDiagnostics([entry]);
   }
 
+  // The hot stats box rewrites whole shards every flush; the default policy
+  // (60 stale entries, 15 %) recompacted it every few minutes of playback.
+  static bool _compactWhenHalfStale(int entries, int deletedEntries) =>
+      deletedEntries > entries;
+
+  static const _cdnHistoryRuns = 50;
+
+  static List<({String id, Map<String, dynamic> record})> _parseCdnHistory(
+    List<String> lines,
+  ) {
+    final result = <({String id, Map<String, dynamic> record})>[];
+    for (final line in lines) {
+      if (line.trim().isEmpty) continue;
+      final decoded = jsonDecode(line);
+      if (decoded is! Map || decoded['schemaVersion'] != 3) {
+        throw const FormatException('unsupported CDN history schema');
+      }
+      for (final raw in (decoded['records'] as List? ?? const [])) {
+        if (raw is! Map) continue;
+        final record = raw.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        final id =
+            '${record['testRunStartedAtUs']}:${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
+        result.add((id: id, record: record));
+      }
+    }
+    return result;
+  }
+
+  /// Settings export only; the history is capped, so this stays small.
   static List<({String id, Map<String, dynamic> record})>
   readCdnDiagnosticsHistorySync() {
     if (!cdnDiagnosticsHistoryFile.existsSync()) return const [];
-    final result = <({String id, Map<String, dynamic> record})>[];
     try {
-      for (final line in cdnDiagnosticsHistoryFile.readAsLinesSync()) {
-        if (line.trim().isEmpty) continue;
-        final decoded = jsonDecode(line);
-        if (decoded is! Map || decoded['schemaVersion'] != 3) {
-          throw const FormatException('unsupported CDN history schema');
-        }
-        for (final raw in (decoded['records'] as List? ?? const [])) {
-          if (raw is! Map) continue;
-          final record = raw.map(
-            (key, value) => MapEntry(key.toString(), value),
-          );
-          final id =
-              '${record['testRunStartedAtUs']}:${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
-          result.add((id: id, record: record));
-        }
-      }
+      return _parseCdnHistory(cdnDiagnosticsHistoryFile.readAsLinesSync());
     } catch (_) {
       unawaited(_deleteFileIfExists(cdnDiagnosticsHistoryFile));
       return const [];
     }
-    return result;
+  }
+
+  /// The diagnostics dialog: read off the UI thread, parse in an isolate.
+  static Future<List<({String id, Map<String, dynamic> record})>>
+  readCdnDiagnosticsHistory() async {
+    final file = cdnDiagnosticsHistoryFile;
+    if (!await file.exists()) return const [];
+    try {
+      final lines = await file.readAsLines();
+      return await Isolate.run(() => _parseCdnHistory(lines));
+    } catch (_) {
+      await _deleteFileIfExists(file);
+      return const [];
+    }
   }
 
   static Future<void> appendCdnDiagnosticsHistory(
@@ -369,6 +404,16 @@ abstract final class GStorage {
       mode: FileMode.append,
       flush: true,
     );
+    // One line per speed-test run; keep only the newest runs.
+    final lines = await cdnDiagnosticsHistoryFile.readAsLines();
+    if (lines.length > _cdnHistoryRuns) {
+      final temp = File('${cdnDiagnosticsHistoryFile.path}.tmp');
+      await temp.writeAsString(
+        '${lines.sublist(lines.length - _cdnHistoryRuns).join('\n')}\n',
+        flush: true,
+      );
+      await temp.rename(cdnDiagnosticsHistoryFile.path);
+    }
   }
 
   static Future<void> replaceCdnDiagnosticsHistory(
@@ -511,7 +556,10 @@ abstract final class GStorage {
       _playbackStatsInitFuture ??= _initializePlaybackStats();
 
   static Future<void> _initializePlaybackStats() async {
-    _playbackStats = await Hive.openBox('playbackStats');
+    _playbackStats = await Hive.openBox(
+        'playbackStats',
+        compactionStrategy: _compactWhenHalfStale,
+      );
     if (playbackStats.isEmpty) {
       final legacyBox = video.get(VideoBoxKey.playbackStats);
       final legacy = readJsonMapSync(playbackStatsFile) ??
@@ -742,10 +790,16 @@ abstract final class GStorage {
     await playbackStats.close();
     try {
       await _replaceHiveFile(source, target);
-      _playbackStats = await Hive.openBox('playbackStats');
+      _playbackStats = await Hive.openBox(
+        'playbackStats',
+        compactionStrategy: _compactWhenHalfStale,
+      );
     } catch (_) {
       await _rollbackHiveFile(target);
-      _playbackStats = await Hive.openBox('playbackStats');
+      _playbackStats = await Hive.openBox(
+        'playbackStats',
+        compactionStrategy: _compactWhenHalfStale,
+      );
       rethrow;
     }
     try {
