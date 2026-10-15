@@ -741,6 +741,21 @@ abstract final class Pref {
   static String get videoSync =>
       _setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample');
 
+  // 与 mpv 自动插入的 scaletempo2 的 max-speed 默认值一致；等于它时不传 af，
+  // 完全走 mpv 原生路径。设置时等于 8 会删掉这个键，这里比较的是同一个字面量。
+  static const double muteAboveSpeedDefault = 8.0;
+
+  static double get muteAboveSpeed =>
+      (_setting.get(SettingBoxKey.muteAboveSpeed) as num?)?.toDouble() ??
+      muteAboveSpeedDefault;
+
+  static String? get tempoFilter {
+    final speed = muteAboveSpeed;
+    return speed == muteAboveSpeedDefault
+        ? null
+        : 'scaletempo2=max-speed=$speed';
+  }
+
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
     defaultValue: Platform.isAndroid ? '30' : '0',

@@ -220,6 +220,16 @@ List<SettingsModel> get videoSettings => [
     onTap: _showVideoSyncDialog,
   ),
   NormalModel(
+    title: '高于此倍速时无声音',
+    leading: const Icon(Icons.volume_off_outlined),
+    getSubtitle: () => switch (Pref.tempoFilter) {
+      null => '当前：8 倍，mpv 默认，不传 --af',
+      final af =>
+        '当前：${Pref.muteAboveSpeed == 0 ? '不静音' : '${_speedText(Pref.muteAboveSpeed)} 倍'}（--af=$af）',
+    },
+    onTap: _showMuteAboveSpeedDialog,
+  ),
+  NormalModel(
     title: '硬解模式',
     leading: const Icon(Icons.memory_outlined),
     getSubtitle: () =>
@@ -706,4 +716,98 @@ void _showWeakBufferSecDialog(
     title: '弱网缓冲时长',
     suffix: 's',
   );
+}
+
+String _speedText(double speed) {
+  final text = speed.toString();
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+}
+
+Future<void> _showMuteAboveSpeedDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => _MuteAboveSpeedDialog(initial: Pref.muteAboveSpeed),
+  );
+  if (res == null) return;
+  if (res == Pref.muteAboveSpeedDefault) {
+    await GStorage.setting.delete(SettingBoxKey.muteAboveSpeed);
+  } else {
+    await GStorage.setting.put(SettingBoxKey.muteAboveSpeed, res);
+  }
+  setState();
+}
+
+class _MuteAboveSpeedDialog extends StatefulWidget {
+  const _MuteAboveSpeedDialog({required this.initial});
+
+  final double initial;
+
+  @override
+  State<_MuteAboveSpeedDialog> createState() => _MuteAboveSpeedDialogState();
+}
+
+class _MuteAboveSpeedDialogState extends State<_MuteAboveSpeedDialog> {
+  static const _min = 1.0, _max = 16.0;
+
+  late final _controller = TextEditingController(
+    text: _speedText(widget.initial),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = double.tryParse(_controller.text);
+    return AlertDialog(
+      title: const Text('高于此倍速时无声音'),
+      content: Column(
+        mainAxisSize: .min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: const .numberWithOptions(decimal: true),
+            inputFormatters: FilteringText.decimal,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              suffixText: '倍',
+              helperText: '8 为 mpv 默认；0 为不静音；下一个视频起生效',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Slider(
+            value: (value ?? Pref.muteAboveSpeedDefault).clamp(_min, _max),
+            min: _min,
+            max: _max,
+            divisions: 60,
+            label: value == null ? null : _speedText(value),
+            // 按 0.25 吸附到精确值，滑到 8 时得到的就是 8.0 本身。
+            onChanged: (v) => setState(
+              () => _controller.text = _speedText((v * 4).round() / 4),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Get.back(result: double.tryParse(_controller.text)),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
 }

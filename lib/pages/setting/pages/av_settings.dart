@@ -18,6 +18,8 @@ class AvSettingsPage extends StatelessWidget {
     'CDN 测速',
     '音频不跟随 CDN 设置',
     'PC 网络状态联动判断',
+    '首选解码格式',
+    '蜂窝网络首选解码格式',
   };
   static const _quality = {
     '默认画质',
@@ -26,8 +28,6 @@ class AvSettingsPage extends StatelessWidget {
     '蜂窝网络音质',
     '直播默认画质',
     '蜂窝网络直播默认画质',
-    '首选解码格式',
-    '蜂窝网络首选解码格式',
     '硬解模式',
   };
   static const _buffer = {

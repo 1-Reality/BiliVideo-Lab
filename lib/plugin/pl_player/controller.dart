@@ -47,7 +47,6 @@ import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
-import 'package:PiliBro/plugin/pl_player/utils/tempo_rate.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -1551,6 +1550,8 @@ class PlPlayerController
         ...Pref.initLiveBuffer(bufferProfile)
       else
         ...Pref.initBuffer(_playbackSpeed.value, bufferProfile),
+      if (!isLive)
+        if (Pref.tempoFilter case final af?) 'af': af,
     };
 
     String video = dataSource.videoSource;
@@ -1629,7 +1630,7 @@ class PlPlayerController
       }
       await replacement.open(media, play: false);
       if (_playerCount == 0 || _isCloseAll) return false;
-      if (rate != replacement.state.rate) await replacement.setTempoRate(rate);
+      if (rate != replacement.state.rate) await replacement.setRate(rate);
       videoOutputRevision.value++;
       if (resumePlaying) {
         await replacement.play();
@@ -2038,7 +2039,7 @@ class PlPlayerController
     );
 
     if (!unchanged && player != null) {
-      await player.setTempoRate(speed);
+      await player.setRate(speed);
       if (_bufferSecBase case final base?) {
         for (final MapEntry(:key, :value)
             in Pref.cacheSecs(base, speed).entries) {
@@ -2060,6 +2061,13 @@ class PlPlayerController
         danmaku.updateOption(updatedOption);
       } catch (_) {}
     }
+  }
+
+  // 还原默认速度
+  double playSpeedDefault = Pref.playSpeedDefault;
+  Future<void> setDefaultSpeed() async {
+    await _videoPlayerController?.setRate(playSpeedDefault);
+    _playbackSpeed.value = playSpeedDefault;
   }
 
   /// 播放视频
