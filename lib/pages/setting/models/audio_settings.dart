@@ -12,6 +12,7 @@ import 'package:PiliBro/pages/setting/models/play_settings.dart'
 import 'package:PiliBro/pages/setting/models/video_settings.dart'
     show showAudioOutputDialog;
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -20,11 +21,19 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Background playback, the bottom playback bar and audio output, placed under
-/// the audio/video quick switch in player settings purely as a menu location;
-/// none of them depend on that switch. Audio CDN and audio quality stay with
+/// The 音视频快捷切换 · 音频与后台 submenu: the listen-to-video mode switch,
+/// the bottom playback bar (also the outer switch of that menu entry),
+/// background playback and audio output. Audio CDN and audio quality stay with
 /// the CDN and quality settings they belong to.
 List<SettingsModel> get audioSettings => [
+  const SwitchModel(
+    title: '音视频快捷切换（听视频模式）',
+    subtitle: '首页右上角可一键切换默认进入音频或视频；关闭后不构建该入口',
+    leading: Icon(Icons.headphones_outlined),
+    setKey: SettingBoxKey.enableAudioFirst,
+    needReboot: true,
+    onChanged: AudioFirstMode.onEnabledChanged,
+  ),
   const SwitchModel(
     title: '底部播放条',
     subtitle: '离开视频或听视频页后，在首页底栏上方显示一条：点主体回到原模式，点音符切换视频/音频。与音视频快捷切换无关；关闭后既不记录也不构建',

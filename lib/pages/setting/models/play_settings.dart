@@ -10,7 +10,6 @@ import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -53,13 +52,13 @@ List<SettingsModel> get playSettings => [
   SplitModel(
     normalModel: const NormalModel.split(
       title: '音视频快捷切换 · 音频与后台',
-      subtitle: '开关：首页切换默认音频/视频；点击：后台播放、画中画、音频服务、音量均衡等',
+      subtitle: '开关：底部播放条；点击：听视频模式、后台播放、画中画、音频服务、音量均衡等',
       leading: Icon(Icons.headphones_outlined),
     ),
     switchModel: SwitchModel.split(
-      setKey: SettingBoxKey.enableAudioFirst,
+      setKey: SettingBoxKey.showAudioMiniPlayer,
+      defaultVal: true,
       needReboot: true,
-      onChanged: AudioFirstMode.onEnabledChanged,
       onTap: (context) => Get.toNamed('/audioSettings'),
     ),
   ),
