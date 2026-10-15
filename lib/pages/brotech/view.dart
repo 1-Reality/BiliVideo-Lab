@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io' show FileSystemEntityType, Platform;
+import 'dart:io' show FileStat, FileSystemEntityType, Platform;
 
 import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/brotech_scripts.dart';
@@ -26,14 +26,52 @@ class _BroTechPageState extends State<BroTechPage> {
     orElse: () => BroTechRunAt.end,
   );
   List<BroTechPreset> _presets = const [];
-  late Future<List<int?>> _cached = _stat();
+  late Future<List<FileStat?>> _cached = _stat();
 
-  static Future<List<int?>> _stat() => Future.wait([
+  static Future<List<FileStat?>> _stat() => Future.wait([
     for (var i = 0; i < BroTechScripts.list.length; i++)
       BroTechScripts.file(i)
           .stat()
-          .then((s) => s.type == FileSystemEntityType.notFound ? null : s.size),
+          .then((s) => s.type == FileSystemEntityType.notFound ? null : s),
   ]);
+
+  static String _pad(int v, [int w = 2]) => v.toString().padLeft(w, '0');
+
+  static String _micro(int us) =>
+      '${us ~/ 1000000}.${_pad(us % 1000000, 6)}';
+
+  /// Within 10 days: how long ago. Older: the local time. Both at the full
+  /// microsecond precision DateTime carries.
+  static String _when(DateTime t) {
+    final ago = DateTime.now().difference(t);
+    if (ago.inDays >= 10) {
+      return '${t.year}-${_pad(t.month)}-${_pad(t.day)} '
+          '${_pad(t.hour)}:${_pad(t.minute)}:${_pad(t.second)}'
+          '.${_pad(t.millisecond * 1000 + t.microsecond, 6)}';
+    }
+    final d = ago.inDays;
+    final h = ago.inHours % 24;
+    final m = ago.inMinutes % 60;
+    return '${d > 0 ? '$d 天 ' : ''}${d + h > 0 ? '$h 小时 ' : ''}'
+        '${d + h + m > 0 ? '$m 分 ' : ''}'
+        '${_micro(ago.inMicroseconds % 60000000)} 秒前';
+  }
+
+  static final _group = RegExp(r'\B(?=(\d{3})+$)');
+
+  static String _status(int index, FileStat? stat) {
+    if (stat == null) return '未缓存';
+    final parts = ['${stat.size.toString().replaceAll(_group, '\u202f')} B'];
+    final checked = BroTechScripts.checkedAt(index);
+    if (checked != null) {
+      parts.add('上次检查 ${_when(checked)}');
+      final spent = stat.modified.difference(checked);
+      if (!spent.isNegative) {
+        parts.add('更新用时 ${_micro(spent.inMicroseconds)} s');
+      }
+    }
+    return parts.join(' · ');
+  }
 
   @override
   void initState() {
@@ -279,7 +317,7 @@ class _BroTechPageState extends State<BroTechPage> {
               },
             ),
           ),
-          FutureBuilder<List<int?>>(
+          FutureBuilder<List<FileStat?>>(
             future: _cached,
             builder: (context, snapshot) => Column(
               children: [
@@ -287,10 +325,7 @@ class _BroTechPageState extends State<BroTechPage> {
                   ListTile(
                     title: Text(script.name),
                     subtitle: Text(
-                      '脚本猫 ${script.id} · ${switch (snapshot.data?[index]) {
-                        null => '未缓存',
-                        final int size => '已缓存 ${(size / 1024).toStringAsFixed(1)} KiB',
-                      }}'
+                      '脚本猫 ${script.id} · ${_status(index, snapshot.data?[index])}'
                       '${BroTechScripts.lastError[index] == null ? '' : '\n上次下载失败：${BroTechScripts.lastError[index]}'}',
                     ),
                     onTap: () => _launch(

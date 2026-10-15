@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/path_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
@@ -38,7 +39,15 @@ abstract final class BroTechScripts {
   /// Why the last download of each script produced nothing, for the page.
   static final lastError = <int, String>{};
 
+  /// When the last successful check of a script started, in the local cache
+  /// that is open from launch anyway.
+  static DateTime? checkedAt(int index) {
+    final us = GStorage.localCache.get('broTechCheck${list[index].id}');
+    return us is int ? DateTime.fromMicrosecondsSinceEpoch(us) : null;
+  }
+
   static Future<Uint8List?> _refresh(int index) async {
+    final start = DateTime.now();
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10);
     final Uint8List bytes;
@@ -72,6 +81,10 @@ abstract final class BroTechScripts {
       return null;
     }
     lastError.remove(index);
+    GStorage.localCache.put(
+      'broTechCheck${list[index].id}',
+      start.microsecondsSinceEpoch,
+    );
     final target = file(index);
     if (await target.exists() && await target.length() == bytes.length) {
       final local = await target.readAsBytes();
