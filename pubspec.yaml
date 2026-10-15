@@ -269,6 +269,7 @@ flutter:
     - path: assets/images/live/
     - path: assets/images/paycoins/
     - path: assets/shaders/
+    - path: assets/BroTech/
 
   fonts:
     - family: digital_id_num
