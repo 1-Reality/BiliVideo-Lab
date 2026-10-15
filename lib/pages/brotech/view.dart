@@ -20,10 +20,20 @@ class BroTechPage extends StatefulWidget {
 }
 
 class _BroTechPageState extends State<BroTechPage> {
-  static const _hostKey = 'broTechHost';
-  late final _host = TextEditingController(
-    text: GStorage.localCache.get(_hostKey, defaultValue: 'http://192.168.1.1'),
+  static const _runAtKey = 'broTechRunAt';
+  final _host = TextEditingController();
+  late BroTechRunAt _runAt = BroTechRunAt.values.firstWhere(
+    (e) => e.key == GStorage.localCache.get(_runAtKey),
+    orElse: () => BroTechRunAt.end,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    BroTechScripts.defaultHost().then((host) {
+      if (mounted && _host.text.isEmpty) _host.text = 'http://$host';
+    });
+  }
 
   late Future<List<int?>> _cached = _stat();
 
@@ -41,9 +51,9 @@ class _BroTechPageState extends State<BroTechPage> {
   }
 
   void _open(int index) {
-    final url = _host.text.trim();
-    GStorage.localCache.put(_hostKey, url);
-    Get.to(() => BroTechWebPage(index: index, url: url))
+    Get.to(
+      () => BroTechWebPage(index: index, url: _host.text.trim(), runAt: _runAt),
+    )
         ?.then((_) => setState(() => _cached = _stat()));
   }
 
@@ -61,6 +71,24 @@ class _BroTechPageState extends State<BroTechPage> {
                 labelText: '路由器后台地址',
                 border: OutlineInputBorder(),
               ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DropdownButtonFormField<BroTechRunAt>(
+              initialValue: _runAt,
+              decoration: const InputDecoration(
+                labelText: '注入时机（忽略脚本自带的 @run-at）',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final e in BroTechRunAt.values)
+                  DropdownMenuItem(value: e, child: Text('${e.label} · ${e.key}')),
+              ],
+              onChanged: (value) {
+                _runAt = value!;
+                GStorage.localCache.put(_runAtKey, value.key);
+              },
             ),
           ),
           FutureBuilder<List<int?>>(
@@ -89,10 +117,16 @@ class _BroTechPageState extends State<BroTechPage> {
 }
 
 class BroTechWebPage extends StatefulWidget {
-  const BroTechWebPage({super.key, required this.index, required this.url});
+  const BroTechWebPage({
+    super.key,
+    required this.index,
+    required this.url,
+    required this.runAt,
+  });
 
   final int index;
   final String url;
+  final BroTechRunAt runAt;
 
   @override
   State<BroTechWebPage> createState() => _BroTechWebPageState();
@@ -121,6 +155,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
     source: _source,
     meta: _meta,
     values: _values,
+    runAt: widget.runAt,
   );
 
   // The injected source carries the values, so a reload must see the latest
@@ -172,7 +207,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
                 spacing: 16,
                 children: [
                   CircularProgressIndicator(),
-                  Text('正在从脚本猫获取脚本，3 秒后若本地有缓存则直接使用'),
+                  Text('本地还没有缓存，正在从脚本猫下载'),
                 ],
               ),
             );

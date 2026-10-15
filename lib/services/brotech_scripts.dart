@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:hive_ce/hive.dart';
@@ -90,27 +91,60 @@ abstract final class BroTechScripts {
     return bytes;
   }
 
-  /// Source for the router page: a fresh copy if ScriptCat answers within
-  /// 3 s, otherwise the local copy, otherwise whatever the download yields.
+  /// Source for the router page: the local copy when there is one, so the
+  /// page opens at once; ScriptCat only when nothing is cached yet. Newer
+  /// versions arrive through the launch rotation.
   static Future<String?> load(int index) async {
-    final download = refresh(index);
     final target = file(index);
-    try {
-      final bytes = await download.timeout(const Duration(seconds: 3));
-      if (bytes != null) return utf8.decode(bytes);
-    } on TimeoutException {
-      // The download keeps going and still lands on disk for next time.
-    }
     if (await target.exists()) return target.readAsString();
-    final bytes = await download;
+    final bytes = await refresh(index);
     return bytes == null ? null : utf8.decode(bytes);
   }
+
+  static final _virtual = RegExp('tun|wg|ppp|rmnet|vpn|wireguard', caseSensitive: false);
+
+  /// Router address to prefill: the default gateway, else this device's
+  /// private IPv4 with the last octet set to 1.
+  static Future<String> defaultHost() async {
+    if (Platform.isAndroid) {
+      final gateway = PiliAndroidHelper.defaultGateway();
+      if (gateway != null) return gateway;
+    }
+    for (final interface in await NetworkInterface.list(
+      type: InternetAddressType.IPv4,
+    )) {
+      if (_virtual.hasMatch(interface.name)) continue;
+      for (final address in interface.addresses) {
+        final r = address.rawAddress;
+        if (r[0] == 192 && r[1] == 168 ||
+            r[0] == 10 ||
+            r[0] == 172 && r[1] >= 16 && r[1] < 32) {
+          return '${r[0]}.${r[1]}.${r[2]}.1';
+        }
+      }
+    }
+    return '192.168.1.1';
+  }
+}
+
+/// Injection moments offered to the user. The script's own @run-at is not
+/// consulted. `load` is not a userscript standard; it waits for window load.
+enum BroTechRunAt {
+  start('document-start', '文档开始'),
+  body('document-body', 'body 出现时'),
+  end('document-end', '文档结束（默认）'),
+  idle('document-idle', '文档结束后空闲时'),
+  load('load', '页面完全加载后（非标准）');
+
+  const BroTechRunAt(this.key, this.label);
+  final String key;
+  final String label;
 }
 
 /// The parts of a userscript header the injector reads. @include/@match/
 /// @exclude and @run-at are deliberately ignored: the user already chose this
 /// script for this router page, so it is injected into every page of that
-/// WebView at document end.
+/// WebView at the moment picked in [BroTechRunAt].
 class UserScriptMeta {
   UserScriptMeta._(this.values, this.noframes);
 
@@ -177,6 +211,7 @@ UserScript buildBroTechUserScript({
   required String source,
   required UserScriptMeta meta,
   required Map<String, String> values,
+  required BroTechRunAt runAt,
 }) {
   final info = jsonEncode({
     'script': {
@@ -192,28 +227,42 @@ UserScript buildBroTechUserScript({
     },
     'scriptHandler': 'PiliBro',
   });
+  final schedule = switch (runAt) {
+    BroTechRunAt.start || BroTechRunAt.end => '__run();',
+    BroTechRunAt.body =>
+      "document.body?__run():new MutationObserver((_,o)=>{if(document.body){o.disconnect();__run();}}).observe(document,{childList:true,subtree:true});",
+    BroTechRunAt.idle => '(window.requestIdleCallback||setTimeout)(__run);',
+    BroTechRunAt.load =>
+      "document.readyState==='complete'?__run():window.addEventListener('load',__run,{once:true});",
+  };
+  final patched = source.replaceFirst(
+    RegExp(r'injectMode:\s*\d+'),
+    'injectMode: 3',
+  );
   final js =
       '''
 (()=>{const __v=${jsonEncode(values)},__q=[];
 const __c=(...a)=>{const b=window.flutter_inappwebview;b&&b.callHandler?b.callHandler(...a):__q.push(a);};
 window.addEventListener('flutterInAppWebViewPlatformReady',()=>{for(const a of __q.splice(0))window.flutter_inappwebview.callHandler(...a);});
 const __p=(k,j)=>__c('broGM',$id,k,j);
-__c('broLog','已注入 '+location.href);
 window.addEventListener('error',e=>__c('broLog','错误 '+e.message+' @'+e.filename+':'+e.lineno));
 const GM_info=$info,unsafeWindow=window;
 const GM_getValue=(k,d)=>Object.prototype.hasOwnProperty.call(__v,k)?JSON.parse(__v[k]):d;
 const GM_setValue=(k,v)=>{const j=JSON.stringify(v);if(j===undefined)return GM_deleteValue(k);__v[k]=j;__p(k,j);};
 const GM_deleteValue=k=>{delete __v[k];__p(k,null);};
 const GM_listValues=()=>Object.keys(__v);
-try{
-$source
-}catch(e){__c('broLog','错误 '+(e&&e.stack||e));}
+const __run=()=>{__c('broLog','已注入（${runAt.key}）'+location.href);try{
+$patched
+}catch(e){__c('broLog','错误 '+(e&&e.stack||e));}};
+$schedule
 })();
 ''';
   return UserScript(
     groupName: 'broTech',
     source: js,
-    injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
+    injectionTime: runAt == BroTechRunAt.start || runAt == BroTechRunAt.body
+        ? UserScriptInjectionTime.AT_DOCUMENT_START
+        : UserScriptInjectionTime.AT_DOCUMENT_END,
     forMainFrameOnly: meta.noframes,
   );
 }
