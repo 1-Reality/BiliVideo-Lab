@@ -1,0 +1,153 @@
+# ZTE-Stat_Max by 哥哥科技
+
+[![Version](https://img.shields.io/badge/version-5.9.X-orange.svg?logo=github&logoColor=white)](https://github.com/ucxn/ZTE-Stat_Max)&emsp;&nbsp;
+[![Platform](https://img.shields.io/badge/platform-Web-green.svg?logo=javascript&logoColor=white)](https://scriptcat.org/zh-CN)&nbsp;&emsp;
+[![Integration](https://img.shields.io/badge/集成-Home_Assistant-41BDF5.svg?logo=homeassistant&logoColor=white)](https://github.com/ucxn/ZTE-Stat_HA)&nbsp;&emsp;
+[![Reference:APL for Bro](https://img.shields.io/badge/Source-APL_Bro_0.1-3DA639?logo=opensourceinitiative&logoColor=white&labelColor=222222)](https://raw.githubusercontent.com/ucxn/ZTE-Stat_Max/refs/heads/main/LICENSE/license.txt)&nbsp;
+[![Reference:SUL-1.0](https://img.shields.io/badge/SUL-保留显著署名-EA4B71.svg?logo=n8n&logoColor=white&labelColor=040506)](https://github.com/ucxn/ZTE-Stat_Max/blob/main/LICENSE/SUL-1.0.md)&nbsp;
+[![BroWare BY NC 1.0](./assets/nc_custom_noversion.svg)](https://github.com/ucxn/ZTE-Stat_Max/blob/main/LICENSE/BR-BY-NC-1.0.md)
+
+[English](README_EN.md) | **简体中文**
+
+**ZTE-Stat_Max**是一款网速监控、流量多维分析查看工具，运用了专业的测控思想，融合 哥哥科技 的匠心精神；<br>专为中兴路由器 Web 管理后台设计的 “油猴” 增强脚本插件 + HA 全屋智能家居接入集成，作者：*哥哥科技* ！<br><br>
+**支持检测**：WAN口速率、每个物理端口：含LAN口速率（精度1s）、各设备速率（2/3/5s）、各设备官方流量小计。</br>
+**双WAN支持**：完全支持！可以统计WAN1/2网速，分别积分∫Sum，自动计算*主次网比*，和内网、设备高精统计对比。</br>
+**支持计算**：WAN口总流量、各设备流量（积分）+官方统计（防0回流）双轨制对比！</br>
+**统计口径**：同时支持对比：官方值（只含本次接入）、当前在线、网页打开以来的总计→支持定期导出.csv数据。</br>
+**特色功能**：内外网比，3数据源综合裁决；双WAN 主次网 1/2比值；事件驱动流量计算；端口统计；单位换算&统一。</br>
+**视觉UI**：含近 12个 周期（帧）的短时近期网速“小火花”高度进度条；长期数据可以导入*HAOS* 统一专业分析处理；
+设备名、在线时间、IPv4、接入端口，高精上下行和比例（双色雷达），历史上行、本次下行占全家比例（独立红蓝进度条），网速赛跑条。
+
+![预览](./assets/new.png)
+
+本程序通过接管原生 Vue 框架的底层 XML API 数据流，在不破坏官方原有拓扑与结构的前提下，重构了“组网管理”与“接入设备”页面的 UI 布局。引入了官方后台累计字节计数器校准算法、异常流量雷达以及双轨制流量对齐显示，为网络工程人员和进阶玩家提供。
+
+路由器Web UI增强 × 智能家居平台联动接入（作者：哥哥科技），Home Assistant 插件集成、UI增强，中兴伴侣，支持全系ZTE！统计流量，查看占比速率、上下行比值，检测P2P偷上行，支持1000/1024进制，支持Mbps/GiB，可统计内网和公网作对比！设备列表平铺化，大屏可视化一点通，你所要的，都在这里，无需频繁切换页面…
+
+![logo](./assets/中兴.png)
+
+## [点击一键安装](https://github.com/ucxn/ZTE-Stat_Max#%E8%84%9A%E6%9C%AC%E5%AE%89%E8%A3%85)&emsp;&nbsp;&emsp;[![Bilibili](https://img.shields.io/badge/Bilibili-观看演示视频-FF8EB3?style=for-the-badge&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1PtR7B8ECC)
+
+[**国内用户**](https://scriptcat.org/zh-CN/script-show-page/6194)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**[国际用户](https://github.com/ucxn/ZTE-Stat_Max/releases/latest)**
+
+官方 Web 后台虽然稳定，但在数据展示的交互设计上存在一些不便。例如，实时的网速数据和设备历史累积流量被隐藏在了二级菜单中，需要频繁点击具体设备才能查看，无法在全局列表形成直观的对比。本插件的核心目的就是“拍平”这些层级。将单台设备的上下行网速、本次在线期间的积分流量，以及底层的累积总吞吐量，全部提取并前置到主设备列表中，无需任何多余的操作，所有设备的网络吞吐状态一目了然。
+
+## ✨ 功能特性 (Features)
+
+* **🏠 联动 Home Assistant**：搭配专属的 哥哥科技 中枢集成，支持通过 Webhook 将状态实时推送到 HACS 插件。避免Web只能单端接入，实现多端并发观测。详见兄弟项目：[ZTE-Stat_HA](https://github.com/ucxn/ZTE-Stat_HA)
+* **流量与占比统计**：分别统计单设备的上下行流量，实时查看流量占比速率及上下行、内外网比值。
+* **异常上传监控**：支持检测上下行比例，直观标记异常上传，打击 PCDN / P2P 偷跑上行。
+* **精准单位换算**：严格区分网络传输速率与存储容量，支持 1000/1024 双进制，支持 Mbps / GiB 显示。
+* **全局数据对比**：支持内网（局域网代数和）与公网（WAN口）数据大盘统计与直观对比。
+* **高精流量计数器 ⏱️  UI 栅格重构 🖥️**：完美支持手机端
+
+* **事件驱动和组时间**：当上下行任意方向速度变化瞬间，认定为新采样，避免错误的读到缓存值。此举有效缓解了不同接口刷新时间不同，更是解决了当轮询频率高于刷新频率时，越高频、越不准的谬误；此外，Group Time 机制使得网速上下帧撞车的概率大大降低。
+* **双轨制流量统计对比**：除展示路由器接口自带的历史总吞吐量外，还会在页面前端独立进行高频的数据采样，统计设备在当前页面打开期间的真实流量消耗。两者并排显示，互为参考。单位统一成本次，注重变化的观察。特别说明：这里的高精流量源自于官方的逐 Mac 累计计数器，用于统计每台设备的流量，但是校准了官方的回流、归零等问题，有别于 APP 周报，区分了上下行。前端是为了避免抽风时，连个大概的流量数据都看不了而进行的独立参照，微积分频率本身并不影响“高精”数值。
+* **自定义支持**：尊重网络工程习惯，支持通过脚本变量自定义 1000 进制 Mbps、1024 进制 MiB/s 显示逻辑。
+* **🛡️ 隐私保护、UI 优化**：
+  * DOM 原地突变（Mutation）渲染时，自动覆写敏感的 MAC 地址与 IPv6 临时地址，确保在录屏、截屏及分享网络状态时的安全。
+  * 无痕注入，不破坏原生 Vue 状态机，保障浏览器运行性能。
+* **:rainbow: 事件驱动**：优化微积分算法，避免采样时间不对齐或相位差导致误算流量面积。以网络速率变化为采样区间基准。
+
+## 📸 界面预览 (Screenshots)
+
+| 小米插件参考|中兴原生界面 | 增强版 |
+| :---: | :---: | :---: |
+| ![小米插件](./assets/Mi.png) | ![原生界面](./assets/ZTE.png) | ![增强界面](./assets/me.png) |
+
+
+## 🚀 安装指南 (Installation)
+
+### 环境要求
+ 本插件支持 Chrome, Edge, Firefox, Safari，在使用之前，请确保您的浏览器已安装用户脚本管理器扩展，例如：
+* **篡改猴   [Tampermonkey](https://www.tampermonkey.net)**
+* **暴力猴   [Violentmonkey](https://violentmonkey.github.io)**
+* **油猴子   [Greasemonkey](https://www.greasespot.net)**
+
+### 脚本安装
+1.  点击此处安装全面版ZTE-Stat_Max：
+
+    [从GitHub安装](https://github.com/ucxn/ZTE-Stat_Max/releases)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[从GreasyFork安装](https://greasyfork.org/zh-CN/scripts/576199)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[直接安装测试版](https://raw.githubusercontent.com/ucxn/ZTE-Stat_Max/refs/heads/main/new.user.js)
+
+    [通过 ScriptCat 脚本猫 安装（直连推荐：**无需科学上网**）](https://scriptcat.org/zh-CN/script-show-page/6194)更新推送
+
+全面更新兄弟项目，接入智能集成&nbsp;⇨&nbsp;<a href="https://github.com/ucxn/ZTE-Stat_HA" target="_blank"><img src="https://img.shields.io/badge/HACS-ZTE--Stat__Home%20Assistant-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white" alt="ZTE HACS"></a>&nbsp;&nbsp;&nbsp;<a href="https://www.bilibili.com/video/BV1PtR7B8ECC" target="_blank"><img src="https://img.shields.io/badge/Bilibili-%E8%A7%82%E7%9C%8B%E6%BC%94%E7%A4%BA%E8%A7%86%E9%A2%91-FF8EB3?style=for-the-badge&logo=bilibili&logoColor=white" alt="Bilibili Video"></a>
+    
+2.  在弹出的安装界面中点击 **“安装”** 或 **“更新”**。
+3.  登录您的中兴路由器 Web 管理后台，*输入管理员密码*，登录成功后 *刷新网页* ,进入“组网管理”界面，脚本将自动生效。
+    
+> [!IMPORTANT]
+ *备用唤醒入口*：若不生效，请检查**左侧工具边栏导航**，找到 **🚀 哥哥科技面板** 点开进行使用，效果基本一致。<br><br>请确保 **篡改猴** 插件运行正常！！也就是 浏览器 拓展图标这里，正常显示数字！允许用户脚本注入教程如下图。
+
+> [!NOTE]
+> 移动端  **Via** 浏览器 脚本/插件 *功能无法生效*？
+> <details>
+> <summary>👉 点此展开查看解决办法</summary>
+> <br>由于 Via 浏览器的内核机制限制，默认的 `document-idle` 无法成功注入。<br>
+> <br>请进入 Via 的脚本管理界面，将运行时期修改为 `document-start`或`document-end` 均可。<br>
+> 
+> ![操作截图](./assets/Via_20260521-175540.png)
+> </details>
+
+> [!TIP]
+> 若脚本仍未生效，请使用如下教程：
+![图文教程](./assets/Install.png)
+
+## ⚠️ 程序术语
+#### 模式名称
+A模式：依托于官方页面的 `组网管理`，B1模式：主线，自建 `哥哥科技面板`，B2：和B1无缝自动切换，主要针对隐藏Mesh等设备逐个发`小包`；A到B的切换不可逆：主要也是为了保证统计时间频率口径的一致性。详见：**[名词解释](中兴名词对照表.md)**.
+#### 名词解释
+关于请求的API接口，架构的描述等详见**程序说明书**：设计意图、词汇对照表、接口解释，“看不懂的地方”，大多可在这里寻求答案：[发展史故事](发展史故事.md).
+#### 架构设计
+[强烈建议阅读此文](https://github.com/ucxn/BroTech)，或直接看源代码：往往有惊喜；任何人和 LLM 凡是不看架构图的，请勿随意评价。作为免费且源码公开的软件，研究学习代码是最直接的方式；我极端讨厌中介中转和『PPT形式主义』，文档不好写：太简单了业余，太详细了枯燥，有损压缩那也是不可能的，缩词句就讲不清了。总而言之，针对网速和流量互相交叉验证，时间尽力逼近高精，公式用最专业的，不妥协将就。这年头下载源码再传给AI也不难，也不需要各种Agent和Harness。提前提醒：不要焦虑健壮性，一个程序它诞生、有就是比没有好。而且如果按照某些奇葩逻辑的话，“Windows小工具只适用于Win 32，所以价值不高；给微信也增加QQ的特别关心功能，或者B站的增强插件，由于依托于特定平台，并且接口‘未来’（甚至还只是某些想象中的）有可能会发生变化，所以没意义”，这不搞笑吗？<br>
+
+#### 🔗 Symlinks 友情链接
+
+[![ZTE HACS](https://img.shields.io/badge/官方-Stat__HA路由器集成-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://github.com/ucxn/ZTE-Stat_HA)
+&nbsp;第三方: [![ZTE HACS](https://img.shields.io/badge/Monitor__HA-grey?style=flat)](https://github.com/FaltFishL/ZTE_monitor_HA)
+[![Anti PCDN](https://img.shields.io/badge/Network-打击PCDN偷上行-FF4C00?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ucxn/Ban-PCDN_Anti-P2P)
+
+## ⚙️ 个性化配置 (Configuration)
+
+脚本顶部暴露了全局环境变量 `CONFIG` 对象，支持用户根据自身网络环境进行微调：
+
+```javascript
+const CONFIG = {
+    readSaveData: 3, // 【历史记录】 1: 从路由器后台读档（继承基线） | 0: 新局模式 | 2: 从本地长期历史读档 [自动保存！] | 3: 启动时用后台临时值充当积分
+    uiLayout: 1, // 【面板拓扑结构】 0: 经典版 | 1: 详细紧凑版(驾驶舱美学) | 2: 详细平铺版(报表流美学)
+    injectMode: 1, // 【UI注入模式】 0: 原生侧边栏(1min)| 1: 优先，10秒悬浮舱(D)| 2: 联动模式| 3：强制模式
+    lanPortMode: 1, // 【物理网口】 0: 关闭 | 1: 底部追加显示 | 2: WAN高速接管主线
+    lanRefreshInterval: 3, // LAN口刷新时间(秒)，同时部分场景下用于补偿评估0到唤醒期间的流量
+    wanRefreshInterval: 3, // 【外网】WAN口刷新时间(秒)，通常为程序主时钟周期
+    信号强度刷新周期: 16, // 信号强度刷新周期，单位：帧（程序主采样周期）；请设成 2 的自然数次幂（其中1为不主动请求刷新）
+    宽带最大外网下行速率: 24e8, // 配置外网最大上传|下载比特(bit/bps)速率
+    宽带最大外网上行速率: 3e8, //请略微大于真实值；500兆为5e8，一千兆1e9
+    盲漫游: undefined, //也就是包括但不限于无线交换机（AP/有线桥接）模式，无线设备被主路由识别为有线设备则设置1
+    周期类型: 'W', // 'M'(每月), 'W'(每周), 'D'(固定天数)； 其它任意字符：不开启周期重置+自动导出功能
+    周_天设置: 6, // M: 1~31号; W: 0~6(周日~周六); D: 间隔天数(如 7)
+    基准日期: '2026-09-30', // 原点时间(仅 D 模式有效) 任意一个历史周期的零点
+    报告时间: -720, // 提示时间：相对周期0点的偏移分钟数（如 -4320 代表提前 3 天）设置相对指定日期的下个周期起点的时间偏移量
+    自动导出: -180, // 强制导出：相对周期0点的偏移分钟数（如 W模式+锚点6(周六)+偏移-180 = 周五 21:00 强制导出清零）
+    时区补偿: 28800000, // 默认 UTC+8 时区补偿量。
+    portMap: {
+        "eth1": "端口 1",
+        "eth2": "端口 2",
+        "eth3": "端口 3",
+        "eth4": "端口 4",
+        "wl0":  "Wi-Fi 2.4G",
+        "wl1":  "Wi-Fi 5.2G",
+        "wl2":  "Wi-Fi 5.8G"
+    }
+};
+```
+
+## ℹ️ 注意事项
+
+* 本脚本仅在前端对获取到的 API 数据进行重新排版与计算，不会修改路由器底层的核心配置。
+* 若您的路由器管理地址为非标准 IP，请在脚本的 `@match` 或 `@include` 头部规则中自行添加。
+* 本脚本属于纯前端 DOM 注入与数据重组工具，不涉及对中兴路由器底层固件的修改。
+脚本利用油猴环境，并发请求路由器的 `vue_home_device_data_no_update_sess` 和 `vue_client_data` 接口。为解决官方前端轮询刷新带来的滞后感，脚本内部通过 `performance.now()` 实现了独立的设定，从而推导出更为精准的瞬时流量数据。所有的 UI 修改均在原页面的 CSS 框架基础上通过Mutation完成，确保了界面的原生质感与兼容性。
+---
+*Authored by 哥哥科技*
+
+[![Star History](https://api.star-history.com/svg?repos=ucxn/ZTE-Stat_Max&type=Date)](https://star-history.com/#ucxn/ZTE-Stat_Max&Date)
