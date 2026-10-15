@@ -365,7 +365,7 @@ class BroTechWebPage extends StatefulWidget {
 class _BroTechWebPageState extends State<BroTechWebPage> {
   late final int _index = widget.preset.index;
   late final int _id = widget.preset.id;
-  late Future<UserScript?> _ready = _prepare();
+  late final Future<UserScript?> _ready = _prepare();
   late String _source;
   late UserScriptMeta _meta;
   late Map<String, String> _values;
@@ -439,10 +439,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
             ),
           IconButton(
             tooltip: '刷新',
-            // Before the WebView exists (download failed) this retries it.
-            onPressed: () => _controller == null
-                ? setState(() => _ready = _prepare())
-                : _controller!.reload(),
+            onPressed: () => _controller?.reload(),
             icon: const Icon(Icons.refresh),
           ),
         ],

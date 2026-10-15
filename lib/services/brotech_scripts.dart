@@ -34,7 +34,9 @@ abstract final class BroTechScripts {
   /// Downloads one script and replaces the local copy when the bytes differ.
   /// Returns the bytes now on disk, or null when nothing usable arrived.
   static Future<Uint8List?> refresh(int index) =>
-      _pending[index] ??= _refresh(index).whenComplete(() => _pending.remove(index));
+      _pending[index] ??= _refresh(index).whenComplete(() {
+        _pending.remove(index);
+      });
 
   /// Why the last download of each script produced nothing, for the page.
   static final lastError = <int, String>{};
@@ -52,14 +54,11 @@ abstract final class BroTechScripts {
       ..connectionTimeout = const Duration(seconds: 10);
     final Uint8List bytes;
     try {
-      // connectionTimeout only covers the TCP connect; a server that accepts
-      // and then never answers would otherwise hold this (and everyone
-      // sharing it through _pending) forever.
       final response = await (await client.getUrl(
         Uri.parse(
           'https://scriptcat.org/scripts/code/${list[index].id}/x.user.js',
         ),
-      )).close().timeout(const Duration(seconds: 15));
+      )).close();
       if (response.statusCode != 200) {
         lastError[index] = 'HTTP ${response.statusCode}';
         return null;
@@ -73,7 +72,7 @@ abstract final class BroTechScripts {
       lastError[index] = e.toString();
       return null;
     } finally {
-      client.close(force: true);
+      client.close();
     }
     // A captive portal answers 200 with its login page; never let that
     // overwrite a working copy.
