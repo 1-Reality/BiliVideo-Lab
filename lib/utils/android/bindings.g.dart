@@ -283,6 +283,21 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
     ).object<jni$_.JIntArray?>();
   }
 
+  static final _id_defaultGateway = _class.staticMethodId(
+    r'defaultGateway',
+    r'()Ljava/lang/String;',
+  );
+
+  /// from: `static public java.lang.String defaultGateway()`
+  /// The returned object must be released after use, by calling the [release] method.
+  static jni$_.JString? defaultGateway() {
+    final _$$classRef = _class.reference;
+    return _networkInfo(
+      _$$classRef.pointer,
+      _id_defaultGateway.pointer,
+    ).object<jni$_.JString?>();
+  }
+
   static final _id_networkOperator = _class.staticMethodId(
     r'networkOperator',
     r'()Ljava/lang/String;',

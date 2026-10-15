@@ -58,6 +58,9 @@ abstract final class PiliAndroidHelper {
     }
   }
 
+  static String? defaultGateway() => AndroidHelper.defaultGateway()
+      ?.toDartString(releaseOriginal: true);
+
   static String? networkOperator() => AndroidHelper.networkOperator()
       ?.toDartString(releaseOriginal: true);
 

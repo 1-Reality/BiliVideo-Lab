@@ -81,6 +81,11 @@ jobs:
               with:
                   fetch-depth: 0
 
+            - name: 同步 BroTech 附带文件
+              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+              shell: bash
+              run: tool/sync_brotech.sh
+
             - name: 构建Java环境
               uses: actions/setup-java@v6
               with:

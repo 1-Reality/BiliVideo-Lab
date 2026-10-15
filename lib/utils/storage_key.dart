@@ -349,7 +349,8 @@ abstract final class LocalCacheKey {
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp',
       buvid = 'buvid',
-      updateIgnore = 'updateIgnore';
+      updateIgnore = 'updateIgnore',
+      launchSlot = 'launchSlot';
 }
 
 abstract final class VideoBoxKey {

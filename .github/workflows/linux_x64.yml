@@ -25,6 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
       - name: Install dependencies
         run: |
           sudo apt-get update
