@@ -380,12 +380,18 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                         label: const Text('复制高级参数'),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: SelectableText(
-                        data,
-                        style: Theme.of(context).textTheme.bodySmall,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Get.to(
+                          () => _AdvancedDataView(data: data),
+                        ),
+                        icon: const Icon(Icons.data_object),
+                        label: Text(
+                          '查看（${data.length} 字符 · '
+                          '${'\n'.allMatches(data).length + 1} 行）',
+                        ),
                       ),
                     ),
                   ] else
@@ -394,6 +400,49 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The advanced JSON, one line per row and built lazily: laying the whole
+/// text out as a single paragraph froze phones for seconds.
+class _AdvancedDataView extends StatelessWidget {
+  _AdvancedDataView({required this.data}) : lines = data.split('\n');
+
+  final String data;
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall!.copyWith(
+      fontFamily: 'monospace',
+    );
+    return SimpleScaffold(
+      appBar: AppBar(
+        title: const Text('高级参数'),
+        actions: [
+          IconButton(
+            tooltip: '复制全部',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: data));
+              SmartDialog.showToast('高级参数已复制');
+            },
+            icon: const Icon(Icons.copy_outlined),
+          ),
+        ],
+      ),
+      body: SelectionArea(
+        child: ListView.builder(
+          padding: EdgeInsets.fromLTRB(
+            12,
+            8,
+            12,
+            MediaQuery.viewPaddingOf(context).bottom + 24,
+          ),
+          itemCount: lines.length,
+          itemBuilder: (context, index) => Text(lines[index], style: style),
         ),
       ),
     );
