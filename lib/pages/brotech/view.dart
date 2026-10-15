@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io' show FileSystemEntityType;
 
 import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/brotech_scripts.dart';
@@ -23,6 +24,15 @@ class _BroTechPageState extends State<BroTechPage> {
     text: GStorage.localCache.get(_hostKey, defaultValue: 'http://192.168.1.1'),
   );
 
+  late Future<List<int?>> _cached = _stat();
+
+  static Future<List<int?>> _stat() => Future.wait([
+    for (var i = 0; i < BroTechScripts.list.length; i++)
+      BroTechScripts.file(i)
+          .stat()
+          .then((s) => s.type == FileSystemEntityType.notFound ? null : s.size),
+  ]);
+
   @override
   void dispose() {
     _host.dispose();
@@ -32,7 +42,8 @@ class _BroTechPageState extends State<BroTechPage> {
   void _open(int index) {
     final url = _host.text.trim();
     GStorage.localCache.put(_hostKey, url);
-    Get.to(() => BroTechWebPage(index: index, url: url));
+    Get.to(() => BroTechWebPage(index: index, url: url))
+        ?.then((_) => setState(() => _cached = _stat()));
   }
 
   @override
@@ -51,12 +62,25 @@ class _BroTechPageState extends State<BroTechPage> {
               ),
             ),
           ),
-          for (final (index, script) in BroTechScripts.list.indexed)
-            ListTile(
-              title: Text(script.name),
-              subtitle: Text('脚本猫 ${script.id}'),
-              onTap: () => _open(index),
+          FutureBuilder<List<int?>>(
+            future: _cached,
+            builder: (context, snapshot) => Column(
+              children: [
+                for (final (index, script) in BroTechScripts.list.indexed)
+                  ListTile(
+                    title: Text(script.name),
+                    subtitle: Text(
+                      '脚本猫 ${script.id} · ${switch (snapshot.data?[index]) {
+                        null => '未缓存',
+                        final int size => '已缓存 ${(size / 1024).toStringAsFixed(1)} KiB',
+                      }}'
+                      '${BroTechScripts.lastError[index] == null ? '' : '\n上次下载失败：${BroTechScripts.lastError[index]}'}',
+                    ),
+                    onTap: () => _open(index),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -141,12 +165,24 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
         future: _ready,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 16,
+                children: [
+                  CircularProgressIndicator(),
+                  Text('正在从脚本猫获取脚本，3 秒后若本地有缓存则直接使用'),
+                ],
+              ),
+            );
           }
           final script = snapshot.data;
           if (script == null) {
             return Center(
-              child: Text('脚本下载失败，本地也没有缓存：${snapshot.error ?? ''}'),
+              child: Text(
+                '脚本下载失败，本地也没有缓存：'
+                '${snapshot.error ?? BroTechScripts.lastError[widget.index] ?? ''}',
+              ),
             );
           }
           return SafeArea(

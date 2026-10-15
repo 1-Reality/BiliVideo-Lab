@@ -3,10 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:PiliBro/http/init.dart';
-import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/path_utils.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
@@ -37,24 +34,43 @@ abstract final class BroTechScripts {
   static Future<Uint8List?> refresh(int index) =>
       _pending[index] ??= _refresh(index).whenComplete(() => _pending.remove(index));
 
+  /// Why the last download of each script produced nothing, for the page.
+  static final lastError = <int, String>{};
+
   static Future<Uint8List?> _refresh(int index) async {
-    final res = await Request().get(
-      'https://scriptcat.org/scripts/code/${list[index].id}/x.user.js',
-      options: Options(
-        responseType: ResponseType.bytes,
-        extra: {'account': const NoAccount()},
-      ),
-    );
-    final data = res.data;
-    if (data is! List<int>) return null;
-    final bytes = Uint8List.fromList(data);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10);
+    final Uint8List bytes;
+    try {
+      final response = await (await client.getUrl(
+        Uri.parse(
+          'https://scriptcat.org/scripts/code/${list[index].id}/x.user.js',
+        ),
+      )).close();
+      if (response.statusCode != 200) {
+        lastError[index] = 'HTTP ${response.statusCode}';
+        return null;
+      }
+      final builder = BytesBuilder(copy: false);
+      await response
+          .forEach(builder.add)
+          .timeout(const Duration(seconds: 30));
+      bytes = builder.takeBytes();
+    } catch (e) {
+      lastError[index] = e.toString();
+      return null;
+    } finally {
+      client.close();
+    }
     // A captive portal answers 200 with its login page; never let that
     // overwrite a working copy.
     if (!latin1
         .decode(bytes.sublist(0, bytes.length < 4096 ? bytes.length : 4096))
         .contains('==UserScript==')) {
+      lastError[index] = '下载内容不是脚本（${bytes.length} B）';
       return null;
     }
+    lastError.remove(index);
     final target = file(index);
     if (await target.exists() && await target.length() == bytes.length) {
       final local = await target.readAsBytes();
