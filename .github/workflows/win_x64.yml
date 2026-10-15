@@ -30,6 +30,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
       - name: Setup flutter
         uses: subosito/flutter-action@v2
         with:
