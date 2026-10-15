@@ -267,7 +267,7 @@ class _BroTechPageState extends State<BroTechPage> {
       ),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('路由器高级统计与增强')),
+      appBar: AppBar(title: const Text('路由器高级统计与增强（哥哥科技原创）')),
       body: ListView(
         children: [
           if (_presets.isNotEmpty) ...[
