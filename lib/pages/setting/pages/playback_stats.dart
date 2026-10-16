@@ -5,6 +5,8 @@ import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/share_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -184,6 +186,12 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         child: ListView(
           padding: .only(bottom: MediaQuery.viewPaddingOf(context).bottom + 48),
           children: [
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: Text(
+                '今年打开 B 站 ${(GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0) as int) % 1000} 天',
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.history),
               title: const Text('本地历史'),

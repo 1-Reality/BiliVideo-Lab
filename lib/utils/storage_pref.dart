@@ -756,6 +756,15 @@ abstract final class Pref {
         : 'scaletempo2=max-speed=$speed';
   }
 
+  static String get hwdecWatchWords =>
+      _setting.get(SettingBoxKey.hwdecWatchWords, defaultValue: 'no -copy');
+
+  static bool get hwdecWatchWhitelist =>
+      _setting.get(SettingBoxKey.hwdecWatchWhitelist, defaultValue: false);
+
+  static int get hwdecWatchSeconds =>
+      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 10);
+
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
     defaultValue: Platform.isAndroid ? '30' : '0',

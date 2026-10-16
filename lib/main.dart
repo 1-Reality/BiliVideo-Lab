@@ -102,7 +102,19 @@ void _showStartupAfterFirstFrame() {
   if (key == null) return;
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (Get.currentRoute == '/') {
-      Get.toNamed('/member?mid=${(((key >>> 3) * 0x32c446bd) & 0x7fffffff) ^ 0x6e6241a7}&x=${key & 7}');
+      Get.toNamed('/member?mid=${(((key >>> 3) * 0x32c446bd) & 0x7fffffff) ^ 0x6e6241a7}&x=${key & 7}')
+          ?.then(
+            (_) => Get.dialog(
+              AlertDialog(
+                content: Text(
+                  '这是你今年第 ${(GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0) as int) % 1000} 天打开 B 站',
+                ),
+                actions: [
+                  TextButton(onPressed: Get.back, child: const Text('好')),
+                ],
+              ),
+            ),
+          );
     }
   });
 }

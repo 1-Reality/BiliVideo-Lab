@@ -30,6 +30,9 @@ abstract final class SettingBoxKey {
       videoSync = 'videoSync',
       autosync = 'autosync',
       muteAboveSpeed = 'muteAboveSpeed',
+      hwdecWatchWords = 'hwdecWatchWords',
+      hwdecWatchWhitelist = 'hwdecWatchWhitelist',
+      hwdecWatchSeconds = 'hwdecWatchSeconds',
       p1080 = 'p1080',
       enableAutoEnter = 'enableAutoEnter',
       enableAutoExit = 'enableAutoExit',
@@ -351,7 +354,8 @@ abstract final class LocalCacheKey {
       timeStamp = 'timeStamp',
       buvid = 'buvid',
       updateIgnore = 'updateIgnore',
-      launchSlot = 'launchSlot';
+      launchSlot = 'launchSlot',
+      launchDay = 'launchDay';
 }
 
 abstract final class VideoBoxKey {

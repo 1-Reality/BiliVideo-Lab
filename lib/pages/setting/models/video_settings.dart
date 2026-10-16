@@ -236,6 +236,16 @@ List<SettingsModel> get videoSettings => [
         '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec，按顺序尝试；未勾选 no 时全部失败即无法播放）',
     onTap: _showHwDecDialog,
   ),
+  NormalModel(
+    title: '硬解状态检查',
+    leading: const Icon(Icons.manage_search),
+    getSubtitle: () => Pref.hwdecWatchWords.trim().isEmpty
+        ? '已关闭（名单为空）'
+        : '${Pref.hwdecWatchWhitelist ? '白名单' : '黑名单'}：${Pref.hwdecWatchWords}。'
+              '播放中每 ${Pref.hwdecWatchSeconds} 秒读一次 mpv 的 hwdec-current，'
+              '变化且${Pref.hwdecWatchWhitelist ? '一项都不匹配' : '匹配任意一项'}时提示；下一个视频起生效',
+    onTap: _showHwdecWatchDialog,
+  ),
 ];
 
 Future<void> _showCDNDialog(
@@ -805,6 +815,103 @@ class _MuteAboveSpeedDialogState extends State<_MuteAboveSpeedDialog> {
         ),
         TextButton(
           onPressed: () => Get.back(result: double.tryParse(_controller.text)),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showHwdecWatchDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(bool, String, int)>(
+    context: context,
+    builder: (context) => const _HwdecWatchDialog(),
+  );
+  if (res == null) return;
+  final (whitelist, words, seconds) = res;
+  await GStorage.setting.putAll({
+    SettingBoxKey.hwdecWatchWhitelist: whitelist,
+    SettingBoxKey.hwdecWatchWords: words,
+    SettingBoxKey.hwdecWatchSeconds: seconds,
+  });
+  setState();
+}
+
+class _HwdecWatchDialog extends StatefulWidget {
+  const _HwdecWatchDialog();
+
+  @override
+  State<_HwdecWatchDialog> createState() => _HwdecWatchDialogState();
+}
+
+class _HwdecWatchDialogState extends State<_HwdecWatchDialog> {
+  var _whitelist = Pref.hwdecWatchWhitelist;
+  late final _words = TextEditingController(text: Pref.hwdecWatchWords);
+  late final _seconds = TextEditingController(
+    text: '${Pref.hwdecWatchSeconds}',
+  );
+
+  @override
+  void dispose() {
+    _words.dispose();
+    _seconds.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('硬解状态检查'),
+      content: Column(
+        mainAxisSize: .min,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('白名单模式'),
+            subtitle: Text(
+              _whitelist ? '当前解码一项都不匹配时提示' : '关闭即黑名单：当前解码匹配任意一项时提示',
+            ),
+            value: _whitelist,
+            onChanged: (value) => setState(() => _whitelist = value),
+          ),
+          TextField(
+            controller: _words,
+            decoration: const InputDecoration(
+              labelText: '关键词（空格分隔，留空即关闭）',
+              helperText: '与 mpv 的 hwdec-current 整体比对，以 - 开头的按结尾比对（如 -copy）；软解时它是 no',
+              helperMaxLines: 2,
+            ),
+          ),
+          TextField(
+            controller: _seconds,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: '检查间隔',
+              suffixText: '秒',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Get.back(
+            result: (
+              _whitelist,
+              _words.text,
+              int.tryParse(_seconds.text) ?? Pref.hwdecWatchSeconds,
+            ),
+          ),
           child: const Text('确定'),
         ),
       ],

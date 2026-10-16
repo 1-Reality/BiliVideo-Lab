@@ -20,17 +20,30 @@ import 'package:material_ui/material_ui.dart';
 abstract final class Update {
   static void onLaunch() {
     final cache = GStorage.localCache;
-    final slot = cache.get(LocalCacheKey.launchSlot, defaultValue: 1) as int;
-    cache.put(
-      LocalCacheKey.launchSlot,
-      (slot + 1) % (BroTechScripts.list.length + 1),
-    );
+    final n = BroTechScripts.list.length + 1;
+    var slot = cache.get(LocalCacheKey.launchSlot, defaultValue: 1) as int;
+    final now = DateTime.now().subtract(const Duration(hours: 4));
+    final today = now.year * 10000 + now.month * 100 + now.day;
+    final stamp = cache.get(LocalCacheKey.launchDay, defaultValue: 0) as int;
+    if (today > stamp ~/ 1000) {
+      slot %= n;
+      cache.put(
+        LocalCacheKey.launchDay,
+        today * 1000 + (now.year == stamp ~/ 10000000 ? stamp % 1000 + 1 : 1),
+      );
+    }
+    cache.put(LocalCacheKey.launchSlot, slot + 1);
+    final bucket = slot % n;
     final ignore = cache.get(LocalCacheKey.updateIgnore);
     if (Pref.autoUpdate &&
-        (slot == 0 || (ignore is Map && ignore['temporary'] == false))) {
+        (bucket == 0 || (ignore is Map && ignore['temporary'] == false))) {
       checkUpdate();
     }
-    if (slot != 0) BroTechScripts.refresh(slot - 1);
+    if (bucket != 0 && (slot ~/ n) & 4 == 0) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => BroTechScripts.refresh(bucket - 1),
+      );
+    }
   }
 
   // 检查更新

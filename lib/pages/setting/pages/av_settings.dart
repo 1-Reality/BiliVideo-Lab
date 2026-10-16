@@ -29,6 +29,7 @@ class AvSettingsPage extends StatelessWidget {
     '直播默认画质',
     '蜂窝网络直播默认画质',
     '硬解模式',
+    '硬解状态检查',
   };
   static const _buffer = {
     '缓冲大小',

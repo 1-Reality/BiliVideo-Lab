@@ -408,6 +408,16 @@ class PlPlayerController
   // Settings only allow this entry alone.
   late final bool mediacodecEmbed =
       Platform.isAndroid && hwdec == 'mediacodec_embed';
+  // While playing, hwdec-current is read every few seconds and matched
+  // against the user's keywords (settings are taken on each open). Only the
+  // decoder actually playing is read: the ones a file switch creates and drops
+  // fail their hwdec setup too, but position events, which drive this, do not
+  // fire while a file loads. An empty list turns the whole thing off.
+  List<String> _hwdecWatchWords = const [];
+  bool _hwdecWatchWhitelist = false;
+  int _hwdecWatchTicks = 0;
+  int _nextHwdecWatchTick = 0;
+  String? _lastHwdecWatched;
 
   late final progressType = Pref.btmProgressBehavior;
   late final fixedBottomProgress = Pref.fixedBottomProgress;
@@ -1462,8 +1472,7 @@ class PlPlayerController
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
-        // warn carries vd's "Software decoding fallback is disabled."
-        logLevel: kDebugMode || !_hwdecAllowsSoftware ? .warn : .error,
+        logLevel: kDebugMode ? .warn : .error,
         options: opt,
       ),
     );
@@ -1581,6 +1590,16 @@ class PlPlayerController
       ),
       play: false,
     );
+    _hwdecWatchWords = hwdec == null || hwdec == 'no'
+        ? const []
+        : [
+            for (final w in Pref.hwdecWatchWords.split(RegExp(r'\s+')))
+              if (w.isNotEmpty) w,
+          ];
+    _hwdecWatchWhitelist = Pref.hwdecWatchWhitelist;
+    _hwdecWatchTicks = Pref.hwdecWatchSeconds * _positionClock.frequency;
+    _nextHwdecWatchTick = _positionClock.elapsedTicks + _hwdecWatchTicks;
+    _lastHwdecWatched = null;
   }
 
   /// Recreate Android's Player + Texture after an unusually long background
@@ -1816,6 +1835,24 @@ class PlPlayerController
             positionUs >= secondStartUs + Duration.microsecondsPerSecond) {
           final posInSeconds = positionUs ~/ Duration.microsecondsPerSecond;
           _lastPositionEventSecond = posInSeconds;
+          if (_hwdecWatchWords.isNotEmpty && ticks >= _nextHwdecWatchTick) {
+            _nextHwdecWatchTick = ticks + _hwdecWatchTicks;
+            final current = player.getProperty('hwdec-current');
+            if (current != _lastHwdecWatched) {
+              _lastHwdecWatched = current;
+              if (current.isNotEmpty &&
+                  _hwdecWatchWords.any(
+                        (w) => w.startsWith('-')
+                            ? current.endsWith(w)
+                            : current == w,
+                      ) !=
+                      _hwdecWatchWhitelist) {
+                SmartDialog.showToast(
+                  '当前解码 $current，${_hwdecWatchWhitelist ? '不在白名单' : '命中黑名单'}（硬解列表 $hwdec）',
+                );
+              }
+            }
+          }
           if (posInSeconds == 0 && playerStatus.isPlaying) {
             _updatePlaybackState(position: position);
           }
@@ -1866,22 +1903,6 @@ class PlPlayerController
             debugPrint(log.toString());
           }
         })),
-      if (!_hwdecAllowsSoftware)
-        stream.log.listen((PlayerLog log) {
-          if (log.prefix != 'vd' ||
-              !log.text.startsWith('Software decoding fallback is disabled')) {
-            return;
-          }
-          // Android's on_unload sets vo=null and mpv rebuilds the decoder
-          // against it while tearing down; that pass lands here too.
-          if (player.getProperty('current-vo') == 'null') return;
-          player.pause();
-          dataStatus.value = DataStatus.error;
-          SmartDialog.showToast(
-            '硬解列表 $hwdec 中没有可用的解码器，未勾选 no，不回退软解',
-            displayTime: const Duration(seconds: 5),
-          );
-        }),
       stream.error.listen((String event) {
         if (dataSource is FileSource &&
             (event.startsWith('Failed to open file') ||
