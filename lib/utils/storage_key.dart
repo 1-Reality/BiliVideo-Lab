@@ -41,7 +41,6 @@ abstract final class SettingBoxKey {
       fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
       playerConfirmFullscreen = 'playerConfirmFullscreen',
-      orientationConfigVersion = 'orientationConfigVersion',
       orientationPolicyMode = 'orientationPolicyMode',
       controlsLockOrientation = 'controlsLockOrientation',
       appInitialOrientation = 'appInitialOrientation',
@@ -116,7 +115,7 @@ abstract final class SettingBoxKey {
       longPressSpeedFactor = 'longPressSpeedFactor',
       enableLongPressSlideSpeed = 'enableLongPressSlideSpeed',
       useRelativeSlide = 'useRelativeSlide',
-      sliderDuration = 'sliderOffset',
+      sliderDuration = 'sliderDuration',
       enableQuickDouble = 'enableQuickDouble',
       fullScreenGestureReverse = 'fullScreenGestureReverse',
       enableBackgroundPlay = 'enableBackgroundPlay',
@@ -153,8 +152,8 @@ abstract final class SettingBoxKey {
       showRelatedVideo = 'showRelatedVideo',
       showVideoReply = 'showVideoReply',
       showBangumiReply = 'showBangumiReply',
-      alwaysExpandIntroPanel = 'alwaysExapndIntroPanel',
-      expandIntroPanelH = 'exapndIntroPanelH',
+      alwaysExpandIntroPanel = 'alwaysExpandIntroPanel',
+      expandIntroPanelH = 'expandIntroPanelH',
       horizontalSeasonPanel = 'horizontalSeasonPanel',
       horizontalMemberPage = 'horizontalMemberPage',
       replyLengthLimit = 'replyLengthLimit',
@@ -176,7 +175,7 @@ abstract final class SettingBoxKey {
       preInitPlayer = 'preInitPlayer',
       mainTabBarView = 'mainTabBarView',
       searchSuggestion = 'searchSuggestion',
-      showDecorate = 'showDynDecorate',
+      showDecorate = 'showDecorate',
       showMedal = 'showMedal',
       enableLivePhoto = 'enableLivePhoto',
       showSeekPreview = 'showSeekPreview',
@@ -253,9 +252,7 @@ abstract final class SettingBoxKey {
       cellularDownstreamThresholdMbps = 'cellularDownstreamThresholdMbps',
       cellularDbmThreshold = 'cellularDbmThreshold',
       cellularSignalLevelThreshold = 'cellularSignalLevelThreshold',
-      webdavBackupPlaybackStats = 'webdavBackupPlaybackStats',
-      webdavBackupCommentHistory = 'webdavBackupCommentHistory',
-      webdavBackupCdnDiagnostics = 'webdavBackupCdnDiagnostics',
+      backupParts = 'backupParts',
       webviewUaType = 'webviewUaType',
       webviewUaCustom = 'webviewUaCustom';
 
@@ -268,12 +265,12 @@ abstract final class SettingBoxKey {
       showTrayIcon = 'showTrayIcon',
       uiScale = 'uiScale';
 
-  static const String subtitlePreferenceV2 = 'subtitlePreferenceV2',
+  static const String subtitlePreference = 'subtitlePreference',
       subtitleFollowerThreshold = 'subtitleFollowerThreshold',
       enableDragSubtitle = 'enableDragSubtitle',
       subtitlePaddingH = 'subtitlePaddingH',
       subtitlePaddingB = 'subtitlePaddingB',
-      subtitleBgOpacity = 'subtitleBgOpaticy',
+      subtitleBgOpacity = 'subtitleBgOpacity',
       subtitleStrokeWidth = 'subtitleStrokeWidth',
       subtitleFontScale = 'subtitleFontScale',
       subtitleFontScaleFS = 'subtitleFontScaleFS',
@@ -310,15 +307,15 @@ abstract final class SettingBoxKey {
       danmakuFixedV = 'danmakuFixedV',
       danmakuStatic2Scroll = 'danmakuStatic2Scroll',
       danmakuLineHeight = 'danmakuLineHeight',
-      danmakuStrokeWidth = 'strokeWidth',
-      danmakuFontWeight = 'fontWeight';
+      danmakuStrokeWidth = 'danmakuStrokeWidth',
+      danmakuFontWeight = 'danmakuFontWeight';
 
   static const String systemProxyHost = 'systemProxyHost',
       systemProxyPort = 'systemProxyPort';
 
   static const String themeMode = 'themeMode',
-      defaultTextScale = 'textScale',
-      appFontWeightV2 = 'appFontWeightV2',
+      defaultTextScale = 'defaultTextScale',
+      appFontWeight = 'appFontWeight',
       dynamicColor = 'dynamicColor',
       customColor = 'customColor',
       displayMode = 'displayMode',
@@ -331,13 +328,13 @@ abstract final class SettingBoxKey {
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
       useSideBar = 'useSideBar',
       enableMYBar = 'enableMYBar',
-      hideTopBar = 'hideSearchBar',
-      hideBottomBar = 'hideTabBar',
+      hideTopBar = 'hideTopBar',
+      hideBottomBar = 'hideBottomBar',
       barHideType = 'barHideType',
       tabBarSort = 'tabBarSort',
       dynamicBadgeMode = 'dynamicBadgeMode',
       msgBadgeMode = 'msgBadgeMode',
-      msgUnReadTypeV2 = 'msgUnReadTypeV2',
+      msgUnReadType = 'msgUnReadType',
       navBarSort = 'navBarSort',
       tempPlayerConf = 'tempPlayerConf',
       reduceLuxColor = 'reduceLuxColor',
@@ -355,7 +352,8 @@ abstract final class LocalCacheKey {
       buvid = 'buvid',
       updateIgnore = 'updateIgnore',
       launchSlot = 'launchSlot',
-      launchDay = 'launchDay';
+      launchDay = 'launchDay',
+      launchYears = 'launchYears';
 }
 
 abstract final class VideoBoxKey {
@@ -363,7 +361,5 @@ abstract final class VideoBoxKey {
       playSpeedDefault = 'playSpeedDefault',
       longPressSpeedDefault = 'longPressSpeedDefault',
       speedsList = 'speedsList',
-      playbackStats = 'playbackStats',
-      trafficStats = 'trafficStats',
       cacheVideoFit = 'cacheVideoFit';
 }

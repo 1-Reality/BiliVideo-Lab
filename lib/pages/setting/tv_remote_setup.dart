@@ -1,11 +1,13 @@
 import 'dart:async' show Timer, unawaited;
 
+import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/pages/login/view.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -281,6 +283,9 @@ abstract final class TvRemoteSetup {
     await Get.to(() => const LoginPage(initialIndex: 2));
   }
 
+  static String _settings() =>
+      BackupService.exportJson(const {BackupPart.settings});
+
   static Future<void> _showExportMenu(BuildContext context) async {
     await showDialog<void>(
       context: context,
@@ -290,29 +295,21 @@ abstract final class TvRemoteSetup {
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              exportToClipBoard(onExport: GStorage.exportPortableSettings);
+              exportToClipBoard(onExport: _settings);
             },
             child: const Text('导出至剪贴板'),
           ),
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              unawaited(
-                exportToQrCode(
-                  context,
-                  onExport: GStorage.exportPortableSettings,
-                ),
-              );
+              unawaited(exportToQrCode(context, onExport: _settings));
             },
             child: const Text('导出为二维码'),
           ),
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              exportToLocalFile(
-                onExport: GStorage.exportPortableSettings,
-                localFileName: () => 'setting_tv',
-              );
+              exportBackupFile(const {BackupPart.settings}, 'setting_tv');
             },
             child: const Text('导出文件至本地'),
           ),

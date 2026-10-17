@@ -202,8 +202,8 @@ abstract final class Pref {
         defaultValue: DynamicBadgeMode.number.index,
       )];
 
-  static Set<MsgUnReadType> get msgUnReadTypeV2 =>
-      (_setting.get(SettingBoxKey.msgUnReadTypeV2) as List?)
+  static Set<MsgUnReadType> get msgUnReadType =>
+      (_setting.get(SettingBoxKey.msgUnReadType) as List?)
           ?.map((index) => MsgUnReadType.values[index])
           .toSet() ??
       MsgUnReadType.values.where((item) => item != MsgUnReadType.like).toSet();
@@ -578,9 +578,9 @@ abstract final class Pref {
   static double get bottomControlSideSpace =>
       _setting.get(SettingBoxKey.bottomControlSideSpace, defaultValue: 10.0);
 
-  static SubtitlePrefType get subtitlePreferenceV2 =>
+  static SubtitlePrefType get subtitlePreference =>
       SubtitlePrefType.values[_setting.get(
-        SettingBoxKey.subtitlePreferenceV2,
+        SettingBoxKey.subtitlePreference,
         defaultValue: SubtitlePrefType.auto.index,
       )];
 
@@ -710,21 +710,6 @@ abstract final class Pref {
   static int get cellularSignalLevelThreshold => _setting.get(
     SettingBoxKey.cellularSignalLevelThreshold,
     defaultValue: 3,
-  );
-
-  static bool get webdavBackupPlaybackStats => _setting.get(
-    SettingBoxKey.webdavBackupPlaybackStats,
-    defaultValue: true,
-  );
-
-  static bool get webdavBackupCommentHistory => _setting.get(
-    SettingBoxKey.webdavBackupCommentHistory,
-    defaultValue: true,
-  );
-
-  static bool get webdavBackupCdnDiagnostics => _setting.get(
-    SettingBoxKey.webdavBackupCdnDiagnostics,
-    defaultValue: false,
   );
 
   static int get webviewUaType =>
@@ -1103,24 +1088,8 @@ abstract final class Pref {
   );
 
   static FontWeight get appFontWeight {
-    // TODO: remove next 2 version
-    const appFontWeightV1 = 'appFontWeight';
-    final int? valV1 = _setting.get(appFontWeightV1);
-    if (valV1 != null) {
-      _setting.delete(appFontWeightV1);
-      if (valV1 == -1) {
-        return .normal;
-      } else {
-        _setting.put(SettingBoxKey.appFontWeightV2, valV1);
-        return .values[valV1];
-      }
-    }
-
-    final int? val = _setting.get(SettingBoxKey.appFontWeightV2);
-    if (val == null) {
-      return .normal;
-    }
-    return .values[val];
+    final int? val = _setting.get(SettingBoxKey.appFontWeight);
+    return val == null ? .normal : .values[val];
   }
 
   static bool get enableDragSubtitle =>

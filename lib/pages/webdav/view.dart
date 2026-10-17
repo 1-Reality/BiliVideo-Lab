@@ -1,7 +1,9 @@
 import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliBro/pages/webdav/webdav.dart';
+import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -26,9 +28,6 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
   final _passwordCtr = TextEditingController(text: Pref.webdavPassword);
   final _directoryCtr = TextEditingController(text: Pref.webdavDirectory);
   bool _obscureText = true;
-  bool _backupPlaybackStats = Pref.webdavBackupPlaybackStats;
-  bool _backupCommentHistory = Pref.webdavBackupCommentHistory;
-  bool _backupCdnDiagnostics = Pref.webdavBackupCdnDiagnostics;
 
   @override
   void dispose() {
@@ -93,32 +92,7 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('备份完整播放 / 倍速统计'),
-              subtitle: const Text('包含按倍速、倒带、评论区、UP 主、月份等完整统计'),
-              value: _backupPlaybackStats,
-              onChanged: (value) =>
-                  setState(() => _backupPlaybackStats = value),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('备份我的历史评论'),
-              subtitle: const Text('包含本客户端发送的评论和哥哥科技小助手记录'),
-              value: _backupCommentHistory,
-              onChanged: (value) =>
-                  setState(() => _backupCommentHistory = value),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('备份 CDN 最新诊断'),
-              subtitle: const Text('只包含最近一次测速的标量结果'),
-              value: _backupCdnDiagnostics,
-              onChanged: (value) =>
-                  setState(() => _backupCdnDiagnostics = value),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -129,17 +103,14 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                       ),
                     ),
                     onPressed: () async {
-                      await GStorage.setting.putAll({
-                        SettingBoxKey.webdavBackupPlaybackStats:
-                            _backupPlaybackStats,
-                        SettingBoxKey.webdavBackupCommentHistory:
-                            _backupCommentHistory,
-                        SettingBoxKey.webdavBackupCdnDiagnostics:
-                            _backupCdnDiagnostics,
-                      });
-                      await WebDav().backup();
+                      final parts = await selectBackupParts(
+                        context,
+                        title: '备份到 WebDAV',
+                        offered: BackupPart.values,
+                      );
+                      if (parts != null) await WebDav().backup(parts);
                     },
-                    child: const Text('备份设置'),
+                    child: const Text('备份'),
                   ),
                 ),
                 const SizedBox(width: 20),
@@ -150,8 +121,8 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                         borderRadius: Style.mdRadius,
                       ),
                     ),
-                    onPressed: WebDav().restore,
-                    child: const Text('恢复设置'),
+                    onPressed: () => WebDav().restore(context),
+                    child: const Text('恢复'),
                   ),
                 ),
               ],
@@ -173,9 +144,6 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                 SettingBoxKey.webdavUsername: _usernameCtr.text,
                 SettingBoxKey.webdavPassword: _passwordCtr.text,
                 SettingBoxKey.webdavDirectory: _directoryCtr.text,
-                SettingBoxKey.webdavBackupPlaybackStats: _backupPlaybackStats,
-                SettingBoxKey.webdavBackupCommentHistory: _backupCommentHistory,
-                SettingBoxKey.webdavBackupCdnDiagnostics: _backupCdnDiagnostics,
               });
               if (_uriCtr.text.isEmpty) {
                 return;

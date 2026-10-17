@@ -876,7 +876,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final profile = ConnectivityUtils.current;
     final metrics = sample.hasError ? null : sample.metrics;
     return {
-      'schemaVersion': 3,
       'recordedAtUs': DateTime.now().microsecondsSinceEpoch,
       'testRunStartedAtUs': _testRunStartedAtUs,
       'cdn': {

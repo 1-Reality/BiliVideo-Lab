@@ -217,6 +217,23 @@ abstract final class BroTechGmStore {
       await b.put('$id/$key', json);
     }
   }
+
+  /// Null while no script has stored anything.
+  static Future<File?> copySnapshot(File destination) async {
+    final b = await box;
+    if (b.isEmpty) return null;
+    await b.flush();
+    return File(b.path!).copy(destination.path);
+  }
+
+  /// The next [box] access reopens the restored file.
+  static Future<void> restore(File source) async {
+    final b = await box;
+    final target = b.path!;
+    await b.close();
+    _box = null;
+    await source.copy(target);
+  }
 }
 
 /// Builds the injected source: GM shim plus the script, inside one closure.

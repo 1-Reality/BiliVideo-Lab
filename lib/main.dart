@@ -124,13 +124,10 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(Future<void>(() async {
       // Large telemetry/history is deliberately kept off the cold-start path.
-      // The first upgraded launch may still pay the old Hive-open cost once;
-      // after this migration the startup-critical video box stays small.
       await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
-      await GStorage.migrateHeavyTelemetryFromVideoBox();
       await RequestUtils.syncHistoryStatus();
     }));
   });

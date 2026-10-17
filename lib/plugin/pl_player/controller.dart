@@ -1361,7 +1361,7 @@ class PlPlayerController
             '${profile.transport.name}:${profile.useCellularPreferences ? 'cellularPreference' : 'broadbandPreference'}',
           null => 'unknown',
         },
-        subtitle: Pref.subtitlePreferenceV2.name,
+        subtitle: Pref.subtitlePreference.name,
         danmakuEnabled: enableShowDanmakuAdaptive.value,
         decoder: hwdec ?? 'software',
       );

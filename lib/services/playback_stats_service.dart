@@ -13,9 +13,6 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/widgets.dart';
 
 abstract final class PlaybackStatsService {
-  static const schemaVersion = 5;
-  static const metricDefinitionVersion = 3;
-  static const storageLayoutVersion = 2;
   static const _seekThresholdUs = 1000000;
   static const _rewindEligibilityUs = 5000000;
   static const _flushInterval = Duration(minutes: 2);
@@ -34,7 +31,6 @@ abstract final class PlaybackStatsService {
   static final Set<String> _dirtyLiveUids = {};
   static final Set<String> _dirtyDimensions = {};
   static final Set<String> _dirtyCrossDimensions = {};
-  static final Set<String> _legacyCompositeKeys = {};
   static const _monthPrefix = '@month:';
   static const _videoUpPrefix = '@videoUp:';
   static const _livePrefix = '@live:';
@@ -204,19 +200,6 @@ abstract final class PlaybackStatsService {
   static void _ensureInitialized() {
     if (_stats != null) return;
     _stats = _loadStatsFromStorage();
-    _stats!.putIfAbsent(
-      'nominalMediaIncludingLongPressUs',
-      () => _stats!['nominalMediaUs'] as num? ?? 0,
-    );
-    _stats!['schemaVersion'] = schemaVersion;
-    _stats!['metricDefinitionVersion'] = metricDefinitionVersion;
-    _stats!['storageLayoutVersion'] = storageLayoutVersion;
-    _dirtyKeys.addAll(const [
-      'schemaVersion',
-      'metricDefinitionVersion',
-      'storageLayoutVersion',
-    ]);
-    _queueLegacyCompositeMigration();
     _flushTimer ??= Timer.periodic(
       _flushInterval,
       (_) {
@@ -257,12 +240,7 @@ abstract final class PlaybackStatsService {
   // their writes are deferred until the new hot Box is ready.
   static void beginArchiveRollover() {
     _snapshotting = true;
-    _stats = {
-      'schemaVersion': schemaVersion,
-      'metricDefinitionVersion': metricDefinitionVersion,
-      'storageLayoutVersion': storageLayoutVersion,
-      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
-    };
+    _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
     _dirty = true;
     _dirtyKeys
       ..clear()
@@ -272,7 +250,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.clear();
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
-    _legacyCompositeKeys.clear();
     _monthValuesCache = null;
     _monthValuesKey = '';
     _monthDirtyKeyCache.clear();
@@ -350,7 +327,6 @@ abstract final class PlaybackStatsService {
   static Map<String, dynamic> _assemble(Map raw) {
     if (raw.isEmpty) {
       return <String, dynamic>{
-        'schemaVersion': schemaVersion,
         'createdAtMs': DateTime.now().millisecondsSinceEpoch,
       };
     }
@@ -442,52 +418,6 @@ abstract final class PlaybackStatsService {
         : <String, dynamic>{};
     values[axisValue] = _stringMap(value);
     target[axis] = values;
-  }
-
-  static void _queueLegacyCompositeMigration() {
-    for (final key in _compositeKeys) {
-      if (!GStorage.playbackStats.containsKey(key)) continue;
-      _legacyCompositeKeys.add(key);
-      final value = _stats![key];
-      if (value is! Map) continue;
-      switch (key) {
-        case 'months':
-          for (final month in value.entries) {
-            if (month.value is Map) {
-              _dirtyMonths.addAll(
-                (month.value as Map).keys.map(
-                  (field) => '${month.key}:$field',
-                ),
-              );
-            }
-          }
-        case 'videoByUpUid':
-          _dirtyVideoUpUids.addAll(value.keys.map((item) => item.toString()));
-        case 'liveByUid':
-          _dirtyLiveUids.addAll(value.keys.map((item) => item.toString()));
-        case 'dimensions':
-          for (final axis in value.entries) {
-            if (axis.value is Map) {
-              _dirtyDimensions.addAll(
-                (axis.value as Map).keys.map(
-                  (item) => '${axis.key}:$item',
-                ),
-              );
-            }
-          }
-        case 'crossDimensions':
-          for (final axis in value.entries) {
-            if (axis.value is Map) {
-              _dirtyCrossDimensions.addAll(
-                (axis.value as Map).keys.map(
-                  (item) => '${axis.key}:$item',
-                ),
-              );
-            }
-          }
-      }
-    }
-    if (_legacyCompositeKeys.isNotEmpty) _dirty = true;
   }
 
   static void _add(String key, num value) {
@@ -2446,7 +2376,7 @@ abstract final class PlaybackStatsService {
     final derived = data.remove('derived');
     return {
       '说明': {
-        'schemaVersion': schemaVersion,
+        'databaseVersion': GStorage.databaseVersion,
         'timeUnit': 'microseconds',
         'savedTime': 'mediaAdvanceUs - activePlaybackUs；不包含快进跳转',
         'normalSavedTime': 'normalMediaAdvanceUs - normalPlaybackUs',
@@ -2527,7 +2457,6 @@ abstract final class PlaybackStatsService {
     final liveUids = Set<String>.of(_dirtyLiveUids);
     final dimensions = Set<String>.of(_dirtyDimensions);
     final crossDimensions = Set<String>.of(_dirtyCrossDimensions);
-    final legacyKeys = Set<String>.of(_legacyCompositeKeys);
     final writes = <dynamic, dynamic>{
       for (final key in keys) key: _stats![key],
     };
@@ -2579,12 +2508,8 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.removeAll(liveUids);
     _dirtyDimensions.removeAll(dimensions);
     _dirtyCrossDimensions.removeAll(crossDimensions);
-    _legacyCompositeKeys.removeAll(legacyKeys);
     Future<void> write(dynamic _) async {
       if (writes.isNotEmpty) await GStorage.playbackStats.putAll(writes);
-      if (legacyKeys.isNotEmpty) {
-        await GStorage.playbackStats.deleteAll(legacyKeys);
-      }
     }
     _writeChain = _writeChain.then(write, onError: write);
     try {
@@ -2597,7 +2522,6 @@ abstract final class PlaybackStatsService {
       _dirtyLiveUids.addAll(liveUids);
       _dirtyDimensions.addAll(dimensions);
       _dirtyCrossDimensions.addAll(crossDimensions);
-      _legacyCompositeKeys.addAll(legacyKeys);
       rethrow;
     }
   }
@@ -2627,21 +2551,13 @@ abstract final class PlaybackStatsService {
     } finally {
       _snapshotting = false;
     }
-    if (archiveSource == null) {
-      unawaited(PlaybackArchiveService.archiveIfDue());
-    }
   }
 
   static Future<void> reset() async {
     _ensureInitialized();
     await PlaybackArchiveService.resetArchive();
     await GStorage.playbackStats.clear();
-    _stats = {
-      'schemaVersion': schemaVersion,
-      'metricDefinitionVersion': metricDefinitionVersion,
-      'storageLayoutVersion': storageLayoutVersion,
-      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
-    };
+    _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
     _rewind = null;
     _pendingPositionUs = null;
     _clearTrailingPause();
@@ -2654,7 +2570,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.clear();
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
-    _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;
@@ -2708,7 +2623,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.clear();
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
-    _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;

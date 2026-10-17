@@ -1,6 +1,7 @@
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/pages/setting/pages/watch_calendar.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/watch_log_service.dart';
@@ -11,6 +12,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
 
 class PlaybackStatsPage extends StatefulWidget {
@@ -31,6 +33,49 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   bool _advancedExpanded = false;
   bool _advancedLoading = false;
   String? _advancedData;
+
+  // Launch days come from the counter (this year) and its yearly history; a
+  // year also appears once the watch log has segments in it, even with no
+  // launch count, since its calendar is drawn from the log alone.
+  Future<void> _showLaunchYears() async {
+    final stamp =
+        GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0)
+            as int;
+    final launched = {
+      ...?GStorage.localCache.get(LocalCacheKey.launchYears) as Map?,
+      '${stamp ~/ 10000000}': stamp % 1000,
+    };
+    final years = {
+      ...launched.keys,
+      for (final f in await WatchLogService.files())
+        if (path.basename(f.path) case final name
+            when name != 'watchlog.jsonl') ...[
+          name.substring(9, 13),
+          name.substring(18, 22),
+        ],
+    }.toList()..sort((a, b) => b.compareTo(a));
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('历年打开 B 站'),
+        children: [
+          for (final year in years)
+            ListTile(
+              title: Text('$year 年'),
+              subtitle: Text(
+                launched[year] == null ? '没有打开天数记录' : '打开 ${launched[year]} 天',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Get.back();
+                Get.to(() => WatchCalendarPage(year: int.parse(year)));
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _loadAdvanced() async {
     if (_advancedData != null || _advancedLoading) return;
@@ -191,6 +236,8 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
               title: Text(
                 '今年打开 B 站 ${(GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0) as int) % 1000} 天',
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showLaunchYears,
             ),
             ListTile(
               leading: const Icon(Icons.history),

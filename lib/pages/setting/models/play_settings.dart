@@ -139,7 +139,7 @@ List<SettingsModel> get playSettings => [
   NormalModel(
     title: '自动启用字幕',
     leading: const Icon(Icons.closed_caption_outlined),
-    getSubtitle: () => '当前选择偏好：${Pref.subtitlePreferenceV2.desc}',
+    getSubtitle: () => '当前选择偏好：${Pref.subtitlePreference.desc}',
     onTap: _showSubtitleDialog,
   ),
   NormalModel(
@@ -278,13 +278,13 @@ Future<void> _showSubtitleDialog(
     context: context,
     builder: (context) => SelectDialog<SubtitlePrefType>(
       title: '字幕选择偏好',
-      value: Pref.subtitlePreferenceV2,
+      value: Pref.subtitlePreference,
       values: SubtitlePrefType.values.map((e) => (e, e.desc)).toList(),
     ),
   );
   if (res != null) {
     await GStorage.setting.put(
-      SettingBoxKey.subtitlePreferenceV2,
+      SettingBoxKey.subtitlePreference,
       res.index,
     );
     setState();

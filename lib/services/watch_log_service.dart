@@ -65,7 +65,7 @@ abstract final class WatchLogService {
     _ac = Accounts.main.mid;
     _from = DateTime.now().millisecondsSinceEpoch;
     return _hot.writeAsString(
-      '{"v":1,"from":$_from,"ac":$_ac}\n$json\n',
+      '{"from":$_from,"ac":$_ac}\n$json\n',
       mode: FileMode.append,
       flush: true,
     );
@@ -176,6 +176,50 @@ abstract final class WatchLogService {
         }
       }
       return out.reversed.toList();
+    });
+  }
+
+  /// Milliseconds played on each day of [year], index 0 = 1 January. A day
+  /// runs 04:00 to 04:00 in the time zone the session was watched in, the
+  /// same day the launch counter uses. Only segments whose file name overlaps
+  /// the year are read, and only the per-day sums leave the isolate.
+  static Future<List<int>> dailyPlayed(int year) async {
+    final paths = [
+      for (final f in await files())
+        if (path.basename(f.path) case final name
+            when name == 'watchlog.jsonl' ||
+                int.parse(name.substring(9, 13)) <= year &&
+                    year <= int.parse(name.substring(18, 22)))
+          f.path,
+    ];
+    return Isolate.run(() {
+      final start = DateTime.utc(year).millisecondsSinceEpoch;
+      final days = List.filled(
+        DateTime.utc(year + 1).difference(DateTime.utc(year)).inDays,
+        0,
+      );
+      for (final p in paths) {
+        final bytes = File(p).readAsBytesSync();
+        final text = utf8.decode(
+          p.endsWith('.gz') ? gzip.decode(bytes) : bytes,
+          allowMalformed: true,
+        );
+        for (final line in const LineSplitter().convert(text)) {
+          final Object? r;
+          try {
+            r = jsonDecode(line);
+          } catch (_) {
+            continue;
+          }
+          if (r is! Map || r['k'] == null) continue;
+          final ms =
+              (r['t0'] as int) + ((r['z'] as int) - 240) * 60000 - start;
+          if (ms >= 0 && ms < days.length * Duration.millisecondsPerDay) {
+            days[ms ~/ Duration.millisecondsPerDay] += r['a'] as int;
+          }
+        }
+      }
+      return days;
     });
   }
 

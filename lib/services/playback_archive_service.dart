@@ -89,16 +89,9 @@ abstract final class PlaybackArchiveService {
       await WatchLogService.rotate(id ~/ 1000);
     }
     await _mergePending();
-    await GStorage.completePlaybackArchive();
     await Hive.deleteBoxFromDisk('playbackStatsPending');
     await GStorage.finishPlaybackArchive();
   }
-
-  static bool _metadata(String key) =>
-      key == 'schemaVersion' ||
-      key == 'metricDefinitionVersion' ||
-      key == 'storageLayoutVersion' ||
-      key == 'lastSelectedSpeed';
 
   // Per-shard merge. No archive.toMap(), no cumulative composite recopy.
   // Also used by the explicit full-statistics view to add the active period.
@@ -106,7 +99,7 @@ abstract final class PlaybackArchiveService {
     if (increment == null) return oldValue;
     if (oldValue == null) return increment;
     if (oldValue is num && increment is num) {
-      if (_metadata(key)) return increment;
+      if (key == 'lastSelectedSpeed') return increment;
       if (key == 'createdAtMs' || key == 'firstSeenAtMs') {
         return oldValue < increment ? oldValue : increment;
       }
@@ -203,19 +196,10 @@ abstract final class PlaybackArchiveService {
     }
   }
 
-  /// A user-triggered snapshot; an empty archive still gets a real Hive file.
-  static Future<File> copyArchiveSnapshot(File destination) async {
+  /// A user-triggered snapshot; null while nothing has been archived yet.
+  static Future<File?> copyArchiveSnapshot(File destination) async {
     await waitForMaintenance();
-    if (!await GStorage.playbackArchiveHiveFile.exists()) {
-      final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
-      try {
-        await archive.put('__archiveFormat', 1);
-        await archive.flush();
-      } finally {
-        await archive.close();
-      }
-    }
-    await destination.parent.create(recursive: true);
+    if (!await GStorage.playbackArchiveHiveFile.exists()) return null;
     return GStorage.playbackArchiveHiveFile.copy(destination.path);
   }
 

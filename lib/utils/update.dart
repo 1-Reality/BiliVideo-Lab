@@ -27,9 +27,16 @@ abstract final class Update {
     final stamp = cache.get(LocalCacheKey.launchDay, defaultValue: 0) as int;
     if (today > stamp ~/ 1000) {
       slot %= n;
+      final year = stamp ~/ 10000000;
+      if (now.year != year && stamp != 0) {
+        cache.put(LocalCacheKey.launchYears, {
+          ...?cache.get(LocalCacheKey.launchYears) as Map?,
+          '$year': stamp % 1000,
+        });
+      }
       cache.put(
         LocalCacheKey.launchDay,
-        today * 1000 + (now.year == stamp ~/ 10000000 ? stamp % 1000 + 1 : 1),
+        today * 1000 + (now.year == year ? stamp % 1000 + 1 : 1),
       );
     }
     cache.put(LocalCacheKey.launchSlot, slot + 1);

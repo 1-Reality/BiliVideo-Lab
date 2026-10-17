@@ -1660,7 +1660,7 @@ class VideoDetailController extends GetxController
     }
     _subtitlePreferencePendingFollower =
         isUgc && Pref.subtitleFollowerThreshold > 0 && follower == null;
-    final idx = switch (Pref.subtitlePreferenceV2) {
+    final idx = switch (Pref.subtitlePreference) {
       .off => 0,
       .on => 1,
       .withoutAi => sub.first.lan.startsWith('ai') ? 0 : 1,
@@ -1678,7 +1678,7 @@ class VideoDetailController extends GetxController
 
   Future<void> applyPendingSubtitleFollowerPreference() async {
     if (_subtitlePreferencePendingFollower &&
-        Pref.subtitlePreferenceV2 == SubtitlePrefType.auto) {
+        Pref.subtitlePreference == SubtitlePrefType.auto) {
       _subtitlePreferencePendingFollower = false;
       await _applySubtitlePreference();
     }
