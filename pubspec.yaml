@@ -274,6 +274,9 @@ flutter:
     - path: assets/BroTech/ZTE/
     - path: assets/BroTech/Mi/
     - path: assets/BroTech/general/
+    - path: assets/BroTech/general/COPYING/
+    - path: assets/BroTech/general/COPYING/License/
+    - path: assets/web/
   fonts:
     - family: digital_id_num
       fonts:
