@@ -161,7 +161,7 @@ abstract final class Update {
                   ),
                 ],
                 if (Platform.isWindows) ...[
-                  downloadBtn('zip', ext: 'zip'),
+                  downloadBtn('7z', ext: '7z'),
                   downloadBtn('exe', ext: 'exe'),
                 ] else if (Platform.isLinux) ...[
                   downloadBtn('rpm', ext: 'rpm'),
