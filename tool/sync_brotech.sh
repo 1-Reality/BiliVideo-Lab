@@ -31,5 +31,4 @@ ucxn/Bro-Stat LICENSE/README.MD general/COPYING/README.MD
 ucxn/Bro-Stat Source/License/CPAL-1.0.md general/COPYING/License/CPAL-1.0.md
 ucxn/Bro-Stat Source/License/DOSA-1.0.md general/COPYING/License/DOSA-1.0.md
 ucxn/Bro-Stat Source/License/README.MD general/COPYING/License/README.MD
-ucxn/Bro-Stat Source/License/%E6%B3%95%E5%BE%8B%E5%A3%B0%E6%98%8E%EF%BC%9A%E5%93%81%E7%89%8C%E4%BD%BF%E7%94%A8%E6%94%BF%E7%AD%96.md general/COPYING/License/法律声明：品牌使用政策.md
 EOF
