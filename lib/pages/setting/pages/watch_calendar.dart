@@ -1,7 +1,7 @@
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/services/watch_log_service.dart';
-import 'package:collection/collection.dart' show upperBound;
+import 'package:collection/collection.dart' show lowerBound;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -30,7 +30,7 @@ class _WatchCalendarPageState extends State<WatchCalendarPage> {
         for (final d in days)
           d == 0
               ? 0
-              : (4 * upperBound(played, d) + played.length - 1) ~/
+              : (4 * lowerBound(played, d + 1) + played.length - 1) ~/
                     played.length,
       ],
     );
