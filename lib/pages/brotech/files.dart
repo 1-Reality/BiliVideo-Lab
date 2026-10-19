@@ -109,6 +109,24 @@ class BroTechFilesPage extends StatelessWidget {
   }
 }
 
+/// GitHub alert colours, shared by both renderers.
+const _alerts = {
+  'note': 0xFF4493F8,
+  'tip': 0xFF3FB950,
+  'important': 0xFFAB7DF8,
+  'warning': 0xFFD29922,
+  'caution': 0xFFF85149,
+};
+
+/// marked has no GitHub alerts: turn a blockquote opening with [!TYPE] into
+/// the same markup the markdown package emits.
+const _alertScript = r'''<script>for(const q of document.querySelectorAll('blockquote')){
+const p=q.firstElementChild,m=p&&p.innerHTML.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i);if(!m)continue;
+const t=m[1].toLowerCase();q.className='markdown-alert markdown-alert-'+t;
+p.innerHTML=p.innerHTML.slice(m[0].length);if(!p.innerHTML.trim())p.remove();
+const h=document.createElement('p');h.className='markdown-alert-title';
+h.textContent=t[0].toUpperCase()+t.slice(1);q.prepend(h)}</script>''';
+
 final Future<String> _marked = rootBundle.loadString(
   'assets/web/marked.umd.js',
 );
@@ -181,7 +199,12 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
       for (final k in const ['href', 'src']) {
         final v = e.attributes[k];
         if (v != null && !v.startsWith('#')) {
-          e.attributes[k] = base.resolve(v).toString();
+          // flutter_svg cannot lay out Shields' scaled, length-fitted text;
+          // raster.shields.io serves the same badge as PNG.
+          e.attributes[k] = base
+              .resolve(v)
+              .toString()
+              .replaceFirst('https://img.shields.io/', 'https://raster.shields.io/');
         }
       }
     }
@@ -295,6 +318,7 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
     final content = _isMd
         ? '<script>$marked</script>'
               '<script>document.write(marked.parse($json))</script>'
+              '$_alertScript'
         : '<pre class="t"></pre>'
               '<script>document.body.firstChild.textContent=$json</script>';
     return InAppWebView(
@@ -327,6 +351,10 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
             'blockquote{margin:0;padding:0 1em;color:${_css(c.onSurfaceVariant)};'
             'border-left:4px solid $line}'
             'hr{border:0;border-top:1px solid $line}'
+            '.markdown-alert{color:inherit}'
+            '.markdown-alert-title{font-weight:600;margin:.5em 0}'
+            '${_alerts.entries.map((e) => '.markdown-alert-${e.key}{border-left-color:${_css(Color(e.value))}}'
+                '.markdown-alert-${e.key} .markdown-alert-title{color:${_css(Color(e.value))}}').join()}'
             '</style></head><body>'
             '$content$_zoom</body></html>',
       ),
@@ -350,11 +378,6 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
       child: Html.fromElement(
         documentElement: doc.documentElement,
         extensions: const [
-          // Shields badges are SVG with or without the extension.
-          SvgHtmlExtension(
-            networkDomains: ['img.shields.io'],
-            extension: null,
-          ),
           SvgHtmlExtension(),
           TableHtmlExtension(),
         ],
@@ -364,6 +387,20 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
             lineHeight: const LineHeight(1.6),
           ),
           'a': Style(color: c.primary, textDecoration: TextDecoration.none),
+          '.markdown-alert': Style(
+            margin: Margins.only(top: 8, bottom: 8),
+            padding: HtmlPaddings.only(left: 12),
+            border: Border(left: BorderSide(width: 4, color: c.outlineVariant)),
+          ),
+          '.markdown-alert-title': Style(fontWeight: FontWeight.w600),
+          for (final MapEntry(:key, :value) in _alerts.entries) ...{
+            '.markdown-alert-$key': Style(
+              border: Border(left: BorderSide(width: 4, color: Color(value))),
+            ),
+            '.markdown-alert-$key .markdown-alert-title': Style(
+              color: Color(value),
+            ),
+          },
           'th,td': Style(
             padding: HtmlPaddings.symmetric(horizontal: 12, vertical: 6),
             border: Border.all(color: c.outlineVariant),
