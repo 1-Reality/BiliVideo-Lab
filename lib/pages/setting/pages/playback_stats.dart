@@ -1,3 +1,5 @@
+import 'dart:io' show File, Platform;
+
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
@@ -8,6 +10,7 @@ import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -212,6 +215,17 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
               final files = await WatchLogService.files();
               if (files.isEmpty) {
                 SmartDialog.showToast('还没有观看日志');
+                return;
+              }
+              // The Windows share sheet is unreliable and Linux has none:
+              // copy the logs into a chosen folder there instead.
+              if (Platform.isWindows || Platform.isLinux) {
+                final dir = await FilePicker.getDirectoryPath();
+                if (dir == null) return;
+                for (final f in files) {
+                  await File(f.path).copy(path.join(dir, path.basename(f.path)));
+                }
+                SmartDialog.showToast('已保存');
                 return;
               }
               await SharePlus.instance.share(

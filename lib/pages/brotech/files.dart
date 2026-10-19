@@ -233,15 +233,16 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
     PageUtils.inAppWebview(url);
   }
 
-  /// Hands the file itself to the system share sheet. share_plus cannot
-  /// share files on Linux, so there the same button saves it instead.
+  /// Hands the file itself to the system share sheet. On Windows (whose
+  /// share sheet is unreliable) and Linux (which has none) the same button
+  /// saves it instead.
   Future<void> _share() async {
     final data = await rootBundle.load(widget.asset);
     final bytes = data.buffer.asUint8List(
       data.offsetInBytes,
       data.lengthInBytes,
     );
-    if (Platform.isLinux) {
+    if (Platform.isWindows || Platform.isLinux) {
       return StorageUtils.saveBytes2File(
         name: _name,
         bytes: bytes,
@@ -251,7 +252,9 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
     }
     await SharePlus.instance.share(
       ShareParams(
-        files: [XFile.fromData(bytes, name: _name)],
+        files: [XFile.fromData(bytes)],
+        // Without it share_plus names the temp file <uuid>.bin.
+        fileNameOverrides: [_name],
         sharePositionOrigin: await ShareUtils.sharePositionOrigin,
       ),
     );
