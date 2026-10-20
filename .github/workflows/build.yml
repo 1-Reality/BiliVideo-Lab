@@ -91,7 +91,7 @@ jobs:
               with:
                   distribution: "zulu"
                   java-version: "17"
-                  cache: "gradle"
+                  cache: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.tag == '') && 'gradle' || '' }}
                   cache-dependency-path: |
                       android/*.gradle*
                       android/**/gradle-wrapper.properties
@@ -102,7 +102,7 @@ jobs:
               with:
                   channel: stable
                   flutter-version-file: pubspec.yaml
-                  cache: true
+                  cache: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.tag == '' }}
 
             - name: Apply Patch
               shell: pwsh

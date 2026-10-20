@@ -6,6 +6,7 @@ import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/pages/brotech/files.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -20,6 +21,7 @@ class BroTechPage extends StatefulWidget {
 }
 
 class _BroTechPageState extends State<BroTechPage> {
+  static const _localNetworkChannel = MethodChannel('pilibro/local_network');
   static const _runAtKey = 'broTechRunAt';
   final _host = TextEditingController();
   late BroTechRunAt _runAt = BroTechRunAt.values.firstWhere(
@@ -94,6 +96,22 @@ class _BroTechPageState extends State<BroTechPage> {
   Future<void> _savePresets() => BroTechPresets.save(_presets);
 
   Future<void> _launch(BroTechPreset preset, {required bool isNew}) async {
+    if (Platform.isAndroid) {
+      bool granted;
+      try {
+        granted = await _localNetworkChannel.invokeMethod<bool>('ensureAccess') ?? false;
+      } on PlatformException {
+        SmartDialog.showToast('本地网络权限请求失败');
+        return;
+      } on MissingPluginException {
+        SmartDialog.showToast('当前版本不支持本地网络权限请求');
+        return;
+      }
+      if (!granted) {
+        SmartDialog.showToast('未允许本地网络访问，无法打开路由器页面');
+        return;
+      }
+    }
     String? user;
     String? pass;
     var saved = !isNew;
