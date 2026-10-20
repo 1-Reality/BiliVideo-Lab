@@ -55,13 +55,15 @@ import 'package:PiliBro/pages/search_result/view.dart';
 import 'package:PiliBro/pages/search_trending/view.dart';
 import 'package:PiliBro/pages/setting/pages/bar_set.dart';
 import 'package:PiliBro/pages/setting/pages/color_select.dart';
-import 'package:PiliBro/pages/setting/pages/cdn_settings.dart';
+import 'package:PiliBro/pages/setting/pages/av_settings.dart';
 import 'package:PiliBro/pages/setting/pages/display_mode.dart';
 import 'package:PiliBro/pages/setting/pages/font_setting.dart';
 import 'package:PiliBro/pages/setting/pages/logs.dart';
 import 'package:PiliBro/pages/setting/pages/network_policy.dart';
 import 'package:PiliBro/pages/setting/pages/orientation_settings.dart';
+import 'package:PiliBro/pages/setting/models/audio_settings.dart';
 import 'package:PiliBro/pages/setting/pages/playback_stats.dart';
+import 'package:PiliBro/pages/setting/pages/watch_log.dart';
 import 'package:PiliBro/pages/setting/pages/play_speed_set.dart';
 import 'package:PiliBro/pages/setting/pages/traffic_stats.dart';
 import 'package:PiliBro/pages/setting/view.dart';
@@ -124,11 +126,13 @@ class Routes {
     GetPage(name: '/articlePage', page: () => const ArticlePage()),
 
     // 历史记录搜索
-    GetPage(name: '/cdnSettings', page: () => const CdnSettingsPage()),
+    GetPage(name: '/avSettings', page: () => const AvSettingsPage()),
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     GetPage(name: '/networkPolicy', page: () => const NetworkPolicyPage()),
     GetPage(name: '/orientationSettings', page: () => const OrientationSettingsPage()),
     GetPage(name: '/playbackStats', page: () => const PlaybackStatsPage()),
+    GetPage(name: '/watchLog', page: () => const WatchLogPage()),
+    GetPage(name: '/audioSettings', page: () => const AudioSettingsPage()),
     GetPage(name: '/trafficStats', page: () => const TrafficStatsPage()),
     // 收藏搜索
     GetPage(name: '/favSearch', page: () => const FavSearchPage()),

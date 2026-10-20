@@ -202,8 +202,8 @@ abstract final class Pref {
         defaultValue: DynamicBadgeMode.number.index,
       )];
 
-  static Set<MsgUnReadType> get msgUnReadTypeV2 =>
-      (_setting.get(SettingBoxKey.msgUnReadTypeV2) as List?)
+  static Set<MsgUnReadType> get msgUnReadType =>
+      (_setting.get(SettingBoxKey.msgUnReadType) as List?)
           ?.map((index) => MsgUnReadType.values[index])
           .toSet() ??
       MsgUnReadType.values.where((item) => item != MsgUnReadType.like).toSet();
@@ -569,15 +569,18 @@ abstract final class Pref {
   static bool get fixedBottomProgress =>
       _setting.get(SettingBoxKey.fixedBottomProgress, defaultValue: true);
 
+  static bool get fixedBottomProgressFs =>
+      _setting.get(SettingBoxKey.fixedBottomProgressFs, defaultValue: false);
+
   static double get progressBarSideSpace =>
       _setting.get(SettingBoxKey.progressBarSideSpace, defaultValue: 20.0);
 
   static double get bottomControlSideSpace =>
       _setting.get(SettingBoxKey.bottomControlSideSpace, defaultValue: 10.0);
 
-  static SubtitlePrefType get subtitlePreferenceV2 =>
+  static SubtitlePrefType get subtitlePreference =>
       SubtitlePrefType.values[_setting.get(
-        SettingBoxKey.subtitlePreferenceV2,
+        SettingBoxKey.subtitlePreference,
         defaultValue: SubtitlePrefType.auto.index,
       )];
 
@@ -709,21 +712,6 @@ abstract final class Pref {
     defaultValue: 3,
   );
 
-  static bool get webdavBackupPlaybackStats => _setting.get(
-    SettingBoxKey.webdavBackupPlaybackStats,
-    defaultValue: true,
-  );
-
-  static bool get webdavBackupCommentHistory => _setting.get(
-    SettingBoxKey.webdavBackupCommentHistory,
-    defaultValue: true,
-  );
-
-  static bool get webdavBackupCdnDiagnostics => _setting.get(
-    SettingBoxKey.webdavBackupCdnDiagnostics,
-    defaultValue: false,
-  );
-
   static int get webviewUaType =>
       _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
 
@@ -737,6 +725,30 @@ abstract final class Pref {
 
   static String get videoSync =>
       _setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample');
+
+  // 与 mpv 自动插入的 scaletempo2 的 max-speed 默认值一致；等于它时不传 af，
+  // 完全走 mpv 原生路径。设置时等于 8 会删掉这个键，这里比较的是同一个字面量。
+  static const double muteAboveSpeedDefault = 8.0;
+
+  static double get muteAboveSpeed =>
+      (_setting.get(SettingBoxKey.muteAboveSpeed) as num?)?.toDouble() ??
+      muteAboveSpeedDefault;
+
+  static String? get tempoFilter {
+    final speed = muteAboveSpeed;
+    return speed == muteAboveSpeedDefault
+        ? null
+        : 'scaletempo2=max-speed=$speed';
+  }
+
+  static String get hwdecWatchWords =>
+      _setting.get(SettingBoxKey.hwdecWatchWords, defaultValue: 'no -copy');
+
+  static bool get hwdecWatchWhitelist =>
+      _setting.get(SettingBoxKey.hwdecWatchWhitelist, defaultValue: false);
+
+  static int get hwdecWatchSeconds =>
+      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 10);
 
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
@@ -1076,24 +1088,8 @@ abstract final class Pref {
   );
 
   static FontWeight get appFontWeight {
-    // TODO: remove next 2 version
-    const appFontWeightV1 = 'appFontWeight';
-    final int? valV1 = _setting.get(appFontWeightV1);
-    if (valV1 != null) {
-      _setting.delete(appFontWeightV1);
-      if (valV1 == -1) {
-        return .normal;
-      } else {
-        _setting.put(SettingBoxKey.appFontWeightV2, valV1);
-        return .values[valV1];
-      }
-    }
-
-    final int? val = _setting.get(SettingBoxKey.appFontWeightV2);
-    if (val == null) {
-      return .normal;
-    }
-    return .values[val];
+    final int? val = _setting.get(SettingBoxKey.appFontWeight);
+    return val == null ? .normal : .values[val];
   }
 
   static bool get enableDragSubtitle =>
@@ -1289,6 +1285,9 @@ abstract final class Pref {
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
 
+  static bool get showAudioMiniPlayer =>
+      _setting.get(SettingBoxKey.showAudioMiniPlayer, defaultValue: true);
+
   static Set<int> get danmakuBlockType => Set<int>.from(
     _setting.get(SettingBoxKey.danmakuBlockType, defaultValue: const <int>{}),
   );
@@ -1352,22 +1351,35 @@ abstract final class Pref {
       : _setting.get(SettingBoxKey.bufferSecWeak, defaultValue: 985.0);
 
   // bufferProfile: 0=宽带，1=非蜂窝弱网，2=真蜂窝。
+  static double bufferSecFor(int bufferProfile) => switch (bufferProfile) {
+    2 => bufferSecCellular,
+    1 => bufferSecWeak,
+    _ => bufferSec,
+  };
+
+  // 缓冲时长按墙钟秒配置；mpv 的 cache-secs 是媒体秒，需乘当前倍速。
+  static Map<String, String> cacheSecs(double seconds, double playbackSpeed) {
+    final bufSec = seconds * playbackSpeed;
+    return {
+      'cache-secs': bufSec.toStringAsFixed(3),
+      'demuxer-hysteresis-secs':
+          (bufSec * 0.6666666666666666).toStringAsFixed(3),
+    };
+  }
+
   static Map<String, String> initBuffer([
     double playbackSpeed = 1.0,
     int bufferProfile = 0,
   ]) {
-    final (sizeMiB, seconds) = switch (bufferProfile) {
-      2 => (bufferSizeCellular, bufferSecCellular),
-      1 => (bufferSizeWeak, bufferSecWeak),
-      _ => (bufferSize, bufferSec),
+    final sizeMiB = switch (bufferProfile) {
+      2 => bufferSizeCellular,
+      1 => bufferSizeWeak,
+      _ => bufferSize,
     };
-    final bufSec = seconds * playbackSpeed;
     final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
-      'cache-secs': bufSec.toStringAsFixed(3),
-      'demuxer-hysteresis-secs':
-          (bufSec * 0.6666666666666666).toStringAsFixed(3),
+      ...cacheSecs(bufferSecFor(bufferProfile), playbackSpeed),
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };

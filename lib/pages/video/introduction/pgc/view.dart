@@ -326,15 +326,16 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         ),
         _videoIds(colorScheme),
         Obx(() {
-          final metrics = videoDetailCtr.streamSizeAndBitrate;
-          final alternatives = videoDetailCtr.otherStreamSizeAndBitrates;
+          final info = videoDetailCtr.streamInfo.value;
+          final metrics = info?.current;
+          final alternatives = info?.others ?? const <String>[];
           return metrics == null
               ? const SizedBox.shrink()
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前视频流：$metrics${alternatives.length < 2 ? ' · ${videoDetailCtr.currentStreamCodec}' : ''}',
+                      '当前视频流：$metrics',
                       style: TextStyle(fontSize: 12, color: colorScheme.outline),
                     ),
                     for (final row in alternatives)

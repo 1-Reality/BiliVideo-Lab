@@ -32,6 +32,7 @@ import 'package:PiliBro/pages/video/widgets/header_control.dart'
     show HeaderControlState;
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
@@ -49,6 +50,7 @@ import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
@@ -246,6 +248,17 @@ class _AudioPageState extends State<AudioPage> {
               );
             },
           ),
+          // Discovery for people who never found the quick switch; once it is
+          // on, the home toggle covers this. Decided when the page is built.
+          if (!AudioFirstMode.enabled.value)
+            IconButton(
+              tooltip: '下次默认进入音频模式',
+              onPressed: () {
+                AudioFirstMode.setDefaultAudio(true);
+                SmartDialog.showToast('下次打开视频将默认进入音频模式；重启后首页右上角可切回视频');
+              },
+              icon: const Icon(Icons.headphones_outlined, size: 22),
+            ),
           IconButton(
             tooltip: '定时关闭',
             onPressed: () => shutdownTimerService
@@ -793,9 +806,19 @@ class _AudioPageState extends State<AudioPage> {
                   ),
                 ),
               ),
+              if (_controller.player case final infoPlayer?)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.info_outline, size: 20),
+                  title: const Text('播放信息', style: TextStyle(fontSize: 14)),
+                  onTap: () {
+                    Get.back();
+                    HeaderControlState.showPlayerInfo(context, player: infoPlayer);
+                  },
+                ),
               ListTile(
                 dense: true,
-                leading: const Icon(Icons.warning_amber_rounded, size: 20),
+                leading: const Icon(Icons.flag_outlined, size: 20),
                 title: const Text('举报', style: TextStyle(fontSize: 14)),
                 onTap: () {
                   Get.back();
@@ -803,15 +826,6 @@ class _AudioPageState extends State<AudioPage> {
                 },
               ),
               if (_controller.player case final player?) ...[
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.info_outline, size: 20),
-                  title: const Text('播放信息', style: TextStyle(fontSize: 14)),
-                  onTap: () {
-                    Get.back();
-                    HeaderControlState.showPlayerInfo(context, player: player);
-                  },
-                ),
                 if (PlatformUtils.isMobile)
                   ListTile(
                     dense: true,
@@ -1094,10 +1108,15 @@ class _AudioPageState extends State<AudioPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      cover.existsSync()
-                          ? Image.file(cover, width: 170, height: 170,
-                              fit: BoxFit.cover)
-                          : const Icon(Icons.headphones_rounded, size: 120),
+                      Image.file(
+                        cover,
+                        width: 170,
+                        height: 170,
+                        cacheWidth: 170.cacheSize(context),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.headphones_rounded, size: 120),
+                      ),
                       const SizedBox(height: 16),
                       SelectionText(offline.showTitle,
                           style: const TextStyle(fontSize: 17)),

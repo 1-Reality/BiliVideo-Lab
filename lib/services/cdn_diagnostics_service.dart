@@ -47,14 +47,8 @@ abstract final class CdnDiagnosticsService {
     final history = List<Map<String, dynamic>>.of(_activeHistoryRecords);
     final latest = List<Map<String, dynamic>>.of(_activeLatestRecords);
     return _enqueue(() async {
-      await GStorage.replaceCdnDiagnostics([
-        for (final item in latest)
-          (id: item['recordedAtUs']?.toString() ?? '', record: item),
-      ]);
-      await GStorage.appendCdnDiagnosticsHistory([
-        for (final item in history)
-          (id: item['recordedAtUs']?.toString() ?? '', record: item),
-      ]);
+      await GStorage.replaceCdnDiagnostics(latest);
+      await GStorage.appendCdnDiagnosticsHistory(history);
     });
   }
 
@@ -72,17 +66,13 @@ abstract final class CdnDiagnosticsService {
   }
 
   static List<Map<String, dynamic>> latestSnapshot() {
-    final records = [
-      for (final entry in GStorage.readCdnDiagnosticsSync()) entry.record,
-    ];
+    final records = GStorage.readCdnDiagnosticsSync();
     _sortRecords(records);
     return records;
   }
 
-  static List<Map<String, dynamic>> historySnapshot() {
-    final records = [
-      for (final entry in GStorage.readCdnDiagnosticsHistorySync()) entry.record,
-    ];
+  static Future<List<Map<String, dynamic>>> historySnapshot() async {
+    final records = await GStorage.readCdnDiagnosticsHistory();
     _sortRecords(records);
     return records;
   }
@@ -98,8 +88,8 @@ abstract final class CdnDiagnosticsService {
   static List<CdnDiagnosticGroup> groupedLatestSnapshot() =>
       _group(latestSnapshot());
 
-  static List<CdnDiagnosticGroup> groupedHistorySnapshot() =>
-      _group(historySnapshot());
+  static Future<List<CdnDiagnosticGroup>> groupedHistorySnapshot() async =>
+      _group(await historySnapshot());
 
   static List<CdnDiagnosticGroup> _group(
     List<Map<String, dynamic>> records,
@@ -129,16 +119,15 @@ abstract final class CdnDiagnosticsService {
       _enqueue(() async {
         if (runStartedAtUs.isEmpty) return;
 
-        final keep = <({String id, Map<String, dynamic> record})>[];
-        for (final entry in GStorage.readCdnDiagnosticsHistorySync()) {
-          final value = entry.record;
-          final run = (value['testRunStartedAtUs'] as num?)?.toInt() ??
-              (value['recordedAtUs'] as num?)?.toInt() ??
-              0;
-          if (!runStartedAtUs.contains(run)) keep.add(entry);
-        }
-
-        await GStorage.replaceCdnDiagnosticsHistory(keep);
+        await GStorage.replaceCdnDiagnosticsHistory([
+          for (final record in await GStorage.readCdnDiagnosticsHistory())
+            if (!runStartedAtUs.contains(
+              (record['testRunStartedAtUs'] as num?)?.toInt() ??
+                  (record['recordedAtUs'] as num?)?.toInt() ??
+                  0,
+            ))
+              record,
+        ]);
       });
 
   static Future<void> clearLatest() {

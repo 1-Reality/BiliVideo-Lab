@@ -9,6 +9,7 @@ import 'package:PiliBro/plugin/linux_webview.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -33,10 +34,22 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   static const _geetestJsUri =
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
 
+  // The WebView's own reason for the geetest script failing to load; the page
+  // itself only sees that Geetest is undefined.
+  String? _scriptError;
+
+  // A captcha that never appears blocks login, so the reason stays on screen
+  // long enough to read or screenshot.
+  static void _toastError(String detail) => SmartDialog.showToast(
+    '验证码加载失败：$detail',
+    displayTime: const Duration(seconds: 10),
+  );
+
   late final Future<LoadingState<String>> _future;
 
   static String _showJs(String response) =>
-      't=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())';
+      'if(typeof Geetest=="undefined"){document.body.textContent="验证码加载失败";R("error","geetest script load failed")}'
+      'else{t=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}';
 
   @override
   void initState() {
@@ -104,7 +117,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               if (config case Error()) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
-                    config.toast();
+                    _toastError(config.toString());
                     Get.back();
                   }
                 });
@@ -116,7 +129,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
 <!DOCTYPE html><html><head></head><body>
 <script src="$_geetestJsUri"></script>
 <script>
-  R=window.webkit.messageHandlers.msgToNative.postMessage
+  R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))
   ${_showJs(response)}
 </script>
 </body></html>
@@ -136,7 +149,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                       debugPrint('geetest decode error: $e');
                     }
                   } else if (msgStr.startsWith("error:")) {
-                    debugPrint('geetest error: $msgStr');
+                    _toastError(msgStr.substring(6));
                   } else if (msgStr.startsWith('close:')) {
                     Get.back();
                   }
@@ -205,7 +218,13 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               ..addJavaScriptHandler(
                 handlerName: 'error',
                 callback: (args) {
-                  debugPrint('geetest error: $args');
+                  final error = args.isEmpty ? null : args.first;
+                  _toastError(
+                    error is Map
+                        ? '${error['error_code'] ?? error['code'] ?? ''} '
+                              '${error['msg'] ?? error['user_error'] ?? error}'
+                        : _scriptError ?? '$error',
+                  );
                 },
               )
               ..addJavaScriptHandler(
@@ -213,13 +232,24 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
                 callback: (args) => Get.back(),
               );
           },
+          onReceivedError: (_, request, error) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError = error.description;
+            }
+          },
+          onReceivedHttpError: (_, request, response) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError =
+                  'HTTP ${response.statusCode} ${response.reasonPhrase ?? ''}';
+            }
+          },
           onLoadStop: (ctr, _) async {
             final config = await _future;
             if (!mounted) return;
             if (config case Success(:final response)) {
               ctr.evaluateJavascript(source: _showJs(response));
             } else {
-              config.toast();
+              _toastError(config.toString());
               Get.back();
             }
           },

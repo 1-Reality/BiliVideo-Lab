@@ -2,6 +2,8 @@ import 'dart:io' show Platform;
 
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliBro/utils/path_utils.dart';
+import 'package:path/path.dart' as path;
 
 class DecoderLabMode {
   const DecoderLabMode({
@@ -34,6 +36,10 @@ class DecoderBenchmarkResult {
       ? 0
       : mediaTime.inMilliseconds / wallTime.inMilliseconds;
 }
+
+// mpv debug log (fflush per line) of every decoder-lab switch in this player
+// instance; truncated when the player first opens it, closed with the player.
+final decoderLabLogPath = path.join(appSupportDirPath, 'mpv-decoder-lab.log');
 
 extension DecoderLabController on PlPlayerController {
   static const _androidVoProperty = 'user-data/pilibro-decoder-lab-vo';
@@ -76,22 +82,24 @@ extension DecoderLabController on PlPlayerController {
     return [
       DecoderLabMode(
         label: '当前设置 · $current',
-        hwdec: current,
+        hwdec: mediacodecEmbed ? 'mediacodec' : current,
+        vo: mediacodecEmbed ? 'mediacodec_embed' : null,
         primary: true,
       ),
-      if (Platform.isAndroid)
-        const DecoderLabMode(
-          label: 'mediacodec + mediacodec_embed · MediaCodec Embed',
-          hwdec: 'mediacodec',
-          vo: 'mediacodec_embed',
-          primary: true,
-        ),
       for (final type in HwDecType.values)
-        DecoderLabMode(
-          label: '${type.hwdec} · ${type.desc}',
-          hwdec: type.hwdec,
-          primary: _decoderLabPrimary(type.hwdec),
-        ),
+        if (type != HwDecType.mediacodecEmbed)
+          DecoderLabMode(
+            label: '${type.hwdec} · ${type.desc}',
+            hwdec: type.hwdec,
+            primary: _decoderLabPrimary(type.hwdec),
+          )
+        else if (Platform.isAndroid)
+          DecoderLabMode(
+            label: '${type.hwdec} · ${type.desc}',
+            hwdec: 'mediacodec',
+            vo: 'mediacodec_embed',
+            primary: true,
+          ),
     ];
   }
 
@@ -116,15 +124,12 @@ extension DecoderLabController on PlPlayerController {
       final labVo = mode.vo ?? 'gpu';
       final fallback = labVo == 'mediacodec_embed' ? 'no' : '3';
 
-      // Apply the experiment as per-file options as well as through media_kit's
-      // Android on_load hook. This puts hwdec/vo on the same load lifecycle,
-      // before decoder probing begins, rather than changing hwdec globally and
-      // hoping the later Surface/VO recreation observes it.
-      extras
-        ..['hwdec'] = mode.hwdec
-        ..['vo'] = labVo
-        ..['hwdec-software-fallback'] = fallback;
-
+      // vo/hwdec/hwdec-software-fallback are applied ONLY by media_kit's
+      // on_load hook. As per-file options they would be applied earlier, while
+      // wid is still 0 from the on_unload hook; mpv recreates the VO at once
+      // (UPDATE_VO + force-window) and mediacodec_embed's
+      // mp_assert(WinID != 0) aborts the process.
+      await player.command(['set', 'log-file', decoderLabLogPath]);
       await player.command(['set', _androidVoProperty, labVo]);
       await player.command(['set', _androidHwdecProperty, mode.hwdec]);
       await player.command(['set', _androidFallbackProperty, fallback]);

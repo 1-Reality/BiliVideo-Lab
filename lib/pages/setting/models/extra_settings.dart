@@ -46,7 +46,6 @@ import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/update.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -290,25 +289,6 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
     needReboot: true,
   ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音量均衡',
-      leading: const Icon(Icons.multitrack_audio),
-      getSubtitle: () {
-        final audioNormalization = AudioNormalization.getTitleFromConfig(
-          Pref.audioNormalization,
-        );
-        String fallback = Pref.fallbackNormalization;
-        if (fallback == '0') {
-          fallback = '';
-        } else {
-          fallback =
-              '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
-        }
-        return '当前:「$audioNormalization」$fallback';
-      },
-      onTap: audioNormalization,
-    ),
   NormalModel(
     title: '超分辨率',
     leading: const Icon(Icons.stay_current_landscape_outlined),

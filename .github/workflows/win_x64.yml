@@ -14,7 +14,7 @@ on:
         default: "0"
         type: string
       include_portable:
-        description: "Create portable ZIP"
+        description: "Create portable 7z"
         required: false
         default: true
         type: boolean
@@ -29,6 +29,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
 
       - name: Setup flutter
         uses: subosito/flutter-action@v2
@@ -61,6 +66,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch_media_kit_decoder_lab.ps1
 
+      - name: Pin libmpv build with D3D11 zero-copy
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_libmpv.ps1
+
       - name: Build Windows
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
@@ -72,10 +81,10 @@ jobs:
           mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
           mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
-      - name: Compress portable ZIP
+      - name: Compress portable 7z
         if: ${{ inputs.include_portable }}
         run: |
-          Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
+          7z a -mx9 "PiliBro_windows_${{env.version}}_x64_portable.7z" "Release/PiliBro-Win"
         shell: pwsh
 
       - name: Upload windows portable release
@@ -84,7 +93,7 @@ jobs:
         with:
           archive: false
           name: Windows-file-x64-release
-          path: PiliBro_windows_*.zip
+          path: PiliBro_windows_*.7z
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7

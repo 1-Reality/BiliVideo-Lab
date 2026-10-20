@@ -1,8 +1,10 @@
 import 'dart:async' show Completer;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate' show Isolate;
 
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -80,24 +82,24 @@ abstract final class PlaybackArchiveService {
       }
       await PlaybackStatsService.flush(force: true);
     }
+    // Also on the pending path: a kill between the Hive rename and here must
+    // not let the hot log run into the next period. The header time makes it
+    // idempotent — a hot log begun after the cutover is left alone.
+    if (int.tryParse(GStorage.playbackArchiveId ?? '') case final id?) {
+      await WatchLogService.rotate(id ~/ 1000);
+    }
     await _mergePending();
-    await GStorage.completePlaybackArchive();
     await Hive.deleteBoxFromDisk('playbackStatsPending');
     await GStorage.finishPlaybackArchive();
   }
 
-  static bool _metadata(String key) =>
-      key == 'schemaVersion' ||
-      key == 'metricDefinitionVersion' ||
-      key == 'storageLayoutVersion' ||
-      key == 'lastSelectedSpeed';
-
   // Per-shard merge. No archive.toMap(), no cumulative composite recopy.
-  static dynamic _merge(dynamic oldValue, dynamic increment, String key) {
+  // Also used by the explicit full-statistics view to add the active period.
+  static dynamic merge(dynamic oldValue, dynamic increment, String key) {
     if (increment == null) return oldValue;
     if (oldValue == null) return increment;
     if (oldValue is num && increment is num) {
-      if (_metadata(key)) return increment;
+      if (key == 'lastSelectedSpeed') return increment;
       if (key == 'createdAtMs' || key == 'firstSeenAtMs') {
         return oldValue < increment ? oldValue : increment;
       }
@@ -109,7 +111,7 @@ abstract final class PlaybackArchiveService {
     if (oldValue is Map && increment is Map) {
       final merged = <dynamic, dynamic>{...oldValue};
       for (final entry in increment.entries) {
-        merged[entry.key] = _merge(
+        merged[entry.key] = merge(
           merged[entry.key], entry.value, entry.key.toString(),
         );
       }
@@ -136,7 +138,7 @@ abstract final class PlaybackArchiveService {
             : null;
         writes[name] = {
           '_sourceId': id,
-          '_value': _merge(oldValue, fresh, name),
+          '_value': merge(oldValue, fresh, name),
         };
         if (writes.length == 24) {
           await archive.putAll(writes);
@@ -161,16 +163,14 @@ abstract final class PlaybackArchiveService {
     await waitForMaintenance();
     final historical = <String, dynamic>{};
     if (!await GStorage.playbackArchiveHiveFile.exists()) return historical;
-    final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
+    // Every value is needed here, so one sequential read of the whole file
+    // beats a per-key round trip through a LazyBox. Callers hold the explicit
+    // lock, so no rollover has the box open meanwhile.
+    final archive = await Hive.openBox<dynamic>('playbackArchive');
     try {
-      var count = 0;
-      for (final key in archive.keys) {
-        final data = await archive.get(key);
+      for (final MapEntry(:key, value: data) in archive.toMap().entries) {
         if (data is Map && data.containsKey('_value')) {
           historical[key.toString()] = data['_value'];
-        }
-        if (++count % 24 == 0) {
-          await Future<void>.delayed(Duration.zero);
         }
       }
     } finally {
@@ -184,29 +184,22 @@ abstract final class PlaybackArchiveService {
     await beginExplicitAccess();
     try {
       final historical = await loadRawArchive();
-      final active = jsonDecode(PlaybackStatsService.advancedJson());
-      return const JsonEncoder.withIndent('  ').convert({
-        '活动统计': active,
-        '历史归档原语': historical,
-      });
+      final active = PlaybackStatsService.advancedData();
+      return Isolate.run(
+        () => const JsonEncoder.withIndent('  ').convert({
+          '活动统计': active,
+          '历史归档原语': historical,
+        }),
+      );
     } finally {
       endExplicitAccess();
     }
   }
 
-  /// A user-triggered snapshot; an empty archive still gets a real Hive file.
-  static Future<File> copyArchiveSnapshot(File destination) async {
+  /// A user-triggered snapshot; null while nothing has been archived yet.
+  static Future<File?> copyArchiveSnapshot(File destination) async {
     await waitForMaintenance();
-    if (!await GStorage.playbackArchiveHiveFile.exists()) {
-      final archive = await Hive.openLazyBox<dynamic>('playbackArchive');
-      try {
-        await archive.put('__archiveFormat', 1);
-        await archive.flush();
-      } finally {
-        await archive.close();
-      }
-    }
-    await destination.parent.create(recursive: true);
+    if (!await GStorage.playbackArchiveHiveFile.exists()) return null;
     return GStorage.playbackArchiveHiveFile.copy(destination.path);
   }
 

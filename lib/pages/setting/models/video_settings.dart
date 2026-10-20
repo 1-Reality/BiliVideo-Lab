@@ -154,13 +154,6 @@ List<SettingsModel> get videoSettings => [
     leading: const Icon(Icons.lan_outlined),
     onTap: (_, _) => Get.toNamed('/networkPolicy'),
   ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音频输出设备',
-      leading: const Icon(Icons.speaker_outlined),
-      getSubtitle: () => '当前：${Pref.audioOutput}',
-      onTap: _showAudioOutputDialog,
-    ),
   NormalModel(
     title: '缓冲大小',
     leading: const Icon(Icons.storage_outlined),
@@ -227,10 +220,31 @@ List<SettingsModel> get videoSettings => [
     onTap: _showVideoSyncDialog,
   ),
   NormalModel(
+    title: '高于此倍速时无声音',
+    leading: const Icon(Icons.volume_off_outlined),
+    getSubtitle: () => switch (Pref.tempoFilter) {
+      null => '当前：8 倍，mpv 默认，不传 --af',
+      final af =>
+        '当前：${Pref.muteAboveSpeed == 0 ? '不静音' : '${_speedText(Pref.muteAboveSpeed)} 倍'}（--af=$af）',
+    },
+    onTap: _showMuteAboveSpeedDialog,
+  ),
+  NormalModel(
     title: '硬解模式',
     leading: const Icon(Icons.memory_outlined),
-    getSubtitle: () => '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec）',
+    getSubtitle: () =>
+        '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec，按顺序尝试；未勾选 no 时全部失败即无法播放）',
     onTap: _showHwDecDialog,
+  ),
+  NormalModel(
+    title: '硬解状态检查',
+    leading: const Icon(Icons.manage_search),
+    getSubtitle: () => Pref.hwdecWatchWords.trim().isEmpty
+        ? '已关闭（名单为空）'
+        : '${Pref.hwdecWatchWhitelist ? '白名单' : '黑名单'}：${Pref.hwdecWatchWords}。'
+              '播放中每 ${Pref.hwdecWatchSeconds} 秒读一次 mpv 的 hwdec-current，'
+              '变化且${Pref.hwdecWatchWhitelist ? '一项都不匹配' : '匹配任意一项'}时提示；下一个视频起生效',
+    onTap: _showHwdecWatchDialog,
   ),
 ];
 
@@ -462,7 +476,7 @@ Future<void> _showCellularCodecsDialog(
   }
 }
 
-Future<void> _showAudioOutputDialog(
+Future<void> showAudioOutputDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {
@@ -523,10 +537,20 @@ Future<void> _showHwDecDialog(
       title: '硬解模式',
       initValues: Pref.hardwareDecoding.split(','),
       values: {
-        for (final e in HwDecType.values) e.hwdec: '${e.hwdec}\n${e.desc}',
+        for (final e in HwDecType.values)
+          if (e != HwDecType.mediacodecEmbed || Platform.isAndroid)
+            e.hwdec: '${e.hwdec}\n${e.desc}',
       },
     ),
   );
+  if (res != null &&
+      res.length > 1 &&
+      res.contains(HwDecType.mediacodecEmbed.hwdec)) {
+    // The VO is fixed when the player is created; nothing after it in the list
+    // could ever display, so the combination is refused instead of ignored.
+    SmartDialog.showToast('mediacodec_embed 只能单独选择');
+    return;
+  }
   if (res != null && res.isNotEmpty) {
     await GStorage.setting.put(
       SettingBoxKey.hardwareDecoding,
@@ -702,4 +726,195 @@ void _showWeakBufferSecDialog(
     title: '弱网缓冲时长',
     suffix: 's',
   );
+}
+
+String _speedText(double speed) {
+  final text = speed.toString();
+  return text.endsWith('.0') ? text.substring(0, text.length - 2) : text;
+}
+
+Future<void> _showMuteAboveSpeedDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => _MuteAboveSpeedDialog(initial: Pref.muteAboveSpeed),
+  );
+  if (res == null) return;
+  if (res == Pref.muteAboveSpeedDefault) {
+    await GStorage.setting.delete(SettingBoxKey.muteAboveSpeed);
+  } else {
+    await GStorage.setting.put(SettingBoxKey.muteAboveSpeed, res);
+  }
+  setState();
+}
+
+class _MuteAboveSpeedDialog extends StatefulWidget {
+  const _MuteAboveSpeedDialog({required this.initial});
+
+  final double initial;
+
+  @override
+  State<_MuteAboveSpeedDialog> createState() => _MuteAboveSpeedDialogState();
+}
+
+class _MuteAboveSpeedDialogState extends State<_MuteAboveSpeedDialog> {
+  static const _min = 1.0, _max = 16.0;
+
+  late final _controller = TextEditingController(
+    text: _speedText(widget.initial),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = double.tryParse(_controller.text);
+    return AlertDialog(
+      title: const Text('高于此倍速时无声音'),
+      content: Column(
+        mainAxisSize: .min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            keyboardType: const .numberWithOptions(decimal: true),
+            inputFormatters: FilteringText.decimal,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              suffixText: '倍',
+              helperText: '8 为 mpv 默认；0 为不静音；下一个视频起生效',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Slider(
+            value: (value ?? Pref.muteAboveSpeedDefault).clamp(_min, _max),
+            min: _min,
+            max: _max,
+            divisions: 60,
+            label: value == null ? null : _speedText(value),
+            // 按 0.25 吸附到精确值，滑到 8 时得到的就是 8.0 本身。
+            onChanged: (v) => setState(
+              () => _controller.text = _speedText((v * 4).round() / 4),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Get.back(result: double.tryParse(_controller.text)),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showHwdecWatchDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(bool, String, int)>(
+    context: context,
+    builder: (context) => const _HwdecWatchDialog(),
+  );
+  if (res == null) return;
+  final (whitelist, words, seconds) = res;
+  await GStorage.setting.putAll({
+    SettingBoxKey.hwdecWatchWhitelist: whitelist,
+    SettingBoxKey.hwdecWatchWords: words,
+    SettingBoxKey.hwdecWatchSeconds: seconds,
+  });
+  setState();
+}
+
+class _HwdecWatchDialog extends StatefulWidget {
+  const _HwdecWatchDialog();
+
+  @override
+  State<_HwdecWatchDialog> createState() => _HwdecWatchDialogState();
+}
+
+class _HwdecWatchDialogState extends State<_HwdecWatchDialog> {
+  var _whitelist = Pref.hwdecWatchWhitelist;
+  late final _words = TextEditingController(text: Pref.hwdecWatchWords);
+  late final _seconds = TextEditingController(
+    text: '${Pref.hwdecWatchSeconds}',
+  );
+
+  @override
+  void dispose() {
+    _words.dispose();
+    _seconds.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('硬解状态检查'),
+      content: Column(
+        mainAxisSize: .min,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('白名单模式'),
+            subtitle: Text(
+              _whitelist ? '当前解码一项都不匹配时提示' : '关闭即黑名单：当前解码匹配任意一项时提示',
+            ),
+            value: _whitelist,
+            onChanged: (value) => setState(() => _whitelist = value),
+          ),
+          TextField(
+            controller: _words,
+            decoration: const InputDecoration(
+              labelText: '关键词（空格分隔，留空即关闭）',
+              helperText: '与 mpv 的 hwdec-current 整体比对，以 - 开头的按结尾比对（如 -copy）；软解时它是 no',
+              helperMaxLines: 2,
+            ),
+          ),
+          TextField(
+            controller: _seconds,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: '检查间隔',
+              suffixText: '秒',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Get.back(
+            result: (
+              _whitelist,
+              _words.text,
+              int.tryParse(_seconds.text) ?? Pref.hwdecWatchSeconds,
+            ),
+          ),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
 }

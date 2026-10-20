@@ -416,6 +416,13 @@ class HeaderControlState extends State<HeaderControl>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 14),
               children: [
+                if (plPlayerController.videoPlayerController case final player?)
+                  ListTile(
+                    dense: true,
+                    title: const Text('播放信息', style: titleStyle),
+                    leading: const Icon(Icons.info_outline, size: 20),
+                    onTap: () => showPlayerInfo(context, player: player),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -811,13 +818,6 @@ class HeaderControlState extends State<HeaderControl>
                     leading: const Icon(Icons.download_outlined, size: 20),
                     title: const Text('保存字幕', style: titleStyle),
                   ),
-                if (plPlayerController.videoPlayerController case final player?)
-                  ListTile(
-                    dense: true,
-                    title: const Text('播放信息', style: titleStyle),
-                    leading: const Icon(Icons.info_outline, size: 20),
-                    onTap: () => showPlayerInfo(context, player: player),
-                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -828,7 +828,7 @@ class HeaderControlState extends State<HeaderControl>
                     Get.back();
                     PageUtils.reportVideo(videoDetailCtr.aid);
                   },
-                  leading: const Icon(Icons.error_outline, size: 20),
+                  leading: const Icon(Icons.flag_outlined, size: 20),
                   title: const Text('举报', style: titleStyle),
                 ),
               ],
@@ -844,6 +844,7 @@ class HeaderControlState extends State<HeaderControl>
     required NativePlayer player,
   }) {
     final hwdec = player.getProperty('hwdec-current');
+    final vo = player.getProperty('current-vo');
     final volume = player.getProperty('volume');
     showDialog(
       context: context,
@@ -919,6 +920,12 @@ class HeaderControlState extends State<HeaderControl>
                       title: const Text('hwdec'),
                       subtitle: Text(hwdec),
                       onTap: () => Utils.copyText('hwdec\n$hwdec'),
+                    ),
+                    ListTile(
+                      dense: true,
+                      title: const Text('vo'),
+                      subtitle: Text(vo),
+                      onTap: () => Utils.copyText('vo\n$vo'),
                     ),
                   ],
                 ),
@@ -1923,6 +1930,16 @@ class HeaderControlState extends State<HeaderControl>
                         style: btnStyle,
                         onPressed: () {
                           final newVal = !enableShowDanmaku;
+                          PlaybackStatsService.samplePosition(
+                            plPlayerController
+                                    .videoPlayerController
+                                    ?.state
+                                    .position ??
+                                Duration.zero,
+                          );
+                          PlaybackStatsService.updateVideoContext(
+                            danmakuEnabled: newVal,
+                          );
                           plPlayerController.enableShowDanmaku.value = newVal;
                           if (!plPlayerController.tempPlayerConf) {
                             setting.put(
@@ -1997,48 +2014,6 @@ class HeaderControlState extends State<HeaderControl>
                     size: 19,
                     color: Colors.white,
                   ),
-                ),
-              ),
-              SizedBox(
-                width: btnWidth,
-                height: btnHeight,
-                child: Obx(
-                  () {
-                    final enableShowDanmaku =
-                        plPlayerController.enableShowDanmaku.value;
-                    return IconButton(
-                      tooltip: "${enableShowDanmaku ? '关闭' : '开启'}弹幕",
-                      style: btnStyle,
-                      onPressed: () {
-                        final newVal = !enableShowDanmaku;
-                        final position =
-                            plPlayerController.videoPlayerController?.state.position ??
-                            Duration.zero;
-                        PlaybackStatsService.samplePosition(position);
-                        PlaybackStatsService.updateVideoContext(
-                          danmakuEnabled: newVal,
-                        );
-                        plPlayerController.enableShowDanmaku.value = newVal;
-                        if (!plPlayerController.tempPlayerConf) {
-                          setting.put(
-                            SettingBoxKey.enableShowDanmaku,
-                            newVal,
-                          );
-                        }
-                      },
-                      icon: enableShowDanmaku
-                          ? const Icon(
-                              size: 20,
-                              CustomIcons.dm_on,
-                              color: Colors.white,
-                            )
-                          : const Icon(
-                              size: 20,
-                              CustomIcons.dm_off,
-                              color: Colors.white,
-                            ),
-                    );
-                  },
                 ),
               ),
             ],

@@ -5,10 +5,12 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -16,6 +18,41 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class Update {
+  static void onLaunch() {
+    final cache = GStorage.localCache;
+    final n = BroTechScripts.list.length + 1;
+    var slot = cache.get(LocalCacheKey.launchSlot, defaultValue: 1) as int;
+    final now = DateTime.now().subtract(const Duration(hours: 4));
+    final today = now.year * 10000 + now.month * 100 + now.day;
+    final stamp = cache.get(LocalCacheKey.launchDay, defaultValue: 0) as int;
+    if (today > stamp ~/ 1000) {
+      slot %= n;
+      final year = stamp ~/ 10000000;
+      if (now.year != year && stamp != 0) {
+        cache.put(LocalCacheKey.launchYears, {
+          ...?cache.get(LocalCacheKey.launchYears) as Map?,
+          '$year': stamp % 1000,
+        });
+      }
+      cache.put(
+        LocalCacheKey.launchDay,
+        today * 1000 + (now.year == year ? stamp % 1000 + 1 : 1),
+      );
+    }
+    cache.put(LocalCacheKey.launchSlot, slot + 1);
+    final bucket = slot % n;
+    final ignore = cache.get(LocalCacheKey.updateIgnore);
+    if (Pref.autoUpdate &&
+        (bucket == 0 || (ignore is Map && ignore['temporary'] == false))) {
+      checkUpdate();
+    }
+    if (bucket != 0 && (slot ~/ n) & 4 == 0) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => BroTechScripts.refresh(bucket - 1),
+      );
+    }
+  }
+
   // 检查更新
   static Future<void> checkUpdate([bool isAuto = true]) async {
     if (kDebugMode) return;
@@ -44,6 +81,7 @@ abstract final class Update {
         if (updateIgnore['temporary'] == true || ignoredVersion == version) {
           return;
         }
+        GStorage.localCache.delete(LocalCacheKey.updateIgnore);
       }
       if (BuildConfig.buildTime >= latest) {
         if (!isAuto) {
@@ -51,10 +89,12 @@ abstract final class Update {
         }
       } else {
         SmartDialog.show(
+          useSystem: true,
           animationType: SmartAnimationType.centerFade_otherSlide,
           builder: (context) {
             final colorScheme = ColorScheme.of(context);
             Widget downloadBtn(String text, {String? ext}) => TextButton(
+              autofocus: ext == null,
               onPressed: () => onDownload(data, ext: ext),
               child: Text(text),
             );
@@ -121,7 +161,7 @@ abstract final class Update {
                   ),
                 ],
                 if (Platform.isWindows) ...[
-                  downloadBtn('zip', ext: 'zip'),
+                  downloadBtn('rar', ext: 'rar'),
                   downloadBtn('exe', ext: 'exe'),
                 ] else if (Platform.isLinux) ...[
                   downloadBtn('rpm', ext: 'rpm'),

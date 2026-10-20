@@ -5,6 +5,7 @@ import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/models/common/setting_type.dart';
+import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/about/view.dart';
 import 'package:PiliBro/pages/login/controller.dart';
 import 'package:PiliBro/pages/setting/common_setting.dart';
@@ -242,6 +243,11 @@ class _SettingPageState extends State<SettingPage> {
           onTap: () => _toPage(_items.last.type),
           leading: _items.last.icon,
           title: Text(_items.last.type.title, style: titleStyle),
+        ),
+        ListTile(
+          onTap: () => Get.to(() => const BroTechPage()),
+          leading: Icon(MdiIcons.routerWireless),
+          title: Text('路由器高级统计与增强', style: titleStyle),
         ),
       ],
     );

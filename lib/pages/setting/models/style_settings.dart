@@ -193,7 +193,7 @@ List<SettingsModel> get styleSettings => [
     title: '消息未读类型',
     leading: const Icon(MdiIcons.bellCogOutline),
     getSubtitle: () =>
-        '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
+        '当前消息类型：${Pref.msgUnReadType.map((item) => item.title).join('、')}',
   ),
   PopupModel(
     title: '顶/底栏收起类型',
@@ -744,7 +744,7 @@ Future<void> _showMsgUnReadDialog(
     context: context,
     builder: (context) => MultiSelectDialog<MsgUnReadType>(
       title: '消息未读类型',
-      initValues: Pref.msgUnReadTypeV2,
+      initValues: Pref.msgUnReadType,
       values: {for (final i in MsgUnReadType.values) i: i.title},
     ),
   );
@@ -754,7 +754,7 @@ Future<void> _showMsgUnReadDialog(
       mainController.queryUnreadMsg();
     }
     await GStorage.setting.put(
-      SettingBoxKey.msgUnReadTypeV2,
+      SettingBoxKey.msgUnReadType,
       res.map((item) => item.index).toList()..sort(),
     );
     SmartDialog.showToast('设置成功');

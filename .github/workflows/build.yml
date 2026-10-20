@@ -6,7 +6,6 @@ on:
             - opened
             - reopened
             - ready_for_review
-            - synchronize
         branches:
             - dev
             - lab4AI
@@ -81,6 +80,11 @@ jobs:
               uses: actions/checkout@v7
               with:
                   fetch-depth: 0
+
+            - name: 同步 BroTech 附带文件
+              if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+              shell: bash
+              run: tool/sync_brotech.sh
 
             - name: 构建Java环境
               uses: actions/setup-java@v6

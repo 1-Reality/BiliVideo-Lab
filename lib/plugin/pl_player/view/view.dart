@@ -460,12 +460,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             .onlyShowFullScreen => isFullScreen,
             .onlyHideFullScreen => !isFullScreen,
           };
-          final visible =
-              expanded || showByPolicy || controller.isSeeking.value;
+          if (!expanded && !showByPolicy && !controller.isSeeking.value) {
+            return const SizedBox.shrink();
+          }
 
-          return Offstage(
-            offstage: !visible,
-            child: Stack(
+          return Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.bottomCenter,
               children: [
@@ -528,7 +527,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   if (detail.dmTrend.value?.dataOrNull case final list?)
                     buildDmChart(primary, list, detail),
               ],
-            ),
           );
         }),
       ),
@@ -1560,7 +1558,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       fontSize: 12,
     );
     final isLive = plPlayerController.isLive;
-    final fixedProgress = !isLive && plPlayerController.fixedBottomProgress;
+    final fixedProgress =
+        !isLive &&
+        (isFullScreen
+            ? plPlayerController.fixedBottomProgressFs
+            : plPlayerController.fixedBottomProgress);
 
     final child = Stack(
       clipBehavior: fixedProgress ? Clip.none : Clip.hardEdge,
@@ -1958,9 +1960,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         showControls ||
                         (isFullScreen && !plPlayerController.isSeeking.value);
                 }
-                return Offstage(
-                  offstage: offstage,
-                  child: Stack(
+                if (offstage) return const SizedBox.shrink();
+                return Stack(
                     clipBehavior: Clip.none,
                     alignment: Alignment.bottomCenter,
                     children: [
@@ -2015,7 +2016,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                             case final list?)
                           buildDmChart(primary, list, videoDetailController),
                     ],
-                  ),
                 );
               },
             ),

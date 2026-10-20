@@ -395,22 +395,33 @@ class PlPlayerController
   List<VideoDecodeFormatType>? cachePreferCodecs;
   List<VideoDecodeFormatType>? peakPreferCodecs;
   NetworkProfile? playbackNetworkProfile;
+  // 当前点播网络流的缓冲时长（墙钟秒）；本地文件与直播为 null。
+  double? _bufferSecBase;
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
-  bool _hwdecFallbackToastShown = false;
-  String? get _automaticHwdecFallback {
-    final modes = hwdec?.split(',') ?? const <String>[];
-    for (final mode in modes.skip(1)) {
-      if (mode == 'auto' || mode == 'auto-safe' || mode == 'auto-copy') {
-        return mode;
-      }
-    }
-    return null;
-  }
+  // The list is taken literally: mpv tries the entries in order and decodes in
+  // software only where 'no' is listed. Without 'no', a file none of them can
+  // decode fails to play.
+  late final bool _hwdecAllowsSoftware =
+      hwdec == null || hwdec!.split(',').contains('no');
+  // Settings only allow this entry alone.
+  late final bool mediacodecEmbed =
+      Platform.isAndroid && hwdec == 'mediacodec_embed';
+  // While playing, hwdec-current is read every few seconds and matched
+  // against the user's keywords (settings are taken on each open). Only the
+  // decoder actually playing is read: the ones a file switch creates and drops
+  // fail their hwdec setup too, but position events, which drive this, do not
+  // fire while a file loads. An empty list turns the whole thing off.
+  List<String> _hwdecWatchWords = const [];
+  bool _hwdecWatchWhitelist = false;
+  int _hwdecWatchTicks = 0;
+  int _nextHwdecWatchTick = 0;
+  String? _lastHwdecWatched;
 
   late final progressType = Pref.btmProgressBehavior;
   late final fixedBottomProgress = Pref.fixedBottomProgress;
+  late final fixedBottomProgressFs = Pref.fixedBottomProgressFs;
   late final progressBarSideSpace = Pref.progressBarSideSpace;
   late final bottomControlSideSpace = Pref.bottomControlSideSpace;
   late final enableQuickDouble = Pref.enableQuickDouble;
@@ -1259,7 +1270,6 @@ class PlPlayerController
       this.width = width;
       this.height = height;
       this.dataSource = dataSource;
-      _hwdecFallbackToastShown = false;
       _autoPlay = autoplay;
       // 初始化数据加载状态
       dataStatus.value = DataStatus.loading;
@@ -1319,6 +1329,10 @@ class PlPlayerController
         speed: _playbackSpeed.value,
         defaultSpeed: Pref.playSpeedDefault,
         cid: cid,
+        aid: aid,
+        bvid: bvid,
+        epid: epid,
+        seasonId: seasonId,
         liveUid: liveUid,
         liveName: liveName,
         videoUpUid: videoUpUid,
@@ -1347,7 +1361,7 @@ class PlPlayerController
             '${profile.transport.name}:${profile.useCellularPreferences ? 'cellularPreference' : 'broadbandPreference'}',
           null => 'unknown',
         },
-        subtitle: Pref.subtitlePreferenceV2.name,
+        subtitle: Pref.subtitlePreference.name,
         danmakuEnabled: enableShowDanmakuAdaptive.value,
         decoder: hwdec ?? 'software',
       );
@@ -1452,6 +1466,9 @@ class PlPlayerController
     if (autosync != '0') {
       opt['autosync'] = autosync;
     }
+    if (!_hwdecAllowsSoftware) {
+      opt['hwdec-software-fallback'] = 'no';
+    }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
@@ -1477,7 +1494,8 @@ class PlPlayerController
             : null,
         enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
-        hwdec: hwdec,
+        vo: mediacodecEmbed ? 'mediacodec_embed' : null,
+        hwdec: mediacodecEmbed ? 'mediacodec' : hwdec,
       ),
     );
 
@@ -1531,6 +1549,9 @@ class PlPlayerController
         : profile?.useCellularPreferences == true
         ? 1
         : 0;
+    _bufferSecBase = dataSource is FileSource || isLive
+        ? null
+        : Pref.bufferSecFor(bufferProfile);
     final Map<String, String> extras = {
       if (dataSource is FileSource)
         'cache': 'no'
@@ -1538,6 +1559,8 @@ class PlPlayerController
         ...Pref.initLiveBuffer(bufferProfile)
       else
         ...Pref.initBuffer(_playbackSpeed.value, bufferProfile),
+      if (!isLive)
+        if (Pref.tempoFilter case final af?) 'af': af,
     };
 
     String video = dataSource.videoSource;
@@ -1567,6 +1590,16 @@ class PlPlayerController
       ),
       play: false,
     );
+    _hwdecWatchWords = hwdec == null || hwdec == 'no'
+        ? const []
+        : [
+            for (final w in Pref.hwdecWatchWords.split(RegExp(r'\s+')))
+              if (w.isNotEmpty) w,
+          ];
+    _hwdecWatchWhitelist = Pref.hwdecWatchWhitelist;
+    _hwdecWatchTicks = Pref.hwdecWatchSeconds * _positionClock.frequency;
+    _nextHwdecWatchTick = _positionClock.elapsedTicks + _hwdecWatchTicks;
+    _lastHwdecWatched = null;
   }
 
   /// Recreate Android's Player + Texture after an unusually long background
@@ -1590,8 +1623,11 @@ class PlPlayerController
     }
 
     _processing = true;
-    final media = previous.current.last.copyWith(start: previous.state.position);
     final rate = previous.state.rate;
+    final media = _withRateBuffer(
+      previous.current.last.copyWith(start: previous.state.position),
+      rate,
+    );
     try {
       await previous.pause();
       _removeListeners();
@@ -1639,10 +1675,25 @@ class PlPlayerController
     if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
       PlaybackStatsService.rebase(ctr.state.position);
       var media = ctr.current.last;
-      if (!isLive) media = media.copyWith(start: ctr.state.position);
+      if (!isLive) {
+        media = _withRateBuffer(
+          media.copyWith(start: ctr.state.position),
+          ctr.state.rate,
+        );
+      }
       return ctr.open(media, play: true);
     }
     return null;
+  }
+
+  // 重开同一媒体时沿用的是首次打开的 extras，其中缓冲时长按当时倍速算；
+  // 期间倍速变过就要按当前倍速重算。
+  Media _withRateBuffer(Media media, double rate) {
+    final base = _bufferSecBase;
+    if (base == null) return media;
+    return media.copyWith(
+      extras: {...?media.extras, ...Pref.cacheSecs(base, rate)},
+    );
   }
 
   // 开始播放
@@ -1784,6 +1835,24 @@ class PlPlayerController
             positionUs >= secondStartUs + Duration.microsecondsPerSecond) {
           final posInSeconds = positionUs ~/ Duration.microsecondsPerSecond;
           _lastPositionEventSecond = posInSeconds;
+          if (_hwdecWatchWords.isNotEmpty && ticks >= _nextHwdecWatchTick) {
+            _nextHwdecWatchTick = ticks + _hwdecWatchTicks;
+            final current = player.getProperty('hwdec-current');
+            if (current != _lastHwdecWatched) {
+              _lastHwdecWatched = current;
+              if (current.isNotEmpty &&
+                  _hwdecWatchWords.any(
+                        (w) => w.startsWith('-')
+                            ? current.endsWith(w)
+                            : current == w,
+                      ) !=
+                      _hwdecWatchWhitelist) {
+                SmartDialog.showToast(
+                  '当前解码 $current，${_hwdecWatchWhitelist ? '不在白名单' : '命中黑名单'}（硬解列表 $hwdec）',
+                );
+              }
+            }
+          }
           if (posInSeconds == 0 && playerStatus.isPlaying) {
             _updatePlaybackState(position: position);
           }
@@ -1890,16 +1959,7 @@ class PlPlayerController
             },
           );
         } else if (event.startsWith('Could not open codec')) {
-          final fallback = _automaticHwdecFallback;
-          if (fallback != null && !_hwdecFallbackToastShown) {
-            _hwdecFallbackToastShown = true;
-            SmartDialog.showToast(
-              '首选硬解模式不可用，已交由 $fallback 继续兜底',
-              displayTime: const Duration(seconds: 3),
-            );
-          } else if (fallback == null) {
-            SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
-          }
+          SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
         } else if (!onlyPlayAudio.value) {
           // A damaged/partial access unit is an FFmpeg decoder diagnostic,
           // not a Dart crash. Do not send its full signed playlist to Catcher.
@@ -1999,7 +2059,15 @@ class PlPlayerController
       temporary: temporary,
     );
 
-    if (!unchanged) await player?.setRate(speed);
+    if (!unchanged && player != null) {
+      await player.setRate(speed);
+      if (_bufferSecBase case final base?) {
+        for (final MapEntry(:key, :value)
+            in Pref.cacheSecs(base, speed).entries) {
+          await player.command(['set', key, value]);
+        }
+      }
+    }
     _playbackSpeed.value = speed;
     _updatePlaybackState();
     final danmaku = danmakuController;

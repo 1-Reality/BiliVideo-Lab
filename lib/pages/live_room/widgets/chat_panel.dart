@@ -254,38 +254,47 @@ class LiveRoomChatPanel extends StatelessWidget {
     }
     final emots = obj.emots;
     if (emots != null) {
-      RegExp regExp = RegExp(emots.keys.map(RegExp.escape).join('|'));
-      final List<InlineSpan> spanChildren = <InlineSpan>[];
-      obj.text.splitMapJoin(
-        regExp,
-        onMatch: (match) {
-          final key = match[0]!;
-          final emote = emots[key]!;
-          spanChildren.add(
-            WidgetSpan(
-              child: NetworkImgLayer(
-                src: emote.url,
-                type: .emote,
-                width: emote.width,
-                height: emote.height,
-              ),
-            ),
-          );
-          return '';
-        },
-        onNonMatch: (String nonMatchStr) {
+      // Live emote keys are always bracketed ([dog]); scan for brackets and
+      // look them up instead of compiling a regex for every message.
+      final text = obj.text;
+      final spanChildren = <InlineSpan>[];
+      void addText(int start, int end) {
+        if (end > start) {
           spanChildren.add(
             TextSpan(
-              text: nonMatchStr,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
+              text: text.substring(start, end),
+              style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
           );
-          return '';
-        },
-      );
+        }
+      }
+
+      var last = 0;
+      var from = 0;
+      while (true) {
+        final open = text.indexOf('[', from);
+        if (open < 0) break;
+        final close = text.indexOf(']', open + 1);
+        if (close < 0) break;
+        final emote = emots[text.substring(open, close + 1)];
+        if (emote == null) {
+          from = open + 1;
+          continue;
+        }
+        addText(last, open);
+        spanChildren.add(
+          WidgetSpan(
+            child: NetworkImgLayer(
+              src: emote.url,
+              type: .emote,
+              width: emote.width,
+              height: emote.height,
+            ),
+          ),
+        );
+        last = from = close + 1;
+      }
+      addText(last, text.length);
       return TextSpan(children: spanChildren);
     } else {
       return TextSpan(

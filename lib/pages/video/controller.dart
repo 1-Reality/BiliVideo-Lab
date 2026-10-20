@@ -74,6 +74,7 @@ import 'package:PiliBro/utils/utils.dart';
 import 'package:PiliBro/utils/video_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' show Options;
+import 'package:easy_debounce/easy_throttle.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter/foundation.dart' show ValueChanged, kDebugMode;
@@ -120,14 +121,31 @@ class VideoDetailController extends GetxController
   // 请求返回的视频信息
   late PlayUrlModel data;
   final RxBool videoState = false.obs;
+  // Computed once per opened stream (onInit) and shared by the intro and the
+  // comment header; null while no stream is open.
+  final streamInfo = Rxn<({String? current, List<String> others})>();
 
   /// 播放器配置 画质 音质 解码格式
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
 
-  String? get streamSizeAndBitrate {
-    if (!videoState.value) return null;
+  void _updateStreamInfo() {
+    final current = _streamSizeAndBitrate();
+    final others = _otherStreamSizeAndBitrates();
+    streamInfo.value = current == null && others.isEmpty
+        ? null
+        : (
+            current: current == null
+                ? null
+                : others.length < 2
+                ? '$current · ${_codecDisplayName(currentDecodeFormats)}'
+                : current,
+            others: others,
+          );
+  }
+
+  String? _streamSizeAndBitrate() {
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
         (item) => item.id == currentAudioQa?.code,
@@ -159,8 +177,8 @@ class VideoDetailController extends GetxController
     }
   }
 
-  List<String> get otherStreamSizeAndBitrates {
-    if (!videoState.value || data.dash?.video == null) return const [];
+  List<String> _otherStreamSizeAndBitrates() {
+    if (data.dash?.video == null) return const [];
     try {
       final audio = data.dash?.audio?.firstWhereOrNull(
         (item) => item.id == currentAudioQa?.code,
@@ -219,8 +237,6 @@ class VideoDetailController extends GetxController
         : '${(bitrate * 0.001).round()} kb/s';
     return (bytes: bytes, bitrate: bitrate, text: '约 $size · $rate');
   }
-
-  String get currentStreamCodec => _codecDisplayName(currentDecodeFormats);
 
   String _codecDisplayName(VideoDecodeFormatType format) => switch (format) {
     VideoDecodeFormatType.AVC => 'H264',
@@ -498,6 +514,9 @@ class VideoDetailController extends GetxController
     sourceType = args['sourceType'] ?? SourceType.normal;
     isFileSource = sourceType == SourceType.file;
     isPlayAll = sourceType != SourceType.normal && !isFileSource;
+    // Opened from the playback bar's note key: listen inside the video page,
+    // so only the audio stream is fetched (the audio page cannot serve PGC).
+    if (args['audioOnly'] == true) plPlayerController.onlyPlayAudio.value = true;
     if (isFileSource) {
       initFileSource(args['entry']);
       plPlayerController.onlyPlayAudio.value =
@@ -863,6 +882,10 @@ class VideoDetailController extends GetxController
         'CDN 无法连接，已从 ${previous.desc} 回退到 ${_currentCdn.desc}',
         displayTime: const Duration(seconds: 4),
       );
+      // The player's error handler throttles on this tag for 10 s; without
+      // clearing it, the next CDN's open failure would be swallowed and the
+      // chain would stop after one hop.
+      EasyThrottle.cancel('controllerStream.error.listen');
       await playerInit(autoplay: true);
       return true;
     } catch (_) {
@@ -1021,6 +1044,7 @@ class VideoDetailController extends GetxController
       quality: currentVideoQa.value?.code.toString(),
       onInit: () {
         videoState.value = true;
+        _updateStreamInfo();
         setSubtitle(vttSubtitlesIndex.value);
       },
       width: firstVideo.width,
@@ -1030,6 +1054,31 @@ class VideoDetailController extends GetxController
     );
 
     if (isClosed) return;
+
+    try {
+      if (isFileSource) {
+        PlaybackStatsService.setVideoMeta(cid: cid.value, title: entry.title);
+      } else if (isUgc) {
+        final detail =
+            Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+        if (detail.bvid == bvid) {
+          PlaybackStatsService.setVideoMeta(
+            cid: cid.value,
+            title: detail.title,
+            pubdate: detail.pubdate,
+          );
+        }
+      } else {
+        final item = Get.find<PgcIntroController>(tag: heroTag).pgcItem;
+        final ep = item.episodes?.firstWhereOrNull((e) => e.epId == epId);
+        PlaybackStatsService.setVideoMeta(
+          cid: cid.value,
+          title: item.title,
+          episodeTitle: ep?.showTitle ?? ep?.longTitle,
+          pubdate: ep?.pubTime,
+        );
+      }
+    } catch (_) {}
 
     if (!isFileSource) {
       if (plPlayerController.enableBlock) {
@@ -1195,6 +1244,9 @@ class VideoDetailController extends GetxController
           hevcVideo != null) {
         currentDecodeFormats = VideoDecodeFormatType.HEVC;
         preferredVideo = hevcVideo;
+        SmartDialog.showToast(
+          'H.264 码率 ${avcBandwidth ~/ 1000} Kbps 超过门限，已切换 H.265',
+        );
       }
     } else {
       for (final video in videoList) {
@@ -1335,6 +1387,7 @@ class VideoDetailController extends GetxController
           SmartDialog.showToast('视频资源不存在');
           _autoPlay.value = false;
           videoState.value = false;
+          streamInfo.value = null;
           if (plPlayerController.isFullScreen.value) {
             plPlayerController.triggerFullScreen(status: false);
           }
@@ -1361,6 +1414,7 @@ class VideoDetailController extends GetxController
       } else {
         _autoPlay.value = false;
         videoState.value = false;
+        streamInfo.value = null;
         if (plPlayerController.isFullScreen.value) {
           plPlayerController.triggerFullScreen(status: false);
         }
@@ -1606,7 +1660,7 @@ class VideoDetailController extends GetxController
     }
     _subtitlePreferencePendingFollower =
         isUgc && Pref.subtitleFollowerThreshold > 0 && follower == null;
-    final idx = switch (Pref.subtitlePreferenceV2) {
+    final idx = switch (Pref.subtitlePreference) {
       .off => 0,
       .on => 1,
       .withoutAi => sub.first.lan.startsWith('ai') ? 0 : 1,
@@ -1624,7 +1678,7 @@ class VideoDetailController extends GetxController
 
   Future<void> applyPendingSubtitleFollowerPreference() async {
     if (_subtitlePreferencePendingFollower &&
-        Pref.subtitlePreferenceV2 == SubtitlePrefType.auto) {
+        Pref.subtitlePreference == SubtitlePrefType.auto) {
       _subtitlePreferencePendingFollower = false;
       await _applySubtitlePreference();
     }

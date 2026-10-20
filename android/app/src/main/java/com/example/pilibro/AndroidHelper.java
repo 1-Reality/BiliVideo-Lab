@@ -24,7 +24,12 @@ import android.graphics.drawable.Icon;
 import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.RouteInfo;
 import android.net.NetworkCapabilities;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.TrafficStats;
@@ -189,6 +194,31 @@ public final class AndroidHelper {
                 networkType,
                 cellularDbm
         };
+    }
+
+    // IPv4 default gateway of the Wi-Fi or Ethernet network, looked up across
+    // all networks so an active VPN does not hide it. Needs only
+    // ACCESS_NETWORK_STATE.
+    public static String defaultGateway() {
+        ConnectivityManager connectivityManager = getContext().getSystemService(ConnectivityManager.class);
+        if (connectivityManager == null) return null;
+        for (Network network : connectivityManager.getAllNetworks()) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            if (capabilities == null
+                    || !(capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                    || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))) {
+                continue;
+            }
+            LinkProperties properties = connectivityManager.getLinkProperties(network);
+            if (properties == null) continue;
+            for (RouteInfo route : properties.getRoutes()) {
+                InetAddress gateway = route.getGateway();
+                if (route.isDefaultRoute() && gateway instanceof Inet4Address && !gateway.isAnyLocalAddress()) {
+                    return gateway.getHostAddress();
+                }
+            }
+        }
+        return null;
     }
 
     public static String networkOperator() {

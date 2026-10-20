@@ -53,7 +53,7 @@ class MainController extends GetxController
 
   late final disableLikeMsg = Pref.disableLikeMsg;
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
-  late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
+  late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadType;
   late final RxnString msgUnReadCount = RxnString(null);
   late int lastCheckUnreadAt = 0;
 
@@ -75,9 +75,7 @@ class MainController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    if (Pref.autoUpdate) {
-      Update.checkUpdate();
-    }
+    Update.onLaunch();
 
     setNavBarConfig();
 
