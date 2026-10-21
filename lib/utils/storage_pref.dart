@@ -1357,20 +1357,16 @@ abstract final class Pref {
     _ => bufferSec,
   };
 
-  // 缓冲时长按墙钟秒配置；mpv 的 cache-secs 是媒体秒，需乘当前倍速。
-  static Map<String, String> cacheSecs(double seconds, double playbackSpeed) {
-    final bufSec = seconds * playbackSpeed;
+  // 缓冲时长固定为墙钟秒，不随播放倍速变化。
+  static Map<String, String> cacheSecs(double seconds) {
     return {
-      'cache-secs': bufSec.toStringAsFixed(3),
+      'cache-secs': seconds.toStringAsFixed(3),
       'demuxer-hysteresis-secs':
-          (bufSec * 0.6666666666666666).toStringAsFixed(3),
+          (seconds * 0.6666666666666666).toStringAsFixed(3),
     };
   }
 
-  static Map<String, String> initBuffer([
-    double playbackSpeed = 1.0,
-    int bufferProfile = 0,
-  ]) {
+  static Map<String, String> initBuffer([int bufferProfile = 0]) {
     final sizeMiB = switch (bufferProfile) {
       2 => bufferSizeCellular,
       1 => bufferSizeWeak,
@@ -1379,7 +1375,7 @@ abstract final class Pref {
     final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
-      ...cacheSecs(bufferSecFor(bufferProfile), playbackSpeed),
+      ...cacheSecs(bufferSecFor(bufferProfile)),
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };

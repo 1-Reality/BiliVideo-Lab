@@ -3,6 +3,7 @@ import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 
 abstract final class DevicePresets {
   static Future<void> applyPhone({bool applyNow = true}) => _apply(
@@ -85,31 +86,40 @@ abstract final class DevicePresets {
     await applyTablet();
   }
 
-  static Future<void> applyTelevision() => _apply(
-    {
-      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
-      SettingBoxKey.horizontalScreen: true,
-      SettingBoxKey.keyboardControl: false,
-      SettingBoxKey.appInitialOrientation:
-          AppInitialOrientation.landscape.index,
-      SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
-      SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
-      SettingBoxKey.fullScreenRotationSource:
-          FullScreenRotationSource.keepCurrent.index,
-      SettingBoxKey.fullScreenAllowedOrientation:
-          FullScreenAllowedOrientation.entryExact.index,
-      SettingBoxKey.gravityFollowSystemLock: false,
-      SettingBoxKey.orientationFullscreenTrigger:
-          OrientationFullscreenTrigger.off.index,
-      SettingBoxKey.orientationTriggerSource:
-          OrientationTriggerSource.system.index,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
-      SettingBoxKey.finalDirectionMask: 0,
-      SettingBoxKey.defaultShowComment: false,
-      SettingBoxKey.enableAutoEnter: true,
-    },
-    applyNow: false,
-  );
+  static Future<void> applyTelevision() async {
+    await _apply(
+      {
+        SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
+        SettingBoxKey.horizontalScreen: true,
+        SettingBoxKey.keyboardControl: false,
+        SettingBoxKey.appInitialOrientation:
+            AppInitialOrientation.landscape.index,
+        SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
+        SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
+        SettingBoxKey.fullScreenRotationSource:
+            FullScreenRotationSource.keepCurrent.index,
+        SettingBoxKey.fullScreenAllowedOrientation:
+            FullScreenAllowedOrientation.entryExact.index,
+        SettingBoxKey.gravityFollowSystemLock: false,
+        SettingBoxKey.orientationFullscreenTrigger:
+            OrientationFullscreenTrigger.off.index,
+        SettingBoxKey.orientationTriggerSource:
+            OrientationTriggerSource.system.index,
+        SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
+        SettingBoxKey.finalDirectionMask: 0,
+        SettingBoxKey.defaultShowComment: false,
+        SettingBoxKey.enableAutoEnter: true,
+      },
+      applyNow: false,
+    );
+
+    await GStorage.setting.putAll({
+      if (Pref.bufferSize > 96) SettingBoxKey.bufferSize: 96.0,
+      if (Pref.bufferSizeWeak > 32) SettingBoxKey.bufferSizeWeak: 32.0,
+      if (Pref.bufferSec > 108) SettingBoxKey.bufferSec: 108.0,
+      if (Pref.bufferSecWeak > 30) SettingBoxKey.bufferSecWeak: 30.0,
+    });
+  }
 
   static Future<void> _apply(
     Map<String, Object> values, {

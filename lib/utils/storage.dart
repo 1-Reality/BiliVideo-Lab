@@ -15,6 +15,7 @@ import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/set_int_adapter.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
 
@@ -370,6 +371,28 @@ abstract final class GStorage {
     );
   }
 
+  static Future<void> _applyFirstRunBufferLimit() async {
+    var limit = 192;
+    try {
+      final info = await DeviceInfoPlugin().deviceInfo;
+      limit = switch (info) {
+        AndroidDeviceInfo() => info.physicalRamSize >> 4,
+        IosDeviceInfo() => info.physicalRamSize >> 4,
+        WindowsDeviceInfo() => info.systemMemoryInMegabytes >> 4,
+        MacOsDeviceInfo() => info.memorySize >> 24,
+        _ => 192,
+      };
+      if (limit < 1) limit = 192;
+    } catch (_) {}
+
+    if (Pref.bufferSize > limit) {
+      await setting.put(SettingBoxKey.bufferSize, limit.toDouble());
+    }
+    if (Pref.bufferSizeWeak > limit) {
+      await setting.put(SettingBoxKey.bufferSizeWeak, limit.toDouble());
+    }
+  }
+
   static Future<num?> _runPlaybackMaintenanceIfDue() async {
     final now = DateTime.now();
     final due = localCache.get(
@@ -380,6 +403,7 @@ abstract final class GStorage {
     // A negative future timestamp means the one-time maintenance already ran,
     // while the Android first-run device wizard still needs to finish.
     if (due < 0) return due;
+    if (due == 0) await _applyFirstRunBufferLimit();
     if (now.millisecondsSinceEpoch < due.toInt()) return due;
 
     final updateIgnore = localCache.get(LocalCacheKey.updateIgnore);
