@@ -88,12 +88,27 @@ abstract final class TvRemoteSetup {
                       setDialogState(() => isUpdatingDecoder = true);
                       try {
                         if (isPassthrough) {
-                          // Remove the override and reuse the existing platform default.
-                          await GStorage.setting.delete(
-                            SettingBoxKey.hardwareDecoding,
+                          final previous = GStorage.setting.get(
+                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
                           );
-                          hardwareDecoding = HwDecType.kHwdec;
+                          final restore = previous is String &&
+                                  previous.isNotEmpty &&
+                                  previous != HwDecType.mediacodecEmbed.hwdec
+                              ? previous
+                              : HwDecType.kHwdec;
+                          await GStorage.setting.put(
+                            SettingBoxKey.hardwareDecoding,
+                            restore,
+                          );
+                          hardwareDecoding = restore;
+                          await GStorage.setting.delete(
+                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
+                          );
                         } else {
+                          await GStorage.setting.put(
+                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
+                            hardwareDecoding,
+                          );
                           await GStorage.setting.put(
                             SettingBoxKey.hardwareDecoding,
                             HwDecType.mediacodecEmbed.hwdec,
