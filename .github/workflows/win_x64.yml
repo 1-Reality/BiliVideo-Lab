@@ -14,7 +14,7 @@ on:
         default: "0"
         type: string
       include_portable:
-        description: "Create portable 7z"
+        description: "Create portable ZIP"
         required: false
         default: true
         type: boolean
@@ -40,7 +40,6 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
-          cache: ${{ inputs.tag == '' }}
 
       - name: Add fastforge and Inno Setup
         run: |
@@ -82,10 +81,10 @@ jobs:
           mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
           mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
-      - name: Compress portable 7z
+      - name: Compress portable ZIP
         if: ${{ inputs.include_portable }}
         run: |
-          7z a -mx9 "PiliBro_windows_${{env.version}}_x64_portable.7z" "Release/PiliBro-Win"
+          Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
         shell: pwsh
 
       - name: Upload windows portable release
@@ -94,7 +93,7 @@ jobs:
         with:
           archive: false
           name: Windows-file-x64-release
-          path: PiliBro_windows_*.7z
+          path: PiliBro_windows_*.zip
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7

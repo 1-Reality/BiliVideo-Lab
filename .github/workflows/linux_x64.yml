@@ -41,7 +41,8 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
-          cache: ${{ inputs.tag == '' }}
+          cache: true
+
       - name: Set and Extract version
         shell: pwsh
         env:
