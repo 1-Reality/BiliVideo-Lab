@@ -705,7 +705,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           autofocus: true,
           keyboardType: TextInputType.url,
           decoration: const InputDecoration(
-            hintText: 'example.com 或 https://example.com',
+            hintText: 'https://space.bilibili.com/501430041',
           ),
           onSubmitted: (value) => Get.back(result: value.trim()),
         ),

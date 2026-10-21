@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "pilibro" "\0"
+            VALUE "CompanyName", "哥哥.哥哥科技" "\0"
+            VALUE "FileDescription", "PiliBro by 长兄天工" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "pilibro" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2023 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "哥哥科技 Bro-Tech" "\0"
             VALUE "OriginalFilename", "pilibro.exe" "\0"
-            VALUE "ProductName", "pilibro" "\0"
+            VALUE "ProductName", "PiliBro B站 哥哥科技" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

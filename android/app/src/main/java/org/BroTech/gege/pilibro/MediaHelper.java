@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.pilibro;
+package org.BroTech.gege.pilibro;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;

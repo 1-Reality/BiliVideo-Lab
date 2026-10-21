@@ -239,6 +239,8 @@ dependency_overrides:
       url: https://github.com/My-Responsitories/flutter_cached_network_image_ce.git
       path: cached_network_image
       ref: develop
+  path_provider_windows:
+    path: third_party/path_provider_windows
 
 dev_dependencies:
   flutter_test:

@@ -8,7 +8,7 @@
 PRODUCT_NAME = PiliBro
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.pilibro
+PRODUCT_BUNDLE_IDENTIFIER = org.BroTech.gege.pilibro
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2023 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = 2026 © 哥哥科技. All rights reserved.

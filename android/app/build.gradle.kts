@@ -137,7 +137,7 @@ val desktopIconResourcesTask = tasks.register<GenerateDesktopIconResources>(
 }
 
 android {
-    namespace = "com.example.pilibro"
+    namespace = "org.BroTech.gege.pilibro"
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
