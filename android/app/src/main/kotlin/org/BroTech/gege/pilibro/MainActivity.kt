@@ -272,28 +272,6 @@ class MainActivity : AudioServiceActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
-        // A chosen icon disables the default entry. Should that icon's entry
-        // be missing from this build, the app would have no launcher entry
-        // left; reached any other way (a link), it puts the default back.
-        if (
-            packageManager.getComponentEnabledSetting(defaultIcon) ==
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-        ) {
-            @Suppress("DEPRECATION")
-            val entries = packageManager.queryIntentActivities(
-                Intent(Intent.ACTION_MAIN)
-                    .addCategory(Intent.CATEGORY_LAUNCHER)
-                    .setPackage(packageName),
-                0,
-            )
-            if (entries.isEmpty()) {
-                packageManager.setComponentEnabledSetting(
-                    defaultIcon,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.DONT_KILL_APP,
-                )
-            }
-        }
     }
 
     override fun onDestroy() {
@@ -311,12 +289,6 @@ class MainActivity : AudioServiceActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
-
-    private val defaultIcon
-        get() = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
 
     // The entry name is derived from the file name: a released launcher_*
     // file must never be deleted or renamed, or users who chose it lose
@@ -357,8 +329,12 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
         if (
-            packageManager.getComponentEnabledSetting(defaultIcon) !=
+            packageManager.getComponentEnabledSetting(defaultComponent) !=
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         ) {
             return null
@@ -385,41 +361,51 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
+        val defaultComponent = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
         val aliases = desktopIconComponents()
         val target = fileName?.let(::desktopIconComponent)
         if (target != null && target !in aliases) {
             return false
         }
 
-        // The new entry goes first: below Android 13 the changes land one at
-        // a time, and a failure after a disable must not leave no entry.
-        val enabled = target ?: defaultIcon
-        val others = (aliases + defaultIcon).filter { it != enabled }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.setComponentEnabledSettings(
-                (listOf(enabled) + others).map {
+        val settings = buildList {
+            add(
+                PackageManager.ComponentEnabledSetting(
+                    defaultComponent,
+                    if (target == null) {
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    } else {
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    },
+                    PackageManager.DONT_KILL_APP,
+                ),
+            )
+            aliases.forEach { alias ->
+                add(
                     PackageManager.ComponentEnabledSetting(
-                        it,
-                        if (it == enabled) {
+                        alias,
+                        if (alias == target) {
                             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         } else {
                             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                         },
                         PackageManager.DONT_KILL_APP,
-                    )
-                },
-            )
+                    ),
+                )
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.setComponentEnabledSettings(settings)
         } else {
-            packageManager.setComponentEnabledSetting(
-                enabled,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP,
-            )
-            others.forEach {
+            settings.forEach {
                 packageManager.setComponentEnabledSetting(
-                    it,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP,
+                    it.componentName!!,
+                    it.enabledState,
+                    it.enabledFlags,
                 )
             }
         }
@@ -463,6 +449,4 @@ class MainActivity : AudioServiceActivity() {
             0
         }
     }
-
-
 }
