@@ -382,6 +382,14 @@ abstract final class GStorage {
         MacOsDeviceInfo() => info.memorySize >> 24,
         _ => 192,
       };
+      if (Platform.isLinux) {
+        for (final line in await File('/proc/meminfo').readAsLines()) {
+          if (line.startsWith('MemTotal:')) {
+            limit = int.parse(line.split(RegExp(r'\s+'))[1]) >> 14;
+            break;
+          }
+        }
+      }
       if (limit < 1) limit = 192;
     } catch (_) {}
 
@@ -402,8 +410,10 @@ abstract final class GStorage {
     if (due is! num) return null;
     // A negative future timestamp means the one-time maintenance already ran,
     // while the Android first-run device wizard still needs to finish.
-    if (due < 0) return due;
-    if (due == 0) await _applyFirstRunBufferLimit();
+    if (due < 1) {
+      if (due == 0) await _applyFirstRunBufferLimit();
+      return due;
+    }
     if (now.millisecondsSinceEpoch < due.toInt()) return due;
 
     final updateIgnore = localCache.get(LocalCacheKey.updateIgnore);
