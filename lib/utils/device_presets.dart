@@ -22,7 +22,7 @@ abstract final class DevicePresets {
       SettingBoxKey.orientationFullscreenTrigger:
           OrientationFullscreenTrigger.both.index,
       SettingBoxKey.orientationTriggerSource:
-          OrientationTriggerSource.appGravity.index,
+          OrientationTriggerSource.system.index,
       SettingBoxKey.angleDegrees: 45,
       SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
       SettingBoxKey.finalDirectionMask: 0,
@@ -40,7 +40,7 @@ abstract final class DevicePresets {
       SettingBoxKey.appRotationMode: AppRotationMode.alwaysAuto.index,
       SettingBoxKey.fullScreenMode: FullScreenMode.none.index,
       SettingBoxKey.fullScreenRotationSource:
-          FullScreenRotationSource.followSystem.index,
+          FullScreenRotationSource.appGravity.index,
       SettingBoxKey.fullScreenAllowedOrientation:
           FullScreenAllowedOrientation.all.index,
       SettingBoxKey.gravityFollowSystemLock: true,
@@ -49,7 +49,7 @@ abstract final class DevicePresets {
       SettingBoxKey.orientationTriggerSource:
           OrientationTriggerSource.system.index,
       SettingBoxKey.angleDegrees: 30,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.keepPlayer.index,
+      SettingBoxKey.exitOrientationMode: ExitOrientationMode.lockPlayer.index,
       SettingBoxKey.finalDirectionMask: 0,
     },
     applyNow: applyNow,
@@ -62,10 +62,10 @@ abstract final class DevicePresets {
       SettingBoxKey.keyboardControl: true,
       SettingBoxKey.enableAutoEnter: false,
       SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
-      SettingBoxKey.appRotationMode: AppRotationMode.lockInitial.index,
+      SettingBoxKey.appRotationMode: AppRotationMode.followSystem.index,
       SettingBoxKey.fullScreenMode: FullScreenMode.ratio.index,
       SettingBoxKey.fullScreenRotationSource:
-          FullScreenRotationSource.appGravity.index,
+          FullScreenRotationSource.followSystem.index,
       SettingBoxKey.fullScreenAllowedOrientation:
           FullScreenAllowedOrientation.all.index,
       SettingBoxKey.gravityFollowSystemLock: false,
@@ -74,7 +74,7 @@ abstract final class DevicePresets {
       SettingBoxKey.orientationTriggerSource:
           OrientationTriggerSource.appGravity.index,
       SettingBoxKey.angleDegrees: 55,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.restoreApp.index,
+      SettingBoxKey.exitOrientationMode: ExitOrientationMode.keepPlayer.index,
       SettingBoxKey.finalDirectionMask: 0,
     },
     applyNow: applyNow,

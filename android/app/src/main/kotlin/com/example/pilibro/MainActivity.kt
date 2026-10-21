@@ -27,9 +27,26 @@ import java.util.function.IntConsumer
 class MainActivity : AudioServiceActivity() {
     private var proposedRotationSink: EventChannel.EventSink? = null
     private var proposedRotationListener: IntConsumer? = null
+    private var pendingLocalNetworkPermissionResult: MethodChannel.Result? = null
+
+    companion object {
+        private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
+        private const val LOCAL_NETWORK_PERMISSION_REQUEST_CODE = 17371
+        private const val ANDROID_17_API = 37
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Android 17 blocks local-network traffic for apps targeting API 37+ until
+        // ACCESS_LOCAL_NETWORK has been granted. Ask only when the router feature is used.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/local_network")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "ensureAccess" -> ensureLocalNetworkPermission(result)
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/orientation")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -103,6 +120,52 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun ensureLocalNetworkPermission(result: MethodChannel.Result) {
+        // This runtime permission is enforced by Android 17. Older versions keep
+        // their existing behavior and do not need a request for this permission.
+        if (Build.VERSION.SDK_INT < ANDROID_17_API) {
+            result.success(true)
+            return
+        }
+
+        if (checkSelfPermission(LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+            result.success(true)
+            return
+        }
+
+        if (pendingLocalNetworkPermissionResult != null) {
+            result.error("REQUEST_IN_PROGRESS", "Local-network permission request is already in progress", null)
+            return
+        }
+
+        pendingLocalNetworkPermissionResult = result
+        try {
+            requestPermissions(
+                arrayOf(LOCAL_NETWORK_PERMISSION),
+                LOCAL_NETWORK_PERMISSION_REQUEST_CODE,
+            )
+        } catch (error: Throwable) {
+            pendingLocalNetworkPermissionResult = null
+            result.error("PERMISSION_REQUEST_FAILED", error.message ?: error.javaClass.simpleName, null)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != LOCAL_NETWORK_PERMISSION_REQUEST_CODE) return
+
+        val pending = pendingLocalNetworkPermissionResult
+        pendingLocalNetworkPermissionResult = null
+        pending?.success(
+            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED,
+        )
     }
 
     private fun startProposedRotation(events: EventChannel.EventSink) {
@@ -209,6 +272,28 @@ class MainActivity : AudioServiceActivity() {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+        // A chosen icon disables the default entry. Should that icon's entry
+        // be missing from this build, the app would have no launcher entry
+        // left; reached any other way (a link), it puts the default back.
+        if (
+            packageManager.getComponentEnabledSetting(defaultIcon) ==
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        ) {
+            @Suppress("DEPRECATION")
+            val entries = packageManager.queryIntentActivities(
+                Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LAUNCHER)
+                    .setPackage(packageName),
+                0,
+            )
+            if (entries.isEmpty()) {
+                packageManager.setComponentEnabledSetting(
+                    defaultIcon,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -227,6 +312,15 @@ class MainActivity : AudioServiceActivity() {
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
 
+    private val defaultIcon
+        get() = ComponentName(
+            packageName,
+            MainActivity::class.java.packageName + ".DesktopIconDefault",
+        )
+
+    // The entry name is derived from the file name: a released launcher_*
+    // file must never be deleted or renamed, or users who chose it lose
+    // their launcher entry on update. Replacing its content is safe.
     private fun desktopIconComponent(fileName: String): ComponentName {
         val packageName = MainActivity::class.java.packageName
         val digest = MessageDigest.getInstance("SHA-256")
@@ -263,12 +357,8 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         if (
-            packageManager.getComponentEnabledSetting(defaultComponent) !=
+            packageManager.getComponentEnabledSetting(defaultIcon) !=
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         ) {
             return null
@@ -295,51 +385,41 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         val aliases = desktopIconComponents()
         val target = fileName?.let(::desktopIconComponent)
         if (target != null && target !in aliases) {
             return false
         }
 
-        val settings = buildList {
-            add(
-                PackageManager.ComponentEnabledSetting(
-                    defaultComponent,
-                    if (target == null) {
-                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                    } else {
-                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                    },
-                    PackageManager.DONT_KILL_APP,
-                ),
-            )
-            aliases.forEach { alias ->
-                add(
+        // The new entry goes first: below Android 13 the changes land one at
+        // a time, and a failure after a disable must not leave no entry.
+        val enabled = target ?: defaultIcon
+        val others = (aliases + defaultIcon).filter { it != enabled }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.setComponentEnabledSettings(
+                (listOf(enabled) + others).map {
                     PackageManager.ComponentEnabledSetting(
-                        alias,
-                        if (alias == target) {
+                        it,
+                        if (it == enabled) {
                             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         } else {
                             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                         },
                         PackageManager.DONT_KILL_APP,
-                    ),
-                )
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.setComponentEnabledSettings(settings)
+                    )
+                },
+            )
         } else {
-            settings.forEach {
+            packageManager.setComponentEnabledSetting(
+                enabled,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP,
+            )
+            others.forEach {
                 packageManager.setComponentEnabledSetting(
-                    it.componentName!!,
-                    it.enabledState,
-                    it.enabledFlags,
+                    it,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
                 )
             }
         }

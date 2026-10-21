@@ -43,3 +43,25 @@ Root: HKCU; Subkey: "Software\\Classes\\bilibili"; ValueType: string; ValueData:
 Root: HKCU; Subkey: "Software\\Classes\\bilibili"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
 Root: HKCU; Subkey: "Software\\Classes\\bilibili\\DefaultIcon"; ValueType: string; ValueData: "{app}\\{{EXECUTABLE_NAME}},0"
 Root: HKCU; Subkey: "Software\\Classes\\bilibili\\shell\\open\\command"; ValueType: string; ValueData: """{app}\\{{EXECUTABLE_NAME}}"" ""%1"""
+
+[Code]
+// Restart Manager often fails to close the app (it keeps running in the
+// tray), so end it and its WebView children before files are replaced.
+procedure KillApp;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM "{{EXECUTABLE_NAME}}"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  KillApp;
+  Result := '';
+end;
+
+function InitializeUninstall: Boolean;
+begin
+  KillApp;
+  Result := True;
+end;

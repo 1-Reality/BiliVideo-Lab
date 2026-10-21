@@ -1,11 +1,11 @@
-Required Notice: Copyright © 2026 哥哥科技 (BroTech)<br>
-Required Notice: https://github.com/ucxn/Bro-Stat · https://github.com/ucxn/ZTE-Stat_Max
+Required Notice: Copyright © 2026 哥哥科技<br>
+Bro-Tech Notice: https://github.com/ucxn/Bro-Stat · https://github.com/ucxn/ZTE-Stat_Max
 
 # 哥哥科技脚本在 PiliBro 中的收录声明
 
-本目录（`BroTech/`）及其下各子目录中的路由器增强脚本（本声明中亦称“插件”“组件”，三者所指相同），是哥哥科技独立创作、独立发布的作品。它们以原样收录的方式随 PiliBro 一同分发，彼此之间属于《GNU Affero 通用公共许可证》第三版第 5 条所称的“聚合”，而非由二者合成的单一作品。
+本目录（`BroTech/`）及其下各子目录中的路由器增强脚本（本声明中亦称“插件”“组件”，三者所指相同），是哥哥科技独立创作、独立发布的作品，不适用GPL协议。它们以原样收录的方式随 PiliBro 一同分发，彼此之间属于《GNU Affero 通用公共许可证》第三版第 5 条所称的“聚合”，而非由二者合成的单一作品。
 
-**一、许可证互不延伸。** PiliBro 的 AGPLv3 不适用于本目录中的任何脚本；脚本的授权也不延伸到 PiliBro。每个脚本只受其自身头部 `@license`、`@copyright` 声明，以及所在子目录中许可证文件的约束。收录这一事实本身，不构成哥哥科技以 AGPLv3 或任何其他许可证重新发布这些脚本的意思表示，也不能据此推定存在这样的授权。
+**一、许可证互不延伸。** PiliBro 的 AGPLv3 不适用于本目录中的任何脚本；App 的授权也不延伸到脚本。每个脚本只受其自身头部 `@license`、`@copyright` 声明，以及所在子目录中许可证文件的约束。收录这一事实本身，不构成哥哥科技以 AGPLv3 或任何其他许可证重新发布这些脚本的意思表示，也不能据此推定存在这样的授权。
 
 **二、分界线。** PiliBro 中负责读取、匹配、注入脚本以及实现 `GM_getValue`、`GM_setValue` 等接口的代码，属于 PiliBro 本身，按 AGPLv3 授权。脚本与 PiliBro 之间只通过油猴脚本的通用接口交互；同一脚本无需任何修改即可在其他脚本管理器中运行。
 

@@ -90,6 +90,16 @@ dependencies:
     git:
       url: https://github.com/bggRGjQaUbCoE/flutter_html.git
       ref: dev
+  flutter_html_svg:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      path: packages/flutter_html_svg
+      ref: dev
+  flutter_html_table:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      path: packages/flutter_html_table
+      ref: dev
   flutter_inappwebview: ^6.1.5
   flutter_smart_dialog:
     git:
@@ -120,6 +130,7 @@ dependencies:
   json_annotation: ^4.11.0
   live_photo_maker: ^0.0.6
   logger: ^2.5.0
+  markdown: ^7.3.0
   material_color_utilities: ^0.13.0
   material_design_icons_flutter:
     git:
@@ -173,6 +184,11 @@ dependencies:
       ref: main
 
 dependency_overrides:
+  # flutter_html_svg / flutter_html_table ask for flutter_html from pub.
+  flutter_html:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      ref: dev
   flutter_inappwebview_android:
     git:
       url: https://github.com/bggRGjQaUbCoE/flutter_inappwebview.git
@@ -274,6 +290,9 @@ flutter:
     - path: assets/BroTech/ZTE/
     - path: assets/BroTech/Mi/
     - path: assets/BroTech/general/
+    - path: assets/BroTech/general/COPYING/
+    - path: assets/BroTech/general/COPYING/License/
+    - path: assets/web/
   fonts:
     - family: digital_id_num
       fonts:

@@ -3,8 +3,10 @@ import 'dart:collection';
 import 'dart:io' show FileStat, FileSystemEntityType, Platform;
 
 import 'package:PiliBro/main.dart' show webViewEnvironment;
+import 'package:PiliBro/pages/brotech/files.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -19,6 +21,7 @@ class BroTechPage extends StatefulWidget {
 }
 
 class _BroTechPageState extends State<BroTechPage> {
+  static const _localNetworkChannel = MethodChannel('pilibro/local_network');
   static const _runAtKey = 'broTechRunAt';
   final _host = TextEditingController();
   late BroTechRunAt _runAt = BroTechRunAt.values.firstWhere(
@@ -93,6 +96,22 @@ class _BroTechPageState extends State<BroTechPage> {
   Future<void> _savePresets() => BroTechPresets.save(_presets);
 
   Future<void> _launch(BroTechPreset preset, {required bool isNew}) async {
+    if (Platform.isAndroid) {
+      bool granted;
+      try {
+        granted = await _localNetworkChannel.invokeMethod<bool>('ensureAccess') ?? false;
+      } on PlatformException {
+        SmartDialog.showToast('本地网络权限请求失败');
+        return;
+      } on MissingPluginException {
+        SmartDialog.showToast('当前版本不支持本地网络权限请求');
+        return;
+      }
+      if (!granted) {
+        SmartDialog.showToast('未允许本地网络访问，无法打开路由器页面');
+        return;
+      }
+    }
     String? user;
     String? pass;
     var saved = !isNew;
@@ -279,7 +298,30 @@ class _BroTechPageState extends State<BroTechPage> {
       ),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('路由器高级统计与增强（哥哥科技原创）')),
+      appBar: AppBar(
+        title: Text.rich(
+          TextSpan(
+            text: '路由器高级统计与增强（哥哥科技原创）',
+            children: [
+              WidgetSpan(
+                alignment: PlaceholderAlignment.top,
+                child: IconButton(
+                  tooltip: '许可与说明',
+                  onPressed: () => Get.to(() => const BroTechFilesPage()),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 24,
+                    height: 24,
+                  ),
+                  iconSize: 15,
+                  color: colorScheme.primary.withValues(alpha: 0.8),
+                  icon: const Icon(Icons.gavel_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: ListView(
         children: [
           if (_presets.isNotEmpty) ...[

@@ -40,6 +40,7 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
+          cache: ${{ inputs.tag == '' }}
 
       - name: Add fastforge and Inno Setup
         run: |
