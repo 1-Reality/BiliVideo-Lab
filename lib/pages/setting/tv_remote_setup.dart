@@ -47,16 +47,6 @@ abstract final class TvRemoteSetup {
   }
 
   static Future<void> showMenu(BuildContext context) async {
-    // Read the decoder preference only when this quick-configuration menu opens.
-    // This feature does not participate in app startup or player initialization.
-    var hardwareDecoding = GStorage.setting.get(
-      SettingBoxKey.hardwareDecoding,
-      defaultValue: HwDecType.kHwdec,
-    ) as String? ?? HwDecType.kHwdec;
-    var isPassthrough =
-        hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
-    var isUpdatingDecoder = false;
-
     BuildContext? dialogContext;
     var closing = false;
 
@@ -67,153 +57,118 @@ abstract final class TvRemoteSetup {
       Navigator.of(current).pop(action);
     }
 
+    // Read this preference only when the TV configuration menu is opened.
+    var isPassthrough =
+        GStorage.setting.get(
+          SettingBoxKey.hardwareDecoding,
+          defaultValue: HwDecType.kHwdec,
+        ) ==
+        HwDecType.mediacodecEmbed.hwdec;
+
     final action = await showDialog<_TvRemoteMenuAction>(
       context: context,
       builder: (current) {
         dialogContext = current;
-        return AlertDialog(
-          title: const Text('电视机快速登录与遥控器配置'),
-          content: SizedBox(
-            width: 560,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-                const SizedBox(height: 12),
-                StatefulBuilder(
-                  builder: (current, setDialogState) {
-                    Future<void> toggleDecoder() async {
-                      if (isUpdatingDecoder) return;
-                      setDialogState(() => isUpdatingDecoder = true);
-                      try {
-                        if (isPassthrough) {
-                          final previous = GStorage.setting.get(
-                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
-                          );
-                          final restore = previous is String &&
-                                  previous.isNotEmpty &&
-                                  previous != HwDecType.mediacodecEmbed.hwdec
-                              ? previous
-                              : HwDecType.kHwdec;
-                          await GStorage.setting.put(
-                            SettingBoxKey.hardwareDecoding,
-                            restore,
-                          );
-                          hardwareDecoding = restore;
-                          await GStorage.setting.delete(
-                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
-                          );
-                        } else {
-                          await GStorage.setting.put(
-                            SettingBoxKey.hardwareDecodingBeforeTvPassthrough,
-                            hardwareDecoding,
-                          );
-                          await GStorage.setting.put(
-                            SettingBoxKey.hardwareDecoding,
-                            HwDecType.mediacodecEmbed.hwdec,
-                          );
-                          hardwareDecoding = HwDecType.mediacodecEmbed.hwdec;
-                        }
-                        if (!current.mounted) return;
-                        setDialogState(() {
-                          isPassthrough =
-                              hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
-                          isUpdatingDecoder = false;
-                        });
-                      } catch (_) {
-                        if (current.mounted) {
-                          setDialogState(() {
-                            isPassthrough =
-                                hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
-                            isUpdatingDecoder = false;
-                          });
-                        }
-                        Get.snackbar(
-                          '设置失败',
-                          '无法保存编解码器偏好，请稍后重试。',
-                        );
-                      }
-                    }
-
-                    return Row(
+        return StatefulBuilder(
+          builder: (dialog, setDialogState) {
+            return AlertDialog(
+              title: const Text('电视机快速登录与遥控器配置'),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+                    const SizedBox(height: 12),
+                    Row(
                       children: [
-                        const Text(
-                          '播放卡顿？',
-                          style: TextStyle(
-                            color: Colors.purple,
-                            fontWeight: FontWeight.w600,
+                        const Expanded(
+                          child: Text(
+                            '播放卡顿？',
+                            style: TextStyle(color: Colors.purple),
                           ),
                         ),
-                        const Spacer(),
                         TextButton(
-                          onPressed: isUpdatingDecoder ? null : toggleDecoder,
-                          style: TextButton.styleFrom(
-                            foregroundColor:
-                                isPassthrough ? Colors.blue : Colors.red,
-                          ),
+                          onPressed: () async {
+                            if (isPassthrough) {
+                              await GStorage.setting.delete(
+                                SettingBoxKey.hardwareDecoding,
+                              );
+                              if (!dialog.mounted) return;
+                              setDialogState(() => isPassthrough = false);
+                            } else {
+                              await GStorage.setting.put(
+                                SettingBoxKey.hardwareDecoding,
+                                HwDecType.mediacodecEmbed.hwdec,
+                              );
+                              if (!dialog.mounted) return;
+                              setDialogState(() => isPassthrough = true);
+                            }
+                          },
                           child: Text(
                             isPassthrough ? '切换为常规渲染' : '切换为直通模式',
+                            style: TextStyle(
+                              color: isPassthrough ? Colors.blue : Colors.red,
+                            ),
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 6),
-                const Divider(),
-                const SizedBox(height: 12),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    TextButton(
-                      onPressed: () => select(_TvRemoteMenuAction.login),
-                      child: const Text('仅登录'),
                     ),
-                    FilledButton(
-                      onPressed: () => select(_TvRemoteMenuAction.configure),
-                      child: const Text('配置遥控器并登录'),
+                    const SizedBox(height: 18),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () => select(_TvRemoteMenuAction.login),
+                          child: const Text('仅登录'),
+                        ),
+                        FilledButton(
+                          onPressed: () => select(_TvRemoteMenuAction.configure),
+                          child: const Text('配置遥控器并登录'),
+                        ),
+                        TextButton(
+                          onPressed: () => select(_TvRemoteMenuAction.exportSettings),
+                          child: const Text('导出设置'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(dialog).pop(),
+                          child: const Text('取消'),
+                        ),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () => select(_TvRemoteMenuAction.exportSettings),
-                      child: const Text('导出设置'),
+                    const SizedBox(height: 18),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Text(
+                      '恢复默认预设',
+                      style: Theme.of(dialog).textTheme.titleMedium,
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.of(current).pop(),
-                      child: const Text('取消'),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.phonePreset),
+                      icon: const Icon(Icons.smartphone),
+                      label: const Text('应用手机预设'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.tabletPreset),
+                      icon: const Icon(Icons.tablet),
+                      label: const Text('应用平板预设'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.foldablePreset),
+                      icon: const Icon(Icons.devices),
+                      label: const Text('应用折叠屏预设'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                const Divider(),
-                const SizedBox(height: 12),
-                Text(
-                  '恢复默认预设',
-                  style: Theme.of(current).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.phonePreset),
-                  icon: const Icon(Icons.smartphone),
-                  label: const Text('应用手机预设'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.tabletPreset),
-                  icon: const Icon(Icons.tablet),
-                  label: const Text('应用平板预设'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.foldablePreset),
-                  icon: const Icon(Icons.devices),
-                  label: const Text('应用折叠屏预设'),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
