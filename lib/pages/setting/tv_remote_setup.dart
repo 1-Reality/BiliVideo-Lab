@@ -4,6 +4,7 @@ import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/pages/login/view.dart';
+import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
@@ -46,6 +47,16 @@ abstract final class TvRemoteSetup {
   }
 
   static Future<void> showMenu(BuildContext context) async {
+    // Read the decoder preference only when this quick-configuration menu opens.
+    // This feature does not participate in app startup or player initialization.
+    var hardwareDecoding = GStorage.setting.get(
+      SettingBoxKey.hardwareDecoding,
+      defaultValue: HwDecType.kHwdec,
+    ) as String? ?? HwDecType.kHwdec;
+    var isPassthrough =
+        hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
+    var isUpdatingDecoder = false;
+
     BuildContext? dialogContext;
     var closing = false;
 
@@ -69,7 +80,74 @@ abstract final class TvRemoteSetup {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
+                StatefulBuilder(
+                  builder: (current, setDialogState) {
+                    Future<void> toggleDecoder() async {
+                      if (isUpdatingDecoder) return;
+                      setDialogState(() => isUpdatingDecoder = true);
+                      try {
+                        if (isPassthrough) {
+                          // Remove the override and reuse the existing platform default.
+                          await GStorage.setting.delete(
+                            SettingBoxKey.hardwareDecoding,
+                          );
+                          hardwareDecoding = HwDecType.kHwdec;
+                        } else {
+                          await GStorage.setting.put(
+                            SettingBoxKey.hardwareDecoding,
+                            HwDecType.mediacodecEmbed.hwdec,
+                          );
+                          hardwareDecoding = HwDecType.mediacodecEmbed.hwdec;
+                        }
+                        if (!current.mounted) return;
+                        setDialogState(() {
+                          isPassthrough =
+                              hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
+                          isUpdatingDecoder = false;
+                        });
+                      } catch (_) {
+                        if (current.mounted) {
+                          setDialogState(() {
+                            isPassthrough =
+                                hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
+                            isUpdatingDecoder = false;
+                          });
+                        }
+                        Get.snackbar(
+                          '设置失败',
+                          '无法保存编解码器偏好，请稍后重试。',
+                        );
+                      }
+                    }
+
+                    return Row(
+                      children: [
+                        const Text(
+                          '播放卡顿？',
+                          style: TextStyle(
+                            color: Colors.purple,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: isUpdatingDecoder ? null : toggleDecoder,
+                          style: TextButton.styleFrom(
+                            foregroundColor:
+                                isPassthrough ? Colors.blue : Colors.red,
+                          ),
+                          child: Text(
+                            isPassthrough ? '切换为常规渲染' : '切换为直通模式',
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
+                const Divider(),
+                const SizedBox(height: 12),
                 Wrap(
                   alignment: WrapAlignment.end,
                   spacing: 8,

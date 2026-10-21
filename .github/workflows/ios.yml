@@ -16,10 +16,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-macos-app:
-    name: Release IOS
+  build_arm:
+    name: Release iOS (ARM preferred)
     runs-on: macos-26
+    continue-on-error: true
+    outputs:
+      runner_started: ${{ steps.runner_marker.outputs.started }}
+      build_succeeded: ${{ steps.build_success.outputs.succeeded }}
     steps:
+      - name: Mark ARM runner started
+        id: runner_marker
+        shell: bash
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
       - name: Checkout code
         uses: actions/checkout@v7
         with:
@@ -62,3 +71,90 @@ jobs:
           archive: false
           name: iOS-release
           path: PiliBro_ios_*.ipa
+
+      - name: Mark iOS build succeeded
+        id: build_success
+        if: ${{ success() }}
+        shell: bash
+        run: echo "succeeded=true" >> "$GITHUB_OUTPUT"
+
+  build_intel_fallback:
+    name: Release iOS (Intel fallback if ARM runner never starts)
+    needs: build_arm
+    if: ${{ !cancelled() && needs.build_arm.outputs.runner_started != 'true' }}
+    runs-on: macos-26-intel
+    outputs:
+      build_succeeded: ${{ steps.build_success.outputs.succeeded }}
+    steps:
+      - name: Mark Intel fallback runner started
+        id: runner_marker
+        shell: bash
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
+      - name: Setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: ${{ inputs.tag == '' }}
+
+      - name: Set and Extract version
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - name: Apply Patch
+        shell: pwsh
+        run: lib/scripts/patch.ps1 iOS
+
+      - name: Build iOS
+        run: |
+          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json --no-pub
+          ln -sf ./build/ios/iphoneos Payload
+          # make AltSign happy...
+          find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;
+          zip -r9 PiliBro_ios_${{env.version}}.ipa Payload/Runner.app
+
+      - name: Upload ios release
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          name: iOS-release
+          path: PiliBro_ios_*.ipa
+
+      - name: Mark Intel iOS build succeeded
+        id: build_success
+        if: ${{ success() }}
+        shell: bash
+        run: echo "succeeded=true" >> "$GITHUB_OUTPUT"
+
+  build_result:
+    name: Verify iOS build result
+    needs: [build_arm, build_intel_fallback]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm an iOS build succeeded
+        shell: bash
+        env:
+          ARM_BUILD_SUCCEEDED: ${{ needs.build_arm.outputs.build_succeeded }}
+          INTEL_BUILD_SUCCEEDED: ${{ needs.build_intel_fallback.outputs.build_succeeded }}
+        run: |
+          if [[ "$ARM_BUILD_SUCCEEDED" == "true" || "$INTEL_BUILD_SUCCEEDED" == "true" ]]; then
+            echo "iOS build succeeded."
+          else
+            echo "::error::The ARM runner started but the build failed, or the Intel fallback failed."
+            exit 1
+          fi
