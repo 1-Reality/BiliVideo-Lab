@@ -8,7 +8,7 @@ void main(List<String> args) async {
     input: Input(
       sourcePath: [packageRoot.resolve('android/app/src/main/java')],
       classes: [
-        'com.example.pilibro.AndroidHelper',
+        'org.BroTech.gege.pilibro.AndroidHelper',
         'java.lang.Runnable',
       ],
       androidSdk: AndroidSdk(

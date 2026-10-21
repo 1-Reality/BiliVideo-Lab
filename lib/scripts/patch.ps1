@@ -3,7 +3,7 @@ param(
 )
 
 git config --global user.name "ci"
-git config --global user.email "example@example.com"
+git config --global user.email "175325443+ucxn@users.noreply.github.com"
 
 # TODO: remove
 # https://github.com/flutter/flutter/issues/182281

@@ -6,7 +6,7 @@
   <img width="200" height="200" src="assets/images/logo/logo.png" alt="PiliBro">
   <h1>PiliBro FreeRate</h1>
   <p>基于 Flutter 开发的 PiliBro 客户端 · 哥哥科技的自由速率</p>
-  <p><img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/ucxn/Bili.Libre.Speed"> <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ucxn/Bili.Libre.Speed"> <img alt="GitHub all releases" src="https://img.shields.io/github/downloads/ucxn/Bili.Libre.Speed/total"></p>
+  <p><img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/1-Reality/BiliVideo-Lab"> <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ucxn/Bili.Libre.Speed"> <img alt="GitHub all releases" src="https://img.shields.io/github/downloads/1-Reality/BiliVideo-Lab/total"></p>
   <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" /> <img src="assets/screenshots/850shots_so.png" width="32%" alt="home" />
   <br><img src="assets/screenshots/main_screen.png" width="96%" alt="main screen" />
 </div>

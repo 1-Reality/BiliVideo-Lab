@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 class LinuxWebviewPlugin {
   static const MethodChannel channel = MethodChannel(
-    'com.example.pilibro/linux_webview',
+    'org.BroTech.gege.pilibro/linux_webview',
   );
 
   static final Map<int, LinuxWebviewController> _controllers = {};

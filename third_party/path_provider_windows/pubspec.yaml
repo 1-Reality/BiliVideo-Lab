@@ -1,0 +1,18 @@
+name: path_provider_windows
+description: Windows implementation of the path_provider plugin with one-time legacy data-directory migration.
+version: 2.3.0
+environment:
+  sdk: ^3.2.0
+  flutter: ">=3.16.0"
+flutter:
+  plugin:
+    implements: path_provider
+    platforms:
+      windows:
+        dartPluginClass: PathProviderWindows
+dependencies:
+  ffi: ^2.0.0
+  flutter:
+    sdk: flutter
+  path: ^1.8.0
+  path_provider_platform_interface: ^2.1.0
