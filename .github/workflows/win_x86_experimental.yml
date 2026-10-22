@@ -1,0 +1,354 @@
+name: Experimental Windows x86 (32-bit)
+
+# Deliberately isolated from win_x64.yml and build.yml. This workflow is allowed
+# to fail while exploring a toolchain that Flutter does not ship as a target.
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Optional build number for the artifact name"
+        required: false
+        default: "0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: experimental-windows-x86-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-libmpv-x86:
+    name: Build 32-bit libmpv + ANGLE payload
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout community mpv builder
+        uses: actions/checkout@v7
+        with:
+          repository: zhongfly/mpv-winbuild
+          ref: main
+          path: mpv-winbuild
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential checkinstall bison flex gettext git mercurial subversion \
+            ninja-build gyp cmake yasm nasm automake pkg-config libtool libtool-bin \
+            gcc-multilib g++-multilib clang lld libc++1 libc++abi1 libgmp-dev \
+            libmpfr-dev libmpc-dev libgcrypt-dev gperf ragel texinfo autopoint re2c \
+            asciidoc docbook2x unzip p7zip-full curl ccache python3-pip python3-venv \
+            python3-dev ruby perl rsync
+          python3 -m venv "$RUNNER_TEMP/mpv-venv"
+          "$RUNNER_TEMP/mpv-venv/bin/pip" install meson mako jsonschema
+          echo "$RUNNER_TEMP/mpv-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Attempt i686 libmpv build
+        id: mpv
+        shell: bash
+        working-directory: mpv-winbuild
+        run: |
+          set -euxo pipefail
+          chmod +x build.sh
+          ./build.sh -t 32 -c gcc 2>&1 | tee "$RUNNER_TEMP/mpv-x86-build.log"
+
+      - name: Collect x86 archive and ANGLE runtime
+        if: ${{ always() }}
+        shell: bash
+        working-directory: mpv-winbuild
+        run: |
+          set -u
+          mkdir -p "$GITHUB_WORKSPACE/mpv-x86-assets" "$RUNNER_TEMP/mpv-unpack"
+          find . -type f -iname '*.7z' -print | sort > "$RUNNER_TEMP/mpv-archives.txt" || true
+          cat "$RUNNER_TEMP/mpv-archives.txt"
+          picked=""
+          while IFS= read -r archive; do
+            [ -n "$archive" ] || continue
+            if 7z l "$archive" 2>/dev/null | grep -Fq 'libmpv-2.dll'; then
+              picked="$archive"
+              break
+            fi
+          done < "$RUNNER_TEMP/mpv-archives.txt"
+          if [ -z "$picked" ]; then
+            echo "No build archive containing libmpv-2.dll was found." | tee "$GITHUB_WORKSPACE/mpv-x86-assets/BUILD_FAILED.txt"
+            exit 0
+          fi
+          echo "Selected archive: $picked"
+          cp "$picked" "$GITHUB_WORKSPACE/mpv-x86-assets/PiliBro-libmpv-x86.7z"
+          7z x -y "$picked" -o"$RUNNER_TEMP/mpv-unpack" >/dev/null
+          dll="$(find "$RUNNER_TEMP/mpv-unpack" -type f -iname 'libmpv-2.dll' -print -quit)"
+          if [ -n "$dll" ]; then
+            file "$dll" | tee "$GITHUB_WORKSPACE/mpv-x86-assets/libmpv-pe-type.txt"
+            pe_type="$(file "$dll")"
+            if printf '%s' "$pe_type" | grep -Eiq 'PE32\+|x86-64|x86_64'; then
+              echo "Builder produced a 64-bit DLL, not a 32-bit libmpv; refusing to label it x86." | tee "$GITHUB_WORKSPACE/mpv-x86-assets/WRONG_ARCH.txt"
+              rm -f "$GITHUB_WORKSPACE/mpv-x86-assets/PiliBro-libmpv-x86.7z"
+              exit 0
+            fi
+          fi
+          mkdir -p "$RUNNER_TEMP/angle-root"
+          wanted='d3dcompiler_47.dll libEGL.dll libGLESv2.dll vk_swiftshader.dll vulkan-1.dll zlib.dll'
+          for name in $wanted; do
+            found="$(find "$RUNNER_TEMP/mpv-unpack" -type f -iname "$name" -print -quit)"
+            if [ -n "$found" ]; then cp "$found" "$RUNNER_TEMP/angle-root/$name"; fi
+          done
+          if [ -f "$RUNNER_TEMP/angle-root/libEGL.dll" ] && [ -f "$RUNNER_TEMP/angle-root/libGLESv2.dll" ]; then
+            (cd "$RUNNER_TEMP/angle-root" && 7z a -y "$GITHUB_WORKSPACE/mpv-x86-assets/ANGLE.7z" ./* >/dev/null)
+          else
+            echo "ANGLE DLLs were not present in the built libmpv archive; app build will still be attempted." | tee "$GITHUB_WORKSPACE/mpv-x86-assets/ANGLE_MISSING.txt"
+          fi
+          md5sum "$GITHUB_WORKSPACE/mpv-x86-assets"/*.7z 2>/dev/null || true
+          printf 'source_archive=%s\n' "$picked" > "$GITHUB_WORKSPACE/mpv-x86-assets/build-info.txt"
+
+      - name: Upload libmpv x86 experiment inputs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: win-x86-native-dependencies
+          path: |
+            mpv-x86-assets/**
+            ${{ runner.temp }}/mpv-x86-build.log
+            ${{ runner.temp }}/mpv-archives.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+  build-pilibro-x86:
+    name: Attempt PiliBro x86 build
+    needs: build-libmpv-x86
+    if: ${{ always() }}
+    runs-on: windows-2022
+    timeout-minutes: 360
+    steps:
+      - name: Checkout PiliBro
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          # This workflow patches Flutter's SDK source in place. Do not persist
+          # the patched SDK or mutated Pub packages in Actions cache.
+          cache: false
+          pub-cache: false
+
+      - name: Download x86 native dependency experiment
+        id: mpv-assets
+        if: ${{ needs.build-libmpv-x86.result == 'success' }}
+        uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: win-x86-native-dependencies
+          path: ${{ runner.temp }}/win-x86-native-dependencies
+
+      - name: Prepare log directory and toolchain diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path x86-experiment-logs | Out-Null
+          flutter --version 2>&1 | Tee-Object x86-experiment-logs/flutter-version.txt
+          dart --version 2>&1 | Tee-Object x86-experiment-logs/dart-version.txt
+          Get-Command cl.exe -ErrorAction SilentlyContinue | Format-List * | Out-File x86-experiment-logs/cl-location.txt
+          'RUNNER_OS','RUNNER_ARCH','FLUTTER_ROOT','LOCALAPPDATA','PUB_CACHE','PROCESSOR_ARCHITECTURE' | ForEach-Object {
+            $item = Get-Item "Env:$_" -ErrorAction SilentlyContinue
+            if ($item) { "{0}={1}" -f $_, $item.Value }
+          } | Out-File x86-experiment-logs/environment.txt
+
+      - name: Apply project Windows patches
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          lib/scripts/patch.ps1 windows 2>&1 | Tee-Object x86-experiment-logs/project-patch.log
+          if ($LASTEXITCODE -ne 0) { throw 'project patch script failed' }
+
+      - name: Resolve package sources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          flutter pub get 2>&1 | Tee-Object x86-experiment-logs/pub-get.log
+          if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed' }
+          lib/scripts/patch_media_kit_decoder_lab.ps1 2>&1 | Tee-Object x86-experiment-logs/media-kit-decoder-patch.log
+          if ($LASTEXITCODE -ne 0) { throw 'media-kit decoder patch failed' }
+
+      - name: Stage x86 media-kit archives if available
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src = Join-Path $env:RUNNER_TEMP 'win-x86-native-dependencies/mpv-x86-assets'
+          $dest = Join-Path $env:GITHUB_WORKSPACE 'build/windows/x86'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          if (Test-Path $src) {
+            Copy-Item (Join-Path $src '*') $dest -Force -ErrorAction SilentlyContinue
+          }
+          python lib/scripts/experimental_windows_x86_tool.py prepare-media-kit --repo . --archive-dir $dest 2>&1 | Tee-Object x86-experiment-logs/media-kit-x86-patch.log
+          if ($LASTEXITCODE -ne 0) { Write-Warning 'Could not fully patch media-kit for x86; continuing to the engine/build attempt.' }
+          Get-ChildItem $dest -Force | Select-Object Name,Length | Format-Table | Out-File x86-experiment-logs/staged-native-files.txt
+
+      - name: Install depot_tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $depot = Join-Path $env:RUNNER_TEMP 'depot_tools'
+          if (-not (Test-Path $depot)) {
+            git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git $depot
+          }
+          "${depot}" | Out-File -Append $env:GITHUB_PATH
+          $env:PATH = "$depot;$env:PATH"
+          $env:DEPOT_TOOLS_WIN_TOOLCHAIN = '0'
+          $env:GCLIENT_PY3 = '1'
+          "DEPOT_TOOLS_WIN_TOOLCHAIN=0" | Out-File -Append $env:GITHUB_ENV
+          "GCLIENT_PY3=1" | Out-File -Append $env:GITHUB_ENV
+          git config --global core.longpaths true
+          where.exe gclient 2>&1 | Tee-Object x86-experiment-logs/depot-tools.log
+
+      - name: Checkout matching Flutter engine sources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterSource = Join-Path $env:RUNNER_TEMP 'flutter-source-x86'
+          if (-not (Test-Path (Join-Path $flutterSource '.git'))) {
+            git clone --filter=blob:none --no-checkout https://github.com/flutter/flutter.git $flutterSource
+          }
+          Push-Location $flutterSource
+          try {
+            $version = (Select-String -Path (Join-Path $env:GITHUB_WORKSPACE 'pubspec.yaml') -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
+            if (-not $version) { $version = (flutter --version --machine | ConvertFrom-Json).frameworkVersion }
+            git fetch --depth 1 origin "refs/tags/$version:refs/tags/$version"
+            git checkout --force $version
+            $gclientTemplate = Join-Path $flutterSource 'engine/scripts/standard.gclient'
+            if (Test-Path $gclientTemplate) {
+              Copy-Item $gclientTemplate (Join-Path $flutterSource '.gclient') -Force
+            } else {
+              $gclientLines = @(
+                'solutions = ['
+                '  {'
+                '    "managed": False,'
+                '    "name": "engine/src/flutter",'
+                '    "url": "https://github.com/flutter/engine.git",'
+                '    "custom_deps": {},'
+                '    "deps_file": "DEPS",'
+                '    "safesync_url": "",'
+                '  },'
+                ']'
+              )
+              Set-Content -Encoding UTF8 -Path (Join-Path $flutterSource '.gclient') -Value $gclientLines
+            }
+            $depot = Join-Path $env:RUNNER_TEMP 'depot_tools'
+            $env:PATH = "$depot;$env:PATH"
+            gclient sync --no-history 2>&1 | Tee-Object (Join-Path $env:GITHUB_WORKSPACE 'x86-experiment-logs/engine-gclient-sync.log')
+            if ($LASTEXITCODE -ne 0) { throw 'gclient sync failed' }
+          } finally { Pop-Location }
+
+      - name: Patch Flutter tool for experimental windows-x86 target
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterRoot = $env:FLUTTER_ROOT
+          if (-not $flutterRoot) {
+            $flutterExe = (Get-Command flutter).Source
+            $flutterRoot = Split-Path -Parent (Split-Path -Parent $flutterExe)
+          }
+          "FLUTTER_ROOT=$flutterRoot" | Out-File -Append $env:GITHUB_ENV
+          python lib/scripts/experimental_windows_x86_tool.py patch-sdk --flutter-root "$flutterRoot" 2>&1 | Tee-Object x86-experiment-logs/flutter-tool-x86-patch.log
+          if ($LASTEXITCODE -ne 0) { throw 'Flutter tool patch failed' }
+          Copy-Item (Join-Path $flutterRoot 'x86-experimental-tool-patch-report.txt') x86-experiment-logs/ -Force -ErrorAction SilentlyContinue
+          Remove-Item (Join-Path $flutterRoot 'bin/cache/flutter_tools.snapshot') -Force -ErrorAction SilentlyContinue
+          Remove-Item (Join-Path $flutterRoot 'bin/cache/flutter_tools.stamp') -Force -ErrorAction SilentlyContinue
+          flutter --version 2>&1 | Tee-Object x86-experiment-logs/patched-flutter-version.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Patched Flutter tool could not start' }
+
+      - name: Attempt x86 Flutter engine build
+        id: engine-build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engineRoot = Join-Path $env:RUNNER_TEMP 'flutter-source-x86/engine/src'
+          $gn = Join-Path $engineRoot 'flutter/tools/gn'
+          if (-not (Test-Path $gn)) { throw "Engine GN script not found: $gn" }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          if (Test-Path $vswhere) {
+            $vs = & $vswhere -latest -products '*' -property installationPath
+            if ($vs) { "GYP_MSVS_OVERRIDE_PATH=$vs" | Out-File -Append $env:GITHUB_ENV; $env:GYP_MSVS_OVERRIDE_PATH = $vs }
+          }
+          $env:WINDOWSSDKDIR = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
+          "WINDOWSSDKDIR=$env:WINDOWSSDKDIR" | Out-File -Append $env:GITHUB_ENV
+          Push-Location $engineRoot
+          try {
+            $attempts = @(
+              @{ Name = 'windows_release_x86'; Args = @('--windows', '--windows-cpu', 'x86', '--runtime-mode=release', '--no-prebuilt-dart-sdk', '--output-dir=out/windows_release_x86') },
+              @{ Name = 'windows_release_x86_prebuilt'; Args = @('--windows', '--windows-cpu', 'x86', '--runtime-mode=release', '--output-dir=out/windows_release_x86_prebuilt') }
+            )
+            $built = $false
+            foreach ($attempt in $attempts) {
+              $gnLog = Join-Path $env:GITHUB_WORKSPACE ("x86-experiment-logs/engine-gn-$($attempt.Name).log")
+              $ninjaLog = Join-Path $env:GITHUB_WORKSPACE ("x86-experiment-logs/engine-ninja-$($attempt.Name).log")
+              Write-Host "===== GN attempt: $($attempt.Name) ====="
+              $gnArgs = $attempt.Args
+              python $gn @gnArgs 2>&1 | Tee-Object $gnLog
+              $gnExit = $LASTEXITCODE
+              if ($gnExit -ne 0) {
+                Write-Warning "GN attempt $($attempt.Name) failed with exit code $gnExit; trying the next configuration."
+                continue
+              }
+              ninja -C ("out/" + $attempt.Name) flutter gen_snapshot 2>&1 | Tee-Object $ninjaLog
+              $ninjaExit = $LASTEXITCODE
+              if ($ninjaExit -eq 0) {
+                "FLUTTER_LOCAL_ENGINE_NAME=$($attempt.Name)" | Out-File -Append $env:GITHUB_ENV
+                $built = $true
+                break
+              }
+              Write-Warning "Ninja attempt $($attempt.Name) failed with exit code $ninjaExit; trying the next configuration."
+            }
+            if (-not $built) { throw 'Both experimental Windows x86 engine configurations failed; see GN/Ninja logs.' }
+          } finally { Pop-Location }
+
+      - name: Attempt PiliBro 32-bit Windows build
+        id: app-build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engineRoot = Join-Path $env:RUNNER_TEMP 'flutter-source-x86/engine/src'
+          if (-not $env:FLUTTER_LOCAL_ENGINE_NAME) { throw 'No local x86 engine build selected' }
+          flutter build windows --release --no-pub "--local-engine=$env:FLUTTER_LOCAL_ENGINE_NAME" "--local-engine-src-path=$engineRoot" --dart-define-from-file=pili_release.json 2>&1 | Tee-Object x86-experiment-logs/pilibro-build.log
+          if ($LASTEXITCODE -ne 0) { throw 'PiliBro Windows x86 build failed' }
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE 'build/windows/x86/runner/Release'
+          if (-not (Test-Path $releaseDir)) { throw "Expected release directory missing: $releaseDir" }
+          $exe = Get-ChildItem $releaseDir -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'No application EXE found in x86 release directory' }
+          $pe = [IO.File]::ReadAllBytes($exe.FullName)
+          if ($pe.Length -lt 256 -or $pe[0] -ne 0x4D -or $pe[1] -ne 0x5A) { throw 'Output EXE is not a valid PE file' }
+          $peOffset = [BitConverter]::ToInt32($pe, 0x3C)
+          $machine = [BitConverter]::ToUInt16($pe, $peOffset + 4)
+          $machineText = 'PE machine: 0x{0:X4}' -f $machine
+          $machineText | Tee-Object x86-experiment-logs/exe-machine.txt
+          if ($machine -ne 0x014C) { throw "Output EXE is not 32-bit x86 (expected 0x014C, got 0x$('{0:X4}' -f $machine))." }
+          $number = '${{ inputs.build_number }}'
+          $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+          $archive = "PiliBro-Windows-x86-experimental-$number-$stamp.zip"
+          Compress-Archive -Path (Join-Path $releaseDir '*') -DestinationPath $archive -Force
+          "X86_EXPERIMENT_ARCHIVE=$archive" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload experimental EXE bundle
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: PiliBro-Windows-x86-experimental
+          path: PiliBro-Windows-x86-experimental-*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload build diagnostics (including failures)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: PiliBro-Windows-x86-diagnostics
+          path: x86-experiment-logs/**
+          if-no-files-found: warn
+          retention-days: 14
