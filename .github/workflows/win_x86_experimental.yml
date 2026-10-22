@@ -117,7 +117,21 @@ jobs:
           git rev-parse HEAD
           printf 'Packaging wrapper commit: '
           git -C ../mpv-winbuild-wrapper rev-parse HEAD
+          set +e
           bash ../mpv-winbuild-wrapper/build.sh -t 32 -c gcc 2>&1 | tee "$RUNNER_TEMP/mpv-x86-build.log"
+          build_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$build_status" -ne 0 ]; then
+            for log in \
+              build32/packages/libdvdread-prefix/src/libdvdread-stamp/libdvdread-configure-*.log \
+              build32/packages/libdvdread-prefix/src/libdvdread-build/meson-logs/meson-log.txt; do
+              [ -f "$log" ] || continue
+              echo "::group::libdvdread configure diagnostic: $log"
+              tail -n 200 "$log"
+              echo "::endgroup::"
+            done
+            exit "$build_status"
+          fi
 
       - name: Collect x86 archive and ANGLE runtime
         if: ${{ always() }}
@@ -126,6 +140,14 @@ jobs:
         run: |
           set -u
           mkdir -p "$GITHUB_WORKSPACE/mpv-x86-assets" "$RUNNER_TEMP/mpv-unpack"
+          diagnostics="$GITHUB_WORKSPACE/mpv-x86-assets/diagnostics"
+          for log in \
+            build32/packages/libdvdread-prefix/src/libdvdread-stamp/libdvdread-configure-*.log \
+            build32/packages/libdvdread-prefix/src/libdvdread-build/meson-logs/meson-log.txt; do
+            [ -f "$log" ] || continue
+            mkdir -p "$diagnostics/$(dirname "$log")"
+            cp "$log" "$diagnostics/$log"
+          done
           find . -type f -iname '*.7z' -print | sort > "$RUNNER_TEMP/mpv-archives.txt" || true
           cat "$RUNNER_TEMP/mpv-archives.txt"
           picked=""
