@@ -66,7 +66,7 @@ jobs:
           if replaced != 1:
               raise SystemExit("Patch author From: header was not found exactly once.")
 
-          separator = re.search(r"(?m)^---\\s*$", remainder)
+          separator = re.search(r"(?m)^---\s*$", remainder)
           if separator is None:
               raise SystemExit("Patch diff separator was not found.")
           message = remainder[:separator.start()].rstrip()
