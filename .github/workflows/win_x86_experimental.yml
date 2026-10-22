@@ -19,8 +19,58 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight-x86:
+    name: Fast x86 toolchain + Meson preflight
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    outputs:
+      toolchain_sha: ${ steps.source.outputs.toolchain_sha }
+    steps:
+      - name: Checkout CMake-based MinGW toolchain
+        id: source
+        uses: actions/checkout@v7
+        with:
+          repository: shinchiro/mpv-winbuild-cmake
+          ref: master
+          path: mpv-winbuild-cmake
+          fetch-depth: 1
+
+      - name: Record toolchain revision
+        shell: bash
+        working-directory: mpv-winbuild-cmake
+        run: echo "toolchain_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install preflight toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y             gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686             pkgconf ninja-build git file
+          python3 -m venv "$RUNNER_TEMP/mpv-preflight-venv"
+          "$RUNNER_TEMP/mpv-preflight-venv/bin/pip" install --disable-pip-version-check meson
+          echo "$RUNNER_TEMP/mpv-preflight-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Run x86 compiler and dependency preflight
+        id: preflight
+        shell: bash
+        run: ../BiliVideo-Lab/.github/scripts/preflight_x86_meson.sh
+        working-directory: mpv-winbuild-cmake
+        env:
+          RUNNER_TEMP: ${ runner.temp }
+
+      - name: Upload preflight diagnostics
+        if: ${ always() }
+        uses: actions/upload-artifact@v7
+        with:
+          name: win-x86-preflight-diagnostics
+          path: ${ runner.temp }/x86-preflight/**
+          if-no-files-found: warn
+          retention-days: 7
+
   build-libmpv-x86:
     name: Build 32-bit libmpv + ANGLE payload
+    needs: preflight-x86
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     steps:
@@ -28,7 +78,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: shinchiro/mpv-winbuild-cmake
-          ref: master
+          ref: ${{ needs.preflight-x86.outputs.toolchain_sha }}
           path: mpv-winbuild-cmake
           fetch-depth: 1
 
