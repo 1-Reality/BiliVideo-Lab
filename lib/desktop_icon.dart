@@ -31,6 +31,7 @@ class DesktopIconPage extends StatefulWidget {
 
 class _DesktopIconPageState extends State<DesktopIconPage> {
   List<String>? _icons;
+  List<String> _builtInIcons = const [];
   String? _current;
   Object? _error;
 
@@ -63,6 +64,7 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
       if (!mounted) return;
       setState(() {
         _icons = files;
+        _builtInIcons = discovered;
         _current = current;
       });
     } catch (e) {
@@ -74,7 +76,7 @@ class _DesktopIconPageState extends State<DesktopIconPage> {
   Future<void> _select(String? fileName) async {
     try {
       SmartDialog.showLoading(msg: '处理中');
-      final ok = await DesktopIcon.setBuiltInIcon(fileName);
+      final ok = await DesktopIcon.setBuiltInIcon(fileName, _builtInIcons);
       SmartDialog.dismiss();
       if (!mounted) return;
       if (ok) {
@@ -232,10 +234,13 @@ abstract final class DesktopIcon {
     );
   }
 
-  static Future<bool> setBuiltInIcon(String? fileName) async {
+  static Future<bool> setBuiltInIcon(
+    String? fileName,
+    List<String> fileNames,
+  ) async {
     return await _channel.invokeMethod<bool>(
           'setBuiltInIcon',
-          {'fileName': fileName},
+          {'fileName': fileName, 'fileNames': fileNames},
         ) ??
         false;
   }
