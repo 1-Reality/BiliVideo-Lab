@@ -351,4 +351,4 @@ jobs:
           name: PiliBro-Windows-x86-diagnostics
           path: x86-experiment-logs/**
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 10

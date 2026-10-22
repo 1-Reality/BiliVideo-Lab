@@ -1,5 +1,6 @@
 package org.BroTech.gege.pilibro
 
+import android.annotation.TargetApi
 import android.app.UiModeManager
 import android.content.Context
 import android.content.ComponentName
@@ -86,8 +87,7 @@ class MainActivity : AudioServiceActivity() {
                     }
                     "setBuiltInIcon" -> {
                         val fileName = call.argument<String>("fileName")
-                        val fileNames = call.argument<List<String>>("fileNames") ?: emptyList()
-                        result.success(setBuiltInLauncherIcon(fileName, fileNames))
+                        result.success(setBuiltInLauncherIcon(fileName))
                     }
                     "setCustomDesktopIcon" -> {
                         val bytes = call.argument<ByteArray>("bytes")
@@ -307,9 +307,28 @@ class MainActivity : AudioServiceActivity() {
         )
     }
 
-    // Resolve the icon aliases from the same asset-file list used by Flutter.
-    // Querying disabled launcher activities is inconsistent on some older OEM
-    // Android builds; the generated alias names are deterministic from fileName.
+    @Suppress("DEPRECATION")
+    private fun desktopIconComponents(): List<ComponentName> {
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        val classPrefix = MainActivity::class.java.packageName + ".DesktopIcon_"
+        return packageManager
+            .queryIntentActivities(
+                launcherIntent,
+                PackageManager.MATCH_DISABLED_COMPONENTS,
+            )
+            .mapNotNull { info ->
+                val name = info.activityInfo?.name ?: return@mapNotNull null
+                if (name.startsWith(classPrefix)) {
+                    ComponentName(packageName, name)
+                } else {
+                    null
+                }
+            }
+            .distinct()
+    }
+
     private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
         val defaultComponent = ComponentName(
             packageName,
@@ -322,41 +341,47 @@ class MainActivity : AudioServiceActivity() {
             return null
         }
 
-        return fileNames.firstOrNull { fileName ->
-            packageManager.getComponentEnabledSetting(desktopIconComponent(fileName)) ==
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        val namesByComponent = fileNames.associateBy {
+            desktopIconComponent(it).className
         }
+        val launcherIntent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setPackage(packageName)
+        @Suppress("DEPRECATION")
+        val activities = packageManager.queryIntentActivities(
+            launcherIntent,
+            PackageManager.MATCH_DISABLED_COMPONENTS,
+        )
+        return activities.firstOrNull { info ->
+            val name = info.activityInfo?.name ?: return@firstOrNull false
+            if (name !in namesByComponent) return@firstOrNull false
+            packageManager.getComponentEnabledSetting(
+                ComponentName(packageName, name),
+            ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }?.activityInfo?.name?.let(namesByComponent::get)
     }
 
-    private fun setBuiltInLauncherIcon(
-        fileName: String?,
-        fileNames: List<String>,
-    ): Boolean {
+    private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
         val defaultComponent = ComponentName(
             packageName,
             MainActivity::class.java.packageName + ".DesktopIconDefault",
         )
-        // The asset manifest and Gradle-generated activity aliases use the same
-        // source files and SHA-256 naming scheme. Do not depend on querying
-        // disabled launcher activities to discover those aliases at runtime.
-        if (fileName != null && fileName !in fileNames) {
+        val aliases = desktopIconComponents()
+        val target = fileName?.let(::desktopIconComponent)
+        if (target != null && target !in aliases) {
             return false
         }
 
-        val aliases = fileNames.map(::desktopIconComponent).distinct()
-        val target = fileName?.let(::desktopIconComponent)
+        // Android 13 adds the batch API and its ComponentEnabledSetting type.
+        // Do not even construct that type on older Android releases.
         val enabled = target ?: defaultComponent
         val others = (aliases + defaultComponent).filter { it != enabled }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Android13ComponentEnabledSettings.apply(
-                packageManager,
-                enabled,
-                others,
-            )
+            Android13IconApi.apply(packageManager, enabled, others)
         } else {
-            // Older Android only has the single-component API. Enable the new
-            // entry first so the app never loses its launcher entry mid-update.
+            // Older Android applies each change separately: enable the new
+            // launcher first, then disable the old entries so none disappear
+            // in between.
             packageManager.setComponentEnabledSetting(
                 enabled,
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
@@ -409,5 +434,32 @@ class MainActivity : AudioServiceActivity() {
         } else {
             0
         }
+    }
+}
+
+
+// Keep Android 13-only types out of MainActivity's class verification path.
+// The implementation stays in this source file and is called only by the
+// SDK >= 33 branch above.
+@TargetApi(33)
+private object Android13IconApi {
+    fun apply(
+        packageManager: PackageManager,
+        enabled: ComponentName,
+        disabled: List<ComponentName>,
+    ) {
+        packageManager.setComponentEnabledSettings(
+            (listOf(enabled) + disabled).map { component ->
+                PackageManager.ComponentEnabledSetting(
+                    component,
+                    if (component == enabled) {
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    } else {
+                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                    },
+                    PackageManager.DONT_KILL_APP,
+                )
+            },
+        )
     }
 }
