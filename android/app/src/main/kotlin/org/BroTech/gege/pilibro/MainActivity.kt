@@ -371,41 +371,38 @@ class MainActivity : AudioServiceActivity() {
             return false
         }
 
-        val settings = buildList {
-            add(
-                PackageManager.ComponentEnabledSetting(
-                    defaultComponent,
-                    if (target == null) {
-                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                    } else {
-                        PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                    },
-                    PackageManager.DONT_KILL_APP,
-                ),
-            )
-            aliases.forEach { alias ->
-                add(
+        // Android 13 adds the batch API and its ComponentEnabledSetting type.
+        // Do not even construct that type on older Android releases.
+        val enabled = target ?: defaultComponent
+        val others = (aliases + defaultComponent).filter { it != enabled }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.setComponentEnabledSettings(
+                (listOf(enabled) + others).map {
                     PackageManager.ComponentEnabledSetting(
-                        alias,
-                        if (alias == target) {
+                        it,
+                        if (it == enabled) {
                             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         } else {
                             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
                         },
                         PackageManager.DONT_KILL_APP,
-                    ),
-                )
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.setComponentEnabledSettings(settings)
+                    )
+                },
+            )
         } else {
-            settings.forEach {
+            // Older Android applies each change separately: enable the new
+            // launcher first, then disable the old entries so none disappear
+            // in between.
+            packageManager.setComponentEnabledSetting(
+                enabled,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP,
+            )
+            others.forEach {
                 packageManager.setComponentEnabledSetting(
-                    it.componentName!!,
-                    it.enabledState,
-                    it.enabledFlags,
+                    it,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
                 )
             }
         }
