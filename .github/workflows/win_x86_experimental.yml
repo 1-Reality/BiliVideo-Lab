@@ -40,6 +40,51 @@ jobs:
           path: mpv-winbuild-wrapper
           fetch-depth: 1
 
+      - name: Set SPIRV-Cross patch identities
+        shell: bash
+        working-directory: mpv-winbuild-cmake
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from email.header import Header
+          from pathlib import Path
+          import re
+
+          patch_files = sorted(Path("packages").glob("spirv-cross-*.patch"))
+          if len(patch_files) != 1:
+              raise SystemExit(f"Expected one SPIRV-Cross patch, found: {patch_files}")
+
+          patch_path = patch_files[0]
+          text = patch_path.read_text(encoding="utf-8")
+          header, blank, remainder = text.partition("\n\n")
+          if not blank:
+              raise SystemExit("Patch mail header separator was not found.")
+
+          encoded_name = Header("哥哥科技", "utf-8").encode()
+          author_header = f"From: {encoded_name} <175325443+ucxn@users.noreply.github.com>"
+          header, replaced = re.subn(r"(?m)^From: .*?$", lambda _: author_header, header, count=1)
+          if replaced != 1:
+              raise SystemExit("Patch author From: header was not found exactly once.")
+
+          separator = re.search(r"(?m)^---\\s*$", remainder)
+          if separator is None:
+              raise SystemExit("Patch diff separator was not found.")
+          message = remainder[:separator.start()].rstrip()
+          diff = remainder[separator.end():]
+          if diff.startswith("\n"):
+              diff = diff[1:]
+
+          signoff = "Signed-off-by: boli <182537019+boli0301@users.noreply.github.com>"
+          if signoff not in message.splitlines():
+              message = f"{message}\n\n{signoff}" if message else signoff
+
+          patch_path.write_text(
+              f"{header}\n\n{message}\n\n---\n{diff}",
+              encoding="utf-8",
+          )
+          print(f"Configured {patch_path}: Author=哥哥科技, Sign-off=boli")
+          PY
+
       - name: Install build dependencies
         shell: bash
         run: |
@@ -59,6 +104,9 @@ jobs:
 
       - name: Attempt i686 libmpv build
         id: mpv
+        env:
+          GIT_COMMITTER_NAME: "Reality"
+          GIT_COMMITTER_EMAIL: "244209739+1-Reality@users.noreply.github.com"
         shell: bash
         working-directory: mpv-winbuild-cmake
         run: |
@@ -365,4 +413,4 @@ jobs:
           name: PiliBro-Windows-x86-diagnostics
           path: x86-experiment-logs/**
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 10
