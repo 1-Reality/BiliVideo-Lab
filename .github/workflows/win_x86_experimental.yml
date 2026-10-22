@@ -26,6 +26,12 @@ jobs:
     outputs:
       toolchain_sha: ${ steps.source.outputs.toolchain_sha }
     steps:
+      - name: Checkout BiliVideo-Lab preflight scripts
+        uses: actions/checkout@v7
+        with:
+          path: BiliVideo-Lab
+          fetch-depth: 1
+
       - name: Checkout CMake-based MinGW toolchain
         id: source
         uses: actions/checkout@v7
