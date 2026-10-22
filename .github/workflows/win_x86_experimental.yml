@@ -10,6 +10,11 @@ on:
         required: false
         default: "0"
         type: string
+      preflight_only:
+        description: "Run only the fast x86 preflight; skip the expensive full build"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -77,6 +82,7 @@ jobs:
   build-libmpv-x86:
     name: Build 32-bit libmpv + ANGLE payload
     needs: preflight-x86
+    if: ${{ needs.preflight-x86.result == 'success' && inputs.preflight_only != true }
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     steps:
