@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     outputs:
-      toolchain_sha: ${ steps.source.outputs.toolchain_sha }
+      toolchain_sha: ${{ steps.source.outputs.toolchain_sha }}
     steps:
       - name: Checkout BiliVideo-Lab preflight scripts
         uses: actions/checkout@v7
@@ -63,14 +63,14 @@ jobs:
         run: ../BiliVideo-Lab/.github/scripts/preflight_x86_meson.sh
         working-directory: mpv-winbuild-cmake
         env:
-          RUNNER_TEMP: ${ runner.temp }
+          RUNNER_TEMP: ${{ runner.temp }}
 
       - name: Upload preflight diagnostics
-        if: ${ always() }
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: win-x86-preflight-diagnostics
-          path: ${ runner.temp }/x86-preflight/**
+          path: ${{ runner.temp }}/x86-preflight/**
           if-no-files-found: warn
           retention-days: 7
 
