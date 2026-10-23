@@ -96,21 +96,10 @@ class _BroTechPageState extends State<BroTechPage> {
   Future<void> _savePresets() => BroTechPresets.save(_presets);
 
   Future<void> _launch(BroTechPreset preset, {required bool isNew}) async {
-    if (Platform.isAndroid) {
-      bool granted;
-      try {
-        granted = await _localNetworkChannel.invokeMethod<bool>('ensureAccess') ?? false;
-      } on PlatformException {
-        SmartDialog.showToast('本地网络权限请求失败');
-        return;
-      } on MissingPluginException {
-        SmartDialog.showToast('当前版本不支持本地网络权限请求');
-        return;
-      }
-      if (!granted) {
-        SmartDialog.showToast('未允许本地网络访问，无法打开路由器页面');
-        return;
-      }
+    if (Platform.isAndroid &&
+        await _localNetworkChannel.invokeMethod<bool>('ensureAccess') != true) {
+      SmartDialog.showToast('未允许本地网络访问，无法打开路由器页面');
+      return;
     }
     String? user;
     String? pass;

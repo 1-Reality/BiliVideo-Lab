@@ -214,43 +214,28 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Future<void> _onClose() async {
-    // Window close events and tray menu clicks can arrive through different
-    // native paths. Make shutdown single-flight so both paths cannot close
-    // the same Hive boxes/tray twice.
+    // The window and the tray menu can both ask to close: shut down once.
     if (_closing) return;
     _closing = true;
     _windowGeometryTimer?.cancel();
-
-    try {
-      // Shutdown must never be blocked indefinitely by telemetry, archive
-      // maintenance or a desktop-plugin call. The process exit in finally is
-      // the final authority for a real desktop exit.
-      await Future<void>(() async {
-        await _saveWindowGeometry();
-        await PlaybackStatsService.flush();
-        await PlaybackArchiveService.waitForMaintenance();
-        await TrafficStatsService.instance.dispose();
-        await GStorage.close();
-      }).timeout(_closeCleanupTimeout);
-    } catch (_) {
-      // Closing the app is more important than completing optional persistence.
-      // The next launch can recover from the persisted state left on disk.
-    } finally {
-      // The native tray object is best-effort here. Process termination below
-      // also removes the owning process from the desktop session.
-      try {
-        await trayManager.destroy().timeout(const Duration(milliseconds: 500));
-      } catch (_) {}
-
-      if (Platform.isWindows) {
-        // flutter_inappwebview
-        // 6.2.0-beta.2+ https://github.com/pichillilorenzo/flutter_inappwebview/issues/2482
-        // 6.1.5 https://github.com/pichillilorenzo/flutter_inappwebview/issues/2512#issuecomment-3031039587
-        final hProcess = kernel32.GetCurrentProcess();
-        kernel32.TerminateProcess(hProcess, 0);
-      } else {
-        exit(0);
-      }
+    // A step that hangs or throws (the Linux tray did) must not keep the
+    // process alive: cleanup gets a bounded time, then the process exits.
+    await () async {
+      await _saveWindowGeometry();
+      await PlaybackStatsService.flush();
+      await PlaybackArchiveService.waitForMaintenance();
+      await TrafficStatsService.instance.dispose();
+      await GStorage.close();
+      await trayManager.destroy();
+    }().timeout(_closeCleanupTimeout, onTimeout: () {}).catchError((_) {});
+    if (Platform.isWindows) {
+      // flutter_inappwebview
+      // 6.2.0-beta.2+ https://github.com/pichillilorenzo/flutter_inappwebview/issues/2482
+      // 6.1.5 https://github.com/pichillilorenzo/flutter_inappwebview/issues/2512#issuecomment-3031039587
+      final hProcess = kernel32.GetCurrentProcess();
+      kernel32.TerminateProcess(hProcess, 0);
+    } else {
+      exit(0);
     }
   }
 
