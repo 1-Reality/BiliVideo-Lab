@@ -33,6 +33,9 @@ class MainActivity : AudioServiceActivity() {
     companion object {
         private const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
         private const val LOCAL_NETWORK_REQUEST = 17371
+        // Class.getPackageName() is missing on older Android: calling it
+        // there throws NoSuchMethodError, so take the prefix of the class name.
+        private val CLASS_PACKAGE = MainActivity::class.java.name.substringBeforeLast('.')
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -265,24 +268,23 @@ class MainActivity : AudioServiceActivity() {
     // file must never be deleted or renamed, or users who chose it lose
     // their launcher entry on update. Replacing its content is safe.
     private fun desktopIconComponent(fileName: String): ComponentName {
-        val packageName = MainActivity::class.java.packageName
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(fileName.toByteArray(Charsets.UTF_8))
         val id = digest.take(12).joinToString("") {
             "%02x".format(it.toInt() and 0xff)
         }
-        return ComponentName(
-            this.packageName,
-            packageName + ".DesktopIcon_" + id,
-        )
+        return ComponentName(packageName, "$CLASS_PACKAGE.DesktopIcon_$id")
     }
+
+    private val defaultComponent
+        get() = ComponentName(packageName, "$CLASS_PACKAGE.DesktopIconDefault")
 
     @Suppress("DEPRECATION")
     private fun desktopIconComponents(): List<ComponentName> {
         val launcherIntent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
             .setPackage(packageName)
-        val classPrefix = MainActivity::class.java.packageName + ".DesktopIcon_"
+        val classPrefix = "$CLASS_PACKAGE.DesktopIcon_"
         return packageManager
             .queryIntentActivities(
                 launcherIntent,
@@ -300,10 +302,6 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         if (
             packageManager.getComponentEnabledSetting(defaultComponent) !=
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
@@ -332,10 +330,6 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         val aliases = desktopIconComponents()
         val target = fileName?.let(::desktopIconComponent)
         if (target != null && target !in aliases) {
