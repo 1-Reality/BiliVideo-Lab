@@ -36,6 +36,9 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late bool gridManual = Pref.speedGridManual;
   late int sliderMin = Pref.speedSliderMin;
   late int sliderMax = Pref.speedSliderMax;
+  late int sliderStep = Pref.speedSliderStep;
+  late int panelMode = Pref.speedPanelMode;
+  late int panelModeLandscape = Pref.speedPanelModeLandscape;
   late int speedStep = Pref.speedStep;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
@@ -211,7 +214,13 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   Future<void> _setSliderRange() async {
     var minText = formatCenti(sliderMin);
     var maxText = formatCenti(sliderMax);
-    final result = await showDialog<(int, int)>(
+    var stepText = formatCenti(sliderStep);
+    InputDecoration decoration(String label) => InputDecoration(
+      labelText: label,
+      suffixText: '倍',
+      border: const OutlineInputBorder(borderRadius: .all(.circular(6))),
+    );
+    final result = await showDialog<(int, int, int)>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('滑杆范围'),
@@ -224,23 +233,22 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
               initialValue: minText,
               keyboardType: const .numberWithOptions(decimal: true),
               inputFormatters: FilteringText.decimal,
-              decoration: const InputDecoration(
-                labelText: '最小',
-                suffixText: '倍',
-                border: OutlineInputBorder(borderRadius: .all(.circular(6))),
-              ),
+              decoration: decoration('最小'),
               onChanged: (text) => minText = text,
             ),
             TextFormField(
               initialValue: maxText,
               keyboardType: const .numberWithOptions(decimal: true),
               inputFormatters: FilteringText.decimal,
-              decoration: const InputDecoration(
-                labelText: '最大',
-                suffixText: '倍',
-                border: OutlineInputBorder(borderRadius: .all(.circular(6))),
-              ),
+              decoration: decoration('最大'),
               onChanged: (text) => maxText = text,
+            ),
+            TextFormField(
+              initialValue: stepText,
+              keyboardType: const .numberWithOptions(decimal: true),
+              inputFormatters: FilteringText.decimal,
+              decoration: decoration('分度值'),
+              onChanged: (text) => stepText = text,
             ),
           ],
         ),
@@ -248,14 +256,21 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
           TextButton(onPressed: Get.back, child: const Text('取消')),
           TextButton(
             onPressed: () {
-              // 两端对齐到 0.1，滑杆步长 0.1
-              final lo = ((double.tryParse(minText) ?? 0) * 10).round() * 10;
-              final hi = ((double.tryParse(maxText) ?? 0) * 10).round() * 10;
-              if (lo < 10 || hi <= lo) {
-                SmartDialog.showToast('最小至少 0.1，且最大要大于最小');
+              // 内部精度 0.01，分度值不小于它；两端对齐到分度值的整数倍
+              final step = ((double.tryParse(stepText) ?? 0) * 100).round();
+              if (step < 1) {
+                SmartDialog.showToast('分度值至少 0.01');
                 return;
               }
-              Get.back(result: (lo, hi));
+              final lo =
+                  ((double.tryParse(minText) ?? 0) * 100 / step).round() * step;
+              final hi =
+                  ((double.tryParse(maxText) ?? 0) * 100 / step).round() * step;
+              if (lo < step || hi <= lo) {
+                SmartDialog.showToast('最小要大于 0，且最大要大于最小');
+                return;
+              }
+              Get.back(result: (lo, hi, step));
             },
             child: const Text('确定'),
           ),
@@ -265,16 +280,25 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     if (result == null) return;
     sliderMin = result.$1;
     sliderMax = result.$2;
-    final divisions = (sliderMax - sliderMin) ~/ 10;
+    sliderStep = result.$3;
+    final span = sliderMax - sliderMin;
+    final divisions = span ~/ sliderStep;
+    // 宽度和范围成正比，每 1 倍 80；分度值小于 0.1 时再放宽 1.5 倍。
+    // 不窄于 280 放得下加减按钮，取 56 的整数倍，弹出菜单不必再补宽
+    final raw = span * (sliderStep < 10 ? 1.2 : 0.8);
+    final width = raw <= 280 ? 280.0 : (raw / 56).ceil() * 56.0;
     GStorage.setting.putAll({
       SettingBoxKey.speedSliderMin: sliderMin,
       SettingBoxKey.speedSliderMax: sliderMax,
+      SettingBoxKey.speedSliderStep: sliderStep,
       SettingBoxKey.speedSliderDivisions: divisions,
+      SettingBoxKey.speedSliderWidth: width,
     });
     PlPlayerController.instance
       ?..speedSliderMin = sliderMin
       ..speedSliderMax = sliderMax
-      ..speedSliderDivisions = divisions;
+      ..speedSliderDivisions = divisions
+      ..speedSliderWidth = width;
     setState(() {});
   }
 
@@ -562,13 +586,37 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 PlPlayerController.instance?.enableLongPressSlideSpeed = value;
               },
             ),
-            SetSwitchItem(
-              title: '滑杆式倍速面板',
-              subtitle: '关闭时为矩阵面板，矩阵下方附带 1.5 倍宽的小滑杆',
-              setKey: SettingBoxKey.speedPanelSlider,
-              onChanged: (value) =>
-                  PlPlayerController.instance?.speedPanelSlider = value,
-            ),
+            for (final landscape in const [false, true])
+              ListTile(
+                title: Text(landscape ? '横屏倍速面板' : '竖屏倍速面板'),
+                trailing: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 0, label: Text('原始')),
+                    ButtonSegment(value: 1, label: Text('矩阵')),
+                    ButtonSegment(value: 2, label: Text('滑杆')),
+                  ],
+                  selected: {landscape ? panelModeLandscape : panelMode},
+                  onSelectionChanged: (value) {
+                    final mode = value.first;
+                    if (landscape) {
+                      panelModeLandscape = mode;
+                      PlPlayerController.instance?.speedPanelModeLandscape =
+                          mode;
+                    } else {
+                      panelMode = mode;
+                      PlPlayerController.instance?.speedPanelMode = mode;
+                    }
+                    GStorage.setting.put(
+                      landscape
+                          ? SettingBoxKey.speedPanelModeLandscape
+                          : SettingBoxKey.speedPanelMode,
+                      mode,
+                    );
+                    setState(() {});
+                  },
+                ),
+              ),
             ListTile(
               title: const Text('矩阵列数'),
               subtitle: Text(
@@ -579,7 +627,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             ListTile(
               title: const Text('滑杆范围'),
               subtitle: Text(
-                '${formatCenti(sliderMin)} ~ ${formatCenti(sliderMax)} 倍，步长 0.1',
+                '${formatCenti(sliderMin)} ~ ${formatCenti(sliderMax)} 倍，分度值 ${formatCenti(sliderStep)}',
               ),
               onTap: _setSliderRange,
             ),

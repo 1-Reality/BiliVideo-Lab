@@ -897,13 +897,46 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       ),
 
       /// 播放速度
-      BottomControlType.speed => Obx(
-        () => PopupMenuButton<Never>(
+      BottomControlType.speed => Obx(() {
+        // 竖屏、横屏各自的面板：0 原始列表，1 矩阵，2 滑杆
+        final landscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final mode = landscape
+            ? plPlayerController.speedPanelModeLandscape
+            : plPlayerController.speedPanelMode;
+        return PopupMenuButton<double>(
           tooltip: '倍速',
           requestFocus: false,
+          initialValue: plPlayerController.playbackSpeed,
           color: Colors.black.withValues(alpha: 0.8),
-          constraints: const BoxConstraints(),
-          itemBuilder: (_) => [SpeedPanel(plPlayerController)],
+          constraints: mode == 0 ? null : const BoxConstraints(),
+          itemBuilder: (context) => mode == 0
+              ? [
+                  for (final speed in plPlayerController.speedList)
+                    PopupMenuItem<double>(
+                      height: 35,
+                      padding: const EdgeInsets.only(left: 30),
+                      value: speed,
+                      onTap: () => plPlayerController.setPlaybackSpeed(speed),
+                      child: Text(
+                        "${speed}X",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                        semanticsLabel: "$speed倍速",
+                      ),
+                    ),
+                ]
+              : [
+                  SpeedPanel(
+                    plPlayerController,
+                    slider: mode == 2,
+                    cols: landscape
+                        ? plPlayerController.speedGridColsLandscape
+                        : plPlayerController.speedGridCols,
+                  ),
+                ],
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
@@ -912,8 +945,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               semanticsLabel: "${plPlayerController.playbackSpeed}倍速",
             ),
           ),
-        ),
-      ),
+        );
+      }),
 
       BottomControlType.qa => Obx(
         () {

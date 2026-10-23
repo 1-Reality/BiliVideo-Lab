@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -13,18 +15,25 @@ String formatCenti(int centi) {
       : '${centi ~/ 100}.$r';
 }
 
-/// 倍速面板。面板内倍速全程是百分位整数，列数和滑杆范围都由设置页算好，
+/// 倍速面板。面板内倍速全程是百分位整数，列数、滑杆范围和宽度都由设置页算好，
 /// 打开时只读字段。外层套固定宽度，弹出菜单的 IntrinsicWidth 不再往下测量
-class SpeedPanel extends PopupMenuEntry<Never> {
-  const SpeedPanel(this.controller, {super.key});
+class SpeedPanel extends PopupMenuEntry<double> {
+  const SpeedPanel(
+    this.controller, {
+    required this.slider,
+    required this.cols,
+    super.key,
+  });
 
   final PlPlayerController controller;
+  final bool slider;
+  final int cols;
 
   @override
   double get height => 0;
 
   @override
-  bool represents(void value) => false;
+  bool represents(double? value) => false;
 
   @override
   State<SpeedPanel> createState() => _SpeedPanelState();
@@ -33,6 +42,7 @@ class SpeedPanel extends PopupMenuEntry<Never> {
 class _SpeedPanelState extends State<SpeedPanel> {
   static const _cellStyle = TextStyle(color: Colors.white, fontSize: 14);
   static const _labelStyle = TextStyle(color: Colors.white70, fontSize: 11);
+  // − < 数字 > +：大调 0.5，微调 0.05
   static final _stepStyle = OutlinedButton.styleFrom(
     padding: EdgeInsets.zero,
     minimumSize: Size.zero,
@@ -42,7 +52,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.all(Radius.circular(6)),
     ),
-    textStyle: const TextStyle(fontSize: 12),
+    textStyle: const TextStyle(fontSize: 16),
   );
 
   late final PlPlayerController c = widget.controller;
@@ -52,18 +62,18 @@ class _SpeedPanelState extends State<SpeedPanel> {
   // 1.5 倍窗口左端，两端落在 0.5 的整数倍上；拖动期间不动
   late int _left;
   int _dragFrom = 0;
-  late int _cols;
   late double _width;
   late double _cellWidth;
+  int _labelStep = 50;
   // 矩阵格子只建一次，重建时同一个实例原样复用，框架直接跳过
   List<Widget> _cells = const [];
   late final List<Widget> _minus = [
-    _stepButton('−0.5', -50),
-    _stepButton('−0.05', -5),
+    _stepButton('−', -50),
+    _stepButton('<', -5),
   ];
   late final List<Widget> _plus = [
-    _stepButton('+0.05', 5),
-    _stepButton('+0.5', 50),
+    _stepButton('>', 5),
+    _stepButton('+', 50),
   ];
 
   @override
@@ -71,24 +81,32 @@ class _SpeedPanelState extends State<SpeedPanel> {
     super.initState();
     _centi = _start = (c.playbackSpeed * 100).round();
     _left = (_centi * 2 - 100) ~/ 100 * 50;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (c.speedPanelSlider) {
-      _width = 280;
-      return;
-    }
-    _cols = MediaQuery.orientationOf(context) == Orientation.landscape
-        ? c.speedGridColsLandscape
-        : c.speedGridCols;
-    _width = _cols < 6 ? 280 : _cols * 56.0;
-    _cellWidth = _width / _cols;
+    if (widget.slider) return;
+    final cols = widget.cols;
+    _width = cols < 6 ? 280 : cols * 56.0;
+    _cellWidth = _width / cols;
     final list = c.speedList;
     _cells = [
       for (var i = list.length - 1; i >= 0; i--) _cell(list[i], _cellStyle),
     ];
+  }
+
+  // 滑杆宽度由设置页按范围算好，这里只按屏宽封顶，再看刻度字放得下几个
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.slider) return;
+    _width = math.min(
+      c.speedSliderWidth,
+      MediaQuery.sizeOf(context).width - 16,
+    );
+    final span = c.speedSliderMax - c.speedSliderMin;
+    final fit = (_width - 8) ~/ 32;
+    _labelStep = span % 50 == 0 && span ~/ 50 < fit
+        ? 50
+        : span % 100 == 0 && span ~/ 100 < fit
+        ? 100
+        : span;
   }
 
   @override
@@ -119,7 +137,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
   }
 
   Widget _stepButton(String label, int delta) => SizedBox(
-    width: 46,
+    width: 40,
     height: 30,
     child: OutlinedButton(
       style: _stepStyle,
@@ -147,11 +165,9 @@ class _SpeedPanelState extends State<SpeedPanel> {
   @override
   Widget build(BuildContext context) {
     final primary = ColorScheme.of(context).primary;
-    final slider = c.speedPanelSlider;
+    final slider = widget.slider;
     final min = slider ? c.speedSliderMin : _left;
     final max = slider ? c.speedSliderMax : _left + 150;
-    final span = max - min;
-    final labelStep = span % 50 == 0 && span <= 350 ? 50 : span;
     final n = _cells.length;
     final selected = slider ? -1 : n - 1 - c.speedList.indexOf(_centi / 100);
     return SizedBox(
@@ -160,10 +176,10 @@ class _SpeedPanelState extends State<SpeedPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!slider) ...[
-            for (var i = 0; i < n; i += _cols)
+            for (var i = 0; i < n; i += widget.cols)
               Row(
                 children: [
-                  for (var j = i; j < n && j < i + _cols; j++)
+                  for (var j = i; j < n && j < i + widget.cols; j++)
                     j == selected
                         ? _cell(
                             c.speedList[n - 1 - j],
@@ -243,7 +259,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                for (var v = min; v <= max; v += labelStep)
+                for (var v = min; v <= max; v += _labelStep)
                   SizedBox(
                     width: 32,
                     child: Text(

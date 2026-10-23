@@ -1422,8 +1422,12 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  static bool get speedPanelSlider =>
-      _setting.get(SettingBoxKey.speedPanelSlider, defaultValue: false);
+  // 倍速面板：0 原始列表，1 矩阵，2 滑杆；竖屏横屏分开
+  static int get speedPanelMode =>
+      _setting.get(SettingBoxKey.speedPanelMode, defaultValue: 0);
+
+  static int get speedPanelModeLandscape =>
+      _setting.get(SettingBoxKey.speedPanelModeLandscape, defaultValue: 0);
 
   // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
   static int get speedGridCols =>
@@ -1444,8 +1448,15 @@ abstract final class Pref {
   static int get speedSliderMax =>
       _setting.get(SettingBoxKey.speedSliderMax, defaultValue: 400);
 
+  static int get speedSliderStep =>
+      _setting.get(SettingBoxKey.speedSliderStep, defaultValue: 10);
+
   static int get speedSliderDivisions =>
       _setting.get(SettingBoxKey.speedSliderDivisions, defaultValue: 35);
+
+  // 滑杆模式面板宽度，设置页按范围算好
+  static double get speedSliderWidth =>
+      _setting.get(SettingBoxKey.speedSliderWidth, defaultValue: 280.0);
 
   static int get speedStep =>
       _setting.get(SettingBoxKey.speedStep, defaultValue: 10);
