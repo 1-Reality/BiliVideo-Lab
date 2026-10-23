@@ -1351,31 +1351,18 @@ abstract final class Pref {
       : _setting.get(SettingBoxKey.bufferSecWeak, defaultValue: 985.0);
 
   // bufferProfile: 0=宽带，1=非蜂窝弱网，2=真蜂窝。
-  static double bufferSecFor(int bufferProfile) => switch (bufferProfile) {
-    2 => bufferSecCellular,
-    1 => bufferSecWeak,
-    _ => bufferSec,
-  };
-
   // 缓冲时长固定为墙钟秒，不随播放倍速变化。
-  static Map<String, String> cacheSecs(double seconds) {
-    return {
-      'cache-secs': seconds.toStringAsFixed(3),
-      'demuxer-hysteresis-secs':
-          (seconds * 0.6666666666666666).toStringAsFixed(3),
-    };
-  }
-
   static Map<String, String> initBuffer([int bufferProfile = 0]) {
-    final sizeMiB = switch (bufferProfile) {
-      2 => bufferSizeCellular,
-      1 => bufferSizeWeak,
-      _ => bufferSize,
+    final (sizeMiB, secs) = switch (bufferProfile) {
+      2 => (bufferSizeCellular, bufferSecCellular),
+      1 => (bufferSizeWeak, bufferSecWeak),
+      _ => (bufferSize, bufferSec),
     };
     final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
-      ...cacheSecs(bufferSecFor(bufferProfile)),
+      'cache-secs': secs.toStringAsFixed(3),
+      'demuxer-hysteresis-secs': (secs * 0.6666666666666666).toStringAsFixed(3),
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };
