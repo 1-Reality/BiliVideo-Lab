@@ -48,8 +48,8 @@ class MpvConvertWebp {
       options: {
         'idle': 'once',
         'o': outFile,
-        'start': start.toStringAsFixed(3),
-        'end': (start + duration).toStringAsFixed(3),
+        'start': '$start',
+        'end': '${start + duration}',
         'of': 'webp',
         'ovc': 'libwebp_anim',
         'ofopts': 'loop=0',
