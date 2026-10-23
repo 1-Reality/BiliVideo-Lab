@@ -404,8 +404,7 @@ class PlPlayerController
   late final bool _hwdecAllowsSoftware =
       hwdec == null || hwdec!.split(',').contains('no');
   // Settings only allow this entry alone.
-  late final bool mediacodecEmbed =
-      Platform.isAndroid && hwdec == 'mediacodec_embed';
+  late final bool mediacodecEmbed = hwdec == 'mediacodec_embed';
   // While playing, hwdec-current is read every few seconds and matched
   // against the user's keywords (settings are taken on each open). Only the
   // decoder actually playing is read: the ones a file switch creates and drops
