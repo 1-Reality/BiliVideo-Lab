@@ -1361,8 +1361,8 @@ abstract final class Pref {
     final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
-      'cache-secs': secs.toStringAsFixed(3),
-      'demuxer-hysteresis-secs': (secs * 0.6666666666666666).toStringAsFixed(3),
+      'cache-secs': '$secs',
+      'demuxer-hysteresis-secs': '${secs * 0.6666666666666666}',
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };
