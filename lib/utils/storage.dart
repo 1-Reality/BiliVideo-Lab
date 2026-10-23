@@ -392,6 +392,10 @@ abstract final class GStorage {
     await setting.putAll({
       if (Pref.bufferSize > cap) SettingBoxKey.bufferSize: cap,
       if (Pref.bufferSizeWeak > cap) SettingBoxKey.bufferSizeWeak: cap,
+      // The system WebView on these desktops is the usual cause of crashes
+      // opening links; hand links to the default browser from the start.
+      if (Platform.isWindows || Platform.isLinux)
+        SettingBoxKey.openInBrowser: true,
     });
   }
 
