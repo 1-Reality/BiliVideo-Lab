@@ -391,8 +391,8 @@ class PlPlayerController
   late final showFSActionItem = Pref.showFSActionItem;
   late final enableShrinkVideoSize = Pref.enableShrinkVideoSize;
   late final darkVideoPage = Pref.darkVideoPage;
-  late final enableSlideVolumeBrightness = Pref.enableSlideVolumeBrightness;
-  late final enableSlideFS = Pref.enableSlideFS;
+  late final slideVertical = Pref.slideVertical;
+  late final slideHorizontal = Pref.slideHorizontal;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
   late final fastForBackwardDuration = Duration(
     seconds: Pref.fastForBackwardDuration,

@@ -1,10 +1,12 @@
 // ignore_for_file: constant_identifier_names
 
 enum GestureType {
-  left,
-  center,
-  right,
+  brightness,
+  fullscreen,
+  volume,
   horizontal,
-  center_up,
-  center_down,
+  fullscreen_up,
+  fullscreen_down,
+  speed_vertical,
+  speed_horizontal,
 }

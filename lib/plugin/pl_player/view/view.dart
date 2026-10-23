@@ -41,6 +41,7 @@ import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/gesture_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/slide_action.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/backward_seek.dart';
@@ -154,7 +155,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   StreamSubscription? _brightnessListener;
   void _onBrightnessChanged(double value) {
-    if (mounted && _gestureType != .left) {
+    if (mounted && _gestureType != .brightness) {
       _brightnessValue.value = value;
     }
   }
@@ -1055,8 +1056,26 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double maxWidth;
   late double maxHeight;
   late double _inverseMaxWidth;
-  late double _thirdWidth;
-  late double _twoThirdWidth;
+  // 手势表在播放器创建时解一次，分界线随尺寸预先算好，起手时只比大小再查表
+  late final List<VerticalSlide> _verticalSlides = [
+    for (var shift = 2; shift < 11; shift += 3)
+      VerticalSlide.values[plPlayerController.slideVertical >> shift & 7],
+  ];
+  late final List<HorizontalSlide> _horizontalSlides = [
+    for (var shift = 0; shift < 8; shift += 2)
+      HorizontalSlide.values[plPlayerController.slideHorizontal >> shift & 3],
+  ];
+  late double _columnEdge1;
+  late double _columnEdge2;
+  late double _halfWidth;
+  late double _splitHeight;
+  // 倍速手势：横滑按分度值细调，竖滑按倍速列表粗调
+  static const _fineSpeedPerPixel = 0.0625; // 每 16 逻辑像素一档
+  static const _coarseSpeedPerPixel = 0.025; // 每 40 逻辑像素一档
+  double _speedOrigin = 1;
+  int _speedSteps = 0;
+  int _speedListUp = 0;
+  int _speedListDown = 0;
   late double _quarterWidth;
   late double _threeQuarterWidth;
   late double _eighthWidth;
@@ -1141,38 +1160,46 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (cumulativeDelta.distanceSquared < 1) return;
       final dx = cumulativeDelta.dx.abs();
       final dy = cumulativeDelta.dy.abs();
+      final start = _initialFocalPoint!;
       if (dx > 3 * dy) {
-        _onHorizontalDragStart();
-        _gestureType = .horizontal;
-      } else if (dy > 3 * dx) {
-        if (!plPlayerController.enableSlideVolumeBrightness &&
-            !plPlayerController.enableSlideFS) {
-          return;
+        switch (_horizontalSlides[(start.dy < _splitHeight ? 0 : 2) |
+            (start.dx < _halfWidth ? 0 : 1)]) {
+          case HorizontalSlide.seek:
+            _onHorizontalDragStart();
+            _gestureType = .horizontal;
+          case HorizontalSlide.speed when !plPlayerController.isLive:
+            _onSpeedSlideStart();
+            _gestureType = .speed_horizontal;
+          default:
+            break;
         }
-
-        final double tapPosition = details.localFocalPoint.dx;
-        if (tapPosition < _thirdWidth) {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 左边区域
-          if (PlatformUtils.isDesktop) {
-            _gestureType = .right;
-          } else {
-            _gestureType = .left;
-          }
-        } else if (tapPosition < _twoThirdWidth) {
-          if (!plPlayerController.enableSlideFS) {
-            return;
-          }
-          // 全屏
-          _gestureType = .center;
-        } else {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 右边区域
-          _gestureType = .right;
+      } else if (dy > 3 * dx) {
+        switch (_verticalSlides[start.dx < _columnEdge1
+            ? 0
+            : start.dx < _columnEdge2
+            ? 1
+            : 2]) {
+          case VerticalSlide.brightness:
+            _gestureType = .brightness;
+          case VerticalSlide.volume:
+            _gestureType = .volume;
+          case VerticalSlide.fullscreen:
+            _gestureType = .fullscreen;
+          case VerticalSlide.speed when !plPlayerController.isLive:
+            _onSpeedSlideStart();
+            final list = plPlayerController.speedList;
+            var i = 0;
+            while (i < list.length && list[i] < _speedOrigin) {
+              i++;
+            }
+            // 当前倍速不在列表里时，往上第一档是比它大的那个，往下第一档是比它小的那个
+            _speedListDown = i;
+            _speedListUp = i < list.length && list[i] == _speedOrigin
+                ? i
+                : i - 1;
+            _gestureType = .speed_vertical;
+          default:
+            break;
         }
       }
       return;
@@ -1222,8 +1249,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
 
       _onHorizontalDragUpdate(delta.dx);
-    } else if (_gestureType == .left) {
-      // 左边区域 👈
+    } else if (_gestureType == .brightness) {
       final rawBrightness =
           _brightnessValue.value - delta.dy * _inverseBrightnessLevel;
       final brightness = rawBrightness < 0
@@ -1232,29 +1258,27 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           ? 1.0
           : rawBrightness;
       setBrightness(brightness);
-    } else if (_gestureType == .center) {
-      // 全屏
+    } else if (_gestureType == .fullscreen) {
       const double threshold = 2.5; // 滑动阈值
       final cumulativeDy =
           details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
       if (cumulativeDy > threshold) {
-        _gestureType = .center_down;
+        _gestureType = .fullscreen_down;
         if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
           plPlayerController.triggerFullScreen(
             status: plPlayerController.fullScreenGestureReverse,
           );
         }
       } else if (cumulativeDy < -threshold) {
-        _gestureType = .center_up;
+        _gestureType = .fullscreen_up;
         if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
           plPlayerController.triggerFullScreen(
             status: !plPlayerController.fullScreenGestureReverse,
           );
         }
       }
-    } else if (_gestureType == .right) {
-      // 右边区域
+    } else if (_gestureType == .volume) {
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1271,12 +1295,70 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           plPlayerController.setVolume(volume);
         },
       );
+    } else if (_gestureType == .speed_horizontal) {
+      final steps =
+          ((details.localFocalPoint.dx - _initialFocalPoint!.dx) *
+                  _fineSpeedPerPixel)
+              .toInt();
+      if (steps != _speedSteps) {
+        _speedSteps = steps;
+        _applySlideSpeed(
+          steps == 0
+              ? _speedOrigin
+              : ((_speedOrigin * 100).round() +
+                            steps * plPlayerController.speedStep)
+                        .clamp(
+                          plPlayerController.speedSliderMin,
+                          plPlayerController.speedSliderMax,
+                        ) /
+                    100,
+        );
+      }
+    } else if (_gestureType == .speed_vertical) {
+      final steps =
+          ((_initialFocalPoint!.dy - details.localFocalPoint.dy) *
+                  _coarseSpeedPerPixel)
+              .toInt();
+      if (steps != _speedSteps) {
+        _speedSteps = steps;
+        final list = plPlayerController.speedList;
+        _applySlideSpeed(
+          steps == 0
+              ? _speedOrigin
+              : list[(steps > 0 ? _speedListUp + steps : _speedListDown + steps)
+                    .clamp(0, list.length - 1)],
+        );
+      }
     }
+  }
+
+  void _onSpeedSlideStart() {
+    _speedOrigin = plPlayerController.playbackSpeed;
+    _speedSteps = 0;
+    plPlayerController.speedIndicator.value = true;
+  }
+
+  // 到了边界档位不变时不调 mpv、也不震
+  void _applySlideSpeed(double speed) {
+    if (speed == plPlayerController.playbackSpeed) return;
+    plPlayerController.setPlaybackSpeed(speed, recordSelection: false);
+    HapticFeedback.selectionClick();
   }
 
   void _onPanEnd(ScaleEndDetails details) {
     if (_gestureType == .horizontal) {
       _onHorizontalDragEnd();
+    } else if (_gestureType == .speed_horizontal ||
+        _gestureType == .speed_vertical) {
+      plPlayerController.speedIndicator.value = false;
+      if (plPlayerController.playbackSpeed != _speedOrigin) {
+        plPlayerController
+          ..toggleSpeedCenti = (_speedOrigin * 100).round()
+          ..setPlaybackSpeed(
+            plPlayerController.playbackSpeed,
+            forceRecordSelection: true,
+          );
+      }
     }
     _initialFocalPoint = null;
     _gestureType = null;
@@ -1462,7 +1544,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         _onHorizontalDragStart();
         _gestureType = .horizontal;
       } else if (dy > 3 * dx) {
-        _gestureType = .right;
+        final x = event.localPosition.dx;
+        if (_verticalSlides[x < _columnEdge1
+                ? 0
+                : x < _columnEdge2
+                ? 1
+                : 2] ==
+            VerticalSlide.volume) {
+          _gestureType = .volume;
+        }
       }
       return;
     }
@@ -1471,11 +1561,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (plPlayerController.isLive) return;
 
       _onHorizontalDragUpdate(event.localPanDelta.dx);
-    } else if (_gestureType == .right) {
-      if (!plPlayerController.enableSlideVolumeBrightness) {
-        return;
-      }
-
+    } else if (_gestureType == .volume) {
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1523,8 +1609,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (width != _geometryWidth) {
       _geometryWidth = maxWidth = width;
       _inverseMaxWidth = 1 / width;
-      _thirdWidth = width * _oneThird;
-      _twoThirdWidth = _thirdWidth * 2;
+      _halfWidth = width * 0.5;
+      final columns = plPlayerController.slideVertical & 3;
+      _columnEdge1 = columns == 3
+          ? width * _oneThird
+          : columns == 2
+          ? _halfWidth
+          : double.infinity;
+      _columnEdge2 = columns == 3 ? _columnEdge1 * 2 : double.infinity;
       _quarterWidth = width * 0.25;
       _threeQuarterWidth = _quarterWidth * 3;
       _eighthWidth = width * 0.125;
@@ -1533,6 +1625,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (height != _geometryHeight) {
       _geometryHeight = maxHeight = height;
       _eighthHeight = height * 0.125;
+      _splitHeight =
+          height *
+          slideSplitRatios[plPlayerController.slideHorizontal >> 8 & 3];
       final inverseMaxHeight = 1 / height;
       _inverseBrightnessLevel = inverseMaxHeight * _oneThird;
       _inverseVolumeLevel = inverseMaxHeight * 2;

@@ -207,6 +207,8 @@ abstract final class SettingBoxKey {
       darkVideoPage = 'darkVideoPage',
       enableSlideVolumeBrightness = 'enableSlideVolumeBrightness',
       enableSlideFS = 'enableSlideFS',
+      slideVertical = 'slideVertical',
+      slideHorizontal = 'slideHorizontal',
       retryCount = 'retryCount',
       retryDelay = 'retryDelay',
       liveQuality = 'liveQuality',

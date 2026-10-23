@@ -26,6 +26,12 @@ import 'package:material_ui/material_ui.dart';
 /// background playback and audio output. Audio CDN and audio quality stay with
 /// the CDN and quality settings they belong to.
 List<SettingsModel> get audioSettings => [
+  NormalModel(
+    onTap: (context, setState) => Get.toNamed('/gestureSettings'),
+    leading: const Icon(Icons.swipe_outlined),
+    title: '手势',
+    subtitle: '上下、左右滑动的分区与动作：亮度、音量、倍速、进度、全屏',
+  ),
   const SwitchModel(
     title: '音视频快捷切换（听视频模式）',
     subtitle: '首页右上角可一键切换默认进入音频或视频；关闭后不构建该入口',
@@ -142,7 +148,7 @@ class AudioSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = audioSettings;
     return SimpleScaffold(
-      appBar: AppBar(title: const Text('音频与后台')),
+      appBar: AppBar(title: const Text('特色播放')),
       body: ListView.builder(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
