@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:PiliBro/models/common/video/audio_quality.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
 import 'package:PiliBro/models/common/video/live_quality.dart';
@@ -537,9 +535,7 @@ Future<void> _showHwDecDialog(
       title: '硬解模式',
       initValues: Pref.hardwareDecoding.split(','),
       values: {
-        for (final e in HwDecType.values)
-          if (e != HwDecType.mediacodecEmbed || Platform.isAndroid)
-            e.hwdec: '${e.hwdec}\n${e.desc}',
+        for (final e in HwDecType.values) e.hwdec: '${e.hwdec}\n${e.desc}',
       },
     ),
   );
