@@ -343,6 +343,37 @@ class PlPlayerController
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
+  late bool speedPanelSlider = Pref.speedPanelSlider;
+  late int speedGridCols = Pref.speedGridCols;
+  late int speedGridColsLandscape = Pref.speedGridColsLandscape;
+  late int speedSliderMin = Pref.speedSliderMin;
+  late int speedSliderMax = Pref.speedSliderMax;
+  late int speedSliderDivisions = Pref.speedSliderDivisions;
+  late int speedStep = Pref.speedStep;
+  late bool wheelSpeed = Pref.wheelSpeed;
+  late bool arrowKeySpeed = Pref.arrowKeySpeed;
+  // 点面板中间数字时切回的倍速
+  int toggleSpeedCenti = 100;
+  final RxBool speedIndicator = false.obs;
+  Timer? _speedIndicatorTimer;
+
+  /// 滚轮、方向键按分度值调倍速，限制在滑杆范围内
+  void stepPlaybackSpeed(bool increase, {bool recordSelection = true}) {
+    setPlaybackSpeed(
+      ((playbackSpeed * 100).round() + (increase ? speedStep : -speedStep))
+              .clamp(speedSliderMin, speedSliderMax) /
+          100,
+      recordSelection: recordSelection,
+    );
+    speedIndicator.value = true;
+    _speedIndicatorTimer?.cancel();
+    _speedIndicatorTimer = Timer(
+      const Duration(milliseconds: 800),
+      () => speedIndicator.value = false,
+    );
+  }
+
   late final showControlDuration = Pref.enableLongShowControl
       ? const Duration(seconds: 30)
       : const Duration(seconds: 3);
@@ -2036,10 +2067,10 @@ class PlPlayerController
       temporary: temporary,
     );
 
+    _playbackSpeed.value = speed;
     if (!unchanged && player != null) {
       await player.setRate(speed);
     }
-    _playbackSpeed.value = speed;
     _updatePlaybackState();
     final danmaku = danmakuController;
     if (danmaku != null) {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show sqrt;
 
 import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop;
@@ -1405,6 +1406,40 @@ abstract final class Pref {
     SettingBoxKey.enableLongPressSlideSpeed,
     defaultValue: true,
   );
+
+  static bool get speedPanelSlider =>
+      _setting.get(SettingBoxKey.speedPanelSlider, defaultValue: false);
+
+  // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
+  static int get speedGridCols =>
+      _setting.get(SettingBoxKey.speedGridCols) ??
+      sqrt(speedList.length).toInt();
+
+  static int get speedGridColsLandscape =>
+      _setting.get(SettingBoxKey.speedGridColsLandscape) ??
+      sqrt(speedList.length - 1).toInt() + 1;
+
+  static bool get speedGridManual =>
+      _setting.get(SettingBoxKey.speedGridManual, defaultValue: false);
+
+  // 以下倍速均为百分位整数
+  static int get speedSliderMin =>
+      _setting.get(SettingBoxKey.speedSliderMin, defaultValue: 50);
+
+  static int get speedSliderMax =>
+      _setting.get(SettingBoxKey.speedSliderMax, defaultValue: 400);
+
+  static int get speedSliderDivisions =>
+      _setting.get(SettingBoxKey.speedSliderDivisions, defaultValue: 35);
+
+  static int get speedStep =>
+      _setting.get(SettingBoxKey.speedStep, defaultValue: 10);
+
+  static bool get wheelSpeed =>
+      _setting.get(SettingBoxKey.wheelSpeed, defaultValue: false);
+
+  static bool get arrowKeySpeed =>
+      _setting.get(SettingBoxKey.arrowKeySpeed, defaultValue: false);
 
   static double get playSpeedDefault =>
       _video.get(VideoBoxKey.playSpeedDefault, defaultValue: 1.0);

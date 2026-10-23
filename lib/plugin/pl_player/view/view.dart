@@ -49,6 +49,7 @@ import 'package:PiliBro/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:PiliBro/plugin/pl_player/widgets/speed_panel.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -896,28 +897,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
       /// 播放速度
       BottomControlType.speed => Obx(
-        () => PopupMenuButton<double>(
+        () => PopupMenuButton<Never>(
           tooltip: '倍速',
           requestFocus: false,
-          initialValue: plPlayerController.playbackSpeed,
           color: Colors.black.withValues(alpha: 0.8),
-          itemBuilder: (context) {
-            return plPlayerController.speedList
-                .map(
-                  (double speed) => PopupMenuItem<double>(
-                    height: 35,
-                    padding: const EdgeInsets.only(left: 30),
-                    value: speed,
-                    onTap: () => plPlayerController.setPlaybackSpeed(speed),
-                    child: Text(
-                      "${speed}X",
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      semanticsLabel: "$speed倍速",
-                    ),
-                  ),
-                )
-                .toList();
-          },
+          constraints: const BoxConstraints(),
+          itemBuilder: (_) => [SpeedPanel(plPlayerController)],
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
@@ -1516,6 +1501,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
+      if (plPlayerController.wheelSpeed && !plPlayerController.isLive) {
+        final dy = event.scrollDelta.dy;
+        if (dy != 0) plPlayerController.stepPlaybackSpeed(dy < 0);
+        return;
+      }
       final offset = -event.scrollDelta.dy * 0.00025;
       final volume = clampDouble(
         plPlayerController.volume.value + offset,
@@ -1628,7 +1618,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 child: Obx(
                   () => AnimatedOpacity(
                     curve: Curves.easeInOut,
-                    opacity: plPlayerController.longPressStatus.value
+                    opacity:
+                        plPlayerController.longPressStatus.value ||
+                            plPlayerController.speedIndicator.value
                         ? 1.0
                         : 0.0,
                     duration: const Duration(milliseconds: 150),
