@@ -23,29 +23,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup flutter
+      - id: setup
+        name: Setup flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
 
-      - name: Set version and write pili_release.json
+      - id: version
+        name: Set version and write pili_release.json
         shell: pwsh
         run: lib/scripts/build.ps1
 
-      - name: Apply project Windows patches
+      - id: patch
+        name: Apply project Windows patches
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
-      - name: Precache Windows engine artifacts (including product platform dill)
+      - id: precache
+        name: Precache Windows engine artifacts (including product platform dill)
         shell: pwsh
         run: flutter precache --windows
 
-      - name: Official debug build (verbose, to capture the frontend_server command)
+      - id: debug
+        name: Official debug build (verbose, to capture the frontend_server command)
         shell: pwsh
         run: flutter build windows --debug -v 2>&1 | Tee-Object flutter-debug-build.log
 
-      - name: Build product kernel_blob.bin from the captured command
+      - id: kernel
+        name: Build product kernel_blob.bin from the captured command
         shell: pwsh
         run: |
           $PSNativeCommandArgumentPassing = 'Standard'
@@ -96,6 +102,34 @@ jobs:
           Copy-Item $dill (Join-Path $kernelDir 'kernel_blob.bin')
           Get-Item (Join-Path $kernelDir 'kernel_blob.bin') | Format-Table Name, Length
 
+      - name: Diagnostics on failure (annotations; artifact downloads are blocked in some sessions)
+        if: failure()
+        shell: pwsh
+        env:
+          O_SETUP: ${{ steps.setup.outcome }}
+          O_VERSION: ${{ steps.version.outcome }}
+          O_PATCH: ${{ steps.patch.outcome }}
+          O_PRECACHE: ${{ steps.precache.outcome }}
+          O_DEBUG: ${{ steps.debug.outcome }}
+          O_KERNEL: ${{ steps.kernel.outcome }}
+        run: |
+          function Emit($title, $lines) {
+            $text = ($lines -join "`n")
+            if ($text.Length -gt 3500) { $text = $text.Substring($text.Length - 3500) }
+            $enc = ($text -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')
+            Write-Host "::error title=$title::$enc"
+          }
+          Emit 'step outcomes' @(
+            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL"
+          )
+          foreach ($f in 'flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
+            if (Test-Path $f) {
+              $all = Get-Content $f
+              $hits = $all | Where-Object { $_ -match 'error|Error|ERROR|Exception|FAILED|failed' } | Select-Object -First 25
+              Emit "$f errors" @($hits)
+              Emit "$f tail" @($all | Select-Object -Last 40)
+            } else { Emit "$f" @("(missing)") }
+          }
       - name: Upload kernel and logs
         if: always()
         uses: actions/upload-artifact@v7
