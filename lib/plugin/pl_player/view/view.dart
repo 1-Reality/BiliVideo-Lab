@@ -906,13 +906,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           // 只留默认的最小宽度，去掉 5 格的最大宽度，矩阵和滑杆按自身宽度撑开
           constraints: const BoxConstraints(minWidth: 112),
           itemBuilder: (context) {
-            // 打开时才看方向：0 原始列表，1 矩阵，2 滑杆
+            // 打开时才看场景：半屏、全屏、电脑（横屏非全屏）各取 3 位
             final landscape =
                 MediaQuery.orientationOf(context) == Orientation.landscape;
-            final mode = landscape
-                ? plPlayerController.speedPanelModeLandscape
-                : plPlayerController.speedPanelMode;
-            return mode == 0
+            final mode =
+                plPlayerController.speedPanelModes >>
+                    (isFullScreen
+                        ? 3
+                        : landscape
+                        ? 6
+                        : 0) &
+                7;
+            return mode & 6 == 0
                 ? [
                     for (final speed in plPlayerController.speedList)
                       PopupMenuItem<double>(
@@ -933,15 +938,20 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 : [
                     SpeedPanel(
                       plPlayerController,
-                      slider: mode == 2,
+                      mode: mode,
                       cols: landscape
                           ? plPlayerController.speedGridColsLandscape
                           : plPlayerController.speedGridCols,
-                      width: mode == 2
+                      width: mode & 2 == 0
                           ? plPlayerController.speedSliderWidth
-                          : landscape
-                          ? plPlayerController.speedGridWidthLandscape
-                          : plPlayerController.speedGridWidth,
+                          : math.max(
+                              landscape
+                                  ? plPlayerController.speedGridWidthLandscape
+                                  : plPlayerController.speedGridWidth,
+                              mode & 4 == 0
+                                  ? 0.0
+                                  : plPlayerController.speedSliderWidth,
+                            ),
                       rowHeight: landscape
                           ? plPlayerController.speedGridRowHeightLandscape
                           : plPlayerController.speedGridRowHeight,

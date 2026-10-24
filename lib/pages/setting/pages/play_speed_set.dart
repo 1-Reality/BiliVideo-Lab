@@ -41,8 +41,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late int sliderMin = Pref.speedSliderMin;
   late int sliderMax = Pref.speedSliderMax;
   late int sliderStep = Pref.speedSliderStep;
-  late int panelMode = Pref.speedPanelMode;
-  late int panelModeLandscape = Pref.speedPanelModeLandscape;
+  late int panelModes = Pref.speedPanelModes;
   late int speedStep = Pref.speedStep;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
@@ -397,6 +396,48 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     setState(() {});
   }
 
+  static const _panelModeDesc = [
+    '常规列表',
+    '常规列表',
+    '矩阵',
+    '矩阵',
+    '滑杆',
+    '滑杆',
+    '矩阵在上，滑杆在下',
+    '滑杆在上，矩阵在下',
+  ];
+
+  // 三位一组：常规、矩阵、滑杆；勾了矩阵或滑杆后常规改作「上下对调」
+  Widget _panelModeTile(int shift, String name) {
+    final mode = panelModes >> shift & 7;
+    return ListTile(
+      title: Text('$name倍速面板'),
+      subtitle: Text(_panelModeDesc[mode]),
+      trailing: SegmentedButton<int>(
+        multiSelectionEnabled: true,
+        emptySelectionAllowed: true,
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(value: 1, label: Text('常规')),
+          ButtonSegment(value: 2, label: Text('矩阵')),
+          ButtonSegment(value: 4, label: Text('滑杆')),
+        ],
+        selected: {
+          for (final bit in const [1, 2, 4])
+            if (mode & bit != 0) bit,
+        },
+        onSelectionChanged: (value) {
+          panelModes =
+              panelModes & ~(7 << shift) |
+              value.fold(0, (a, b) => a | b) << shift;
+          PlPlayerController.instance?.speedPanelModes = panelModes;
+          GStorage.setting.put(SettingBoxKey.speedPanelModes, panelModes);
+          setState(() {});
+        },
+      ),
+    );
+  }
+
   Future<void> _setSpeedInput() async {
     var stepText = formatCenti(speedStep);
     var wheel = wheelSpeed;
@@ -681,37 +722,12 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 PlPlayerController.instance?.enableLongPressSlideSpeed = value;
               },
             ),
-            for (final landscape in const [false, true])
-              ListTile(
-                title: Text(landscape ? '横屏倍速面板' : '竖屏倍速面板'),
-                trailing: SegmentedButton<int>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('原始')),
-                    ButtonSegment(value: 1, label: Text('矩阵')),
-                    ButtonSegment(value: 2, label: Text('滑杆')),
-                  ],
-                  selected: {landscape ? panelModeLandscape : panelMode},
-                  onSelectionChanged: (value) {
-                    final mode = value.first;
-                    if (landscape) {
-                      panelModeLandscape = mode;
-                      PlPlayerController.instance?.speedPanelModeLandscape =
-                          mode;
-                    } else {
-                      panelMode = mode;
-                      PlPlayerController.instance?.speedPanelMode = mode;
-                    }
-                    GStorage.setting.put(
-                      landscape
-                          ? SettingBoxKey.speedPanelModeLandscape
-                          : SettingBoxKey.speedPanelMode,
-                      mode,
-                    );
-                    setState(() {});
-                  },
-                ),
-              ),
+            for (final (shift, name) in const [
+              (0, '半屏'),
+              (3, '全屏'),
+              (6, '电脑'),
+            ])
+              _panelModeTile(shift, name),
             ListTile(
               title: const Text('矩阵列数与宽度'),
               subtitle: Text(

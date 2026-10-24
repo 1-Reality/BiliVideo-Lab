@@ -345,8 +345,7 @@ class PlPlayerController
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
   // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
-  late int speedPanelMode = Pref.speedPanelMode;
-  late int speedPanelModeLandscape = Pref.speedPanelModeLandscape;
+  late int speedPanelModes = Pref.speedPanelModes;
   late int speedGridCols = Pref.speedGridCols;
   late int speedGridColsLandscape = Pref.speedGridColsLandscape;
   late double speedGridWidth = Pref.speedGridWidth;

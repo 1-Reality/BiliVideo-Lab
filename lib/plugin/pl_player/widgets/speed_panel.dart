@@ -20,7 +20,7 @@ String formatCenti(int centi) {
 class SpeedPanel extends PopupMenuEntry<double> {
   const SpeedPanel(
     this.controller, {
-    required this.slider,
+    required this.mode,
     required this.cols,
     required this.width,
     required this.rowHeight,
@@ -28,7 +28,8 @@ class SpeedPanel extends PopupMenuEntry<double> {
   });
 
   final PlPlayerController controller;
-  final bool slider;
+  // 位 1 矩阵、位 2 全范围滑杆；两者都有时位 0 表示滑杆在上、矩阵在下
+  final int mode;
   final int cols;
   // 设置页算好的最终宽度和矩阵行高
   final double width;
@@ -61,6 +62,9 @@ class _SpeedPanelState extends State<SpeedPanel> {
   );
 
   late final PlPlayerController c = widget.controller;
+  late final bool _grid = widget.mode & 2 != 0;
+  // 没勾滑杆时用矩阵下方 1.5 倍宽的小窗口
+  late final bool _full = widget.mode & 4 != 0;
   late int _centi;
   // 打开面板时的倍速，关闭时若变了就成为下次点中间数字要切回的倍速
   late int _start;
@@ -93,14 +97,14 @@ class _SpeedPanelState extends State<SpeedPanel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _width = math.min(widget.width, MediaQuery.sizeOf(context).width - 16);
-    if (!widget.slider) {
+    if (_grid) {
       _cellWidth = _width / widget.cols;
       final list = c.speedList;
       _cells = [
         for (var i = list.length - 1; i >= 0; i--) _cell(list[i], _cellStyle),
       ];
-      return;
     }
+    if (!_full) return;
     final span = c.speedSliderMax - c.speedSliderMin;
     final fit = (_width - 8) ~/ 32;
     _labelStep = span % 50 == 0 && span ~/ 50 < fit
@@ -166,113 +170,116 @@ class _SpeedPanelState extends State<SpeedPanel> {
   @override
   Widget build(BuildContext context) {
     final primary = ColorScheme.of(context).primary;
-    final slider = widget.slider;
-    final min = slider ? c.speedSliderMin : _left;
-    final max = slider ? c.speedSliderMax : _left + 150;
+    final full = _full;
+    final min = full ? c.speedSliderMin : _left;
+    final max = full ? c.speedSliderMax : _left + 150;
     final n = _cells.length;
-    final selected = slider ? -1 : n - 1 - c.speedList.indexOf(_centi / 100);
-    return SizedBox(
-      width: _width,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!slider) ...[
-            for (var i = 0; i < n; i += widget.cols)
-              Row(
-                children: [
-                  for (var j = i; j < n && j < i + widget.cols; j++)
-                    j == selected
-                        ? _cell(
-                            c.speedList[n - 1 - j],
-                            TextStyle(
-                              color: primary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : _cells[j],
-                ],
-              ),
-            const Divider(height: 9, color: Colors.white24),
+    final selected = _grid ? n - 1 - c.speedList.indexOf(_centi / 100) : -1;
+    final rows = [
+      for (var i = 0; i < n; i += widget.cols)
+        Row(
+          children: [
+            for (var j = i; j < n && j < i + widget.cols; j++)
+              j == selected
+                  ? _cell(
+                      c.speedList[n - 1 - j],
+                      TextStyle(
+                        color: primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : _cells[j],
           ],
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              spacing: 4,
-              children: [
-                ..._minus,
-                Expanded(
-                  child: InkWell(
-                    onTap: _toggle,
-                    borderRadius: const BorderRadius.all(Radius.circular(6)),
-                    child: SizedBox(
-                      height: 36,
-                      child: Center(
-                        child: Text(
-                          '${formatCenti(_centi)}×',
-                          style: TextStyle(
-                            color: primary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+        ),
+    ];
+    const divider = Divider(height: 9, color: Colors.white24);
+    final controls = [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          spacing: 4,
+          children: [
+            ..._minus,
+            Expanded(
+              child: InkWell(
+                onTap: _toggle,
+                borderRadius: const BorderRadius.all(Radius.circular(6)),
+                child: SizedBox(
+                  height: 36,
+                  child: Center(
+                    child: Text(
+                      '${formatCenti(_centi)}×',
+                      style: TextStyle(
+                        color: primary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-                ..._plus,
-              ],
+              ),
             ),
-          ),
-          const Text(
-            '点中间数字与上次倍速互切',
-            style: TextStyle(color: Colors.white54, fontSize: 11),
-          ),
-          SizedBox(
-            height: 36,
-            child: Slider(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              value: _centi.clamp(min, max).toDouble(),
-              min: min.toDouble(),
-              max: max.toDouble(),
-              divisions: slider ? c.speedSliderDivisions : 15,
-              onChangeStart: (_) => _dragFrom = _centi,
-              onChanged: (value) {
-                final centi = value.round();
-                if (centi > 0) {
-                  setState(() => _centi = centi);
-                  c.setPlaybackSpeed(centi / 100, recordSelection: false);
-                }
-              },
-              onChangeEnd: (_) {
-                if (_centi != _dragFrom) {
-                  c.setPlaybackSpeed(
-                    _centi / 100,
-                    forceRecordSelection: true,
-                  );
-                }
-              },
-            ),
-          ),
-          // 刻度字宽 32、两侧各 4，字的中心正好落在滑杆两端内缩 20 的刻度上
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (var v = min; v <= max; v += _labelStep)
-                  SizedBox(
-                    width: 32,
-                    child: Text(
-                      '${formatCenti(v)}x',
-                      textAlign: TextAlign.center,
-                      style: _labelStyle,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+            ..._plus,
+          ],
+        ),
+      ),
+      const Text(
+        '点中间数字与上次倍速互切',
+        style: TextStyle(color: Colors.white54, fontSize: 11),
+      ),
+    ];
+    final slider = [
+      SizedBox(
+        height: 36,
+        child: Slider(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          value: _centi.clamp(min, max).toDouble(),
+          min: min.toDouble(),
+          max: max.toDouble(),
+          divisions: full ? c.speedSliderDivisions : 15,
+          onChangeStart: (_) => _dragFrom = _centi,
+          onChanged: (value) {
+            final centi = value.round();
+            if (centi > 0) {
+              setState(() => _centi = centi);
+              c.setPlaybackSpeed(centi / 100, recordSelection: false);
+            }
+          },
+          onChangeEnd: (_) {
+            if (_centi != _dragFrom) {
+              c.setPlaybackSpeed(_centi / 100, forceRecordSelection: true);
+            }
+          },
+        ),
+      ),
+      // 刻度字宽 32、两侧各 4，字的中心正好落在滑杆两端内缩 20 的刻度上
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (var v = min; v <= max; v += _labelStep)
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '${formatCenti(v)}x',
+                  textAlign: TextAlign.center,
+                  style: _labelStyle,
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
+    return SizedBox(
+      width: _width,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        // 三位全开即矩阵与滑杆共存且对调：滑杆在上、矩阵在下
+        children: widget.mode == 7
+            ? [...slider, ...controls, divider, ...rows]
+            : [...rows, if (_grid) divider, ...controls, ...slider],
       ),
     );
   }
