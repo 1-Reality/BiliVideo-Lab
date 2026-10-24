@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 /// 新用户首屏 App 推荐下发的兴趣选择。选完返回 interest_id、interest_result、
-/// interest_pos_ids，由推荐流带着重新请求一次
+/// interest_pos_ids，由推荐流带着重新请求一次；跳过返回空表，往后不再问
 Future<Map<String, dynamic>?> showInterestChoose(
   BuildContext context,
   Map<String, dynamic> data,
@@ -127,6 +127,10 @@ class _InterestChooseState extends State<_InterestChoose> {
                     'interest_pos_ids': posIds.join(','),
                   }),
             child: Text(data['confirm_text'] ?? '完成'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, const <String, dynamic>{}),
+            child: const Text('跳过'),
           ),
         ],
       ),

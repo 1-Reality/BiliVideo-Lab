@@ -53,6 +53,33 @@ abstract final class LoginHttp {
     }
   }
 
+  /// 用账号的 cookie 换一份 HD token：申请电视端授权码，以本人身份确认，再取回 token
+  static Future<LoadingState<void>> cookieToHdToken(
+    LoginAccount account,
+  ) async {
+    final code = await getHDcode();
+    if (code case final Error error) return error;
+    final authCode = code.data.authCode;
+    final res = await Request().post(
+      Api.qrcodeConfirm,
+      data: {
+        'auth_code': authCode,
+        'build': BiliApp.hd.build,
+        'csrf': account.csrf,
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+    if (res.data['code'] != 0) return Error(res.data['message']);
+    final poll = await codePoll(authCode);
+    if (!poll['status']) return Error(poll['msg']);
+    account.hdAccessKey = poll['data']['access_token'];
+    await account.onChange();
+    return const Success(null);
+  }
+
   static Future codePoll(String authCode) async {
     final params = {
       'auth_code': authCode,

@@ -13,7 +13,6 @@ import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
-import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
@@ -802,14 +801,10 @@ abstract final class Pref {
   static String get banWordForZone =>
       _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
 
-  // 默认 Web：App 推荐会在登录设备里留下一条 App 记录，不替用户做这个决定
-  static RcmdSource get rcmdSource => RcmdSource.values[_setting.get(
-    SettingBoxKey.rcmdSource,
-    defaultValue: RcmdSource.web.index,
-  )];
-
-  static bool get rcmdTablet =>
-      _setting.get(SettingBoxKey.rcmdTablet, defaultValue: false);
+  // 见 RcmdSource；默认只勾 Web、权重都是 1：App 推荐会在登录设备里留下一条
+  // App 记录，不替用户做这个决定
+  static int get rcmdSources =>
+      _setting.get(SettingBoxKey.rcmdSources, defaultValue: 0x01010101);
 
   static bool get rcmdPersonalized =>
       _setting.get(SettingBoxKey.rcmdPersonalized, defaultValue: true);
