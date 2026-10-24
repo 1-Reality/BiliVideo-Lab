@@ -51,7 +51,9 @@ jobs:
           $env:GYP_MSVS_OVERRIDE_PATH = $vs
           $env:WINDOWSSDKDIR = "${env:ProgramFiles(x86)}/Windows Kits/10"
           Set-Location "$env:SRC/engine/src"
-          python flutter/tools/gn --windows --windows-cpu x86 --runtime-mode=jit_release --no-rbe --no-goma --no-prebuilt-dart-sdk 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          # 与官方 Windows 引擎一样走 host 构建：加 --windows 会让 tools/gn 不给 ANGLE
+          # 传 Flutter 的覆盖参数，ANGLE 退回自带默认值，找不到 test() 与 vulkan-headers
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
           if ($LASTEXITCODE -ne 0) { throw 'gn failed' }
           $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
           "OUT=$out" | Out-File -Append $env:GITHUB_ENV
