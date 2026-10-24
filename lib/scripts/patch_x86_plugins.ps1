@@ -34,3 +34,21 @@ if (Test-Path $jniHeader) {
 } else {
     Write-Host "jni plugin header not found; skipping: $jniHeader"
 }
+
+# 3) jni 1.0.3 的原生库 dartjni.dll 在 Windows x86 上链接不上：find_package(JNI) 在 runner 上只找到 x64 JDK 的 jvm.lib。
+#    应用里 jni 只用于 Android（lib/utils/font_utils.dart 的 _initAndroid；Windows 走 _initWindows，不调用 jni；
+#    lib/utils/android/* 也是 Android 专用），所以这个 x86 构建里跳过 src 子目录的编译。
+#    jni 的 windows/CMakeLists.txt 本身有 `if (TARGET jni) ... else ...` 分支，跳过后走 else，bundled 库为空。
+$jniCm = Join-Path $Root 'windows\flutter\ephemeral\.plugin_symlinks\jni\windows\CMakeLists.txt'
+if (Test-Path $jniCm) {
+    $c = [IO.File]::ReadAllText($jniCm)
+    $c2 = [regex]::Replace($c, '(?m)^add_subdirectory\("\$\{CMAKE_CURRENT_SOURCE_DIR\}/\.\./src".*\)\s*$', '# skipped for Windows x86 build (no 32-bit JDK jvm.lib); Windows does not call jni')
+    if ($c2 -ne $c) {
+        [IO.File]::WriteAllText($jniCm, $c2, [Text.UTF8Encoding]::new($false))
+        Write-Host "skipped jni native library build in $jniCm"
+    } else {
+        Write-Host "jni add_subdirectory line not found (already patched or changed): $jniCm"
+    }
+} else {
+    Write-Host "jni plugin CMake not found; skipping: $jniCm"
+}
