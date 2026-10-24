@@ -1,3 +1,4 @@
+import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -89,12 +90,12 @@ abstract final class DailyCheckin {
     ),
   );
 
-  // 69198：今天已领过
+  // 与「我的」页手动领取同一个请求；69198：今天已领过
   static Future<String?> _vipExp() async => _check(
     '大会员每日经验',
     await Request().post(
-      '/x/vip/experience/add',
-      data: {'csrf': Accounts.main.csrf},
+      Api.vipExpAdd,
+      queryParameters: {'mid': Accounts.main.mid, 'csrf': Accounts.main.csrf},
       options: _form(),
     ),
     69198,
