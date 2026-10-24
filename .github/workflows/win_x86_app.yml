@@ -268,7 +268,7 @@ jobs:
           $stage = 'build32\runner\Release'
           $exe = (Resolve-Path (Join-Path $stage 'pilibro.exe')).Path
           $start = Get-Date
-          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru -RedirectStandardOutput app-stdout.txt -RedirectStandardError app-stderr.txt
           $seen = $false
           $deadline = (Get-Date).AddSeconds(90)
           while ((Get-Date) -lt $deadline) {
@@ -294,6 +294,20 @@ jobs:
           $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $start } -ErrorAction SilentlyContinue |
             Where-Object { $_.Message -match 'pilibro|flutter_windows|media_kit|libmpv|libEGL|libGLESv2' } | Select-Object -First 5
           $events | ForEach-Object { "event $($_.Id) $($_.LevelDisplayName): $($_.Message.Substring(0,[Math]::Min(300,$_.Message.Length)))" } | Tee-Object -Append smoke.txt
+          "--- app stdout (tail) ---" | Tee-Object -Append smoke.txt
+          if (Test-Path app-stdout.txt) { Get-Content app-stdout.txt -Tail 40 | Tee-Object -Append smoke.txt }
+          "--- app stderr (tail) ---" | Tee-Object -Append smoke.txt
+          if (Test-Path app-stderr.txt) { Get-Content app-stderr.txt -Tail 40 | Tee-Object -Append smoke.txt }
+          "--- recent app log files under Documents/AppData ---" | Tee-Object -Append smoke.txt
+          $since = $start.AddMinutes(-1)
+          foreach ($root in @("$env:USERPROFILE\Documents", "$env:APPDATA", "$env:LOCALAPPDATA")) {
+            if (-not (Test-Path $root)) { continue }
+            Get-ChildItem $root -Recurse -File -Include *.log,*.txt -ErrorAction SilentlyContinue |
+              Where-Object { $_.LastWriteTime -gt $since -and $_.Length -lt 5MB } | Select-Object -First 5 | ForEach-Object {
+                "== $($_.FullName) ($($_.Length) bytes)" | Tee-Object -Append smoke.txt
+                Get-Content $_.FullName -Tail 40 -ErrorAction SilentlyContinue | Tee-Object -Append smoke.txt
+              }
+          }
           if ($alive) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           if (-not $alive) { throw "pilibro.exe exited (exit $($p.ExitCode)) after ${elapsed}s" }
           if (-not $seen) { throw "pilibro.exe is alive after ${elapsed}s but has no visible window" }
@@ -318,6 +332,8 @@ jobs:
             PiliBro_windows_x86_portable.7z
             smoke.png
             smoke.txt
+            app-stdout.txt
+            app-stderr.txt
             architecture.txt
           if-no-files-found: warn
           retention-days: 14
