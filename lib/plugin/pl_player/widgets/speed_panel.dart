@@ -22,12 +22,17 @@ class SpeedPanel extends PopupMenuEntry<double> {
     this.controller, {
     required this.slider,
     required this.cols,
+    required this.width,
+    required this.rowHeight,
     super.key,
   });
 
   final PlPlayerController controller;
   final bool slider;
   final int cols;
+  // 设置页算好的最终宽度和矩阵行高
+  final double width;
+  final double rowHeight;
 
   @override
   double get height => 0;
@@ -81,25 +86,21 @@ class _SpeedPanelState extends State<SpeedPanel> {
     super.initState();
     _centi = _start = (c.playbackSpeed * 100).round();
     _left = (_centi * 2 - 100) ~/ 100 * 50;
-    if (widget.slider) return;
-    final cols = widget.cols;
-    _width = cols < 6 ? 280 : cols * 56.0;
-    _cellWidth = _width / cols;
-    final list = c.speedList;
-    _cells = [
-      for (var i = list.length - 1; i >= 0; i--) _cell(list[i], _cellStyle),
-    ];
   }
 
-  // 滑杆宽度由设置页按范围算好，这里只按屏宽封顶，再看刻度字放得下几个
+  // 宽度由设置页算好，这里只按屏宽封顶；矩阵再切格子，滑杆再看刻度字放得下几个
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!widget.slider) return;
-    _width = math.min(
-      c.speedSliderWidth,
-      MediaQuery.sizeOf(context).width - 16,
-    );
+    _width = math.min(widget.width, MediaQuery.sizeOf(context).width - 16);
+    if (!widget.slider) {
+      _cellWidth = _width / widget.cols;
+      final list = c.speedList;
+      _cells = [
+        for (var i = list.length - 1; i >= 0; i--) _cell(list[i], _cellStyle),
+      ];
+      return;
+    }
     final span = c.speedSliderMax - c.speedSliderMin;
     final fit = (_width - 8) ~/ 32;
     _labelStep = span % 50 == 0 && span ~/ 50 < fit
@@ -119,7 +120,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
     final centi = (speed * 100).round();
     return SizedBox(
       width: _cellWidth,
-      height: 36,
+      height: widget.rowHeight,
       child: InkWell(
         onTap: () {
           _centi = centi;

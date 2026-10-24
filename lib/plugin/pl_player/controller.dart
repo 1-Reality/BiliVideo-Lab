@@ -348,6 +348,10 @@ class PlPlayerController
   late int speedPanelModeLandscape = Pref.speedPanelModeLandscape;
   late int speedGridCols = Pref.speedGridCols;
   late int speedGridColsLandscape = Pref.speedGridColsLandscape;
+  late double speedGridWidth = Pref.speedGridWidth;
+  late double speedGridWidthLandscape = Pref.speedGridWidthLandscape;
+  late double speedGridRowHeight = Pref.speedGridRowHeight;
+  late double speedGridRowHeightLandscape = Pref.speedGridRowHeightLandscape;
   late int speedSliderMin = Pref.speedSliderMin;
   late int speedSliderMax = Pref.speedSliderMax;
   late int speedSliderDivisions = Pref.speedSliderDivisions;

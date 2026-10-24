@@ -937,6 +937,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       cols: landscape
                           ? plPlayerController.speedGridColsLandscape
                           : plPlayerController.speedGridCols,
+                      width: mode == 2
+                          ? plPlayerController.speedSliderWidth
+                          : landscape
+                          ? plPlayerController.speedGridWidthLandscape
+                          : plPlayerController.speedGridWidth,
+                      rowHeight: landscape
+                          ? plPlayerController.speedGridRowHeightLandscape
+                          : plPlayerController.speedGridRowHeight,
                     ),
                   ];
           },

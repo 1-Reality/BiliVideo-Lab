@@ -1428,6 +1428,21 @@ abstract final class Pref {
   static bool get speedGridManual =>
       _setting.get(SettingBoxKey.speedGridManual, defaultValue: false);
 
+  // 矩阵宽度和行高，设置页算好；默认倍速列表两个方向都不到 6 列，宽 280
+  static double get speedGridWidth =>
+      _setting.get(SettingBoxKey.speedGridWidth, defaultValue: 280.0);
+
+  static double get speedGridWidthLandscape =>
+      _setting.get(SettingBoxKey.speedGridWidthLandscape, defaultValue: 280.0);
+
+  static double get speedGridRowHeight =>
+      _setting.get(SettingBoxKey.speedGridRowHeight, defaultValue: 36.0);
+
+  static double get speedGridRowHeightLandscape => _setting.get(
+    SettingBoxKey.speedGridRowHeightLandscape,
+    defaultValue: 36.0,
+  );
+
   // 以下倍速均为百分位整数
   static int get speedSliderMin =>
       _setting.get(SettingBoxKey.speedSliderMin, defaultValue: 50);
