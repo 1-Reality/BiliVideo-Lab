@@ -6,10 +6,11 @@ import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show DeviceOrientation;
-import 'package:flutter/widgets.dart' show WidgetsBinding, WidgetsBindingObserver;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 
 final class OrientationPlan {
-  const OrientationPlan({
+  OrientationPlan({
     required this.appInitial,
     required this.appRotation,
     required this.windowedRotation,
@@ -53,7 +54,8 @@ final class OrientationPlan {
   final ExitOrientationMode exitMode;
   final bool controlsLockOrientation;
   final int finalDirectionMask;
-  final bool systemAutoRotate;
+  // 系统旋转开关：重力需要跟随它时，回到前台会重读
+  bool systemAutoRotate;
 
   int get effectiveFinalMask =>
       finalDirectionMask == 0 || finalDirectionMask == OrientationMask.all
@@ -95,7 +97,7 @@ final class OrientationPlan {
 
 
 final class BrotherOrientationPlan {
-  const BrotherOrientationPlan({
+  BrotherOrientationPlan({
     required this.app,
     required this.windowed,
     required this.fullscreen,
@@ -149,7 +151,8 @@ final class BrotherOrientationPlan {
   final int manualExitConfirmations;
   final bool controlsLockOrientation;
   final int finalDirectionMask;
-  final bool systemAutoRotate;
+  // 系统旋转开关：重力需要跟随它时，回到前台会重读
+  bool systemAutoRotate;
 
   int get effectiveFinalMask =>
       finalDirectionMask == 0 || finalDirectionMask == OrientationMask.all
@@ -233,7 +236,7 @@ final class BrotherAppLatchInterpretation {
 }
 
 abstract final class OrientationPolicy {
-  static OrientationPlan _plan = const OrientationPlan(
+  static OrientationPlan _plan = OrientationPlan(
     appInitial: AppInitialOrientation.system,
     appRotation: AppRotationMode.followSystem,
     windowedRotation: WindowedPlayerRotationMode.inheritApp,
@@ -261,8 +264,9 @@ abstract final class OrientationPolicy {
   static final _finalGuard = _FinalOrientationGuard();
   static final _brotherGuard = _BrotherOrientationGuard();
   static final _brotherAppRuntimeLatch = _BrotherAppRuntimeLatch();
+  static final _systemLockWatcher = _SystemLockWatcher();
   static bool _brotherEnabled = false;
-  static BrotherOrientationPlan _brotherPlan = const BrotherOrientationPlan(
+  static BrotherOrientationPlan _brotherPlan = BrotherOrientationPlan(
     app: BrotherPhaseConfig(
       enterAction: BrotherDirectionAction.systemCurrent,
       resumeAction: BrotherDirectionAction.keepCurrent,
@@ -450,7 +454,9 @@ abstract final class OrientationPolicy {
             exitTriggerSource != OrientationTriggerSource.system ||
         fullScreenRotationSource == FullScreenRotationSource.appGravity &&
             fullScreenAllowed != FullScreenAllowedOrientation.entryExact;
-    final systemAutoRotate = gravityFollowSystemLock && gravityNeeded
+    final systemGate = gravityFollowSystemLock && gravityNeeded;
+    _systemLockWatcher.update(systemGate);
+    final systemAutoRotate = systemGate
         ? await OrientationPlatform.systemAutoRotate()
         : true;
 
@@ -511,7 +517,9 @@ abstract final class OrientationPolicy {
     final gravityUsesSystemGate =
         windowed.gravityFollowSystemLock ||
         fullscreen.gravityFollowSystemLock;
-    final systemAutoRotate = gravityNeeded && gravityUsesSystemGate
+    final systemGate = gravityNeeded && gravityUsesSystemGate;
+    _systemLockWatcher.update(systemGate);
+    final systemAutoRotate = systemGate
         ? await OrientationPlatform.systemAutoRotate()
         : true;
 
@@ -641,6 +649,15 @@ abstract final class OrientationPolicy {
       allowedMask: allowed,
       appPhase: true,
     );
+    // 状态命中的切换在进入时就已命中，不必等下一次转动
+    _brotherAppRuntimeLatch.checkNow();
+  }
+
+  /// 回到前台时重读系统旋转开关：用户可能在下拉菜单里切换了旋转锁定
+  static Future<void> _refreshSystemAutoRotate() async {
+    final value = await OrientationPlatform.systemAutoRotate();
+    _plan.systemAutoRotate = value;
+    _brotherPlan.systemAutoRotate = value;
   }
 
   static void clearBrotherAppRuntimeLatch() =>
@@ -1037,6 +1054,10 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
     _check();
   }
 
+  void checkNow() {
+    if (_active && !_edgeTriggered && _targetMatched && !_checking) _check();
+  }
+
   Future<void> _check() async {
     final generation = _generation;
     _checking = true;
@@ -1069,6 +1090,28 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
       );
     } finally {
       _checking = false;
+    }
+  }
+}
+
+/// 只有重力需要跟随系统旋转锁定时才挂上，回到前台时重读一次开关
+final class _SystemLockWatcher with WidgetsBindingObserver {
+  bool _active = false;
+
+  void update(bool active) {
+    if (active == _active) return;
+    _active = active;
+    if (active) {
+      WidgetsBinding.instance.addObserver(this);
+    } else {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      OrientationPolicy._refreshSystemAutoRotate();
     }
   }
 }
