@@ -71,6 +71,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
           $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
           "OUT=$out" | Out-File -Append $env:GITHUB_ENV
+          # 补丁：Vulkan 调试回调缺 VKAPI_CALL，32 位下 stdcall 与 PFN_vkDebugReportCallbackEXT 不一致（x64 忽略该约定，不报错）
+          # 先还原再打，避免缓存里已经打过一次
+          git -C "$env:SRC/engine/src/flutter" reset --hard HEAD
+          git -C "$env:SRC/engine/src/flutter" apply "$env:GITHUB_WORKSPACE/lib/scripts/vulkan_debug_callback_stdcall.patch"
+          if ($LASTEXITCODE -ne 0) { throw 'vulkan callback patch failed' }
           ninja -C "out/$out" flutter_windows.dll icudtl.dat 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/ninja.log
           if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/ninja.log" 'ninja' }
 
