@@ -59,7 +59,7 @@ abstract final class TvRemoteSetup {
     }
 
     var isPassthrough =
-        Pref.hardwareDecoding.startsWith(HwDecType.mediacodecEmbed.hwdec);
+        Pref.hardwareDecoding.contains(HwDecType.mediacodecEmbed.hwdec);
 
     final action = await showDialog<_TvRemoteMenuAction>(
       context: context,
