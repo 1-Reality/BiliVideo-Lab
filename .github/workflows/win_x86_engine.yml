@@ -89,7 +89,8 @@ jobs:
           $d = "$env:SRC/engine/src/out/$env:OUT"
           New-Item -ItemType Directory pack | Out-Null
           foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') { Copy-Item "$d/$f" pack/ }
-          Get-ChildItem $d -Filter '*snapshot*' -File | Copy-Item -Destination pack/
+          # 排除 .pdb（调试符号约 55 MB，应用侧用不到）
+          Get-ChildItem $d -Filter '*snapshot*' -File | Where-Object Extension -ne '.pdb' | Copy-Item -Destination pack/
           Get-ChildItem pack | Format-Table Name, Length
           $pe = [IO.File]::ReadAllBytes("$PWD/pack/flutter_windows.dll")
           '{0:X4}' -f [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 4)
