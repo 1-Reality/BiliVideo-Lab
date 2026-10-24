@@ -210,19 +210,12 @@ SettingsModel getBanWordModel({
   required String title,
   required String key,
   required ValueChanged<RegExp> onChanged,
-  String? banScope,
 }) {
   String banWord = GStorage.setting.get(key, defaultValue: '');
   return NormalModel(
     leading: const Icon(Icons.filter_alt_outlined),
     title: title,
-    getSubtitle: () {
-      final subtitle = banWord.isEmpty ? "点击添加" : banWord;
-      if (banScope != null) {
-        return '作用域: $banScope\n$subtitle';
-      }
-      return subtitle;
-    },
+    getSubtitle: () => banWord.isEmpty ? "点击添加" : banWord,
     onTap: (context, setState) {
       final keywords = banWord
           .split(RegExp(r'[\n|]'))
@@ -234,6 +227,10 @@ SettingsModel getBanWordModel({
       showDialog(
         context: context,
         builder: (context) => StatefulBuilder(
+          onDispose: () {
+            textController.dispose();
+            listController.dispose();
+          },
           builder: (context, setDialogState) {
             void addKeyword() {
               final text = textController.text.trim();
@@ -331,10 +328,7 @@ SettingsModel getBanWordModel({
             );
           },
         ),
-      ).whenComplete(() {
-        textController.dispose();
-        listController.dispose();
-      });
+      );
     },
   );
 }
