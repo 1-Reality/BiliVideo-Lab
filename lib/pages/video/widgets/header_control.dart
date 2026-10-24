@@ -1840,20 +1840,22 @@ class HeaderControlState extends State<HeaderControl>
                 }),
               if (!isFileSource) ...[
                 if (!isFSOrPip) ...[
-                  SizedBox(
-                    width: btnWidth,
-                    height: btnHeight,
-                    child: IconButton(
-                      tooltip: '小窗',
-                      style: btnStyle,
-                      onPressed: () => PipOverlayService.start(videoDetailCtr),
-                      icon: const Icon(
-                        Icons.picture_in_picture_alt_outlined,
-                        size: 19,
-                        color: Colors.white,
+                  if (Pref.enableInAppPip)
+                    SizedBox(
+                      width: btnWidth,
+                      height: btnHeight,
+                      child: IconButton(
+                        tooltip: '小窗',
+                        style: btnStyle,
+                        onPressed: () =>
+                            PipOverlayService.start(videoDetailCtr),
+                        icon: const Icon(
+                          Icons.picture_in_picture_alt_outlined,
+                          size: 19,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
                   if (videoDetailCtr.isUgc)
                     SizedBox(
                       width: btnWidth,
