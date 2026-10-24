@@ -161,13 +161,27 @@ jobs:
           if (-not (Test-Path 'windows\flutter\ephemeral')) { throw 'ephemeral directory missing (debug build did not run)' }
           # ephemeral 里的 flutter_windows.dll.lib 是 x64 调试构建拷进去的；plugin 链接用的就是它，必须换成 x86
           # （上一轮 LNK4272 x64 冲突 + 大量 LNK2019 都由此而来）
+          function Show($label) {
+            $cacheDir = Join-Path (Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent) 'bin\cache\artifacts\engine\windows-x64'
+            foreach ($p in @((Join-Path $cacheDir 'flutter_windows.dll'), 'windows\flutter\ephemeral\flutter_windows.dll', 'windows\flutter\ephemeral\flutter_windows.dll.lib', 'engine86\flutter_windows.dll', 'engine86\flutter_windows.dll.lib')) {
+              if (Test-Path $p) {
+                $h = (Get-FileHash $p -Algorithm SHA256).Hash.Substring(0,12)
+                $b = [IO.File]::ReadAllBytes((Resolve-Path $p).Path)
+                $m = if ($p -like '*.dll') { '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4) } else { '-' }
+                "[$label] $p sha=$h machine=$m"
+              } else { "[$label] $p MISSING" }
+            }
+          }
           foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
             Copy-Item "engine86\$f" "windows\flutter\ephemeral\$f" -Force
           }
+          Show 'before-configure' | Tee-Object exe32.log
           Get-ChildItem 'windows\flutter\ephemeral' -Filter 'flutter_windows.dll*' | Format-Table Name, Length
-          cmake -S windows -B build32 -A Win32 2>&1 | Tee-Object exe32.log
+          cmake -S windows -B build32 -A Win32 2>&1 | Tee-Object -Append exe32.log
+          Show 'after-configure' | Tee-Object -Append exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
           cmake --build build32 --config Release 2>&1 | Tee-Object -Append exe32.log
+          Show 'after-build' | Tee-Object -Append exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }
           cmake --install build32 --config Release --prefix stage32 2>&1 | Tee-Object -Append exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake install failed' }
