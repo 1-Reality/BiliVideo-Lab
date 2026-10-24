@@ -22,12 +22,9 @@ abstract final class BrowserUa {
   static const mob =
       'Mozilla/5.0 (Linux; Android ${BiliDevice.osVer}; ${BiliDevice.model}) $_webkit';
 
-  /// App 内置浏览器：WebView 标识加粉版客户端尾巴
+  /// App 内置浏览器：旧版 8.43 的结构，机型换 Redmi K80 Ultra，内核用新 Chrome
   static const biliApp =
-      'Mozilla/5.0 (Linux; Android ${BiliDevice.osVer}; ${BiliDevice.model} '
-      'Build/${BiliDevice.buildId}; wv) AppleWebKit/537.36 (KHTML, like Gecko) '
-      'Version/4.0 Chrome/140.0.7339.207 Mobile Safari/537.36 os/android '
-      'model/${BiliDevice.model} build/$phoneBuild osVer/${BiliDevice.osVer} '
-      'sdkInt/36 network/2 BiliApp/$phoneBuild mobi_app/android '
-      'channel/${BiliDevice.channel} innerVer/$phoneBuild';
+      'Mozilla/5.0 (Linux; Android 15; 25053RT47C) AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/140.0.7339.207 Mobile Safari/537.36 os/android build/8430300 osVer/15 '
+      'sdkInt/35 network/2 BiliApp/8430300 mobi_app/android_q channel/master innerVer/8430300';
 }
