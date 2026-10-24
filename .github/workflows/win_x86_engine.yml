@@ -62,7 +62,10 @@ jobs:
           # 传 Flutter 的覆盖参数，ANGLE 退回自带默认值，找不到 test() 与 vulkan-headers
           # --no-build-engine-artifacts：x86 目标下 build_engine_artifacts 会把 dart_sdk（经 create_sdk 拉入 dtd、
           # kernel-service）、const_finder 挂进默认图，它们在 x64 宿主工具链里依赖的目标解析不了。只需要 dll 与 icudtl
-          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          # host_cpu=x86：与 tools/gn 里 32 位 ARM Windows 的做法一致（gn.py 对 android arm 设 host_cpu=x86），
+          # 让 $host_toolchain 落到 clang_x86，宿主侧 Dart 工具（gen_snapshot、bootstrap_*、kernel_platform_files）
+          # 与目标同位宽，不再去找 clang_x64 下并不存在的目标
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts --gn-args=host_cpu=\"x86\" 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
           if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
           $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
           "OUT=$out" | Out-File -Append $env:GITHUB_ENV
