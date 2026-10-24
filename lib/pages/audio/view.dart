@@ -51,7 +51,6 @@ import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
@@ -254,13 +253,53 @@ class _AudioPageState extends State<AudioPage> {
           // Discovery for people who never found the quick switch; once it is
           // on, the home toggle covers this. Decided when the page is built.
           if (!AudioFirstMode.enabled.value)
-            IconButton(
+            PopupMenuButton<bool>(
               tooltip: '下次默认进入音频模式',
-              onPressed: () {
-                AudioFirstMode.setDefaultAudio(true);
-                SmartDialog.showToast('下次打开视频将默认进入音频模式；重启后首页右上角可切回视频');
+              icon: const _SoundWaveIcon(),
+              onSelected: (_) => AudioFirstMode.setDefaultAudio(true),
+              itemBuilder: (context) {
+                final textTheme = Theme.of(context).textTheme;
+                final colorScheme = Theme.of(context).colorScheme;
+                return [
+                  PopupMenuItem<bool>(
+                    value: true,
+                    height: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 232),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '下次默认进入音频模式',
+                            style: textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '点开视频时直接进入音频播放。首页右上角的切换按钮在重启应用后出现，随时可以切回视频。',
+                            style: textTheme.bodySmall!.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.normal,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '点这里开启',
+                            style: textTheme.labelLarge!.copyWith(
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
               },
-              icon: const Icon(Icons.headphones_outlined, size: 22),
             ),
           IconButton(
             tooltip: '定时关闭',
@@ -1254,4 +1293,46 @@ extension _PlayReatExt on PlayRepeat {
     PlayRepeat.listCycle => Icons.sync_rounded,
     PlayRepeat.autoPlayRelated => throw UnimplementedError(),
   };
+}
+
+/// 几根高低不一的圆头竖线，取当前图标颜色
+class _SoundWaveIcon extends StatelessWidget {
+  const _SoundWaveIcon();
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    size: const Size(22, 22),
+    painter: _SoundWavePainter(
+      IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface,
+    ),
+  );
+}
+
+class _SoundWavePainter extends CustomPainter {
+  const _SoundWavePainter(this.color);
+
+  final Color color;
+
+  static const _bars = [0.35, 0.8, 0.55, 1.0, 0.45];
+  static const _stroke = 2.4;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = _stroke
+      ..strokeCap = StrokeCap.round;
+    final step = size.width / _bars.length;
+    const r = _stroke / 2;
+    for (var i = 0; i < _bars.length; i++) {
+      final x = step * (i + 0.5);
+      final half = size.height * _bars[i] / 2 - r;
+      final cy = size.height / 2;
+      canvas.drawLine(Offset(x, cy - half), Offset(x, cy + half), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SoundWavePainter oldDelegate) =>
+      color != oldDelegate.color;
 }
