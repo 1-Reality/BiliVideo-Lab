@@ -23,6 +23,7 @@ class SpeedPanel extends PopupMenuEntry<double> {
     required this.mode,
     required this.cols,
     required this.width,
+    required this.controlsWidth,
     required this.rowHeight,
     this.link,
     this.controls = true,
@@ -39,6 +40,8 @@ class SpeedPanel extends PopupMenuEntry<double> {
   final int cols;
   // 设置页算好的最终宽度和矩阵行高
   final double width;
+  // 加减号那一行的宽度：矩阵与滑杆同时显示时取较窄的一块
+  final double controlsWidth;
   final double rowHeight;
 
   @override
@@ -213,7 +216,8 @@ class _SpeedPanelState extends State<SpeedPanel> {
     ];
     const divider = Divider(height: 9, color: Colors.white24);
     final controls = [
-      Padding(
+      Container(
+        width: math.min(widget.controlsWidth, _width),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           spacing: 4,
@@ -291,21 +295,32 @@ class _SpeedPanelState extends State<SpeedPanel> {
         ),
       ),
     ];
-    // 两个面板宽度不同，菜单按宽的那个撑开，窄的居中
+    // 菜单底板透明，每个面板自己画一张卡片；两个面板时一大一小、上下居中
     return Center(
-      child: SizedBox(
-        width: _width,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          // 矩阵与滑杆合成一个面板且位 3 为真时对调：滑杆在上、矩阵在下
-          children: widget.mode & 14 == 14
-              ? [...slider, ...controls, divider, ...rows]
-              : [
-                  ...rows,
-                  if (_grid) divider,
-                  if (widget.controls) ...controls,
-                  ...slider,
-                ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.8),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            width: _width,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              // 矩阵与滑杆合成一个面板且位 3 为真时对调：滑杆在上、矩阵在下
+              children: widget.mode & 14 == 14
+                  ? [...slider, ...controls, divider, ...rows]
+                  : [
+                      ...rows,
+                      if (_grid) divider,
+                      if (widget.controls) ...controls,
+                      ...slider,
+                    ],
+            ),
+          ),
         ),
       ),
     );

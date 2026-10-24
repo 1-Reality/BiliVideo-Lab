@@ -544,6 +544,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final rowHeight = landscape
         ? c.speedGridRowHeightLandscape
         : c.speedGridRowHeight;
+    // 加减号那一行跟随较窄的一块
+    final narrow = math.min(gridWidth, c.speedSliderWidth);
     if (mode & 7 == 6) {
       final link = ValueNotifier((c.playbackSpeed * 100).round());
       final grid = SpeedPanel(
@@ -551,6 +553,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         mode: 2,
         cols: cols,
         width: gridWidth,
+        controlsWidth: narrow,
         rowHeight: rowHeight,
         link: link,
         controls: false,
@@ -560,13 +563,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         mode: 4,
         cols: cols,
         width: c.speedSliderWidth,
+        controlsWidth: narrow,
         rowHeight: rowHeight,
         link: link,
       );
-      const divider = PopupMenuDivider(height: 9);
-      return mode & 8 == 0
-          ? [grid, divider, slider]
-          : [slider, divider, grid];
+      return mode & 8 == 0 ? [grid, slider] : [slider, grid];
     }
     return [
       SpeedPanel(
@@ -576,6 +577,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         width: mode & 2 == 0
             ? c.speedSliderWidth
             : math.max(gridWidth, mode & 4 == 0 ? 0.0 : c.speedSliderWidth),
+        controlsWidth: mode & 6 == 6
+            ? narrow
+            : mode & 2 == 0
+            ? c.speedSliderWidth
+            : gridWidth,
         rowHeight: rowHeight,
       ),
     ];
@@ -943,46 +949,48 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       ),
 
       /// 播放速度
-      BottomControlType.speed => Obx(
-        () => PopupMenuButton<double>(
+      BottomControlType.speed => Obx(() {
+        // 打开前就得知道场景：矩阵或滑杆时菜单底板透明，由面板各自画卡片
+        final landscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final mode =
+            plPlayerController.speedPanelLayout >>
+                (isFullScreen
+                    ? 4
+                    : landscape
+                    ? 8
+                    : 0) &
+            15;
+        final panel = mode & 6 != 0;
+        return PopupMenuButton<double>(
           tooltip: '倍速',
           requestFocus: false,
           initialValue: plPlayerController.playbackSpeed,
-          color: Colors.black.withValues(alpha: 0.8),
+          color: panel
+              ? Colors.transparent
+              : Colors.black.withValues(alpha: 0.8),
+          elevation: panel ? 0 : null,
           // 只留默认的最小宽度，去掉 5 格的最大宽度，矩阵和滑杆按自身宽度撑开
           constraints: const BoxConstraints(minWidth: 112),
-          itemBuilder: (context) {
-            // 打开时才看场景：半屏、全屏、电脑（横屏非全屏）各取 4 位
-            final landscape =
-                MediaQuery.orientationOf(context) == Orientation.landscape;
-            final mode =
-                plPlayerController.speedPanelLayout >>
-                    (isFullScreen
-                        ? 4
-                        : landscape
-                        ? 8
-                        : 0) &
-                15;
-            return mode & 6 == 0
-                ? [
-                    for (final speed in plPlayerController.speedList)
-                      PopupMenuItem<double>(
-                        height: 35,
-                        padding: const EdgeInsets.only(left: 30),
-                        value: speed,
-                        onTap: () => plPlayerController.setPlaybackSpeed(speed),
-                        child: Text(
-                          "${speed}X",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                          semanticsLabel: "$speed倍速",
+          itemBuilder: (context) => panel
+              ? _speedPanels(mode, landscape)
+              : [
+                  for (final speed in plPlayerController.speedList)
+                    PopupMenuItem<double>(
+                      height: 35,
+                      padding: const EdgeInsets.only(left: 30),
+                      value: speed,
+                      onTap: () => plPlayerController.setPlaybackSpeed(speed),
+                      child: Text(
+                        "${speed}X",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
                         ),
+                        semanticsLabel: "$speed倍速",
                       ),
-                  ]
-                : _speedPanels(mode, landscape);
-          },
+                    ),
+                ],
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
@@ -991,8 +999,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               semanticsLabel: "${plPlayerController.playbackSpeed}倍速",
             ),
           ),
-        ),
-      ),
+        );
+      }),
 
       BottomControlType.qa => Obx(
         () {
