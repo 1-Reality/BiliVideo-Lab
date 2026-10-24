@@ -1064,24 +1064,11 @@ abstract final class Pref {
   static bool get darkVideoPage =>
       _setting.get(SettingBoxKey.darkVideoPage, defaultValue: false);
 
-  // 没存过时按旧的两个开关换算成三列：左亮度（桌面音量）、中全屏、右音量
-  static int get slideVertical {
-    if (_setting.get(SettingBoxKey.slideVertical) case final int value) {
-      return value;
-    }
-    final bool side = _setting.get(
-      SettingBoxKey.enableSlideVolumeBrightness,
-      defaultValue: true,
-    );
-    final bool fullscreen = _setting.get(
-      SettingBoxKey.enableSlideFS,
-      defaultValue: true,
-    );
-    return 3 |
-        (side ? (PlatformUtils.isDesktop ? 2 : 1) : 0) << 2 |
-        (fullscreen ? 4 : 0) << 5 |
-        (side ? 2 : 0) << 8;
-  }
+  // 三列：左亮度（桌面音量）、中全屏、右音量
+  static int get slideVertical => _setting.get(
+    SettingBoxKey.slideVertical,
+    defaultValue: PlatformUtils.isDesktop ? 0x28B : 0x287,
+  );
 
   // 四个象限都是进度，分界线在一半
   static int get slideHorizontal =>
