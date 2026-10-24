@@ -1156,8 +1156,11 @@ class PlPlayerController
       if (!match) return;
       if (_manualExitRemaining > 0) _manualExitRemaining--;
       if (_manualExitRemaining > 0) return;
-    } else if (match != true) {
-      return;
+    } else {
+      // 进入时就已竖着（如竖屏视频自动全屏）要先离开一次，否则一进来就被退出
+      final previous = _manualExitTargetMatched;
+      _manualExitTargetMatched = match;
+      if (match != true || previous == true) return;
     }
 
     triggerFullScreen(
@@ -2406,7 +2409,11 @@ class PlPlayerController
                 ? _brotherPlan.manualExitConfirmations
                 : _orientationPlan.manualExitConfirmations)
           : 0;
-      _manualExitTargetMatched = null;
+      // 简单、高级模式：记下进入时是否已满足退出条件，作为比较起点
+      _manualExitTargetMatched =
+          _brotherMode || _manualExitConfirmationActive
+          ? null
+          : _triggerSourceMatch(_orientationPlan.exitTriggerSource, false);
     } else {
       _manualExitRemaining = 0;
       _manualExitTargetMatched = null;
