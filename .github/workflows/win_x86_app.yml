@@ -160,7 +160,11 @@ jobs:
       - id: patch32
         name: Apply x86-only plugin patches (CI working copies only; not committed)
         shell: pwsh
-        run: lib/scripts/patch_x86_plugins.ps1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lib/scripts/patch_x86_plugins.ps1
+          lib/scripts/patch_media_kit_libmpv_x86.ps1
 
       - id: exe32
         name: Configure and build the runner as Win32, then stage with cmake --install
