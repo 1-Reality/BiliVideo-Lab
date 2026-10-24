@@ -237,6 +237,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File smoke-error.txt -Encoding UTF8; break }
           $stage = 'build32\runner\Release'
           $exe = (Resolve-Path (Join-Path $stage 'pilibro.exe')).Path
           $start = Get-Date
@@ -323,7 +324,7 @@ jobs:
           )
           if (Test-Path 'exe32.log') { Emit 'exe32 errors (compiler/linker)' @(Get-Content exe32.log | Where-Object { $_ -match ' error [A-Z]+\d+|fatal error|LNK\d{4}|C2220' } | Select-Object -First 40) }
           if (Test-Path 'exe32.log') { Emit 'exe32 probes' @(Get-Content exe32.log | Where-Object { $_ -match '^\[(before|after)' }) }
-          foreach ($f in 'exe32-error.txt','exe32.log','kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
+          foreach ($f in 'smoke-error.txt','smoke.txt','architecture.txt','exe32-error.txt','exe32.log','kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
             if (Test-Path $f) {
               $all = Get-Content $f
               $hits = $all | Where-Object { $_ -match 'error|Error|ERROR|Exception|FAILED|failed' } | Select-Object -First 25
@@ -343,6 +344,8 @@ jobs:
             kernel-command.txt
             kernel-build.log
             kernel-error.txt
+            smoke-error.txt
+            smoke.txt
             exe32-error.txt
             exe32.log
             engine-artifacts.txt
