@@ -966,6 +966,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return PopupMenuButton<double>(
           tooltip: '倍速',
           requestFocus: false,
+          popUpAnimationStyle: AnimationStyle.noAnimation,
           initialValue: plPlayerController.playbackSpeed,
           color: panel
               ? Colors.transparent
