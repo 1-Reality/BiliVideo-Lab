@@ -150,7 +150,7 @@ abstract final class SettingBoxKey {
       minLikeRatioForRecommend = 'minLikeRatioForRecommend',
       exemptFilterForFollowed = 'exemptFilterForFollowed',
       banWordForRecommend = 'banWordForRecommend',
-      applyFilterToRelatedVideos = 'applyFilterToRelatedVideos',
+      rcmdFilterScope = 'rcmdFilterScope',
       autoUpdate = 'autoUpdate',
       maxCacheSize = 'maxCacheSize',
       defaultShowComment = 'defaultShowComment',

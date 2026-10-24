@@ -243,8 +243,8 @@ abstract final class VideoHttp {
       List<HotVideoItemModel> list = <HotVideoItemModel>[];
       for (final i in res.data['data']['list']) {
         if (!GlobalData().blackMids.contains(i['owner']['mid']) &&
-            !RecommendFilter.filterTitle(i['title']) &&
-            !RecommendFilter.filterLikeRatio(
+            !RecommendFilter.filterHot(
+              i['title'],
               i['stat']['like'],
               i['stat']['view'],
             )) {
@@ -390,7 +390,8 @@ abstract final class VideoHttp {
     if (res.data['code'] == 0) {
       final data = res.data['data'] as List?;
       if (data == null) return const Success(null);
-      final filter = RecommendFilter.applyFilterToRelatedVideos;
+      // 相关视频没有已关注标签，无从豁免
+      final filter = RecommendFilter.scope & 2 != 0;
       final list = <HotVideoItemModel>[];
       for (final raw in data) {
         final item = HotVideoItemModel.fromJson(raw);
@@ -913,8 +914,8 @@ abstract final class VideoHttp {
 
   static bool _canAddRank(Map i) {
     if (!GlobalData().blackMids.contains(i['owner']['mid']) &&
-        !RecommendFilter.filterTitle(i['title']) &&
-        !RecommendFilter.filterLikeRatio(
+        !RecommendFilter.filterHot(
+          i['title'],
           i['stat']['like'],
           i['stat']['view'],
         )) {

@@ -11,6 +11,7 @@ import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
+import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
@@ -1210,10 +1211,11 @@ abstract final class Pref {
   static bool get exemptFilterForFollowed =>
       _setting.get(SettingBoxKey.exemptFilterForFollowed, defaultValue: true);
 
-  static bool get applyFilterToRelatedVideos => _setting.get(
-    SettingBoxKey.applyFilterToRelatedVideos,
-    defaultValue: true,
-  );
+  static RcmdFilterScope get rcmdFilterScope =>
+      RcmdFilterScope.values[_setting.get(
+        SettingBoxKey.rcmdFilterScope,
+        defaultValue: RcmdFilterScope.all.index,
+      )];
 
   static bool get enableBackgroundPlay =>
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);

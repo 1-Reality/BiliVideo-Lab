@@ -2,6 +2,7 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
 import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/pages/rcmd/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
@@ -9,6 +10,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/recommend_filter.dart';
+import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
@@ -141,7 +143,10 @@ List<SettingsModel> get recommendSettings => [
     suffix: '%',
     key: SettingBoxKey.minLikeRatioForRecommend,
     values: [0, 1, 2, 3, 4],
-    onChanged: (value) => RecommendFilter.minLikeRatioForRecommend = value,
+    onChanged: (value) {
+      RecommendFilter.minLikeRatioForRecommend = value;
+      RecommendFilter.compile();
+    },
   ),
   getBanWordModel(
     title: '标题关键词过滤',
@@ -149,6 +154,7 @@ List<SettingsModel> get recommendSettings => [
     onChanged: (value) {
       RecommendFilter.rcmdRegExp = value;
       RecommendFilter.enableFilter = value.pattern.isNotEmpty;
+      RecommendFilter.compile();
     },
   ),
   getBanWordModel(
@@ -164,13 +170,19 @@ List<SettingsModel> get recommendSettings => [
     suffix: 's',
     key: SettingBoxKey.minDurationForRcmd,
     values: [0, 30, 60, 90, 120],
-    onChanged: (value) => RecommendFilter.minDurationForRcmd = value,
+    onChanged: (value) {
+      RecommendFilter.minDurationForRcmd = value;
+      RecommendFilter.compile();
+    },
   ),
   getVideoFilterSelectModel(
     title: '播放量',
     key: SettingBoxKey.minPlayForRcmd,
     values: [0, 50, 100, 500, 1000],
-    onChanged: (value) => RecommendFilter.minPlayForRcmd = value,
+    onChanged: (value) {
+      RecommendFilter.minPlayForRcmd = value;
+      RecommendFilter.compile();
+    },
   ),
   SwitchModel(
     title: '已关注UP豁免推荐过滤',
@@ -180,13 +192,17 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: true,
     onChanged: (value) => RecommendFilter.exemptFilterForFollowed = value,
   ),
-  SwitchModel(
-    title: '过滤器也应用于详情页相关视频',
-    subtitle: '其它（如热门视频、搜索等）均不受过滤器影响，无法豁免相关视频中的已关注UP',
+  PopupModel<RcmdFilterScope>(
+    title: '过滤器作用范围',
     leading: const Icon(Icons.explore_outlined),
-    setKey: SettingBoxKey.applyFilterToRelatedVideos,
-    defaultVal: true,
-    onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
+    value: () => Pref.rcmdFilterScope,
+    items: RcmdFilterScope.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.rcmdFilterScope, value.index)
+        .whenComplete(() {
+          RecommendFilter.compile();
+          setState();
+        }),
   ),
   const NormalModel(
     title: '致谢',
