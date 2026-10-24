@@ -226,6 +226,7 @@ jobs:
           Emit 'step outcomes' @(
             "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP exe32=$env:O_EXE32"
           )
+          if (Test-Path 'exe32.log') { Emit 'exe32 probes' @(Get-Content exe32.log | Where-Object { $_ -match '^\[(before|after)' }) }
           foreach ($f in 'exe32-error.txt','exe32.log','kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
             if (Test-Path $f) {
               $all = Get-Content $f
