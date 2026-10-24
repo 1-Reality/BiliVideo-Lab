@@ -9,6 +9,10 @@ on:
     branches: [fix/experimental-x86-git-am-identity]
     paths: [.github/workflows/win_x86_angle.yml]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -75,9 +79,18 @@ jobs:
         shell: pwsh
         run: |
           $d = "$env:SRC/engine/src/out/$env:OUT"
-          New-Item -ItemType Directory pack | Out-Null
+          # 布局与 ANGLE.7z（media-kit 期望的）一致：根目录 DLL、lib/ 导入库、include/ 头文件
+          New-Item -ItemType Directory pack, pack/lib, pack/include | Out-Null
           foreach ($f in 'libEGL.dll','libGLESv2.dll') { Copy-Item "$d/$f" pack/ }
-          Get-ChildItem pack | Format-Table Name, Length
+          foreach ($f in 'libEGL.dll.lib','libGLESv2.dll.lib') {
+            if (-not (Test-Path "$d/$f")) { throw "missing import library $f in $d" }
+            Copy-Item "$d/$f" pack/lib/
+          }
+          $egl = Get-ChildItem "$env:SRC/engine/src/flutter/third_party/angle" -Recurse -Filter egl.h -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $egl) { throw 'ANGLE headers (EGL/egl.h) not found in the engine tree' }
+          $inc = $egl.Directory.Parent.FullName
+          foreach ($n in 'EGL','GLES2','KHR') { Copy-Item (Join-Path $inc $n) pack/include/$n -Recurse }
+          Get-ChildItem pack -Recurse -File | Format-Table FullName, Length
           foreach ($f in 'libEGL.dll','libGLESv2.dll') {
             $pe = [IO.File]::ReadAllBytes("$PWD/pack/$f")
             "$f machine=" + ('{0:X4}' -f [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 4))
