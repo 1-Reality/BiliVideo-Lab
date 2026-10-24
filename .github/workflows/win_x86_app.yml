@@ -67,10 +67,11 @@ jobs:
           $flutterRoot | Out-File flutter-root.txt -Encoding UTF8
           Get-ChildItem $engine -Recurse -File -Include 'dartaotruntime.exe','frontend_server_aot.dart.snapshot','*.dill' -ErrorAction SilentlyContinue |
             ForEach-Object { "$($_.FullName)  $($_.Length)" } | Out-File engine-artifacts.txt -Encoding UTF8
-          $dartaot = (Get-ChildItem $engine -Recurse -Filter 'dartaotruntime.exe' | Select-Object -First 1).FullName
+          # engineDartAotRuntime 在宿主上是 cache/dart-sdk/bin/dartaotruntime.exe（artifacts.dart:716）
+          $dartaot = Join-Path $flutterRoot 'bin\cache\dart-sdk\bin\dartaotruntime.exe'
           $frontend = (Get-ChildItem $engine -Recurse -Filter 'frontend_server_aot.dart.snapshot' | Select-Object -First 1).FullName
           $sdk = Get-ChildItem $engine -Recurse -Directory -Filter 'flutter_patched_sdk_product' | Select-Object -First 1
-          if (-not $dartaot) { throw 'dartaotruntime.exe not found under the engine cache' }
+          if (-not (Test-Path $dartaot)) { throw "dartaotruntime.exe not found at $dartaot" }
           if (-not $frontend) { throw 'frontend_server_aot.dart.snapshot not found under the engine cache' }
           if (-not $sdk) { throw 'flutter_patched_sdk_product not found under the engine cache' }
           Write-Host "dartaotruntime: $dartaot"
