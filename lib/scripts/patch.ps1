@@ -147,6 +147,7 @@ switch ($platform.ToLower()) {
     "macos" {
     }
     "windows" {
+        git reset --hard HEAD
     }
     default {}
 }
