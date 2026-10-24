@@ -711,7 +711,7 @@ abstract final class Pref {
   );
 
   static int get webviewUaType =>
-      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
+      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 1);
 
   static String get webviewUaCustom =>
       _setting.get(SettingBoxKey.webviewUaCustom, defaultValue: '');
@@ -746,7 +746,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.hwdecWatchWhitelist, defaultValue: false);
 
   static int get hwdecWatchSeconds =>
-      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 10);
+      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 1719);
 
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
@@ -1180,15 +1180,8 @@ abstract final class Pref {
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
 
-  static bool get horizontalScreen {
-    bool? horizontalScreen = _setting.get(SettingBoxKey.horizontalScreen);
-    if (horizontalScreen == null) {
-      final isTablet = DeviceUtils.isTablet;
-      _setting.put(SettingBoxKey.horizontalScreen, isTablet);
-      return isTablet;
-    }
-    return horizontalScreen;
-  }
+  static bool get horizontalScreen =>
+      _setting.get(SettingBoxKey.horizontalScreen, defaultValue: true);
 
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
@@ -1233,7 +1226,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get replyNoAutoPlay =>
-      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: false);
+      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);
 
   static bool get enableInAppPip =>
       _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
@@ -1472,9 +1465,9 @@ abstract final class Pref {
 
   // 倍速面板：0 原始列表，1 矩阵，2 滑杆；竖屏横屏分开
   // 倍速面板：半屏、全屏、电脑各占 3 位，位 0 常规、位 1 矩阵、位 2 滑杆；
-  // 矩阵或滑杆勾上时常规无效，改作「上下对调」。默认三处都只勾常规
+  // 矩阵或滑杆勾上时常规无效，改作「上下对调」。默认半屏常规、全屏三项全勾、电脑矩阵加滑杆
   static int get speedPanelModes =>
-      _setting.get(SettingBoxKey.speedPanelModes, defaultValue: 73);
+      _setting.get(SettingBoxKey.speedPanelModes, defaultValue: 441);
 
   // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
   static int get speedGridCols =>
@@ -1698,7 +1691,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.removeSafeAreaPortrait, defaultValue: false);
 
   static bool get removeSafeAreaLandscape =>
-      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: false);
+      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: true);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
