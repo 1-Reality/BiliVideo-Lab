@@ -159,6 +159,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File exe32-error.txt -Encoding UTF8; break }
           if (-not (Test-Path 'windows\flutter\ephemeral')) { throw 'ephemeral directory missing (debug build did not run)' }
+          # ephemeral 里的 flutter_windows.dll.lib 是 x64 调试构建拷进去的；plugin 链接用的就是它，必须换成 x86
+          # （上一轮 LNK4272 x64 冲突 + 大量 LNK2019 都由此而来）
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+            Copy-Item "engine86\$f" "windows\flutter\ephemeral\$f" -Force
+          }
+          Get-ChildItem 'windows\flutter\ephemeral' -Filter 'flutter_windows.dll*' | Format-Table Name, Length
           cmake -S windows -B build32 -A Win32 2>&1 | Tee-Object exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
           cmake --build build32 --config Release 2>&1 | Tee-Object -Append exe32.log
