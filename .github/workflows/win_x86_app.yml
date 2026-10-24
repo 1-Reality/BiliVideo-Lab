@@ -108,6 +108,17 @@ jobs:
             $main
           )
 
+          # 与官方一致：dartPluginRegistrantUri 存在时追加三组参数（compile.dart:387-392），插在 --packages 之前。
+          # 没有它，纯 Dart 插件（如 path_provider_windows，dartPluginClass）不会注册，getApplicationSupportDirectory 报 MissingPluginException。
+          $registrant = Join-Path $env:GITHUB_WORKSPACE '.dart_tool\flutter_build\dart_plugin_registrant.dart'
+          if (-not (Test-Path $registrant)) { throw "dart plugin registrant missing: $registrant" }
+          $regUri = ([Uri]$registrant).AbsoluteUri
+          $regArgs = @('--source', $regUri, '--source', 'package:flutter/src/dart_plugin_registrant.dart', "-Dflutter.dart_plugin_registrant=$regUri")
+          $at = [array]::IndexOf($frontendArgs, '--packages')
+          if ($at -lt 0) { throw '--packages not found in the frontend_server arguments' }
+          $frontendArgs = @($frontendArgs[0..($at - 1)]) + $regArgs + @($frontendArgs[$at..($frontendArgs.Count - 1)])
+          Write-Host "plugin registrant: $regUri"
+
           # 日志里只写参数形状，不写 define 的值
           $shape = $frontendArgs | ForEach-Object { if ($_ -like '-D*=*') { ($_ -split '=')[0] + '=<value>' } else { $_ } }
           "dartaotruntime: $dartaot" | Tee-Object kernel-command.txt
