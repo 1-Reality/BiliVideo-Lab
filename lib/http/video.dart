@@ -26,6 +26,7 @@ import 'package:PiliBro/models_new/video/video_note_list/data.dart';
 import 'package:PiliBro/models_new/video/video_play_info/data.dart';
 import 'package:PiliBro/models_new/video/video_relation/data.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
+import 'package:PiliBro/services/daily_checkin.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
@@ -746,7 +747,7 @@ abstract final class VideoHttp {
     required VideoType videoType,
   }) {
     final isPugv = videoType == VideoType.pugv;
-    return Request().post(
+    final res = Request().post(
       Api.heartBeat,
       data: {
         if (isPugv) 'aid': ?aid else 'bvid': ?bvid,
@@ -760,6 +761,13 @@ abstract final class VideoHttp {
       },
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
+    // 当天第一次真正看过（进度不为 0 且上报成功）后做观看类的每日任务
+    if (DailyCheckin.watchPending && progress != 0 && bvid != null) {
+      res.then((r) {
+        if (r.data case {'code': 0}) DailyCheckin.onWatched(bvid);
+      });
+    }
+    return res;
   }
 
   static Future<void> medialistHistory({

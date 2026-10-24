@@ -6,6 +6,7 @@ import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
+import 'package:PiliBro/services/daily_checkin.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -38,6 +39,7 @@ abstract final class Update {
         LocalCacheKey.launchDay,
         today * 1000 + (now.year == year ? stamp % 1000 + 1 : 1),
       );
+      DailyCheckin.onNewDay();
     }
     cache.put(LocalCacheKey.launchSlot, slot + 1);
     final bucket = slot % n;
