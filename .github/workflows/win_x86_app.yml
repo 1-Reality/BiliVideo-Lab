@@ -4,6 +4,10 @@ name: Windows x86 app (PiliBro portable, staged)
 # 按块推进：每个块验证通过后再接下一块。
 on:
   workflow_dispatch:
+  # 本文件还没在默认分支上，workflow_dispatch 只能在默认分支的工作流上用；先靠推送本分支触发
+  push:
+    branches: [fix/experimental-x86-git-am-identity]
+    paths: [.github/workflows/win_x86_app.yml, lib/scripts/**]
 
 permissions:
   contents: read
