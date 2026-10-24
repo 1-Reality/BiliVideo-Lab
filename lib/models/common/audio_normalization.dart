@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:PiliBro/models/video/play/url.dart' show Volume;
 import 'package:PiliBro/utils/storage_pref.dart';
 
@@ -56,26 +54,19 @@ enum AudioNormalization {
 
 mixin AudioNormalizationMixin {
   late final _audioNormalization = Pref.audioNormalization;
-  late final enableAudioNormalization =
-      Platform.isAndroid && _audioNormalization != '0';
+  late final enableAudioNormalization = _audioNormalization != '0';
   late final _param = AudioNormalization.getParamFromConfig(
     _audioNormalization,
   );
 
-  static const _kNormalizationKey = 'lavfi-complex';
-
-  Map<String, String>? audioFilterExtras(
-    Volume? volume, {
-    Map<String, String>? map,
-  }) {
-    if (!enableAudioNormalization) return map;
-    var audioNormalization = AudioNormalization.parse(volume, _param);
-    if (audioNormalization.isEmpty) return map;
-    audioNormalization = '"[aid1] $audioNormalization [ao]"';
-    if (map != null) {
-      map[_kNormalizationKey] = audioNormalization;
-      return map;
-    }
-    return {_kNormalizationKey: audioNormalization};
+  /// 在已有的 af（倍速音调补偿）后接上音量均衡，经 lavfi 交给 mpv；
+  /// 跟着当前音轨走，不依赖音轨编号
+  String? audioFilter(Volume? volume, [String? af]) {
+    if (!enableAudioNormalization) return af;
+    final normalization = AudioNormalization.parse(volume, _param);
+    if (normalization.isEmpty) return af;
+    return af == null
+        ? 'lavfi=[$normalization]'
+        : '$af,lavfi=[$normalization]';
   }
 }

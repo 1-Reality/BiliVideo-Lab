@@ -1609,7 +1609,7 @@ class PlPlayerController
             // '!delay_open,media_type=audio;'
             '%${isFileSource ? utf8.encode(audio).length : audio.length}%$audio');
       }
-      audioFilterExtras(volume, map: extras);
+      if (audioFilter(volume, extras['af']) case final af?) extras['af'] = af;
     }
 
     assert(!isLive || seekTo == null);

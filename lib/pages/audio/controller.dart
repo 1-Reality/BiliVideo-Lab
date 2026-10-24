@@ -490,8 +490,8 @@ class AudioController extends GetxController
     bool autoplay = true,
   }) async {
     await _initPlayerIfNeeded();
-    var extras = audioFilterExtras(volume);
-    if (Pref.tempoFilter case final af?) (extras ??= {})['af'] = af;
+    final af = audioFilter(volume, Pref.tempoFilter);
+    final extras = af == null ? null : {'af': af};
     final player = this.player;
     if (player != null) {
       if (!isOffline) {

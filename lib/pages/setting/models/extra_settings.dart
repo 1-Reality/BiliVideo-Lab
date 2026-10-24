@@ -693,7 +693,7 @@ Future<void> audioNormalization(
             mainAxisSize: MainAxisSize.min,
             spacing: 16,
             children: [
-              const Text('等同于 --lavfi-complex="[aid1] 参数 [ao]"'),
+              const Text('等同于 --af=lavfi=[参数]，接在倍速音调补偿之后'),
               TextField(
                 autofocus: true,
                 onChanged: (value) => param = value,
