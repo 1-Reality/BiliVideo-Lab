@@ -1157,7 +1157,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     const Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
-        '高级配置和简单配置各存各的，切换模式时不会把一边的设置换算到另一边。部分设置要重新进入播放器或下次启动后才生效。',
+        '高级配置与简单配置分别保存，不互相翻译。部分设置要重新进入播放器或下次启动后才生效。',
       ),
     ),
     _selectTile(
