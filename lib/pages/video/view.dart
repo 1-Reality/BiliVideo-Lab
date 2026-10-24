@@ -19,7 +19,9 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart'
 import 'package:PiliBro/common/widgets/simple_app_bar.dart';
 import 'package:PiliBro/common/widgets/sliver/video_header.dart';
 import 'package:PiliBro/common/widgets/svg/play_icon.dart';
+import 'package:PiliBro/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliBro/models/common/episode_panel_type.dart';
+import 'package:PiliBro/models/model_hot_video_item.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliBro/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliBro/models_new/video/video_detail/page.dart';
@@ -231,6 +233,61 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
 
     addObserverMobile(this);
+  }
+
+  // 相关视频原地切换：不开新页面、不重建播放器，返回键依次回到之前的视频
+  final List<ugc.BaseEpisodeItem> _relatedStack = [];
+
+  late final ValueChanged<HotVideoItemModel>? _onRelatedSelect =
+      videoDetailController.isUgc && !videoDetailController.isPlayAll
+      ? _switchRelated
+      : null;
+
+  Future<void> _switchRelated(HotVideoItemModel item) async {
+    if (item.isPugv == true || item.isLive == true) {
+      pushVideoH(item);
+      return;
+    }
+    if (item.redirectUrl?.isNotEmpty == true &&
+        PageUtils.viewPgcFromUri(item.redirectUrl!)) {
+      return;
+    }
+    final prev = ugc.BaseEpisodeItem(
+      aid: videoDetailController.aid,
+      bvid: videoDetailController.bvid,
+      cid: videoDetailController.cid.value,
+      cover: videoDetailController.cover.value,
+      title: ugcIntroController.videoDetail.value.title,
+    );
+    final ok = await ugcIntroController.onChangeEpisode(
+      ugc.BaseEpisodeItem(
+        aid: item.aid,
+        bvid: item.bvid,
+        cid: item.cid,
+        cover: item.cover,
+        title: item.title,
+      ),
+    );
+    if (!ok || !mounted) return;
+    _relatedStack.add(prev);
+    videoDetailController.introScrollCtr?.jumpToTop();
+    setState(() {});
+  }
+
+  // 锁定、桌面小窗、全屏时照旧交给播放器处理
+  void _onPopInvoked(bool didPop, Object? result) {
+    final c = videoDetailController.plPlayerController;
+    if (!didPop &&
+        _relatedStack.isNotEmpty &&
+        !c.controlsLock.value &&
+        !c.isDesktopPip &&
+        !c.isFullScreen.value) {
+      ugcIntroController.onChangeEpisode(_relatedStack.removeLast());
+      videoDetailController.introScrollCtr?.jumpToTop();
+      setState(() {});
+      return;
+    }
+    c.onPopInvokedWithResult(didPop, result);
   }
 
   // 获取视频资源，初始化播放器
@@ -1125,6 +1182,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                 RelatedVideoPanel(
                                   key: videoRelatedKey,
                                   heroTag: heroTag,
+                                  onSelect: _onRelatedSelect,
                                 ),
                               ],
                             ),
@@ -1363,11 +1421,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }) => popScope(
     key: videoDetailController.videoPlayerKey,
     canPop:
+        _relatedStack.isEmpty &&
         !isFullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait),
-    onPopInvokedWithResult:
-        videoDetailController.plPlayerController.onPopInvokedWithResult,
+    onPopInvokedWithResult: _onPopInvoked,
     child: Obx(
       () =>
           !videoDetailController.videoState.value ||
@@ -1972,7 +2030,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 ),
               ),
             ),
-            RelatedVideoPanel(key: videoRelatedKey, heroTag: heroTag),
+            RelatedVideoPanel(
+              key: videoRelatedKey,
+              heroTag: heroTag,
+              onSelect: _onRelatedSelect,
+            ),
           ],
         ] else
           PgcIntroPage(
