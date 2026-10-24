@@ -145,12 +145,17 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
-          $cache = Join-Path $flutterRoot 'bin\cache\artifacts\engine\windows-x64'
-          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
-            Copy-Item "engine86\$f" (Join-Path $cache $f) -Force
+          # artifacts.dart:797-802：debug 用 windows-x64，其余模式用 windows-x64-<mode>。
+          # 上一轮证明 cmake --config Release 时 flutter_assemble 拷的是 windows-x64-release，所以所有 windows-x64* 都要换
+          $dirs = Get-ChildItem (Join-Path $flutterRoot 'bin\cache\artifacts\engine') -Directory -Filter 'windows-x64*'
+          if (-not $dirs) { throw 'no windows-x64* engine directories in the cache' }
+          foreach ($d in $dirs) {
+            foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+              if (Test-Path (Join-Path $d.FullName $f)) { Copy-Item "engine86\$f" (Join-Path $d.FullName $f) -Force }
+            }
+            "swapped $($d.FullName)" | Out-Host
           }
           # 不改仓库里的 CMake：tool_backend 拷进去的就是这些 x86 文件
-          Get-ChildItem $cache -Filter 'flutter_windows.dll*' | Format-Table Name, Length
 
       - id: exe32
         name: Configure and build the runner as Win32, then stage with cmake --install
