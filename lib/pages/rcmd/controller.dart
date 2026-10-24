@@ -118,7 +118,7 @@ class RcmdController extends CommonListController {
       if (results[i] case Success(:final response)) {
         hungry[i]
           ..buffer.addAll(response)
-          ..fetched++;
+          ..fetched += 1;
       } else {
         error ??= results[i];
       }
