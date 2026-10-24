@@ -1039,7 +1039,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
 
   static String get audioNormalization =>
-      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '2');
+      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '0');
 
   static String get fallbackNormalization =>
       _setting.get(SettingBoxKey.fallbackNormalization, defaultValue: '0');

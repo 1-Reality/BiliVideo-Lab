@@ -440,8 +440,11 @@ class PlPlayerController
   // decode fails to play.
   late final bool _hwdecAllowsSoftware =
       hwdec == null || hwdec!.split(',').contains('no');
-  // Settings only allow this entry alone.
-  late final bool mediacodecEmbed = hwdec == 'mediacodec_embed';
+  // 设置页里直通只能单选；平板、电视预设写的是带回退列表的直通，先比较前者
+  late final bool mediacodecEmbed =
+      hwdec == 'mediacodec_embed' || _embedWithFallback;
+  late final bool _embedWithFallback =
+      hwdec?.startsWith('mediacodec_embed,') ?? false;
   // While playing, hwdec-current is read every few seconds and matched
   // against the user's keywords (settings are taken on each open). Only the
   // decoder actually playing is read: the ones a file switch creates and drops
@@ -1976,7 +1979,16 @@ class PlPlayerController
             },
           );
         } else if (event.startsWith('Could not open codec')) {
-          SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
+          if (mediacodecEmbed && _embedWithFallback) {
+            // 预设写入的直通解不了：改回普通硬解列表，下次进视频生效
+            GStorage.setting.delete(SettingBoxKey.hardwareDecoding);
+            SmartDialog.showToast(
+              '直通解码失败，已改回常规渲染，退出视频重新进入即可播放',
+              displayTime: const Duration(seconds: 4),
+            );
+          } else {
+            SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
+          }
         } else if (!onlyPlayAudio.value) {
           // A damaged/partial access unit is an FFmpeg decoder diagnostic,
           // not a Dart crash. Do not send its full signed playlist to Catcher.

@@ -59,7 +59,7 @@ abstract final class TvRemoteSetup {
     }
 
     var isPassthrough =
-        Pref.hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
+        Pref.hardwareDecoding.startsWith(HwDecType.mediacodecEmbed.hwdec);
 
     final action = await showDialog<_TvRemoteMenuAction>(
       context: context,
@@ -91,7 +91,7 @@ abstract final class TvRemoteSetup {
                             isPassthrough
                                 ? GStorage.setting.put(
                                     SettingBoxKey.hardwareDecoding,
-                                    HwDecType.mediacodecEmbed.hwdec,
+                                    HwDecType.embedWithFallback,
                                   )
                                 : GStorage.setting.delete(
                                     SettingBoxKey.hardwareDecoding,

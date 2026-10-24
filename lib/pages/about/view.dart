@@ -188,6 +188,14 @@ Commit Hash: ${BuildConfig.commitHash}''',
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(
+            onTap: () => PageUtils.launchURL(
+              'https://www.goofish.com/personal?userId=2216485229713',
+            ),
+            leading: const Icon(Icons.storefront_outlined),
+            title: const Text('影像鱼小铺（第三方）'),
+            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
+          ),
+          ListTile(
             onTap: () => Get.toNamed('/logs'),
             onLongPress: LoggerUtils.clearLogs,
             onSecondaryTap: PlatformUtils.isMobile

@@ -47,6 +47,10 @@ enum HwDecType {
   final String desc;
   const HwDecType(this.hwdec, this.desc);
 
+  /// 平板、电视预设与电视快捷菜单写入的直通：后面带的是解码失败时改回去的
+  /// 普通列表，不带 no，直通期间不退软解，失败才会报出来
+  static const embedWithFallback = 'mediacodec_embed,mediacodec,auto-safe';
+
   static final String androidDefault = kDebugMode
       ? [autoSafe.hwdec, no.hwdec].join(',')
       : [mediacodec.hwdec, autoSafe.hwdec, no.hwdec].join(',');
