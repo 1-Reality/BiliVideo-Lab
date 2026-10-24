@@ -26,7 +26,7 @@ import 'package:material_ui/material_ui.dart';
 
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
-  LoginPageController({this.initialIndex = 0});
+  LoginPageController({this.initialIndex = 1});
 
   final int initialIndex;
   final TextEditingController telTextController = TextEditingController();
