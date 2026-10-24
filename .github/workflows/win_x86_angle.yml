@@ -1,0 +1,100 @@
+name: Windows x86 ANGLE (libEGL / libGLESv2)
+
+# ANGLE 与引擎同一 DEPS 钉的版本、同一套 gn 参数，只编 media-kit 需要的两个 DLL。
+# 结果发到独立的 Release，引擎工作流不变。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  angle:
+    runs-on: windows-2022
+    timeout-minutes: 360
+    env:
+      DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+      GCLIENT_PY3: "1"
+      SRC: C:\fsrc
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve Flutter version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path pubspec.yaml -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
+          "v=$v" | Out-File -Append $env:GITHUB_OUTPUT
+          git config --global core.longpaths true
+          git config --global core.autocrlf false
+          git config --global core.filemode false
+          git config --global depth.default 1
+
+      - name: Fetch depot_tools and engine sources
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git C:\depot_tools
+          "C:\depot_tools" | Out-File -Append $env:GITHUB_PATH
+          $env:PATH = "C:\depot_tools;$env:PATH"
+          git clone --filter=blob:none --no-checkout https://github.com/flutter/flutter.git $env:SRC
+          Set-Location $env:SRC
+          git fetch --depth 1 origin "refs/tags/${{ steps.ver.outputs.v }}:refs/tags/${{ steps.ver.outputs.v }}"
+          git checkout --force ${{ steps.ver.outputs.v }}
+          Copy-Item engine/scripts/standard.gclient .gclient -Force
+          gclient sync --no-history -D -j8
+          if ($LASTEXITCODE -ne 0) { throw 'gclient sync failed' }
+
+      - name: Configure and build ANGLE x86
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\depot_tools;$env:PATH"
+          $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath
+          $env:GYP_MSVS_OVERRIDE_PATH = $vs
+          $env:WINDOWSSDKDIR = "${env:ProgramFiles(x86)}/Windows Kits/10"
+          Set-Location "$env:SRC/engine/src"
+          function Fail($log, $what) {
+            $lines = Get-Content $log | Where-Object { $_ -match 'ERROR|FAILED|error[: ]' } | Select-Object -First 30
+            $lines += Get-Content $log -Tail 40
+            Write-Host "::error title=$what::$(($lines | ForEach-Object { $_ -replace '%','%25' -replace "`r",'' }) -join '%0A')"
+            throw "$what failed"
+          }
+          # 与引擎工作流完全一致的 gn 参数，见 win_x86_engine.yml 的注释
+          $PSNativeCommandArgumentPassing = 'Standard'
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts '--gn-args=host_cpu="x86"' 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
+          $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
+          "OUT=$out" | Out-File -Append $env:GITHUB_ENV
+          ninja -C "out/$out" libEGL.dll libGLESv2.dll 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/ninja.log
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/ninja.log" 'ninja' }
+
+      - name: Pack ANGLE
+        shell: pwsh
+        run: |
+          $d = "$env:SRC/engine/src/out/$env:OUT"
+          New-Item -ItemType Directory pack | Out-Null
+          foreach ($f in 'libEGL.dll','libGLESv2.dll') { Copy-Item "$d/$f" pack/ }
+          Get-ChildItem pack | Format-Table Name, Length
+          foreach ($f in 'libEGL.dll','libGLESv2.dll') {
+            $pe = [IO.File]::ReadAllBytes("$PWD/pack/$f")
+            "$f machine=" + ('{0:X4}' -f [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 4))
+          }
+          7z a "angle-win-x86-${{ steps.ver.outputs.v }}.7z" ./pack/*
+
+      - name: Publish release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "angle-win-x86-${{ steps.ver.outputs.v }}"
+          gh release create $tag --title $tag --notes "Flutter ${{ steps.ver.outputs.v }} 对应 ANGLE 的 x86 libEGL / libGLESv2" --prerelease 2>$null
+          gh release upload $tag "angle-win-x86-${{ steps.ver.outputs.v }}.7z" --clobber
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: angle-logs
+          path: |
+            gn.log
+            ninja.log
+          retention-days: 14
