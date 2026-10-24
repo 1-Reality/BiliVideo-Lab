@@ -1,0 +1,284 @@
+name: libmpv i686 (mpv e7191f2a65, same scripts as x86_64 20260819)
+
+# 32 位 libmpv：与主线 x86_64 20260819 同一套脚本、同一份 mpv 源码，只换 CPU 位数。
+# 上游：bggRGjQaUbCoE/mpv-winbuild-cmake @ 0694931。工具链与 mpv 分成两个任务，各 6 小时。
+# 缓存只用我们自己的前缀（不用 secrets）；编译是单个步骤，超时后仍能执行保存缓存的步骤，下次接着编。
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/experimental-x86-git-am-identity]
+    paths: [.github/workflows/win_x86_libmpv.yml]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_REF: "0694931"
+  MPV_PIN: "e7191f2a65"
+  CACHE_PREFIX: "libmpv-i686-v1"
+  RELEASE_TAG: "libmpv-win-x86-20260819"
+  PACKAGE_NAME: "mpv-dev-i686-20260819-git-e7191f2a65.7z"
+
+jobs:
+  toolchain:
+    name: LLVM / clang toolchain (llvm_clang.yml steps, x86_64 + i686 only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    container:
+      image: docker://ghcr.io/shinchiro/archlinux:latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: upstream
+    steps:
+      - name: Setup git config
+        working-directory: .
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$PWD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: bggRGjQaUbCoE/mpv-winbuild-cmake
+          ref: ${{ env.UPSTREAM_REF }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Restore clang root
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream/clang_root
+          key: ${{ env.CACHE_PREFIX }}-toolchain-clang-root-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-toolchain-clang-root-
+
+      - name: Restore i686 and x86_64 toolchain (ccache lives inside build_i686)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            upstream/build_i686
+            upstream/build_x86_64
+          key: ${{ env.CACHE_PREFIX }}-toolchain-build-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-toolchain-build-
+
+      - name: Build LLVM / clang (all steps in one step so the timeout still leaves time to save)
+        timeout-minutes: 330
+        run: |
+          set -e
+          # 与 llvm_clang.yml 相同的顺序；去掉了 cache-matched-key 的 if，靠 ninja 增量续编
+          cmake -DTARGET_ARCH=x86_64-w64-mingw32 -DLLVM_ENABLE_PGO=GEN -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_x86_64/x86_64-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -G Ninja -B build_x86_64 -S $PWD
+          ninja -C build_x86_64 llvm
+          ninja -C build_x86_64 rustup
+          ninja -C build_x86_64 cargo-clean
+          ninja -C build_x86_64 llvm-clang
+          cmake -DTARGET_ARCH=i686-w64-mingw32 -DLLVM_ENABLE_PGO=GEN -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_i686/i686-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -G Ninja -B build_i686 -S $PWD
+          ninja -C build_i686 llvm-clang
+          cmake -DTARGET_ARCH=x86_64-w64-mingw32 -DLLVM_ENABLE_PGO=GEN -DCLANG_PACKAGES_LTO=ON -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_x86_64/x86_64-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -G Ninja -B build_x86_64 -S $PWD
+          ninja -C build_x86_64 shaderc
+          llvm-profdata merge $PWD/clang_root/profiles/*.profraw -o llvm.profdata
+          rm -rf $PWD/clang_root/profiles/* || true
+          cmake -DTARGET_ARCH=x86_64-w64-mingw32 -DLLVM_ENABLE_PGO=USE -DLLVM_PROFDATA_FILE="llvm.profdata" -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_x86_64/x86_64-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -G Ninja -B build_x86_64 -S $PWD
+          ninja -C build_x86_64 llvm
+
+      - name: Cleanup build intermediates
+        if: always()
+        run: rm -rf {build_i686,build_x86_64}/{toolchain,packages} || true
+
+      - name: Save clang root
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: upstream/clang_root
+          key: ${{ env.CACHE_PREFIX }}-toolchain-clang-root-${{ github.run_id }}
+
+      - name: Save toolchain build dirs (ccache included)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            upstream/build_i686
+            upstream/build_x86_64
+          key: ${{ env.CACHE_PREFIX }}-toolchain-build-${{ github.run_id }}
+
+      - name: Failure annotations (recent logs)
+        if: failure()
+        run: |
+          for f in $(find . -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -3 | cut -d' ' -f2-); do
+            echo "::error title=$f::$(tail -n 40 "$f" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"
+          done
+
+  mpv:
+    name: mpv i686 (mpv_clang.yml steps, pinned to e7191f2a65)
+    needs: toolchain
+    if: ${{ needs.toolchain.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    container:
+      image: docker://ghcr.io/shinchiro/archlinux:latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: upstream
+    steps:
+      - name: Setup git config
+        working-directory: .
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$PWD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: bggRGjQaUbCoE/mpv-winbuild-cmake
+          ref: ${{ env.UPSTREAM_REF }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Pin mpv to e7191f2a65 (temporary copy inside this job)
+        run: |
+          set -e
+          n=$(grep -c 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake)
+          [ "$n" = "1" ] || { echo "expected one GIT_REPOSITORY line, found $n"; exit 1; }
+          sed -i "/GIT_REPOSITORY https:\/\/github.com\/mpv-player\/mpv.git/a\    GIT_TAG ${MPV_PIN}" packages/mpv.cmake
+          grep -n -A1 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake
+
+      - name: Restore clang root
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream/clang_root
+          key: ${{ env.CACHE_PREFIX }}-mpv-clang-root-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-mpv-clang-root-
+            ${{ env.CACHE_PREFIX }}-toolchain-clang-root-
+
+      - name: Restore i686 build dir (mpv progress first, then toolchain)
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream/build_i686
+          key: ${{ env.CACHE_PREFIX }}-mpv-build-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-mpv-build-
+            ${{ env.CACHE_PREFIX }}-toolchain-build-
+
+      - name: Restore source packages
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream/src_packages
+          key: ${{ env.CACHE_PREFIX }}-src-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-src-
+
+      - name: Build mpv (one step so the timeout still leaves time to save)
+        timeout-minutes: 330
+        run: |
+          set -e
+          cmake -DTARGET_ARCH=i686-w64-mingw32 -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_i686/i686-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -DENABLE_CCACHE=ON -DCLANG_PACKAGES_LTO=ON -G Ninja --fresh -B build_i686 -S $PWD
+          ninja -C build_i686 download || true
+          ninja -C build_i686 update
+          ninja -C build_i686 mpv
+          ninja -C build_i686 mpv-packaging
+
+      - name: Collect mpv-dev package
+        run: |
+          set -e
+          mkdir -p release_i686
+          mv build_i686/mpv*.7z release_i686/
+          ls -l release_i686
+
+      - name: Verify package (PE machine, pinned hash, exports vs official x64 control)
+        run: |
+          set -e
+          src=$(ls release_i686/mpv-dev-i686-*-git-${MPV_PIN}*.7z)
+          [ "$(echo "$src" | wc -l)" = "1" ] || { echo "expected one mpv-dev package, got: $src"; exit 1; }
+          cp "$src" "$PACKAGE_NAME"
+          rm -rf verify && mkdir verify && 7z x -overify "$PACKAGE_NAME" >/dev/null
+          dll=verify/libmpv-2.dll
+          machine=$(python3 -c "import struct,sys; d=open(sys.argv[1],'rb').read(); o=struct.unpack_from('<I',d,0x3c)[0]; print(hex(struct.unpack_from('<H',d,o+4)[0]))" "$dll")
+          echo "libmpv-2.dll machine=$machine"
+          [ "$machine" = "0x14c" ] || { echo "not an x86 DLL"; exit 1; }
+          # 短哈希 7 位：DLL 里的版本串长度不一定是包名的 10 位
+          hits=$(grep -a -c "${MPV_PIN:0:7}" "$dll" || true)
+          echo "pinned short hash ${MPV_PIN:0:7} lines in dll: $hits"
+          [ "$hits" -ge 1 ] || { echo "pinned hash not found in dll"; exit 1; }
+          # 对照：官方 x64 20260819 同样应该含该短哈希，并比较 mpv_* 导出名
+          curl -sSL -o control-x64.7z "https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20260819/mpv-dev-x86_64-20260819-git-e7191f2a65.7z"
+          rm -rf control && mkdir control && 7z x -ocontrol control-x64.7z libmpv-2.dll >/dev/null
+          echo "control x64 hits: $(grep -a -c "${MPV_PIN:0:7}" control/libmpv-2.dll || true)"
+          objdump -p "$dll" | grep -o 'mpv_[A-Za-z0-9_]*' | sort -u > exports-x86.txt || true
+          objdump -p control/libmpv-2.dll | grep -o 'mpv_[A-Za-z0-9_]*' | sort -u > exports-x64.txt || true
+          n86=$(wc -l < exports-x86.txt); n64=$(wc -l < exports-x64.txt)
+          echo "export names: x86=$n86 x64=$n64"
+          if [ "$n86" = "0" ] || [ "$n64" = "0" ]; then
+            echo "::warning title=exports not compared::objdump produced no mpv_* names"
+          elif diff exports-x64.txt exports-x86.txt; then
+            echo "exports identical"
+          else
+            echo "::warning title=exports differ::see diff above"
+          fi
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpv-dev-i686
+          path: upstream/${{ env.PACKAGE_NAME }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Save source packages
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: upstream/src_packages
+          key: ${{ env.CACHE_PREFIX }}-src-${{ github.run_id }}
+
+      - name: Save i686 build dir (ccache included)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: upstream/build_i686
+          key: ${{ env.CACHE_PREFIX }}-mpv-build-${{ github.run_id }}
+
+      - name: Save clang root
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: upstream/clang_root
+          key: ${{ env.CACHE_PREFIX }}-mpv-clang-root-${{ github.run_id }}
+
+      - name: Failure annotations (recent logs)
+        if: failure()
+        run: |
+          for f in $(find . -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -3 | cut -d' ' -f2-); do
+            echo "::error title=$f::$(tail -n 40 "$f" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"
+          done
+
+  publish:
+    name: Publish to our release
+    needs: mpv
+    if: ${{ needs.mpv.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mpv-dev-i686
+          path: out
+
+      - name: Create or update release and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          f="out/${PACKAGE_NAME}"
+          test -f "$f"
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --prerelease \
+            --notes "mpv e7191f2a65 的 i686 libmpv（同 x86_64 20260819 的脚本与源码，仅 CPU 位数不同）" 2>/dev/null || true
+          gh release upload "$RELEASE_TAG" "$f" --clobber
