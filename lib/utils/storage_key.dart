@@ -175,6 +175,7 @@ abstract final class SettingBoxKey {
       defaultHomePage = 'defaultHomePage',
       previewQuality = 'previewQuality',
       checkDynamic = 'checkDynamic',
+      silver2coin = 'silver2coin',
       dynamicPeriod = 'dynamicPeriod',
       schemeVariant = 'schemeVariant',
       showViewPoints = 'showViewPoints',

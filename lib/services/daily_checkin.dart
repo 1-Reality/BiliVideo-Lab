@@ -1,4 +1,5 @@
 import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -7,7 +8,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 /// 每日任务里要专门去做的几项，正常使用就有的登录、观看经验不另外做。
-/// 当天首次打开：漫画签到与阅读、大会员积分签到；当天第一次上报观看进度成功后：
+/// 当天首次打开：漫画签到与阅读、大会员积分签到、银瓜子换硬币（开关）；当天第一次上报观看进度成功后：
 /// 分享正在看的视频、领大会员每日经验。今天已做过的算成功，只在失败时提示
 abstract final class DailyCheckin {
   /// 当天还没分享、没领大会员经验，等第一次观看上报
@@ -25,7 +26,12 @@ abstract final class DailyCheckin {
     if (!Accounts.main.isLogin) return;
     watchPending = true;
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _report([_manga(), _mangaRead(), if (_vip) _vipPoints()]),
+      (_) => _report([
+        _manga(),
+        _mangaRead(),
+        if (_vip) _vipPoints(),
+        if (Pref.silver2coin) _silver2coin(),
+      ]),
     );
   }
 
@@ -40,7 +46,7 @@ abstract final class DailyCheckin {
   }
 
   static final _done = RegExp(
-    '已签|重复|duplicate|already',
+    '已签|重复|duplicate|already|余额不足',
     caseSensitive: false,
   );
 
@@ -72,6 +78,15 @@ abstract final class DailyCheckin {
         'comic_id': 27355,
         'ep_id': 381662,
       },
+      options: _form(),
+    ),
+  );
+
+  static Future<String?> _silver2coin() async => _check(
+    '银瓜子换硬币',
+    await Request().post(
+      '${HttpString.liveBaseUrl}/xlive/revenue/v1/wallet/silver2coin',
+      data: {'csrf': Accounts.main.csrf, 'csrf_token': Accounts.main.csrf},
       options: _form(),
     ),
   );

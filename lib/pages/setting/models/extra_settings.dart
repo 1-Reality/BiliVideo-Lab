@@ -117,6 +117,13 @@ List<SettingsModel> get extraSettings => [
     ),
   ),
   const SwitchModel(
+    title: '每日用银瓜子换硬币',
+    subtitle: '每天首次打开时用 700 银瓜子换 1 枚硬币，不够就跳过',
+    leading: Icon(Icons.monetization_on_outlined),
+    setKey: SettingBoxKey.silver2coin,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '显示视频分段信息',
     leading: Icon(CustomIcons.view_headline_rotate_90),
     setKey: SettingBoxKey.showViewPoints,
