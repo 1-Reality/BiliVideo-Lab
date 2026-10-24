@@ -46,57 +46,68 @@ jobs:
         run: flutter precache --windows
 
       - id: debug
-        name: Official debug build (verbose, to capture the frontend_server command)
+        name: Official x64 debug build (sanity check of the same toolchain; not used for the kernel)
         shell: pwsh
         run: flutter build windows --debug -v 2>&1 | Tee-Object flutter-debug-build.log
 
       - id: kernel
-        name: Build product kernel_blob.bin from the captured command
+        name: Build product kernel_blob.bin with the official KernelSnapshot arguments
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $PSNativeCommandArgumentPassing = 'Standard'
-          $line = Get-Content flutter-debug-build.log |
-            Where-Object { $_ -match 'frontend_server\.dart\.snapshot' -and $_ -match '--sdk-root' } |
-            Select-Object -First 1
-          if (-not $line) { throw 'frontend_server command not found in the verbose log' }
-          $line | Out-File frontend-server-debug-line.txt -Encoding UTF8
 
-          $cmd = $line -replace '^.*?Executing:\s*', ''
-          $tokens = [regex]::Matches($cmd, '"[^"]*"|\S+') | ForEach-Object { $_.Value.Trim('"') }
-          $dart = $tokens[0]
+          # 参数来源（flutter_tools 3.47.5）：
+          #   targets/common.dart  KernelSnapshot.build：aot=false，release 下 trackWidgetCreation=false，windows_x64 强制 link platform
+          #   compile.dart         buildModeOptions(release)、kDartCompilerExperiments（空）、参数拼装顺序
+          $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
+          $engine = Join-Path $flutterRoot 'bin\cache\artifacts\engine'
+          $dartaot = (Get-ChildItem $engine -Recurse -Filter 'dartaotruntime.exe' | Select-Object -First 1).FullName
+          $frontend = (Get-ChildItem $engine -Recurse -Filter 'frontend_server_aot.dart.snapshot' | Select-Object -First 1).FullName
+          $sdk = Get-ChildItem $engine -Recurse -Directory -Filter 'flutter_patched_sdk_product' | Select-Object -First 1
+          if (-not $dartaot) { throw 'dartaotruntime.exe not found under the engine cache' }
+          if (-not $frontend) { throw 'frontend_server_aot.dart.snapshot not found under the engine cache' }
+          if (-not $sdk) { throw 'flutter_patched_sdk_product not found under the engine cache' }
+          Write-Host "dartaotruntime: $dartaot"
+          Write-Host "frontend_server: $frontend"
+          Write-Host "sdk-root: $($sdk.FullName)"
+          Write-Host "platform_strong.dill present: $(Test-Path (Join-Path $sdk.FullName 'platform_strong.dill'))"
+
+          $pkgs = Join-Path $env:GITHUB_WORKSPACE '.dart_tool\package_config.json'
+          $main = Join-Path $env:GITHUB_WORKSPACE 'lib\main.dart'
+          if (-not (Test-Path $pkgs)) { throw "missing $pkgs (pub get did not run?)" }
+          if (-not (Test-Path $main)) { throw "missing $main" }
 
           $kernelDir = Join-Path $env:GITHUB_WORKSPACE 'kernel'
           New-Item -ItemType Directory -Force $kernelDir | Out-Null
           $dill = Join-Path $kernelDir 'app.dill'
 
-          # 'dart [--disable-dart-dev ...] frontend_server.dart.snapshot [options] main.dart'
-          $fe = 0
-          while ($fe -lt $tokens.Count -and $tokens[$fe] -notmatch 'frontend_server\.dart\.snapshot$') { $fe++ }
-          if ($fe -ge $tokens.Count) { throw 'frontend_server.dart.snapshot token not found in the captured command' }
+          # 等价于 --dart-define-from-file=pili_release.json：每个键转成 -Dkey=value
+          $defs = Get-Content pili_release.json -Raw | ConvertFrom-Json
+          $defArgs = @($defs.PSObject.Properties | ForEach-Object { "-D$($_.Name)=$($_.Value)" })
 
-          $args2 = New-Object System.Collections.Generic.List[string]
-          for ($i = 1; $i -le $fe; $i++) { $args2.Add($tokens[$i]) }
-          $args2.Add('-Ddart.vm.product=true')
-          for ($i = $fe + 1; $i -lt $tokens.Count; $i++) {
-            $t = $tokens[$i]
-            if ($t -eq '--track-widget-creation' -or $t -eq '--incremental' -or $t -like '-Ddart.vm.product=*') {
-              continue
-            }
-            elseif ($t -eq '--initialize-from') { $i++ }
-            elseif ($t -like '--initialize-from=*') { continue }
-            elseif ($t -eq '--output-dill') { $i++; $args2.Add('--output-dill'); $args2.Add($dill) }
-            elseif ($t -like '--output-dill=*') { $args2.Add("--output-dill=$dill") }
-            elseif ($t -eq '--sdk-root') {
-              $p = $tokens[++$i]
-              $args2.Add('--sdk-root')
-              $args2.Add(($p -replace 'flutter_patched_sdk[\\/]?$', 'flutter_patched_sdk_product\'))
-            }
-            else { $args2.Add($t) }
-          }
+          $frontendArgs = @(
+            $frontend,
+            '--sdk-root', $sdk.FullName,
+            '--target=flutter',
+            '--no-print-incremental-dependencies'
+          ) + $defArgs + @(
+            '-Ddart.vm.profile=false',
+            '-Ddart.vm.product=true',
+            '--delete-tostring-package-uri=dart:ui',
+            '--delete-tostring-package-uri=package:flutter',
+            '--packages', $pkgs,
+            '--output-dill', $dill,
+            '--verbosity=error',
+            $main
+          )
 
-          "dart: $dart" | Tee-Object kernel-command.txt
-          ($args2 -join ' ') | Tee-Object -Append kernel-command.txt
-          & $dart @args2 2>&1 | Tee-Object kernel-build.log
+          # 日志里只写参数形状，不写 define 的值
+          $shape = $frontendArgs | ForEach-Object { if ($_ -like '-D*=*') { ($_ -split '=')[0] + '=<value>' } else { $_ } }
+          "dartaotruntime: $dartaot" | Tee-Object kernel-command.txt
+          ($shape -join ' ') | Tee-Object -Append kernel-command.txt
+
+          & $dartaot @frontendArgs 2>&1 | Tee-Object kernel-build.log
           if ($LASTEXITCODE -ne 0) { throw "product kernel compile failed (exit $LASTEXITCODE)" }
 
           Copy-Item $dill (Join-Path $kernelDir 'kernel_blob.bin')
@@ -130,6 +141,7 @@ jobs:
               Emit "$f tail" @($all | Select-Object -Last 40)
             } else { Emit "$f" @("(missing)") }
           }
+
       - name: Upload kernel and logs
         if: always()
         uses: actions/upload-artifact@v7
@@ -140,7 +152,6 @@ jobs:
             kernel/app.dill
             kernel-command.txt
             kernel-build.log
-            frontend-server-debug-line.txt
             flutter-debug-build.log
           if-no-files-found: warn
           retention-days: 14
