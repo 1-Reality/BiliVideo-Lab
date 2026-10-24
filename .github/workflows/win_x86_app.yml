@@ -157,6 +157,11 @@ jobs:
           }
           # 不改仓库里的 CMake：tool_backend 拷进去的就是这些 x86 文件
 
+      - id: patch32
+        name: Apply x86-only plugin patches (CI working copies only; not committed)
+        shell: pwsh
+        run: lib/scripts/patch_x86_plugins.ps1
+
       - id: exe32
         name: Configure and build the runner as Win32, then stage with cmake --install
         shell: pwsh
@@ -221,6 +226,7 @@ jobs:
           O_ENGINE86: ${{ steps.engine86.outcome }}
           O_SWAP: ${{ steps.engineswap.outcome }}
           O_EXE32: ${{ steps.exe32.outcome }}
+          O_PATCH32: ${{ steps.patch32.outcome }}
         run: |
           function Emit($title, $lines) {
             $text = ($lines -join "`n")
@@ -229,8 +235,9 @@ jobs:
             Write-Host "::error title=$title::$enc"
           }
           Emit 'step outcomes' @(
-            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP exe32=$env:O_EXE32"
+            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP patch32=$env:O_PATCH32 exe32=$env:O_EXE32"
           )
+          if (Test-Path 'exe32.log') { Emit 'exe32 errors (compiler/linker)' @(Get-Content exe32.log | Where-Object { $_ -match ' error [A-Z]+\d+|fatal error|LNK\d{4}|C2220' } | Select-Object -First 40) }
           if (Test-Path 'exe32.log') { Emit 'exe32 probes' @(Get-Content exe32.log | Where-Object { $_ -match '^\[(before|after)' }) }
           foreach ($f in 'exe32-error.txt','exe32.log','kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
             if (Test-Path $f) {
