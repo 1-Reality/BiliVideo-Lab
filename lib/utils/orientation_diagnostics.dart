@@ -67,14 +67,14 @@ abstract final class BrotherDiagnosticsCompiler {
         if (_supportsProposedRotation) {
           triggerListeners |= BrotherDiagnosticListener.proposedSystem;
         } else {
-          triggerNotes.add('$scope：当前平台无系统建议方向监听');
+          triggerNotes.add('$scope：系统低于 Android 14，「系统建议方向」信号无效');
         }
       }
       if (mask & BrotherOrientationSignalMask.appGravity != 0) {
         if (gravityAllowed) {
           triggerListeners |= BrotherDiagnosticListener.appGravity;
         } else {
-          triggerNotes.add('$scope：APP重力受系统方向锁阻止');
+          triggerNotes.add('$scope：系统旋转锁定已开启，重力信号不生效');
         }
       }
     }
@@ -84,7 +84,7 @@ abstract final class BrotherDiagnosticsCompiler {
         plan.enterSignalMask,
         gravityAllowed:
             !plan.windowed.gravityFollowSystemLock || plan.systemAutoRotate,
-        scope: '进入触发',
+        scope: '横置进入全屏',
       );
     }
     if (plan.portraitExit) {
@@ -93,30 +93,30 @@ abstract final class BrotherDiagnosticsCompiler {
       addTriggerSignals(
         plan.exitSignalMask,
         gravityAllowed: gravityAllowed,
-        scope: '退出触发',
+        scope: '竖置退出全屏',
       );
       if (plan.manualExitConfirmations > 0) {
         addTriggerSignals(
           plan.manualExitSignalMask,
           gravityAllowed: gravityAllowed,
-          scope: '手动退出确认',
+          scope: '手动全屏的退出确认',
         );
       }
     }
 
     return BrotherDiagnosticsSnapshot(
       phases: [
-        _phase(plan, 'APP', plan.app, hasResume: true, appPhase: true),
+        _phase(plan, 'APP 普通页面', plan.app, hasResume: true, appPhase: true),
         _phase(
           plan,
-          '非全屏',
+          '视频非全屏',
           plan.windowed,
           hasResume: true,
           appPhase: false,
         ),
         _phase(
           plan,
-          '全屏',
+          '视频全屏',
           plan.fullscreen,
           hasResume: false,
           appPhase: false,
@@ -147,22 +147,22 @@ abstract final class BrotherDiagnosticsCompiler {
           appPhase: appPhase,
         );
         if (!interpreted.executable) {
-          notes.add('${mode.desc}：首页无执行器');
+          notes.add('${mode.desc}：APP 普通页面不可用');
           continue;
         }
         if (interpreted.usesAppGravity) {
           if (candidate.gravityFollowSystemLock && !plan.systemAutoRotate) {
-            notes.add('${mode.desc}：系统方向锁关闭时运行时锁定');
+            notes.add('${mode.desc}：系统旋转锁定已开启，改为锁定当前方向');
           } else {
             listeners |= BrotherDiagnosticListener.appGravity;
           }
         }
         if (interpreted.waitsForSourceChange) {
           if (!_supportsProposedRotation) {
-            notes.add('${mode.desc}：当前平台无系统建议方向等待源');
+            notes.add('${mode.desc}：系统低于 Android 14，无法等待首次转动');
           } else if (mode == BrotherRuntimeMode.followSystemAllowed &&
               !plan.systemAutoRotate) {
-            notes.add('${mode.desc}：系统方向锁关闭时不启用等待源');
+            notes.add('${mode.desc}：系统旋转锁定已开启，不等待首次转动');
           } else {
             listeners |= BrotherDiagnosticListener.proposedSystem;
           }
@@ -202,7 +202,7 @@ abstract final class BrotherDiagnosticsCompiler {
           }
           if (!target.executable) {
             notes.add(
-              '${interpreted.targetPhase.runtimeMode.desc}：首页无执行器',
+              '${interpreted.targetPhase.runtimeMode.desc}：APP 普通页面不可用',
             );
           }
         }
@@ -231,7 +231,7 @@ abstract final class BrotherDiagnosticsCompiler {
       allowed: _allowedLabel(plan, phase),
       runtimeListeners: listeners,
       latch: appPhase && phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off
-          ? '${phase.runtimeLatchAxis.desc}→${_modeLabel(plan, phase, phase.runtimeLatchMode, true)}'
+          ? '${phase.runtimeLatchAxis.desc}，切换为${_modeLabel(plan, phase, phase.runtimeLatchMode, true)}'
           : null,
       latchListening: latchListening,
       notes: notes.toList(growable: false),
@@ -243,7 +243,7 @@ abstract final class BrotherDiagnosticsCompiler {
     BrotherPhaseConfig phase,
     BrotherRuntimeMode? mode,
     bool appPhase,
-  ) => mode == null ? '沿用默认' : _modeLabel(plan, phase, mode, appPhase);
+  ) => mode == null ? '沿用运行期间的旋转方式' : _modeLabel(plan, phase, mode, appPhase);
 
   static String _modeLabel(
     BrotherOrientationPlan plan,
@@ -261,7 +261,7 @@ abstract final class BrotherDiagnosticsCompiler {
         return mode.desc;
       }
     }
-    return '${mode.desc}（首页无效）';
+    return '${mode.desc}（APP 普通页面不可用）';
   }
 
   static Set<int> _possibleAllowedMasks(
@@ -291,13 +291,13 @@ abstract final class BrotherDiagnosticsCompiler {
     BrotherAllowedBasis.fixed =>
       _maskLabel(phase.allowedMask & plan.effectiveFinalMask),
     BrotherAllowedBasis.entryAxis =>
-      '${phase.allowedBasis.desc}；最终许可=${_maskLabel(plan.effectiveFinalMask)}',
+      '${phase.allowedBasis.desc}，受最终方向许可限制：${_maskLabel(plan.effectiveFinalMask)}',
     BrotherAllowedBasis.entryExact =>
-      '${phase.allowedBasis.desc}；最终许可=${_maskLabel(plan.effectiveFinalMask)}',
+      '${phase.allowedBasis.desc}，受最终方向许可限制：${_maskLabel(plan.effectiveFinalMask)}',
   };
 
   static String _maskLabel(int mask) {
-    if (mask == 0) return '空集';
+    if (mask == 0) return '无';
     if (mask == OrientationMask.all) return '全部';
     return [
       if (mask & OrientationMask.portraitUp != 0) '正竖',
@@ -308,38 +308,45 @@ abstract final class BrotherDiagnosticsCompiler {
   }
 }
 
-/// C only. It renders B'' and contains no policy inference.
+/// 把编译结果排成可读的文字，不做策略推断
 abstract final class BrotherOrientationDiagnostics {
   static String describe(BrotherDiagnosticsSnapshot snapshot) {
-    final lines = <String>[
-      for (final phase in snapshot.phases) _phaseLine(phase),
-      '触发监听候选：${_listeners(snapshot.triggerListeners)}',
-      if (snapshot.triggerNotes.isNotEmpty)
-        '触发解释：${snapshot.triggerNotes.join('、')}',
-      '监听器均按实际生命周期与需求动态启停，无轮询；“候选”表示该编译结果在对应运行路径可能启用，不等于当前时刻常驻。',
-    ];
-    return lines.join('\n');
+    // 某个监听在哪些场景会启用
+    String where(int bit) {
+      final scopes = [
+        for (final phase in snapshot.phases)
+          if (phase.runtimeListeners & bit != 0) '${phase.name}运行期间',
+        if (bit == BrotherDiagnosticListener.metrics)
+          for (final phase in snapshot.phases)
+            if (phase.latchListening) '${phase.name}等待一次性切换',
+        if (snapshot.triggerListeners & bit != 0) '方向触发全屏',
+      ];
+      return scopes.isEmpty ? '不订阅' : '会订阅：${scopes.join('、')}';
+    }
+
+    return [
+      '【监听与开销】',
+      '重力传感器（持续采样，耗电最多）：${where(BrotherDiagnosticListener.appGravity)}',
+      '系统建议方向（Android 14 起，系统回调，开销很小）：${where(BrotherDiagnosticListener.proposedSystem)}',
+      '窗口尺寸变化（仅在屏幕旋转时回调，几乎无开销）：${where(BrotherDiagnosticListener.metrics)}',
+      '以上监听只在对应场景里启用，离开即注销，不轮询。',
+      '',
+      '【各生命周期】',
+      for (final phase in snapshot.phases) ..._phaseLines(phase),
+      if (snapshot.triggerNotes.isNotEmpty) ...[
+        '',
+        '【方向触发】',
+        ...snapshot.triggerNotes,
+      ],
+    ].join('\n');
   }
 
-  static String _phaseLine(BrotherPhaseDiagnostics phase) {
-    final resume = phase.resumeLandscapeRuntime == null
-        ? ''
-        : '；横屏返回=${phase.resumeLandscapeRuntime}；竖屏返回=${phase.resumePortraitRuntime}';
-    final latch = phase.latch == null
-        ? ''
-        : '；一次性切换=${phase.latch}；条件监听=${phase.latchListening ? "界面Metrics（命中后立即注销）" : "0"}';
-    final note = phase.notes.isEmpty ? '' : '；解释=${phase.notes.join('、')}';
-    return '${phase.name}：默认=${phase.defaultRuntime}$resume；许可=${phase.allowed}；常规运行监听候选=${_listeners(phase.runtimeListeners)}$latch$note';
-  }
-
-  static String _listeners(int mask) {
-    final values = <String>[
-      if (mask & BrotherDiagnosticListener.metrics != 0)
-        '方向许可Metrics守卫',
-      if (mask & BrotherDiagnosticListener.proposedSystem != 0)
-        '系统建议方向',
-      if (mask & BrotherDiagnosticListener.appGravity != 0) 'APP重力',
-    ];
-    return values.isEmpty ? '0' : values.join('、');
-  }
+  static List<String> _phaseLines(BrotherPhaseDiagnostics phase) => [
+    '${phase.name}：运行期间 ${phase.defaultRuntime}',
+    if (phase.resumeLandscapeRuntime != null)
+      '  从下级以横屏返回后：${phase.resumeLandscapeRuntime}；以竖屏返回后：${phase.resumePortraitRuntime}',
+    '  允许方向：${phase.allowed}',
+    if (phase.latch != null) '  一次性切换：${phase.latch}',
+    for (final note in phase.notes) '  注意：$note',
+  ];
 }
