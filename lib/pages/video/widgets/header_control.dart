@@ -370,6 +370,7 @@ class HeaderControlState extends State<HeaderControl>
   late final PlPlayerController plPlayerController = widget.controller;
   late final VideoDetailController videoDetailCtr = widget.videoDetailCtr;
   late final PlayUrlModel videoInfo = videoDetailCtr.data;
+  late final _inAppPip = Pref.enableInAppPip;
   static const TextStyle subTitleStyle = TextStyle(fontSize: 12);
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
@@ -1840,7 +1841,7 @@ class HeaderControlState extends State<HeaderControl>
                 }),
               if (!isFileSource) ...[
                 if (!isFSOrPip) ...[
-                  if (Pref.enableInAppPip)
+                  if (_inAppPip)
                     SizedBox(
                       width: btnWidth,
                       height: btnHeight,
