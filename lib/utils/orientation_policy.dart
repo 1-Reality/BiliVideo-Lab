@@ -641,6 +641,8 @@ abstract final class OrientationPolicy {
       allowedMask: allowed,
       appPhase: true,
     );
+    // 状态命中的切换在进入时就已命中，不必等下一次转动
+    _brotherAppRuntimeLatch.checkNow();
   }
 
   static void clearBrotherAppRuntimeLatch() =>
@@ -1035,6 +1037,10 @@ final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
   void didChangeMetrics() {
     if (!_active || _checking) return;
     _check();
+  }
+
+  void checkNow() {
+    if (_active && !_edgeTriggered && _targetMatched && !_checking) _check();
   }
 
   Future<void> _check() async {

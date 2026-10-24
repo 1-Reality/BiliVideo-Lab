@@ -51,12 +51,33 @@ jobs:
           $env:GYP_MSVS_OVERRIDE_PATH = $vs
           $env:WINDOWSSDKDIR = "${env:ProgramFiles(x86)}/Windows Kits/10"
           Set-Location "$env:SRC/engine/src"
-          python flutter/tools/gn --windows --windows-cpu x86 --runtime-mode=jit_release --no-rbe --no-goma --no-prebuilt-dart-sdk --no-enable-unittests 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
-          if ($LASTEXITCODE -ne 0) { throw 'gn failed' }
+          # 失败时把日志尾部写成注解：注解能经 API 读到，日志下载在某些环境被挡
+          function Fail($log, $what) {
+            $lines = Get-Content $log | Where-Object { $_ -match 'ERROR|FAILED|error[: ]' } | Select-Object -First 30
+            $lines += Get-Content $log -Tail 40
+            Write-Host "::error title=$what::$(($lines | ForEach-Object { $_ -replace '%','%25' -replace "`r",'' }) -join '%0A')"
+            throw "$what failed"
+          }
+          # 与官方 Windows 引擎一样走 host 构建：加 --windows 会让 tools/gn 不给 ANGLE
+          # 传 Flutter 的覆盖参数，ANGLE 退回自带默认值，找不到 test() 与 vulkan-headers
+          # --no-build-engine-artifacts：x86 目标下 build_engine_artifacts 会把 dart_sdk（经 create_sdk 拉入 dtd、
+          # kernel-service）、const_finder 挂进默认图，它们在 x64 宿主工具链里依赖的目标解析不了。只需要 dll 与 icudtl
+          # host_cpu=x86：与 tools/gn 里 32 位 ARM Windows 的做法一致（gn.py 对 android arm 设 host_cpu=x86），
+          # 让 $host_toolchain 落到 clang_x86，宿主侧 Dart 工具（gen_snapshot、bootstrap_*、kernel_platform_files）
+          # 与目标同位宽，不再去找 clang_x64 下并不存在的目标。
+          # 嵌入引号的参数要用 Standard 传递方式，否则 PowerShell 会把 host_cpu="x86" 的引号吃掉
+          $PSNativeCommandArgumentPassing = 'Standard'
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts '--gn-args=host_cpu="x86"' 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
           $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
           "OUT=$out" | Out-File -Append $env:GITHUB_ENV
+          # 补丁：Vulkan 调试回调缺 VKAPI_CALL，32 位下 stdcall 与 PFN_vkDebugReportCallbackEXT 不一致（x64 忽略该约定，不报错）
+          # 先还原再打，避免缓存里已经打过一次
+          git -C "$env:SRC/engine/src/flutter" reset --hard HEAD
+          git -C "$env:SRC/engine/src/flutter" apply "$env:GITHUB_WORKSPACE/lib/scripts/vulkan_debug_callback_stdcall.patch"
+          if ($LASTEXITCODE -ne 0) { throw 'vulkan callback patch failed' }
           ninja -C "out/$out" flutter_windows.dll icudtl.dat 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/ninja.log
-          if ($LASTEXITCODE -ne 0) { throw 'ninja failed' }
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/ninja.log" 'ninja' }
 
       - name: Pack engine
         shell: pwsh

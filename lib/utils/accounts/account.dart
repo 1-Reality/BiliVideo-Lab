@@ -66,6 +66,17 @@ class LoginAccount extends Account {
   @HiveField(4)
   final bool phone;
 
+  /// 短信、密码登录的账号另用 cookie 换来的 HD token，勾选平板推荐时才换
+  @HiveField(5)
+  String? hdAccessKey;
+
+  /// 某一端的 token：主 token 归它来历的那一端，HD 另有换来的一份
+  String? tokenOf(BiliApp app) => app == this.app
+      ? accessKey
+      : app == BiliApp.hd
+      ? hdAccessKey
+      : null;
+
   @override
   BiliApp get app => phone ? BiliApp.phone : BiliApp.hd;
 
@@ -118,6 +129,7 @@ class LoginAccount extends Account {
     'refresh': refresh,
     'type': type.map((i) => i.index).toList(),
     'phone': phone,
+    'hdAccessKey': hdAccessKey,
   };
 
   late final String _midStr = cookieJar
@@ -133,6 +145,7 @@ class LoginAccount extends Account {
     this.refresh, {
     Set<AccountType>? type,
     this.phone = false,
+    this.hdAccessKey,
   }) : type = type ?? {} {
     cookieJar.setBuvid3();
   }
@@ -145,6 +158,7 @@ class LoginAccount extends Account {
         ?.map((i) => AccountType.values[i])
         .toSet(),
     phone: json['phone'] ?? false,
+    hdAccessKey: json['hdAccessKey'],
   );
 
   @override

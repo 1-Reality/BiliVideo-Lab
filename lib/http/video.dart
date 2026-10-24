@@ -89,24 +89,15 @@ abstract final class VideoHttp {
     }
   }
 
-  static bool _coldStart = true;
-
-  // 每次刷新换一个，不感兴趣时回传
-  static String _actionId = '';
-
-  /// App 推荐流用的客户端与账号：手机或平板；账号手里的 token 与之对口才带上，
-  /// 否则以未登录身份取流
-  static (BiliApp, Account?) get rcmdIdentity {
-    final app = Pref.rcmdTablet ? BiliApp.hd : BiliApp.phone;
-    final account = Accounts.get(AccountType.recommend);
-    return (
-      app,
-      Pref.rcmdAnonymous ||
-              account.app != app ||
-              account.accessKey.isNullOrEmpty
-          ? null
-          : account,
-    );
+  /// App 推荐流某一端的登录身份：账号手里有这一端的 token 才带上，否则以未登录身份取流
+  static (LoginAccount, String)? rcmdIdentity(BiliApp app) {
+    if (Pref.rcmdAnonymous) return null;
+    if (Accounts.get(AccountType.recommend) case final LoginAccount account) {
+      if (account.tokenOf(app) case final key?) {
+        return (account, key);
+      }
+    }
+    return null;
   }
 
   /// 推荐流相关的 App 请求：自己签名、自己带身份，不走拦截器的账号逻辑
@@ -114,17 +105,17 @@ abstract final class VideoHttp {
     String url,
     Map<String, dynamic> params,
     BiliApp app,
-    Account? account,
+    (LoginAccount, String)? identity,
   ) {
     params.addAll(app.commonParams);
-    if (account != null) params['access_key'] = account.accessKey;
+    if (identity != null) params['access_key'] = identity.$2;
     AppSign.appSign(params, app);
     return Request().get(
       url,
       queryParameters: params,
       options: Options(
         headers: {
-          ...BiliDevice.appHeaders(app, account?.mid ?? 0),
+          ...BiliDevice.appHeaders(app, identity?.$1.mid ?? 0),
           ...BiliSession.dynamicHeaders,
         },
         extra: {'account': const NoAccount()},
@@ -140,14 +131,15 @@ abstract final class VideoHttp {
   }) async {
     if (refresh) {
       cursor.flush = 0;
-      _actionId = Utils.random
+      cursor.actionId = Utils.random
           .nextInt(0x100000000)
           .toRadixString(16)
           .toUpperCase()
           .padLeft(8, '0');
     }
-    final cold = _coldStart;
-    final (app, account) = rcmdIdentity;
+    final cold = cursor.cold;
+    final app = cursor.app;
+    final identity = rcmdIdentity(app);
     final res = await _rcmdAppGet(Api.recommendListApp, {
       'auto_refresh_state': 1,
       'autoplay_card': 11,
@@ -171,7 +163,7 @@ abstract final class VideoHttp {
       'inline_sound_cold_state': 2,
       'interest_id': 0,
       'login_event': cold
-          ? account == null
+          ? identity == null
                 ? 1
                 : 2
           : 0,
@@ -191,10 +183,10 @@ abstract final class VideoHttp {
       'voice_balance': 1,
       'volume_balance': 1,
       ...?cursor.interest,
-    }, app, account);
+    }, app, identity);
     cursor.interest = null;
     if (res.data['code'] == 0) {
-      _coldStart = false;
+      cursor.cold = false;
       cursor.flush++;
       final data = res.data['data'];
       if (!Pref.rcmdInterestDone) {
@@ -225,7 +217,8 @@ abstract final class VideoHttp {
               zoneRegExp.hasMatch(i['args']['tname'])) {
             continue;
           }
-          RcmdVideoItemAppModel videoItem = RcmdVideoItemAppModel.fromJson(i);
+          final videoItem = RcmdVideoItemAppModel.fromJson(i)
+            ..cursor = cursor;
           if (!RecommendFilter.filter(videoItem)) {
             list.add(videoItem);
           }
@@ -250,8 +243,8 @@ abstract final class VideoHttp {
       List<HotVideoItemModel> list = <HotVideoItemModel>[];
       for (final i in res.data['data']['list']) {
         if (!GlobalData().blackMids.contains(i['owner']['mid']) &&
-            !RecommendFilter.filterTitle(i['title']) &&
-            !RecommendFilter.filterLikeRatio(
+            !RecommendFilter.filterHot(
+              i['title'],
               i['stat']['like'],
               i['stat']['view'],
             )) {
@@ -397,7 +390,8 @@ abstract final class VideoHttp {
     if (res.data['code'] == 0) {
       final data = res.data['data'] as List?;
       if (data == null) return const Success(null);
-      final filter = RecommendFilter.applyFilterToRelatedVideos;
+      // 相关视频没有已关注标签，无从豁免
+      final filter = RecommendFilter.scope & 2 != 0;
       final list = <HotVideoItemModel>[];
       for (final raw in data) {
         final item = HotVideoItemModel.fromJson(raw);
@@ -568,8 +562,9 @@ abstract final class VideoHttp {
     RcmdVideoItemAppModel item,
     Map<String, dynamic> params,
   ) async {
-    final (app, account) = rcmdIdentity;
-    if (account == null) {
+    final app = item.cursor.app;
+    final identity = rcmdIdentity(app);
+    if (identity == null) {
       return const Error('当前推荐以未登录身份获取，无法提交');
     }
     final res = await _rcmdAppGet(url, {
@@ -579,13 +574,13 @@ abstract final class VideoHttp {
       'is_light_panel': 'false',
       'from_spmid': 'tm.recommend.0.0',
       'spmid': 'tm.recommend.0.0',
-      'action_id': _actionId,
+      'action_id': item.cursor.actionId,
       'track_id': ?item.trackId,
       'report_data': ?item.reportData,
       if (item.owner.mid case final mid? when mid > 0) 'mid': mid,
       'rid': ?item.aid,
       'tag_id': ?item.tid,
-    }, app, account);
+    }, app, identity);
     if (res.data['code'] == 0) {
       return const Success(null);
     } else {
@@ -919,8 +914,8 @@ abstract final class VideoHttp {
 
   static bool _canAddRank(Map i) {
     if (!GlobalData().blackMids.contains(i['owner']['mid']) &&
-        !RecommendFilter.filterTitle(i['title']) &&
-        !RecommendFilter.filterLikeRatio(
+        !RecommendFilter.filterHot(
+          i['title'],
           i['stat']['like'],
           i['stat']['view'],
         )) {
@@ -1166,15 +1161,4 @@ abstract final class VideoHttp {
     }
     return Error(res.data['message']);
   }
-}
-
-/// App 推荐流的翻页状态：idx 取卡片自带的游标，flush 是本轮刷新后的请求序号
-class RcmdAppCursor {
-  int top = 0;
-  int bottom = 0;
-  int flush = 0;
-
-  /// 新用户首屏下发的兴趣选择，选完带着结果重新请求一次
-  Map<String, dynamic>? interestChoose;
-  Map<String, dynamic>? interest;
 }

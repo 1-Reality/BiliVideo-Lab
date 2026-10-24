@@ -1,5 +1,6 @@
 import 'package:PiliBro/models/model_rec_video_item.dart';
 import 'package:PiliBro/models/model_video.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/parse_string.dart';
@@ -15,6 +16,9 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
   String? trackId;
   String? reportData;
   int? tid;
+
+  /// 取到这张卡的那一端推荐流，不感兴趣时按它的身份回传
+  late final RcmdAppCursor cursor;
 
   RcmdVideoItemAppModel.fromJson(Map<String, dynamic> json) {
     aid = json['player_args']?['aid'] ?? parseIntOrNull(json['param']);
@@ -113,4 +117,24 @@ class Reason {
     name = json['name'];
     toast = json['toast'];
   }
+}
+
+/// App 推荐流某一端的翻页状态：idx 取卡片自带的游标，flush 是本轮刷新后的请求序号
+class RcmdAppCursor {
+  RcmdAppCursor(this.app);
+
+  final BiliApp app;
+  int top = 0;
+  int bottom = 0;
+  int flush = 0;
+
+  /// 这一端的首个请求按冷启动上报
+  bool cold = true;
+
+  /// 每次刷新换一个，不感兴趣时回传
+  String actionId = '';
+
+  /// 新用户首屏下发的兴趣选择，选完带着结果重新请求一次
+  Map<String, dynamic>? interestChoose;
+  Map<String, dynamic>? interest;
 }

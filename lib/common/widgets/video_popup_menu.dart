@@ -101,7 +101,7 @@ class VideoPopupMenu extends StatelessWidget {
                     const Icon(MdiIcons.thumbDownOutline, size: 16),
                     () {
                       if (videoItem case final RcmdVideoItemAppModel item) {
-                        if (VideoHttp.rcmdIdentity.$2 == null) {
+                        if (VideoHttp.rcmdIdentity(item.cursor.app) == null) {
                           SmartDialog.showToast('当前推荐以未登录身份获取，无法提交');
                           return;
                         }

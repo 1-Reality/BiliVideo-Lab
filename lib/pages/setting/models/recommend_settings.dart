@@ -1,36 +1,88 @@
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
 import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/pages/rcmd/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
+import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/recommend_filter.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get recommendSettings => [
-  PopupModel<RcmdSource>(
-    title: '首页推荐来源',
-    leading: const Icon(Icons.model_training_outlined),
-    value: () => Pref.rcmdSource,
-    items: RcmdSource.values,
-    onSelected: (value, setState) {
-      SmartDialog.showToast('重启生效');
-      GStorage.setting
-          .put(SettingBoxKey.rcmdSource, value.index)
-          .whenComplete(setState);
+  for (final source in RcmdSource.values) _sourceModel(source),
+  NormalModel(
+    title: '推荐权重',
+    leading: const Icon(Icons.balance_outlined),
+    getSubtitle: () {
+      final sources = Pref.rcmdSources;
+      return [
+        for (final source in RcmdSource.values)
+          if (sources & source.bit != 0)
+            '${source.label} ${source.weightOf(sources)}',
+      ].join(' · ');
+    },
+    onTap: (context, setState) {
+      var sources = Pref.rcmdSources;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('推荐权重'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final source in RcmdSource.values)
+                TextFormField(
+                  initialValue: '${source.weightOf(sources)}',
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(3),
+                  ],
+                  decoration: InputDecoration(labelText: source.label),
+                  onChanged: (value) => sources = source.withWeight(
+                    sources,
+                    (int.tryParse(value) ?? 1).clamp(1, 255),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: Get.back,
+              child: Text(
+                '取消',
+                style: TextStyle(color: ColorScheme.of(context).outline),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Get.back();
+                RcmdController.saveSources(sources);
+                setState();
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
     },
   ),
-  const SwitchModel(
-    title: 'App 推荐使用平板身份',
-    subtitle: '以 HD 平板客户端取流，与手机版是两套推荐。扫码登录拿到的正是平板 token，'
-        '短信、密码登录拿到的是手机 token；身份与 token 不对口时以未登录身份取流',
-    leading: Icon(Icons.tablet_android_outlined),
-    setKey: SettingBoxKey.rcmdTablet,
-    defaultVal: false,
+  const NormalModel(
+    title: '再次进行 OOBE',
+    subtitle: '重新选择兴趣偏好（性别、年龄、喜欢的分区），选完带着结果重刷 App 推荐',
+    leading: Icon(Icons.interests_outlined),
+    onTap: _redoInterest,
   ),
   const SwitchModel(
     title: '个性化推荐',
@@ -97,7 +149,10 @@ List<SettingsModel> get recommendSettings => [
     suffix: '%',
     key: SettingBoxKey.minLikeRatioForRecommend,
     values: [0, 1, 2, 3, 4],
-    onChanged: (value) => RecommendFilter.minLikeRatioForRecommend = value,
+    onChanged: (value) {
+      RecommendFilter.minLikeRatioForRecommend = value;
+      RecommendFilter.compile();
+    },
   ),
   getBanWordModel(
     title: '标题关键词过滤',
@@ -105,6 +160,7 @@ List<SettingsModel> get recommendSettings => [
     onChanged: (value) {
       RecommendFilter.rcmdRegExp = value;
       RecommendFilter.enableFilter = value.pattern.isNotEmpty;
+      RecommendFilter.compile();
     },
   ),
   getBanWordModel(
@@ -120,13 +176,19 @@ List<SettingsModel> get recommendSettings => [
     suffix: 's',
     key: SettingBoxKey.minDurationForRcmd,
     values: [0, 30, 60, 90, 120],
-    onChanged: (value) => RecommendFilter.minDurationForRcmd = value,
+    onChanged: (value) {
+      RecommendFilter.minDurationForRcmd = value;
+      RecommendFilter.compile();
+    },
   ),
   getVideoFilterSelectModel(
     title: '播放量',
     key: SettingBoxKey.minPlayForRcmd,
     values: [0, 50, 100, 500, 1000],
-    onChanged: (value) => RecommendFilter.minPlayForRcmd = value,
+    onChanged: (value) {
+      RecommendFilter.minPlayForRcmd = value;
+      RecommendFilter.compile();
+    },
   ),
   SwitchModel(
     title: '已关注UP豁免推荐过滤',
@@ -136,13 +198,17 @@ List<SettingsModel> get recommendSettings => [
     defaultVal: true,
     onChanged: (value) => RecommendFilter.exemptFilterForFollowed = value,
   ),
-  SwitchModel(
-    title: '过滤器也应用于详情页相关视频',
-    subtitle: '其它（如热门视频、搜索等）均不受过滤器影响，无法豁免相关视频中的已关注UP',
+  PopupModel<RcmdFilterScope>(
+    title: '过滤器作用范围',
     leading: const Icon(Icons.explore_outlined),
-    setKey: SettingBoxKey.applyFilterToRelatedVideos,
-    defaultVal: true,
-    onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
+    value: () => Pref.rcmdFilterScope,
+    items: RcmdFilterScope.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.rcmdFilterScope, value.index)
+        .whenComplete(() {
+          RecommendFilter.compile();
+          setState();
+        }),
   ),
   const NormalModel(
     title: '致谢',
@@ -151,3 +217,48 @@ List<SettingsModel> get recommendSettings => [
     leading: Icon(Icons.favorite_outline),
   ),
 ];
+NormalModel _sourceModel(RcmdSource source) => NormalModel(
+  title: source.label,
+  leading: Icon(switch (source) {
+    RcmdSource.web => Icons.language,
+    RcmdSource.phone => Icons.smartphone_outlined,
+    RcmdSource.hd => Icons.tablet_android_outlined,
+  }),
+  getSubtitle: () {
+    final account = Accounts.get(AccountType.recommend);
+    if (account is! LoginAccount) return '未登录';
+    final app = source.app;
+    if (app == null || account.tokenOf(app) != null) return '已登录';
+    return app == BiliApp.hd ? '勾选时用登录换取 token' : '无 token，以未登录身份取流';
+  },
+  getTrailing: (theme) => IgnorePointer(
+    child: Checkbox(
+      value: Pref.rcmdSources & source.bit != 0,
+      onChanged: (_) {},
+    ),
+  ),
+  onTap: (context, setState) async {
+    final sources = Pref.rcmdSources;
+    // 至少留一端
+    if (sources & 7 == source.bit) return;
+    if (source.app case final app? when sources & source.bit == 0) {
+      if (VideoHttp.rcmdIdentity(app) == null) {
+        if (Accounts.get(AccountType.recommend)
+            case final LoginAccount account when app == BiliApp.hd) {
+          SmartDialog.showLoading(msg: '正在换取 token');
+          final res = await LoginHttp.cookieToHdToken(account);
+          SmartDialog.dismiss();
+          if (res case Error(:final errMsg)) SmartDialog.showToast('$errMsg');
+        }
+        if (VideoHttp.rcmdIdentity(app) == null) {
+          SmartDialog.showToast('推荐将变得不个性化');
+        }
+      }
+    }
+    RcmdController.saveSources(sources ^ source.bit);
+    setState();
+  },
+);
+
+void _redoInterest(BuildContext context, VoidCallback setState) =>
+    RcmdController.redoInterest();

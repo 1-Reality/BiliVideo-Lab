@@ -11,9 +11,9 @@ import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
+import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
-import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
@@ -711,7 +711,7 @@ abstract final class Pref {
   );
 
   static int get webviewUaType =>
-      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 0);
+      _setting.get(SettingBoxKey.webviewUaType, defaultValue: 1);
 
   static String get webviewUaCustom =>
       _setting.get(SettingBoxKey.webviewUaCustom, defaultValue: '');
@@ -746,7 +746,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.hwdecWatchWhitelist, defaultValue: false);
 
   static int get hwdecWatchSeconds =>
-      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 10);
+      _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 1719);
 
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
@@ -802,14 +802,10 @@ abstract final class Pref {
   static String get banWordForZone =>
       _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
 
-  // 默认 Web：App 推荐会在登录设备里留下一条 App 记录，不替用户做这个决定
-  static RcmdSource get rcmdSource => RcmdSource.values[_setting.get(
-    SettingBoxKey.rcmdSource,
-    defaultValue: RcmdSource.web.index,
-  )];
-
-  static bool get rcmdTablet =>
-      _setting.get(SettingBoxKey.rcmdTablet, defaultValue: false);
+  // 见 RcmdSource；默认只勾 Web、权重都是 1：App 推荐会在登录设备里留下一条
+  // App 记录，不替用户做这个决定
+  static int get rcmdSources =>
+      _setting.get(SettingBoxKey.rcmdSources, defaultValue: 0x01010101);
 
   static bool get rcmdPersonalized =>
       _setting.get(SettingBoxKey.rcmdPersonalized, defaultValue: true);
@@ -1215,10 +1211,11 @@ abstract final class Pref {
   static bool get exemptFilterForFollowed =>
       _setting.get(SettingBoxKey.exemptFilterForFollowed, defaultValue: true);
 
-  static bool get applyFilterToRelatedVideos => _setting.get(
-    SettingBoxKey.applyFilterToRelatedVideos,
-    defaultValue: true,
-  );
+  static RcmdFilterScope get rcmdFilterScope =>
+      RcmdFilterScope.values[_setting.get(
+        SettingBoxKey.rcmdFilterScope,
+        defaultValue: RcmdFilterScope.all.index,
+      )];
 
   static bool get enableBackgroundPlay =>
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
@@ -1236,7 +1233,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get replyNoAutoPlay =>
-      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: false);
+      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);
+
+  static bool get enableInAppPip =>
+      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);
@@ -1470,12 +1470,11 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  // 倍速面板：0 原始列表，1 矩阵，2 滑杆；竖屏横屏分开
-  static int get speedPanelMode =>
-      _setting.get(SettingBoxKey.speedPanelMode, defaultValue: 0);
-
-  static int get speedPanelModeLandscape =>
-      _setting.get(SettingBoxKey.speedPanelModeLandscape, defaultValue: 0);
+  // 倍速面板：半屏、全屏、电脑各占 4 位，位 0 常规、位 1 矩阵、位 2 滑杆、位 3 滑杆在上。
+  // 矩阵与滑杆都勾时，勾常规合成一个面板，不勾为两个面板；位 3 取自勾选先后，后勾的在下。
+  // 默认半屏只有矩阵（2），全屏两个面板滑杆在上（14），电脑一个面板矩阵在上（7）
+  static int get speedPanelLayout =>
+      _setting.get(SettingBoxKey.speedPanelLayout, defaultValue: 2018);
 
   // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
   static int get speedGridCols =>
@@ -1699,7 +1698,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.removeSafeAreaPortrait, defaultValue: false);
 
   static bool get removeSafeAreaLandscape =>
-      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: false);
+      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: true);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);

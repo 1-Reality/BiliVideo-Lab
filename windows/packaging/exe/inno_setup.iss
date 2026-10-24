@@ -17,6 +17,8 @@ SetupIconFile={{SETUP_ICON_FILE}}
 WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
+; 每次安装都默认勾选桌面快捷方式，不沿用上次的选择
+UsePreviousTasks=no
 UninstallDisplayIcon={app}\\{{EXECUTABLE_NAME}}
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed=x64compatible
@@ -28,7 +30,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

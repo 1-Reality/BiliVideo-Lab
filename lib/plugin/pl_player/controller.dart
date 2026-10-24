@@ -345,8 +345,7 @@ class PlPlayerController
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
   // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
-  late int speedPanelMode = Pref.speedPanelMode;
-  late int speedPanelModeLandscape = Pref.speedPanelModeLandscape;
+  late int speedPanelLayout = Pref.speedPanelLayout;
   late int speedGridCols = Pref.speedGridCols;
   late int speedGridColsLandscape = Pref.speedGridColsLandscape;
   late double speedGridWidth = Pref.speedGridWidth;
@@ -1157,8 +1156,11 @@ class PlPlayerController
       if (!match) return;
       if (_manualExitRemaining > 0) _manualExitRemaining--;
       if (_manualExitRemaining > 0) return;
-    } else if (match != true) {
-      return;
+    } else {
+      // 进入时就已竖着（如竖屏视频自动全屏）要先离开一次，否则一进来就被退出
+      final previous = _manualExitTargetMatched;
+      _manualExitTargetMatched = match;
+      if (match != true || previous == true) return;
     }
 
     triggerFullScreen(
@@ -1610,7 +1612,7 @@ class PlPlayerController
             // '!delay_open,media_type=audio;'
             '%${isFileSource ? utf8.encode(audio).length : audio.length}%$audio');
       }
-      audioFilterExtras(volume, map: extras);
+      if (audioFilter(volume, extras['af']) case final af?) extras['af'] = af;
     }
 
     assert(!isLive || seekTo == null);
@@ -2407,7 +2409,11 @@ class PlPlayerController
                 ? _brotherPlan.manualExitConfirmations
                 : _orientationPlan.manualExitConfirmations)
           : 0;
-      _manualExitTargetMatched = null;
+      // 简单、高级模式：记下进入时是否已满足退出条件，作为比较起点
+      _manualExitTargetMatched =
+          _brotherMode || _manualExitConfirmationActive
+          ? null
+          : _triggerSourceMatch(_orientationPlan.exitTriggerSource, false);
     } else {
       _manualExitRemaining = 0;
       _manualExitTargetMatched = null;

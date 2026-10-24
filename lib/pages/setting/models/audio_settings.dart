@@ -41,6 +41,13 @@ List<SettingsModel> get audioSettings => [
     onChanged: AudioFirstMode.onEnabledChanged,
   ),
   const SwitchModel(
+    title: '应用内小窗',
+    subtitle: '视频页头部出现小窗按钮：点击后视频缩成可拖动、可缩放的悬浮小窗，点返回无缝回到视频页',
+    leading: Icon(Icons.picture_in_picture_alt_outlined),
+    setKey: SettingBoxKey.enableInAppPip,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '底部播放条',
     subtitle: '离开视频或听视频页后，在首页底栏上方显示一条：点主体回到原模式，点音符切换视频/音频。与音视频快捷切换无关；关闭后既不记录也不构建',
     leading: Icon(Icons.call_to_action_outlined),
@@ -113,25 +120,24 @@ List<SettingsModel> get audioSettings => [
       getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
       onTap: showMaxVolumeDialog,
     ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音量均衡',
-      leading: const Icon(Icons.multitrack_audio),
-      getSubtitle: () {
-        final audioNormalization = AudioNormalization.getTitleFromConfig(
-          Pref.audioNormalization,
-        );
-        String fallback = Pref.fallbackNormalization;
-        if (fallback == '0') {
-          fallback = '';
-        } else {
-          fallback =
-              '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
-        }
-        return '当前:「$audioNormalization」$fallback';
-      },
-      onTap: audioNormalization,
-    ),
+  NormalModel(
+    title: '音量均衡',
+    leading: const Icon(Icons.multitrack_audio),
+    getSubtitle: () {
+      final audioNormalization = AudioNormalization.getTitleFromConfig(
+        Pref.audioNormalization,
+      );
+      String fallback = Pref.fallbackNormalization;
+      if (fallback == '0') {
+        fallback = '';
+      } else {
+        fallback =
+            '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
+      }
+      return '当前:「$audioNormalization」$fallback';
+    },
+    onTap: audioNormalization,
+  ),
   if (kDebugMode || Platform.isAndroid)
     NormalModel(
       title: '音频输出设备',

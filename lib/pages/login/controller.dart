@@ -8,11 +8,15 @@ import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/models/common/account_type.dart';
+import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/models/login/model.dart';
 import 'package:PiliBro/pages/login/geetest/geetest_webview_dialog.dart';
+import 'package:PiliBro/pages/rcmd/controller.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -22,7 +26,7 @@ import 'package:material_ui/material_ui.dart';
 
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
-  LoginPageController({this.initialIndex = 0});
+  LoginPageController({this.initialIndex = 1});
 
   final int initialIndex;
   final TextEditingController telTextController = TextEditingController();
@@ -180,7 +184,7 @@ class LoginPageController extends GetxController
       );
       if (result.data['code'] == 0) {
         try {
-          await LoginAccount(
+          final account = LoginAccount(
             BiliCookieJar.fromJson(
               Map.fromEntries(
                 cookieTextController.text.split(';').map((item) {
@@ -192,8 +196,12 @@ class LoginPageController extends GetxController
             null,
             null,
             phone: true,
-          ).onChange();
-          if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
+          );
+          await account.onChange();
+          if (!Accounts.main.isLogin) {
+            await switchAccountDialog(Get.context!);
+            await rcmdSourceDialog(account);
+          }
           SmartDialog.showToast('登录成功');
           Get.back();
         } catch (e) {
@@ -654,7 +662,43 @@ class LoginPageController extends GetxController
     } else {
       SmartDialog.showToast('登录成功, 请先设置账号模式');
       await switchAccountDialog(Get.context!);
+      await rcmdSourceDialog(account);
     }
+  }
+
+  /// 首次登录后问一次首页推荐走 Web 还是 App，直接返回就不改。
+  /// 选 App 时有手机 token 走手机，否则走平板（扫码本就是平板 token，只有 cookie 的现换一份）
+  static Future<void> rcmdSourceDialog(LoginAccount account) async {
+    final app = await showDialog<bool>(
+      context: Get.context!,
+      builder: (context) => AlertDialog(
+        title: const Text('选择首页推荐'),
+        content: const Text(
+          '很多人认为 App 推荐更加个性化，和原版体验类似，更加「懂你」；'
+          '但也有些人就喜欢在手机上复刻电脑网页的体验。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Web'),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('App'),
+          ),
+        ],
+      ),
+    );
+    if (app != true) return;
+    final source = account.tokenOf(BiliApp.phone) != null
+        ? RcmdSource.phone
+        : RcmdSource.hd;
+    if (source == RcmdSource.hd && account.tokenOf(BiliApp.hd) == null) {
+      if (await LoginHttp.cookieToHdToken(account) case final Error error) {
+        error.toast();
+      }
+    }
+    RcmdController.saveSources(Pref.rcmdSources & ~7 | source.bit);
   }
 
   static Future<void>? switchAccountDialog(BuildContext context) {

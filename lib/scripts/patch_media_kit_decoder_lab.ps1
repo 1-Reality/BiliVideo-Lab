@@ -21,6 +21,8 @@ if (-not $MediaKitDir) {
 Write-Host "media-kit decoder-lab checkout: $($MediaKitDir.FullName)"
 Push-Location $MediaKitDir.FullName
 try {
+    # 缓存里的 checkout 可能已打过补丁，先还原
+    git reset --hard HEAD
     git apply --check $Patch
     if ($LASTEXITCODE -ne 0) {
         throw "media-kit decoder-lab patch preflight failed"

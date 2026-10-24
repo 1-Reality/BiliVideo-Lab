@@ -6,17 +6,37 @@ abstract final class RecommendFilter {
   static int minPlayForRcmd = Pref.minPlayForRcmd;
   static int minLikeRatioForRecommend = Pref.minLikeRatioForRecommend;
   static bool exemptFilterForFollowed = Pref.exemptFilterForFollowed;
-  static bool applyFilterToRelatedVideos = Pref.applyFilterToRelatedVideos;
   static RegExp rcmdRegExp = RegExp(
     Pref.banWordForRecommend,
     caseSensitive: false,
   );
   static bool enableFilter = rcmdRegExp.pattern.isNotEmpty;
 
+  /// 生效范围，位义见 RcmdFilterScope；各项阈值都是 0 且没有关键词时直接为 0，
+  /// 调用处一次比较就跳过。任一过滤设置改动后调 [compile]
+  static int scope = _scope();
+
+  static int _scope() =>
+      minDurationForRcmd == 0 &&
+          minPlayForRcmd == 0 &&
+          minLikeRatioForRecommend == 0 &&
+          !enableFilter
+      ? 0
+      : Pref.rcmdFilterScope.index;
+
+  static void compile() => scope = _scope();
+
+  /// 首页推荐
   static bool filter(BaseVideoItemModel videoItem) {
-    //由于相关视频中没有已关注标签，只能视为非关注视频
-    return !(videoItem.isFollowed && exemptFilterForFollowed) &&
+    return scope & 1 != 0 &&
+        !(videoItem.isFollowed && exemptFilterForFollowed) &&
         filterAll(videoItem);
+  }
+
+  /// 热门、排行：直接看原始数据
+  static bool filterHot(String title, int? like, int? view) {
+    return scope & 1 != 0 &&
+        (filterTitle(title) || filterLikeRatio(like, view));
   }
 
   static bool filterLikeRatio(int? like, int? view) {
