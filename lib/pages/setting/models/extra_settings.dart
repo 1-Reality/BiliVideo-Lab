@@ -250,8 +250,10 @@ List<SettingsModel> get extraSettings => [
     title: 'WebView User-Agent',
     leading: const Icon(Icons.language_outlined),
     getSubtitle: () => switch (Pref.webviewUaType) {
-      1 => 'BiliApp',
+      1 => 'Bili',
       2 => '自定义',
+      3 => 'BiliApp',
+      4 => '哔哩网页版',
       _ => '浏览器',
     },
     onTap: _showWebviewUaDialog,
@@ -663,7 +665,6 @@ Future<void> audioNormalization(
       };
       return SelectDialog<String>(
         title: fallback ? '服务器无loudnorm配置时使用' : '音量均衡',
-        toggleable: true,
         value: audioNormalization,
         values: values
             .map(
@@ -1166,8 +1167,10 @@ Future<void> _showWebviewUaDialog(
       value: Pref.webviewUaType,
       values: const [
         (0, '浏览器'),
-        (1, 'BiliApp'),
+        (1, 'Bili'),
         (2, '自定义'),
+        (3, 'BiliApp'),
+        (4, '哔哩网页版'),
       ],
     ),
   );
