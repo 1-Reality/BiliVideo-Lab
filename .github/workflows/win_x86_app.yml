@@ -1,0 +1,108 @@
+name: Windows x86 app (PiliBro portable, staged)
+
+# 第二阶段：用 32 位引擎打出能运行的便携包。引擎与 ANGLE 直接从 Release 下载，不在这里重编。
+# 按块推进：每个块验证通过后再接下一块。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    # 块 1：kernel_blob.bin。kernel 与 CPU 位数无关，在 x64 机器上用 product 平台 dill 编。
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Set version and write pili_release.json
+        shell: pwsh
+        run: lib/scripts/build.ps1
+
+      - name: Apply project Windows patches
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - name: Precache Windows engine artifacts (including product platform dill)
+        shell: pwsh
+        run: flutter precache --windows
+
+      - name: Official debug build (verbose, to capture the frontend_server command)
+        shell: pwsh
+        run: flutter build windows --debug -v 2>&1 | Tee-Object flutter-debug-build.log
+
+      - name: Build product kernel_blob.bin from the captured command
+        shell: pwsh
+        run: |
+          $PSNativeCommandArgumentPassing = 'Standard'
+          $line = Get-Content flutter-debug-build.log |
+            Where-Object { $_ -match 'frontend_server\.dart\.snapshot' -and $_ -match '--sdk-root' } |
+            Select-Object -First 1
+          if (-not $line) { throw 'frontend_server command not found in the verbose log' }
+          $line | Out-File frontend-server-debug-line.txt -Encoding UTF8
+
+          $cmd = $line -replace '^.*?Executing:\s*', ''
+          $tokens = [regex]::Matches($cmd, '"[^"]*"|\S+') | ForEach-Object { $_.Value.Trim('"') }
+          $dart = $tokens[0]
+
+          $kernelDir = Join-Path $env:GITHUB_WORKSPACE 'kernel'
+          New-Item -ItemType Directory -Force $kernelDir | Out-Null
+          $dill = Join-Path $kernelDir 'app.dill'
+
+          # 'dart [--disable-dart-dev ...] frontend_server.dart.snapshot [options] main.dart'
+          $fe = 0
+          while ($fe -lt $tokens.Count -and $tokens[$fe] -notmatch 'frontend_server\.dart\.snapshot$') { $fe++ }
+          if ($fe -ge $tokens.Count) { throw 'frontend_server.dart.snapshot token not found in the captured command' }
+
+          $args2 = New-Object System.Collections.Generic.List[string]
+          for ($i = 1; $i -le $fe; $i++) { $args2.Add($tokens[$i]) }
+          $args2.Add('-Ddart.vm.product=true')
+          for ($i = $fe + 1; $i -lt $tokens.Count; $i++) {
+            $t = $tokens[$i]
+            if ($t -eq '--track-widget-creation' -or $t -eq '--incremental' -or $t -like '-Ddart.vm.product=*') {
+              continue
+            }
+            elseif ($t -eq '--initialize-from') { $i++ }
+            elseif ($t -like '--initialize-from=*') { continue }
+            elseif ($t -eq '--output-dill') { $i++; $args2.Add('--output-dill'); $args2.Add($dill) }
+            elseif ($t -like '--output-dill=*') { $args2.Add("--output-dill=$dill") }
+            elseif ($t -eq '--sdk-root') {
+              $p = $tokens[++$i]
+              $args2.Add('--sdk-root')
+              $args2.Add(($p -replace 'flutter_patched_sdk[\\/]?$', 'flutter_patched_sdk_product\'))
+            }
+            else { $args2.Add($t) }
+          }
+
+          "dart: $dart" | Tee-Object kernel-command.txt
+          ($args2 -join ' ') | Tee-Object -Append kernel-command.txt
+          & $dart @args2 2>&1 | Tee-Object kernel-build.log
+          if ($LASTEXITCODE -ne 0) { throw "product kernel compile failed (exit $LASTEXITCODE)" }
+
+          Copy-Item $dill (Join-Path $kernelDir 'kernel_blob.bin')
+          Get-Item (Join-Path $kernelDir 'kernel_blob.bin') | Format-Table Name, Length
+
+      - name: Upload kernel and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-kernel-block1
+          path: |
+            kernel/kernel_blob.bin
+            kernel/app.dill
+            kernel-command.txt
+            kernel-build.log
+            frontend-server-debug-line.txt
+            flutter-debug-build.log
+          if-no-files-found: warn
+          retention-days: 14
