@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 /// 每日任务里要专门去做的几项，正常使用就有的登录、观看经验不另外做。
-/// 当天首次打开：漫画签到、大会员积分签到；当天第一次上报观看进度成功后：
+/// 当天首次打开：漫画签到与阅读、大会员积分签到；当天第一次上报观看进度成功后：
 /// 分享正在看的视频、领大会员每日经验。今天已做过的算成功，只在失败时提示
 abstract final class DailyCheckin {
   /// 当天还没分享、没领大会员经验，等第一次观看上报
@@ -25,7 +25,7 @@ abstract final class DailyCheckin {
     if (!Accounts.main.isLogin) return;
     watchPending = true;
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _report([_manga(), if (_vip) _vipPoints()]),
+      (_) => _report([_manga(), _mangaRead(), if (_vip) _vipPoints()]),
     );
   }
 
@@ -58,6 +58,20 @@ abstract final class DailyCheckin {
     await Request().post(
       'https://manga.bilibili.com/twirp/activity.v1.Activity/ClockIn',
       queryParameters: {'platform': 'android'},
+      options: _form(),
+    ),
+  );
+
+  // 直接上报一条阅读记录，漫画与 BiliBiliToolPro 默认用的同一话
+  static Future<String?> _mangaRead() async => _check(
+    '漫画阅读',
+    await Request().post(
+      'https://manga.bilibili.com/twirp/bookshelf.v1.Bookshelf/AddHistory',
+      queryParameters: {
+        'platform': 'android',
+        'comic_id': 27355,
+        'ep_id': 381662,
+      },
       options: _form(),
     ),
   );
