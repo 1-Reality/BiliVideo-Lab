@@ -1470,10 +1470,11 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  // 倍速面板：半屏、全屏、电脑各占 3 位，位 0 常规、位 1 矩阵、位 2 滑杆；
-  // 矩阵或滑杆勾上时常规无效，改作「上下对调」。默认半屏只勾矩阵、全屏三项全勾、电脑矩阵加滑杆
-  static int get speedPanelModes =>
-      _setting.get(SettingBoxKey.speedPanelModes, defaultValue: 442);
+  // 倍速面板：半屏、全屏、电脑各占 4 位，位 0 常规、位 1 矩阵、位 2 滑杆、位 3 滑杆在上。
+  // 矩阵与滑杆都勾时，勾常规合成一个面板，不勾为两个面板；位 3 取自勾选先后，后勾的在下。
+  // 默认半屏只有矩阵（2），全屏两个面板滑杆在上（14），电脑一个面板矩阵在上（7）
+  static int get speedPanelLayout =>
+      _setting.get(SettingBoxKey.speedPanelLayout, defaultValue: 2018);
 
   // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
   static int get speedGridCols =>

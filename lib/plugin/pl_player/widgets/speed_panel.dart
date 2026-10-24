@@ -24,12 +24,18 @@ class SpeedPanel extends PopupMenuEntry<double> {
     required this.cols,
     required this.width,
     required this.rowHeight,
+    this.link,
+    this.controls = true,
     super.key,
   });
 
   final PlPlayerController controller;
-  // 位 1 矩阵、位 2 全范围滑杆；两者都有时位 0 表示滑杆在上、矩阵在下
+  // 位 1 矩阵、位 2 全范围滑杆；两者都有时合成一个面板，位 3 表示滑杆在上
   final int mode;
+  // 拆成两个面板时共用的倍速，一处改动另一处跟着变
+  final ValueNotifier<int>? link;
+  // 是否带加减号与互切数字；两个面板时只有滑杆面板带
+  final bool controls;
   final int cols;
   // 设置页算好的最终宽度和矩阵行高
   final double width;
@@ -90,6 +96,16 @@ class _SpeedPanelState extends State<SpeedPanel> {
     super.initState();
     _centi = _start = (c.playbackSpeed * 100).round();
     _left = (_centi * 2 - 100) ~/ 100 * 50;
+    widget.link?.addListener(_onLink);
+  }
+
+  void _onLink() {
+    final centi = widget.link!.value;
+    if (centi == _centi) return;
+    setState(() {
+      _centi = centi;
+      _left = (centi * 2 - 100) ~/ 100 * 50;
+    });
   }
 
   // 宽度由设置页算好，这里只按屏宽封顶；矩阵再切格子，滑杆再看刻度字放得下几个
@@ -116,7 +132,8 @@ class _SpeedPanelState extends State<SpeedPanel> {
 
   @override
   void dispose() {
-    if (_centi != _start) c.toggleSpeedCenti = _start;
+    widget.link?.removeListener(_onLink);
+    if (widget.controls && _centi != _start) c.toggleSpeedCenti = _start;
     super.dispose();
   }
 
@@ -157,6 +174,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
       _centi = centi;
       _left = (centi * 2 - 100) ~/ 100 * 50;
     });
+    widget.link?.value = centi;
     c.setPlaybackSpeed(centi / 100);
   }
 
@@ -243,6 +261,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
             final centi = value.round();
             if (centi > 0) {
               setState(() => _centi = centi);
+              widget.link?.value = centi;
               c.setPlaybackSpeed(centi / 100, recordSelection: false);
             }
           },
@@ -272,14 +291,22 @@ class _SpeedPanelState extends State<SpeedPanel> {
         ),
       ),
     ];
-    return SizedBox(
-      width: _width,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        // 三位全开即矩阵与滑杆共存且对调：滑杆在上、矩阵在下
-        children: widget.mode == 7
-            ? [...slider, ...controls, divider, ...rows]
-            : [...rows, if (_grid) divider, ...controls, ...slider],
+    // 两个面板宽度不同，菜单按宽的那个撑开，窄的居中
+    return Center(
+      child: SizedBox(
+        width: _width,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          // 矩阵与滑杆合成一个面板且位 3 为真时对调：滑杆在上、矩阵在下
+          children: widget.mode & 14 == 14
+              ? [...slider, ...controls, divider, ...rows]
+              : [
+                  ...rows,
+                  if (_grid) divider,
+                  if (widget.controls) ...controls,
+                  ...slider,
+                ],
+        ),
       ),
     );
   }

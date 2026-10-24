@@ -41,7 +41,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late int sliderMin = Pref.speedSliderMin;
   late int sliderMax = Pref.speedSliderMax;
   late int sliderStep = Pref.speedSliderStep;
-  late int panelModes = Pref.speedPanelModes;
+  late int panelLayout = Pref.speedPanelLayout;
   late int speedStep = Pref.speedStep;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
@@ -396,23 +396,22 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     setState(() {});
   }
 
-  static const _panelModeDesc = [
-    '常规列表',
-    '常规列表',
-    '矩阵',
-    '矩阵',
-    '滑杆',
-    '滑杆',
-    '矩阵在上，滑杆在下',
-    '滑杆在上，矩阵在下',
-  ];
+  static String _panelModeDesc(int mode) => switch (mode & 6) {
+    0 => '常规列表',
+    2 => '矩阵',
+    4 => '滑杆',
+    _ =>
+      '${mode & 1 != 0 ? '一个面板' : '两个面板'}：'
+          '${mode & 8 != 0 ? '滑杆在上，矩阵在下' : '矩阵在上，滑杆在下'}',
+  };
 
-  // 三位一组：常规、矩阵、滑杆；勾了矩阵或滑杆后常规改作「上下对调」
+  // 四位一组：常规、矩阵、滑杆、滑杆在上；矩阵与滑杆都勾时常规表示合成一个面板，
+  // 后勾的那个排在下面
   Widget _panelModeTile(int shift, String name) {
-    final mode = panelModes >> shift & 7;
+    final mode = panelLayout >> shift & 15;
     return ListTile(
       title: Text('$name倍速面板'),
-      subtitle: Text(_panelModeDesc[mode]),
+      subtitle: Text(_panelModeDesc(mode)),
       trailing: SegmentedButton<int>(
         multiSelectionEnabled: true,
         emptySelectionAllowed: true,
@@ -427,11 +426,20 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             if (mode & bit != 0) bit,
         },
         onSelectionChanged: (value) {
-          panelModes =
-              panelModes & ~(7 << shift) |
-              value.fold(0, (a, b) => a | b) << shift;
-          PlPlayerController.instance?.speedPanelModes = panelModes;
-          GStorage.setting.put(SettingBoxKey.speedPanelModes, panelModes);
+          final bits = value.fold(0, (a, b) => a | b);
+          final added = bits & ~mode;
+          // 后勾矩阵则滑杆在上，后勾滑杆则矩阵在上，其余保持
+          final top = bits & 6 != 6
+              ? mode & 8
+              : added & 2 != 0
+              ? 8
+              : added & 4 != 0
+              ? 0
+              : mode & 8;
+          panelLayout =
+              panelLayout & ~(15 << shift) | (bits | top) << shift;
+          PlPlayerController.instance?.speedPanelLayout = panelLayout;
+          GStorage.setting.put(SettingBoxKey.speedPanelLayout, panelLayout);
           setState(() {});
         },
       ),
@@ -724,8 +732,8 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             ),
             for (final (shift, name) in const [
               (0, '半屏'),
-              (3, '全屏'),
-              (6, '电脑'),
+              (4, '全屏'),
+              (8, '电脑'),
             ])
               _panelModeTile(shift, name),
             ListTile(

@@ -535,6 +535,52 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     );
   }
 
+  // 倍速面板：矩阵与滑杆都勾、不勾常规时拆成两个面板，共用一个倍速；
+  // 矩阵面板留小窗口滑杆、不带加减号，加减号随大范围滑杆
+  List<PopupMenuEntry<double>> _speedPanels(int mode, bool landscape) {
+    final c = plPlayerController;
+    final cols = landscape ? c.speedGridColsLandscape : c.speedGridCols;
+    final gridWidth = landscape ? c.speedGridWidthLandscape : c.speedGridWidth;
+    final rowHeight = landscape
+        ? c.speedGridRowHeightLandscape
+        : c.speedGridRowHeight;
+    if (mode & 7 == 6) {
+      final link = ValueNotifier((c.playbackSpeed * 100).round());
+      final grid = SpeedPanel(
+        c,
+        mode: 2,
+        cols: cols,
+        width: gridWidth,
+        rowHeight: rowHeight,
+        link: link,
+        controls: false,
+      );
+      final slider = SpeedPanel(
+        c,
+        mode: 4,
+        cols: cols,
+        width: c.speedSliderWidth,
+        rowHeight: rowHeight,
+        link: link,
+      );
+      const divider = PopupMenuDivider(height: 9);
+      return mode & 8 == 0
+          ? [grid, divider, slider]
+          : [slider, divider, grid];
+    }
+    return [
+      SpeedPanel(
+        c,
+        mode: mode,
+        cols: cols,
+        width: mode & 2 == 0
+            ? c.speedSliderWidth
+            : math.max(gridWidth, mode & 4 == 0 ? 0.0 : c.speedSliderWidth),
+        rowHeight: rowHeight,
+      ),
+    ];
+  }
+
   // 动态构建底部控制条
   Widget buildBottomControl(
     VideoDetailController videoDetailController,
@@ -906,17 +952,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           // 只留默认的最小宽度，去掉 5 格的最大宽度，矩阵和滑杆按自身宽度撑开
           constraints: const BoxConstraints(minWidth: 112),
           itemBuilder: (context) {
-            // 打开时才看场景：半屏、全屏、电脑（横屏非全屏）各取 3 位
+            // 打开时才看场景：半屏、全屏、电脑（横屏非全屏）各取 4 位
             final landscape =
                 MediaQuery.orientationOf(context) == Orientation.landscape;
             final mode =
-                plPlayerController.speedPanelModes >>
+                plPlayerController.speedPanelLayout >>
                     (isFullScreen
-                        ? 3
+                        ? 4
                         : landscape
-                        ? 6
+                        ? 8
                         : 0) &
-                7;
+                15;
             return mode & 6 == 0
                 ? [
                     for (final speed in plPlayerController.speedList)
@@ -935,28 +981,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         ),
                       ),
                   ]
-                : [
-                    SpeedPanel(
-                      plPlayerController,
-                      mode: mode,
-                      cols: landscape
-                          ? plPlayerController.speedGridColsLandscape
-                          : plPlayerController.speedGridCols,
-                      width: mode & 2 == 0
-                          ? plPlayerController.speedSliderWidth
-                          : math.max(
-                              landscape
-                                  ? plPlayerController.speedGridWidthLandscape
-                                  : plPlayerController.speedGridWidth,
-                              mode & 4 == 0
-                                  ? 0.0
-                                  : plPlayerController.speedSliderWidth,
-                            ),
-                      rowHeight: landscape
-                          ? plPlayerController.speedGridRowHeightLandscape
-                          : plPlayerController.speedGridRowHeight,
-                    ),
-                  ];
+                : _speedPanels(mode, landscape);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
