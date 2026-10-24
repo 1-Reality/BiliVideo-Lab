@@ -31,6 +31,7 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliBro/pages/video/widgets/header_control.dart'
     show HeaderControlState;
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
 import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/date_utils.dart';
@@ -87,6 +88,7 @@ class AudioPage extends StatefulWidget {
       'extraId': ?extraId,
       'bvid': ?bvid,
     };
+    PipOverlayService.close();
     AudioPlaybackSession.prepare(args);
     if (off || Get.currentRoute == '/audio') {
       return Get.offNamed<void>('/audio', arguments: args);
@@ -109,6 +111,7 @@ class AudioPage extends StatefulWidget {
       'offlineEntry': entry,
       'offlinePlaylist': tracks,
     };
+    PipOverlayService.close();
     AudioPlaybackSession.prepare(args);
     if (Get.currentRoute == '/audio') {
       return Get.offNamed<void>('/audio', arguments: args);

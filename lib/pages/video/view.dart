@@ -59,6 +59,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/view/view.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -186,7 +187,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     super.initState();
 
     PlPlayerController.setPlayCallBack(playCallBack);
-    videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
+    // 从小窗点回来时控制器还在，直接复用，不再重新请求和初始化播放器
+    final fromPip = Get.isRegistered<VideoDetailController>(tag: heroTag);
+    videoDetailController = fromPip
+        ? Get.find<VideoDetailController>(tag: heroTag)
+        : Get.put(VideoDetailController(), tag: heroTag, permanent: true);
 
     final playerController = videoDetailController.plPlayerController;
     if (Platform.isAndroid && !playerController.keyboardControl) {
@@ -217,7 +222,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       pgcIntroController = Get.put(PgcIntroController(), tag: heroTag);
     }
 
-    videoSourceInit();
+    if (fromPip) {
+      plPlayerController = playerController
+        ..addStatusLister(playerListener)
+        ..addPositionListener(positionListener);
+    } else {
+      videoSourceInit();
+    }
 
     addObserverMobile(this);
   }
@@ -420,6 +431,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    final toPip = PipOverlayService.owns(videoDetailController);
+    if (!toPip) {
+      Get.delete<VideoDetailController>(tag: heroTag, force: true);
+    }
     final playerController = videoDetailController.plPlayerController;
     final continueListening = videoDetailController.isUgc &&
         !videoDetailController.isFileSource &&
@@ -468,7 +483,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       showSystemBar();
     }
 
-    if (!videoDetailController.plPlayerController.isCloseAll) {
+    if (!toPip && !videoDetailController.plPlayerController.isCloseAll) {
       videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
       if (plPlayerController != null) {
         videoDetailController.makeHeartBeat();

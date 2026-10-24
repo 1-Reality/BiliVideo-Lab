@@ -22,6 +22,7 @@ import 'package:PiliBro/pages/common/publish/publish_route.dart';
 import 'package:PiliBro/pages/contact/view.dart';
 import 'package:PiliBro/pages/fav_panel/view.dart';
 import 'package:PiliBro/pages/share/view.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
@@ -513,6 +514,7 @@ abstract final class PageUtils {
     int? roomId, {
     bool off = false,
   }) {
+    PipOverlayService.close();
     if (roomId == null) {
       return;
     }
@@ -541,6 +543,7 @@ abstract final class PageUtils {
     Dimension? dimension,
     bool forceVideo = false,
   }) {
+    PipOverlayService.close();
     final source =
         extraArguments?['sourceType'] as video_source.SourceType? ?? video_source.SourceType.normal;
     if (!forceVideo &&
