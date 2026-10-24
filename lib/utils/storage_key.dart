@@ -392,6 +392,7 @@ abstract final class LocalCacheKey {
       biliTicketExpireAt = 'biliTicketExpireAt',
       guestId = 'guestId',
       deviceGuid = 'deviceGuid',
+      rcmdInterestChoose = 'rcmdInterestChoose',
       updateIgnore = 'updateIgnore',
       launchSlot = 'launchSlot',
       launchDay = 'launchDay',

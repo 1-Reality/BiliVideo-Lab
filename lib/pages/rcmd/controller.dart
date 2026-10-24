@@ -10,6 +10,7 @@ import 'package:PiliBro/pages/rcmd/interest_choose.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 /// 混合推荐里的一端：缓冲区不足一批时才再请求
@@ -79,18 +80,47 @@ class RcmdController extends CommonListController {
     );
     if (cursor.interestChoose case final choose?) {
       cursor.interestChoose = null;
-      if (Get.context case final context?) {
-        showInterestChoose(context, choose).then((interest) {
-          if (interest == null) return;
-          GStorage.setting.put(SettingBoxKey.rcmdInterestDone, true);
-          // 跳过时返回空表
-          if (interest.isEmpty) return;
-          cursor.interest = interest;
-          onRefresh();
-        });
-      }
+      // 留一份，设置里「再次进行 OOBE」时直接拿来弹
+      GStorage.localCache.put(LocalCacheKey.rcmdInterestChoose, choose);
+      _askInterest(cursor, choose);
     }
     return res;
+  }
+
+  void _askInterest(RcmdAppCursor cursor, Map<String, dynamic> choose) {
+    if (Get.context case final context?) {
+      showInterestChoose(context, choose).then((interest) {
+        if (interest == null) return;
+        GStorage.setting.put(SettingBoxKey.rcmdInterestDone, true);
+        // 跳过时返回空表
+        if (interest.isEmpty) return;
+        cursor.interest = interest;
+        onRefresh();
+      });
+    }
+  }
+
+  /// 重新选择兴趣：存过兴趣卡片就当场弹，带着结果重刷 App 推荐；
+  /// 没存过就清掉已完成标记，等服务端下次下发再弹
+  static void redoInterest() {
+    GStorage.setting.put(SettingBoxKey.rcmdInterestDone, false);
+    final choose = GStorage.localCache.get(LocalCacheKey.rcmdInterestChoose);
+    final controller = Get.isRegistered<RcmdController>()
+        ? Get.find<RcmdController>()
+        : null;
+    final cursor = controller?._feeds
+        .map((feed) => feed.cursor)
+        .nonNulls
+        .firstOrNull;
+    if (choose is! Map || controller == null || cursor == null) {
+      SmartDialog.showToast(
+        cursor == null && controller != null
+            ? '兴趣偏好只对 App 推荐生效，请先勾选手机或平板推荐'
+            : '已重置，下次 App 推荐下发兴趣选择时会弹出',
+      );
+      return;
+    }
+    controller._askInterest(cursor, Map<String, dynamic>.from(choose));
   }
 
   @override

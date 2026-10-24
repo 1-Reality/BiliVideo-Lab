@@ -78,6 +78,12 @@ List<SettingsModel> get recommendSettings => [
       );
     },
   ),
+  const NormalModel(
+    title: '再次进行 OOBE',
+    subtitle: '重新选择兴趣偏好（性别、年龄、喜欢的分区），选完带着结果重刷 App 推荐',
+    leading: Icon(Icons.interests_outlined),
+    onTap: _redoInterest,
+  ),
   const SwitchModel(
     title: '个性化推荐',
     subtitle: '关闭后 App 推荐不再按观看记录与兴趣推荐',
@@ -253,3 +259,6 @@ NormalModel _sourceModel(RcmdSource source) => NormalModel(
     setState();
   },
 );
+
+void _redoInterest(BuildContext context, VoidCallback setState) =>
+    RcmdController.redoInterest();
