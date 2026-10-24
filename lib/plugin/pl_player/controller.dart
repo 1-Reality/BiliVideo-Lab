@@ -357,6 +357,12 @@ class PlPlayerController
   late int speedSliderDivisions = Pref.speedSliderDivisions;
   late double speedSliderWidth = Pref.speedSliderWidth;
   late int speedStep = Pref.speedStep;
+  late int speedSlideHardH = Pref.speedSlideHardH;
+  late List<int> speedSlideSoftH = Pref.speedSlideSoftH;
+  late int speedSlideHoldH = Pref.speedSlideHoldH;
+  late int speedSlideHardV = Pref.speedSlideHardV;
+  late List<int> speedSlideSoftV = Pref.speedSlideSoftV;
+  late int speedSlideHoldV = Pref.speedSlideHoldV;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
   // 点面板中间数字时切回的倍速
@@ -364,11 +370,18 @@ class PlPlayerController
   final RxBool speedIndicator = false.obs;
   Timer? _speedIndicatorTimer;
 
-  /// 滚轮、方向键按分度值调倍速，限制在滑杆范围内
-  void stepPlaybackSpeed(bool increase, {bool recordSelection = true}) {
+  /// 滚轮、方向键按分度值调倍速；滚轮限制在滑杆范围内，方向键只保底 0.01 ~ 100 倍
+  void stepPlaybackSpeed(
+    bool increase, {
+    bool recordSelection = true,
+    bool bounded = true,
+  }) {
     setPlaybackSpeed(
       ((playbackSpeed * 100).round() + (increase ? speedStep : -speedStep))
-              .clamp(speedSliderMin, speedSliderMax) /
+              .clamp(
+                bounded ? speedSliderMin : 1,
+                bounded ? speedSliderMax : 10000,
+              ) /
           100,
       recordSelection: recordSelection,
     );

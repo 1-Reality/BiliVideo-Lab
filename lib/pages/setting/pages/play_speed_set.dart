@@ -45,6 +45,12 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late int speedStep = Pref.speedStep;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
+  late int slideHardH = Pref.speedSlideHardH;
+  late List<int> slideSoftH = Pref.speedSlideSoftH;
+  late int slideHoldH = Pref.speedSlideHoldH;
+  late int slideHardV = Pref.speedSlideHardV;
+  late List<int> slideSoftV = Pref.speedSlideSoftV;
+  late int slideHoldV = Pref.speedSlideHoldV;
   List<({int id, String title, Icon icon})> sheetMenu = [
     (
       id: 1,
@@ -515,6 +521,170 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     setState(() {});
   }
 
+  static String _slideStopsDesc(int hard, List<int> soft, int hold) =>
+      hard == 0 && soft.isEmpty
+      ? '不设挡位'
+      : [
+          if (hard != 0) '硬挡 ${formatCenti(hard)} 倍',
+          if (soft.isNotEmpty)
+            '软挡 ${soft.map(formatCenti).join('、')} 倍，加长 $hold 像素',
+        ].join('，');
+
+  // 竖滑只会落在倍速列表的项上，所以软挡从列表里勾；横滑可以填任意值
+  Future<void> _setSlideStops(bool vertical) async {
+    final hard = vertical ? slideHardV : slideHardH;
+    final soft = {...vertical ? slideSoftV : slideSoftH};
+    final hardCtrl = TextEditingController(
+      text: hard == 0 ? '' : formatCenti(hard),
+    );
+    final softCtrl = TextEditingController(
+      text: (soft.toList()..sort()).map(formatCenti).join(' '),
+    );
+    final holdCtrl = TextEditingController(
+      text: '${vertical ? slideHoldV : slideHoldH}',
+    );
+    // 0.01 ~ 100 倍以外返回 null
+    int? centi(String text) {
+      final value = double.tryParse(text);
+      if (value == null) return null;
+      final c = (value * 100).round();
+      return c < 1 || c > 10000 ? null : c;
+    }
+
+    final result = await showDialog<(int, List<int>, int)>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        onDispose: () {
+          hardCtrl.dispose();
+          softCtrl.dispose();
+          holdCtrl.dispose();
+        },
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(vertical ? '竖滑倍速挡位' : '横滑倍速挡位'),
+          content: SingleChildScrollView(
+            child: Column(
+              spacing: 16,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: hardCtrl,
+                  keyboardType: const .numberWithOptions(decimal: true),
+                  inputFormatters: FilteringText.decimal,
+                  decoration: const InputDecoration(
+                    labelText: '硬挡',
+                    suffixText: '倍',
+                    helperText: '留空不设；拖到这里停住，松手重拖才能越过',
+                    border: _border,
+                  ),
+                ),
+                if (vertical) ...[
+                  const Text('软挡'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final c in speedList.map((v) => (v * 100).round()))
+                        FilterChip(
+                          label: Text(formatCenti(c)),
+                          selected: soft.contains(c),
+                          onSelected: (value) => setDialogState(
+                            () => value ? soft.add(c) : soft.remove(c),
+                          ),
+                        ),
+                    ],
+                  ),
+                ] else
+                  TextField(
+                    controller: softCtrl,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9. ]')),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: '软挡',
+                      suffixText: '倍',
+                      helperText: '多个用空格分隔',
+                      border: _border,
+                    ),
+                  ),
+                TextField(
+                  controller: holdCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: '软挡加长',
+                    suffixText: '像素',
+                    helperText: '到了软挡要多拖这么远才继续变',
+                    border: _border,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: Get.back, child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                final hardText = hardCtrl.text.trim();
+                final h = hardText.isEmpty ? 0 : centi(hardText);
+                final s = vertical ? soft : <int>{};
+                var bad = h == null;
+                if (!vertical) {
+                  for (final text in softCtrl.text.split(' ')) {
+                    if (text.isEmpty) continue;
+                    final c = centi(text);
+                    if (c == null) {
+                      bad = true;
+                    } else {
+                      s.add(c);
+                    }
+                  }
+                }
+                final hold = int.tryParse(holdCtrl.text);
+                if (bad || hold == null) {
+                  SmartDialog.showToast('倍速要在 0.01 ~ 100 之间，加长要填整数');
+                  return;
+                }
+                Get.back(result: (h!, s.toList()..sort(), hold));
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    final (h, s, hold) = result;
+    if (vertical) {
+      slideHardV = h;
+      slideSoftV = s;
+      slideHoldV = hold;
+      GStorage.setting.putAll({
+        SettingBoxKey.speedSlideHardV: h,
+        SettingBoxKey.speedSlideSoftV: s,
+        SettingBoxKey.speedSlideHoldV: hold,
+      });
+      PlPlayerController.instance
+        ?..speedSlideHardV = h
+        ..speedSlideSoftV = s
+        ..speedSlideHoldV = hold;
+    } else {
+      slideHardH = h;
+      slideSoftH = s;
+      slideHoldH = hold;
+      GStorage.setting.putAll({
+        SettingBoxKey.speedSlideHardH: h,
+        SettingBoxKey.speedSlideSoftH: s,
+        SettingBoxKey.speedSlideHoldH: hold,
+      });
+      PlPlayerController.instance
+        ?..speedSlideHardH = h
+        ..speedSlideSoftH = s
+        ..speedSlideHoldH = hold;
+    }
+    setState(() {});
+  }
+
   // 添加自定义倍速
   void onAddSpeed() {
     String initialValue = '';
@@ -749,6 +919,20 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 '${formatCenti(sliderMin)} ~ ${formatCenti(sliderMax)} 倍，分度值 ${formatCenti(sliderStep)}，宽 ${sliderWidth.round()}',
               ),
               onTap: _setSliderRange,
+            ),
+            ListTile(
+              title: const Text('横滑倍速挡位'),
+              subtitle: Text(
+                _slideStopsDesc(slideHardH, slideSoftH, slideHoldH),
+              ),
+              onTap: () => _setSlideStops(false),
+            ),
+            ListTile(
+              title: const Text('竖滑倍速挡位'),
+              subtitle: Text(
+                _slideStopsDesc(slideHardV, slideSoftV, slideHoldV),
+              ),
+              onTap: () => _setSlideStops(true),
             ),
             ListTile(
               title: const Text('滚轮 / 方向键调倍速'),

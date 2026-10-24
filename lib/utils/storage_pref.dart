@@ -1523,6 +1523,27 @@ abstract final class Pref {
   static int get speedStep =>
       _setting.get(SettingBoxKey.speedStep, defaultValue: 10);
 
+  // 倍速手势挡位：H 横滑、V 竖滑；硬挡 0 表示不设，软挡加长单位是逻辑像素
+  static int get speedSlideHardH =>
+      _setting.get(SettingBoxKey.speedSlideHardH, defaultValue: 0);
+
+  static List<int> get speedSlideSoftH => List<int>.from(
+    _setting.get(SettingBoxKey.speedSlideSoftH, defaultValue: const <int>[]),
+  );
+
+  static int get speedSlideHoldH =>
+      _setting.get(SettingBoxKey.speedSlideHoldH, defaultValue: 40);
+
+  static int get speedSlideHardV =>
+      _setting.get(SettingBoxKey.speedSlideHardV, defaultValue: 100);
+
+  static List<int> get speedSlideSoftV => List<int>.from(
+    _setting.get(SettingBoxKey.speedSlideSoftV, defaultValue: const <int>[]),
+  );
+
+  static int get speedSlideHoldV =>
+      _setting.get(SettingBoxKey.speedSlideHoldV, defaultValue: 40);
+
   static bool get wheelSpeed =>
       _setting.get(SettingBoxKey.wheelSpeed, defaultValue: false);
 
