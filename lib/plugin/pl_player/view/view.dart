@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:PiliBro/common/assets.dart';
@@ -536,7 +535,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   }
 
   // 倍速面板：矩阵与滑杆都勾、不勾常规时拆成两个面板，共用一个倍速；
-  // 矩阵面板留小窗口滑杆、不带加减号，加减号随大范围滑杆
+  // 矩阵面板留小窗口滑杆、不带加减号，加减号随大范围滑杆。
+  // 有矩阵时整块都按矩阵宽度，滑杆跟着变短，刻度字按宽度自动稀疏
   List<PopupMenuEntry<double>> _speedPanels(int mode, bool landscape) {
     final c = plPlayerController;
     final cols = landscape ? c.speedGridColsLandscape : c.speedGridCols;
@@ -559,7 +559,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         c,
         mode: 4,
         cols: cols,
-        width: c.speedSliderWidth,
+        width: gridWidth,
         rowHeight: rowHeight,
         link: link,
       );
@@ -573,9 +573,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         c,
         mode: mode,
         cols: cols,
-        width: mode & 2 == 0
-            ? c.speedSliderWidth
-            : math.max(gridWidth, mode & 4 == 0 ? 0.0 : c.speedSliderWidth),
+        width: mode & 2 == 0 ? c.speedSliderWidth : gridWidth,
         rowHeight: rowHeight,
       ),
     ];
