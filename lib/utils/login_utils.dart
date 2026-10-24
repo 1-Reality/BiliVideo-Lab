@@ -94,11 +94,16 @@ abstract final class LoginUtils {
     ]);
   }
 
+  /// 本次启动是否新生成了 buvid（即新装），新装会向服务端换取正式 buvid
+  static bool freshBuvid = false;
+
+  /// 不读设备标识，按官方「以上都拿不到时」的随机 UUID 规则生成：XW + 大写 md5
   static String generateBuvid() {
+    freshBuvid = true;
     final md5Str = Digest(
       List.generate(16, (_) => Utils.random.nextInt(256)),
-    ).toString();
-    return 'XY${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
+    ).toString().toUpperCase();
+    return 'XW${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
   }
 
   static final buvid = Pref.buvid;

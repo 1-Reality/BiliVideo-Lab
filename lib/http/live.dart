@@ -27,6 +27,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
 import 'package:PiliBro/utils/bili_device.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
@@ -223,7 +224,7 @@ abstract final class LiveHttp {
       options: Options(
         headers: {
           ...recommend.appHeaders,
-          'x-bili-trace-id': BiliDevice.traceId(),
+          ...BiliSession.dynamicHeaders,
         },
       ),
     );
@@ -292,7 +293,7 @@ abstract final class LiveHttp {
       options: Options(
         headers: {
           ...recommend.appHeaders,
-          'x-bili-trace-id': BiliDevice.traceId(),
+          ...BiliSession.dynamicHeaders,
         },
       ),
     );

@@ -8,6 +8,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
 import 'package:PiliBro/utils/bili_device.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/login_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:crypto/crypto.dart';
@@ -20,7 +21,7 @@ abstract final class LoginHttp {
   /// 短信、密码登录用短信 key，拿到的 token 归粉版
   static Map<String, String> get headers => {
     ...BiliDevice.appHeaders(BiliApp.sms, 0),
-    'x-bili-trace-id': BiliDevice.traceId(),
+    ...BiliSession.dynamicHeaders,
     'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
   };
 

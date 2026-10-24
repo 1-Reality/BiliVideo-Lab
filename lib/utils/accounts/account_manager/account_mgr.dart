@@ -8,7 +8,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/accounts/api_type.dart';
 import 'package:PiliBro/utils/app_sign.dart';
-import 'package:PiliBro/utils/bili_device.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -61,7 +61,7 @@ class AccountManager extends Interceptor {
     if (isApp && options.responseType == ResponseType.bytes) {
       options.headers
         ..addAll(account.grpcHeaders)
-        ..['x-bili-trace-id'] = BiliDevice.traceId();
+        ..addAll(BiliSession.dynamicHeaders);
       return handler.next(options);
     }
 
@@ -75,7 +75,7 @@ class AccountManager extends Interceptor {
       final app = account.app;
       options.headers
         ..addAll(account.appHeaders)
-        ..['x-bili-trace-id'] = BiliDevice.traceId();
+        ..addAll(BiliSession.dynamicHeaders);
       final dataPtr = (options.method == 'POST' && options.data is Map
           ? (options.data as Map).cast<String, dynamic>()
           : options.queryParameters);
@@ -185,6 +185,10 @@ class AccountManager extends Interceptor {
       'hdslb.com',
       'biliimg.com',
       'site/getCoin',
+      // 后台维持会话凭据，失败下次再取
+      'GetTicket',
+      'guest/reg',
+      'buvid/get',
     ];
     String url = err.requestOptions.uri.toString();
     if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url\n$err');

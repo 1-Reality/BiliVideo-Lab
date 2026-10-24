@@ -30,6 +30,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
 import 'package:PiliBro/utils/bili_device.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/id_utils.dart';
@@ -124,7 +125,7 @@ abstract final class VideoHttp {
       options: Options(
         headers: {
           ...BiliDevice.appHeaders(app, account?.mid ?? 0),
-          'x-bili-trace-id': BiliDevice.traceId(),
+          ...BiliSession.dynamicHeaders,
         },
         extra: {'account': const NoAccount()},
       ),
