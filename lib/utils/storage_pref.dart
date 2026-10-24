@@ -1619,18 +1619,11 @@ abstract final class Pref {
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
 
-  static bool get removeSafeArea =>
-      _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+  static bool get removeSafeAreaPortrait =>
+      _setting.get(SettingBoxKey.removeSafeAreaPortrait, defaultValue: false);
 
-  static bool get removeSafeAreaPortrait => _setting.get(
-    SettingBoxKey.removeSafeAreaPortrait,
-    defaultValue: removeSafeArea,
-  );
-
-  static bool get removeSafeAreaLandscape => _setting.get(
-    SettingBoxKey.removeSafeAreaLandscape,
-    defaultValue: removeSafeArea,
-  );
+  static bool get removeSafeAreaLandscape =>
+      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: false);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
