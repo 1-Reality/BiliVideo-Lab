@@ -23,7 +23,7 @@ enum AppInitialOrientation {
 enum AppRotationMode {
   lockInitial('保持初始方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转');
+  alwaysAuto('始终自动旋转（忽略旋转锁定）');
 
   final String desc;
   const AppRotationMode(this.desc);
@@ -33,7 +33,7 @@ enum WindowedPlayerRotationMode {
   inheritApp('沿用 APP 普通页面的设置'),
   keepCurrent('保持进入视频页时的方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转');
+  alwaysAuto('始终自动旋转（忽略旋转锁定）');
 
   final String desc;
   const WindowedPlayerRotationMode(this.desc);
@@ -42,7 +42,7 @@ enum WindowedPlayerRotationMode {
 enum FullScreenRotationSource {
   keepCurrent('保持当前方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转'),
+  alwaysAuto('始终自动旋转（忽略旋转锁定）'),
   appGravity('APP 重力传感器');
 
   final String desc;
@@ -53,8 +53,8 @@ enum FullScreenAllowedOrientation {
   all('全部'),
   landscape('仅横屏'),
   portrait('仅竖屏'),
-  entryAxis('保持进入时横竖方向'),
-  entryExact('保持进入时具体方向');
+  entryAxis('只允许进入时那一轴（同为横或同为竖）'),
+  entryExact('只允许进入时那一个方向');
 
   final String desc;
   const FullScreenAllowedOrientation(this.desc);
@@ -71,7 +71,7 @@ enum OrientationFullscreenTrigger {
 }
 
 enum OrientationTriggerSource {
-  system('系统方向'),
+  system('系统界面方向'),
   appGravity('APP 重力传感器'),
   any('两者任一满足'),
   both('两者同时满足');
@@ -94,12 +94,12 @@ enum EntryOrientationPolicy {
   video('按视频方向'),
   portrait('强制竖屏'),
   landscape('强制横屏'),
-  ratio('按视频与屏幕比例判断'),
+  ratio('竖屏视频或屏幕接近方形（长宽比小于 1.2，如折叠屏内屏）时竖屏，否则横屏'),
   portraitUp('正竖屏'),
   portraitDown('倒竖屏'),
   landscapeLeft('左横屏'),
   landscapeRight('右横屏'),
-  triggerDirection('跟随触发方向');
+  triggerDirection('触发时手机所处的方向');
 
   final String desc;
   const EntryOrientationPolicy(this.desc);
@@ -125,9 +125,9 @@ abstract final class FullscreenEntryCauseMask {
 }
 
 enum ExitOrientationMode {
-  restoreApp('恢复当前页面方向策略'),
+  restoreApp('恢复为当前页面原本的旋转设置'),
   keepPlayer('保持播放器方向，之后继续正常旋转'),
-  lockPlayer('锁定播放器方向');
+  lockPlayer('锁定为全屏时的方向');
 
   final String desc;
   const ExitOrientationMode(this.desc);
@@ -158,7 +158,7 @@ enum BrotherDirectionAction {
   systemCurrent('锁定为当前方向'),
   startupDirection('恢复 APP 启动时的方向'),
   video('按视频横竖方向'),
-  ratio('按视频与屏幕比例判断'),
+  ratio('竖屏视频或屏幕长宽比不到 16:9 时竖屏，否则横屏'),
   portrait('竖屏'),
   landscape('横屏'),
   portraitUp('正竖屏'),

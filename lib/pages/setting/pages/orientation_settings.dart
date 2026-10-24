@@ -56,7 +56,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<double>(
       context: context,
       builder: (context) => SliderDialog(
-        title: const Text('APP 重力倾斜角度阈值'),
+        title: const Text('APP 重力判定横竖的倾斜角度'),
         min: 10,
         max: 90,
         divisions: 80,
@@ -91,7 +91,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('最终方向许可'),
+            title: const Text('最终方向许可（任何设置都不会转出这些方向）'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -140,7 +140,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('方向自动退出全屏适用范围'),
+            title: const Text('竖置自动退出对哪些全屏生效'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -173,13 +173,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('手动全屏退出确认次数'),
+        title: const Text('手动进入的全屏：竖置几次才自动退出'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(
-            helperText: '0 = 关闭；不设上限',
+            helperText: '0 表示和其他全屏一样，竖过来就退出；填 N 表示要「横回去再竖过来」N 次才退出，防止躺着看时误退',
           ),
         ),
         actions: [
@@ -471,7 +471,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<double>(
       context: context,
       builder: (context) => SliderDialog(
-        title: const Text('APP 重力倾斜角度阈值'),
+        title: const Text('APP 重力判定横竖的倾斜角度'),
         min: 10,
         max: 90,
         divisions: 80,
@@ -686,7 +686,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
       if (_brotherPhase != BrotherOrientationPhase.app) ...[
         SwitchListTile(
-          title: const Text('APP 重力遵循系统方向锁定'),
+          title: const Text('APP 重力传感器遵守系统旋转锁定'),
           subtitle: const Text('仅在使用 APP 重力传感器时生效：系统旋转锁定开启时不按重力旋转'),
           value: phase.gravityFollowSystemLock,
           onChanged: (value) => _writeBrotherPhase(
@@ -694,7 +694,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
           ),
         ),
         _selectTile(
-          title: 'APP 重力倾斜角度阈值',
+          title: 'APP 重力判定横竖的倾斜角度',
           subtitle: '${phase.angleDegrees}°',
           onTap: _editBrotherAngle,
         ),
@@ -965,15 +965,15 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         bit: FullscreenEntryCauseMask.orientation,
       ),
       _selectTile(
-        title: '手动全屏退出确认次数',
+        title: '手动进入的全屏：竖置几次才自动退出',
         subtitle: Pref.brotherManualExitConfirmations == 0
             ? '关闭'
             : '${Pref.brotherManualExitConfirmations} 次',
         onTap: () async {
           final res = await _nonNegativeIntDialog(
-            title: '手动全屏退出确认次数',
+            title: '手动进入的全屏：竖置几次才自动退出',
             initial: Pref.brotherManualExitConfirmations,
-            helper: '0 = 关闭；不设上限',
+            helper: '0 表示和其他全屏一样，竖过来就退出；填 N 表示要「横回去再竖过来」N 次才退出，防止躺着看时误退',
           );
           if (res != null) {
             await _writeBrotherValue(
@@ -984,21 +984,21 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         },
       ),
       _selectTile(
-        title: '手动退出确认信号',
+        title: '手动进入的全屏：判断竖置所用的信号',
         subtitle: _signalMaskLabel(Pref.brotherManualExitSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherManualExitSignalMask,
           Pref.brotherManualExitSignalMask,
-          '手动退出确认信号',
+          '手动进入的全屏：判断竖置所用的信号',
         ),
       ),
       _selectTile(
-        title: '手动退出确认最少满足信号数',
+        title: '手动进入的全屏：判断竖置至少需满足的信号数',
         subtitle: '${Pref.brotherManualExitSignalRequired}',
         onTap: () => _editRequiredCount(
           SettingBoxKey.brotherManualExitSignalRequired,
           Pref.brotherManualExitSignalRequired,
-          '手动退出确认最少满足信号数',
+          '手动进入的全屏：判断竖置至少需满足的信号数',
         ),
       ),
     ];
@@ -1057,10 +1057,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: 'APP 运行期间方向变化',
+      title: 'APP 运行期间的旋转方式',
       subtitle: Pref.appRotationMode.desc,
       onTap: () => _select(
-        title: 'APP 运行期间方向变化',
+        title: 'APP 运行期间的旋转方式',
         value: Pref.appRotationMode,
         values: AppRotationMode.values,
         key: SettingBoxKey.appRotationMode,
@@ -1081,10 +1081,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '全屏期间方向来源',
+      title: '全屏期间的旋转方式',
       subtitle: Pref.fullScreenRotationSource.desc,
       onTap: () => _select(
-        title: '全屏期间方向来源',
+        title: '全屏期间的旋转方式',
         value: Pref.fullScreenRotationSource,
         values: FullScreenRotationSource.values,
         key: SettingBoxKey.fullScreenRotationSource,
@@ -1103,16 +1103,16 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     SetSwitchItem(
-      title: 'APP 重力遵循系统方向锁定',
+      title: 'APP 重力传感器遵守系统旋转锁定',
       setKey: SettingBoxKey.gravityFollowSystemLock,
       defaultVal: Pref.gravityFollowSystemLock,
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     _selectTile(
-      title: '方向触发全屏',
+      title: '手机横竖时自动进出全屏',
       subtitle: Pref.orientationFullscreenTrigger.desc,
       onTap: () => _select(
-        title: '方向触发全屏',
+        title: '手机横竖时自动进出全屏',
         value: Pref.orientationFullscreenTrigger,
         values: OrientationFullscreenTrigger.values,
         key: SettingBoxKey.orientationFullscreenTrigger,
@@ -1120,10 +1120,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '方向触发依据',
+      title: '判断手机横竖所用的信号',
       subtitle: Pref.orientationTriggerSource.desc,
       onTap: () => _select(
-        title: '方向触发依据',
+        title: '判断手机横竖所用的信号',
         value: Pref.orientationTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.orientationTriggerSource,
@@ -1132,7 +1132,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     ),
     if (Platform.isAndroid)
       _selectTile(
-        title: 'APP 重力倾斜角度阈值',
+        title: 'APP 重力判定横竖的倾斜角度',
         subtitle: '当前：${Pref.angleDegrees}°',
         onTap: () => _showAngleDegreesDialog(
           key: SettingBoxKey.angleDegrees,
@@ -1157,7 +1157,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     const Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
-        '高级配置与简单配置分别保存，不互相翻译。部分设置会在重新进入播放器或下次启动后生效。',
+        '高级配置和简单配置各存各的，切换模式时不会把一边的设置换算到另一边。部分设置要重新进入播放器或下次启动后才生效。',
       ),
     ),
     _selectTile(
@@ -1172,10 +1172,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: 'APP 运行期间方向变化',
+      title: 'APP 运行期间的旋转方式',
       subtitle: Pref.advancedAppRotationMode.desc,
       onTap: () => _select(
-        title: 'APP 运行期间方向变化',
+        title: 'APP 运行期间的旋转方式',
         value: Pref.advancedAppRotationMode,
         values: AppRotationMode.values,
         key: SettingBoxKey.advancedAppRotationMode,
@@ -1183,10 +1183,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '视频非全屏时方向变化',
+      title: '视频非全屏时的旋转方式',
       subtitle: Pref.advancedWindowedPlayerRotationMode.desc,
       onTap: () => _select(
-        title: '视频非全屏时方向变化',
+        title: '视频非全屏时的旋转方式',
         value: Pref.advancedWindowedPlayerRotationMode,
         values: WindowedPlayerRotationMode.values,
         key: SettingBoxKey.advancedWindowedPlayerRotationMode,
@@ -1206,10 +1206,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     _selectTile(
-      title: '进入全屏触发依据',
+      title: '横置进入：判断手机横竖所用的信号',
       subtitle: Pref.advancedEnterTriggerSource.desc,
       onTap: () => _select(
-        title: '进入全屏触发依据',
+        title: '横置进入：判断手机横竖所用的信号',
         value: Pref.advancedEnterTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.advancedEnterTriggerSource,
@@ -1217,10 +1217,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '退出全屏触发依据',
+      title: '竖置退出：判断手机横竖所用的信号',
       subtitle: Pref.advancedExitTriggerSource.desc,
       onTap: () => _select(
-        title: '退出全屏触发依据',
+        title: '竖置退出：判断手机横竖所用的信号',
         value: Pref.advancedExitTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.advancedExitTriggerSource,
@@ -1228,10 +1228,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '方向触发适用视频',
+      title: '自动进出全屏适用的视频',
       subtitle: Pref.advancedTriggerContent.desc,
       onTap: () => _select(
-        title: '方向触发适用视频',
+        title: '自动进出全屏适用的视频',
         value: Pref.advancedTriggerContent,
         values: OrientationTriggerContent.values,
         key: SettingBoxKey.advancedTriggerContent,
@@ -1276,10 +1276,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '全屏期间方向来源',
+      title: '全屏期间的旋转方式',
       subtitle: Pref.advancedFullScreenRotationSource.desc,
       onTap: () => _select(
-        title: '全屏期间方向来源',
+        title: '全屏期间的旋转方式',
         value: Pref.advancedFullScreenRotationSource,
         values: FullScreenRotationSource.values,
         key: SettingBoxKey.advancedFullScreenRotationSource,
@@ -1298,14 +1298,14 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     SetSwitchItem(
-      title: 'APP 重力遵循系统方向锁定',
+      title: 'APP 重力传感器遵守系统旋转锁定',
       setKey: SettingBoxKey.advancedGravityFollowSystemLock,
       defaultVal: Pref.advancedGravityFollowSystemLock,
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     if (Platform.isAndroid)
       _selectTile(
-        title: 'APP 重力倾斜角度阈值',
+        title: 'APP 重力判定横竖的倾斜角度',
         subtitle: '当前：${Pref.advancedAngleDegrees}°',
         onTap: () => _showAngleDegreesDialog(
           key: SettingBoxKey.advancedAngleDegrees,
@@ -1313,12 +1313,12 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         ),
       ),
     _selectTile(
-      title: '方向自动退出全屏适用范围',
+      title: '竖置自动退出对哪些全屏生效',
       subtitle: _autoExitCausesLabel(Pref.advancedAutoExitCauses),
       onTap: _showAutoExitCausesDialog,
     ),
     _selectTile(
-      title: '手动全屏退出确认次数',
+      title: '手动进入的全屏：竖置几次才自动退出',
       subtitle: Pref.advancedManualExitConfirmations == 0
           ? '关闭'
           : '${Pref.advancedManualExitConfirmations} 次',
@@ -1356,13 +1356,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             ),
             SetSwitchItem(
               title: '竖屏播放页移除安全边距',
-              subtitle: '公共布局设置；仅影响播放页竖屏',
+              subtitle: '与方向模式无关，只影响竖屏时的播放页',
               setKey: SettingBoxKey.removeSafeAreaPortrait,
               defaultVal: Pref.removeSafeAreaPortrait,
             ),
             SetSwitchItem(
               title: '横屏播放页移除安全边距',
-              subtitle: '公共布局设置；仅影响播放页横屏',
+              subtitle: '与方向模式无关，只影响横屏时的播放页',
               setKey: SettingBoxKey.removeSafeAreaLandscape,
               defaultVal: Pref.removeSafeAreaLandscape,
             ),
@@ -1375,7 +1375,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 onChanged: (_) => OrientationPolicy.compile(),
               ),
               _selectTile(
-                title: '最终方向许可',
+                title: '最终方向许可（任何设置都不会转出这些方向）',
                 subtitle: Pref.finalDirectionMask == 0
                     ? '关闭'
                     : [
