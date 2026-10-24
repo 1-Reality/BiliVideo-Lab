@@ -376,7 +376,10 @@ abstract final class GStorage {
     // Buffers are capped at 1/32 of RAM below 20 GiB, 1/16 above, in MiB;
     // each platform's unit folds into its own shift.
     final cap = (switch (await DeviceInfoPlugin().deviceInfo) {
-      AndroidDeviceInfo(physicalRamSize: final mib) ||
+      // Android reports kernel-visible RAM, so a 16 GB phone shows a little
+      // over 15 GiB; its line sits at 14 GiB instead.
+      AndroidDeviceInfo(physicalRamSize: final mib) =>
+        mib >> (mib < 14 << 10 ? 5 : 4),
       IosDeviceInfo(physicalRamSize: final mib) ||
       WindowsDeviceInfo(systemMemoryInMegabytes: final mib) =>
         mib >> (mib < 20 << 10 ? 5 : 4),
