@@ -56,12 +56,17 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandArgumentPassing = 'Standard'
+          # 出错时把异常写进工件，诊断步骤会读它（日志下载不可用）
+          trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File kernel-error.txt -Encoding UTF8; break }
 
           # 参数来源（flutter_tools 3.47.5）：
           #   targets/common.dart  KernelSnapshot.build：aot=false，release 下 trackWidgetCreation=false，windows_x64 强制 link platform
           #   compile.dart         buildModeOptions(release)、kDartCompilerExperiments（空）、参数拼装顺序
           $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
           $engine = Join-Path $flutterRoot 'bin\cache\artifacts\engine'
+          $flutterRoot | Out-File flutter-root.txt -Encoding UTF8
+          Get-ChildItem $engine -Recurse -File -Include 'dartaotruntime.exe','frontend_server_aot.dart.snapshot','*.dill' -ErrorAction SilentlyContinue |
+            ForEach-Object { "$($_.FullName)  $($_.Length)" } | Out-File engine-artifacts.txt -Encoding UTF8
           $dartaot = (Get-ChildItem $engine -Recurse -Filter 'dartaotruntime.exe' | Select-Object -First 1).FullName
           $frontend = (Get-ChildItem $engine -Recurse -Filter 'frontend_server_aot.dart.snapshot' | Select-Object -First 1).FullName
           $sdk = Get-ChildItem $engine -Recurse -Directory -Filter 'flutter_patched_sdk_product' | Select-Object -First 1
@@ -133,7 +138,7 @@ jobs:
           Emit 'step outcomes' @(
             "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL"
           )
-          foreach ($f in 'flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
+          foreach ($f in 'kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
             if (Test-Path $f) {
               $all = Get-Content $f
               $hits = $all | Where-Object { $_ -match 'error|Error|ERROR|Exception|FAILED|failed' } | Select-Object -First 25
@@ -152,6 +157,9 @@ jobs:
             kernel/app.dill
             kernel-command.txt
             kernel-build.log
+            kernel-error.txt
+            engine-artifacts.txt
+            flutter-root.txt
             flutter-debug-build.log
           if-no-files-found: warn
           retention-days: 14
