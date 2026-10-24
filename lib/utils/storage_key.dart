@@ -11,6 +11,7 @@ abstract final class SettingBoxKey {
       defaultAudioQa = 'defaultAudioQa',
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
+      replyNoAutoPlay = 'replyNoAutoPlay',
       fullScreenMode = 'fullScreenMode',
       preferCodecs = 'preferCodecs',
       preferCodecsCellular = 'preferCodecsCellular',

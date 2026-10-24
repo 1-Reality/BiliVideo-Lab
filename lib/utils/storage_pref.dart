@@ -1199,6 +1199,9 @@ abstract final class Pref {
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
+  static bool get replyNoAutoPlay =>
+      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: false);
+
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);
 

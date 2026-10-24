@@ -754,7 +754,7 @@ class AudioController extends GetxController
 
   void actionShareVideo(BuildContext context) {
     final audioUrl = isUgc
-        ? '${HttpString.baseUrl}/video/${IdUtils.av2bv(oid.toInt())}'
+        ? '${HttpString.baseUrl}/video/av$oid'
         : '${HttpString.baseUrl}/audio/au$oid';
     showDialog(
       context: context,

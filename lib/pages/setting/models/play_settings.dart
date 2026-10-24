@@ -76,6 +76,13 @@ List<SettingsModel> get playSettings => [
     defaultVal: true,
   ),
   const SwitchModel(
+    title: '评论区进入不自动播放',
+    subtitle: '从评论区链接进入视频详情页时，不自动播放',
+    leading: Icon(Icons.comment_outlined),
+    setKey: SettingBoxKey.replyNoAutoPlay,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '全屏显示锁定按钮',
     leading: Icon(Icons.lock_outline),
     setKey: SettingBoxKey.showFsLockBtn,

@@ -579,6 +579,9 @@ abstract final class PageUtils {
     return PageUtils.toDupNamed('/videoV', arguments: arguments, off: off);
   }
 
+  // 评论区链接点进视频时置位，由 VideoDetailController 取走
+  static bool noAutoPlay = false;
+
   static final _pgcRegex = RegExp(r'(ep|ss)(\d+)');
   static bool viewPgcFromUri(
     String uri, {
