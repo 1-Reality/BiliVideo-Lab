@@ -765,7 +765,7 @@ abstract final class LiveHttp {
       'type': 'dislike',
       'page': page,
     };
-    AppSign.appSign(data, recommend.app);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveFeedback,
       queryParameters: params,
