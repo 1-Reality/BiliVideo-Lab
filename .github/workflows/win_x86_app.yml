@@ -213,6 +213,78 @@ jobs:
           if ($machine -ne '014C') { throw "exe is not x86: $machine" }
           Get-ChildItem $stage -Recurse -File | Format-Table FullName, Length
 
+      - id: check32
+        name: Check every DLL and the exe in the staged folder is x86 (0x14c)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'build32\runner\Release'
+          $bad = New-Object System.Collections.Generic.List[string]
+          $root = (Resolve-Path $stage).Path
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($f in Get-ChildItem $stage -Recurse -File -Include *.dll,*.exe) {
+            $b = [IO.File]::ReadAllBytes($f.FullName)
+            $m = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+            $lines.Add("$m  $($f.FullName.Substring($root.Length + 1))")
+            if ($m -ne '014C') { $bad.Add("$($f.Name)=$m") }
+          }
+          $lines | Set-Content architecture.txt
+          $lines | ForEach-Object { Write-Host $_ }
+          if ($bad.Count -gt 0) { throw "non-x86 binaries in the stage: $($bad -join ', ')" }
+
+      - id: smoke
+        name: "Smoke test: launch pilibro.exe, wait 15 s, check it is alive, take a screenshot"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'build32\runner\Release'
+          $exe = (Resolve-Path (Join-Path $stage 'pilibro.exe')).Path
+          $start = Get-Date
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          Start-Sleep -Seconds 15
+          $p.Refresh()
+          $alive = -not $p.HasExited
+          $title = $p.MainWindowTitle
+          $hwnd = $p.MainWindowHandle
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
+          $g = [Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+          $bmp.Save((Join-Path $PWD 'smoke.png'), [Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $bmp.Dispose()
+          "alive=$alive title='$title' hwnd=$hwnd exitCode=$(if ($alive) { 'running' } else { $p.ExitCode })" | Tee-Object smoke.txt
+          $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $start } -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -match 'pilibro|flutter_windows|media_kit|libmpv' } | Select-Object -First 5
+          $events | ForEach-Object { "event $($_.Id) $($_.LevelDisplayName): $($_.Message.Substring(0,[Math]::Min(300,$_.Message.Length)))" } | Tee-Object -Append smoke.txt
+          if ($alive) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          if (-not $alive) { throw "pilibro.exe exited within 15 s (exit $($p.ExitCode))" }
+          if (-not $hwnd -or $hwnd -eq 0) { throw 'pilibro.exe is alive but has no main window' }
+
+      - id: pack
+        name: Pack the portable 7z (not published; artifact only)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^\s*version:\s*([0-9.]+)' | Select-Object -First 1).Matches.Groups[1].Value
+          $dir = 'PiliBro-Win-x86'
+          Copy-Item build32\runner\Release $dir -Recurse
+          7z a -mx9 'PiliBro_windows_x86_portable.7z' $dir | Out-Null
+          Get-Item 'PiliBro_windows_x86_portable.7z' | Format-Table Name, Length
+
+      - name: Upload portable 7z, screenshot and smoke logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-x86-portable-block4
+          path: |
+            PiliBro_windows_x86_portable.7z
+            smoke.png
+            smoke.txt
+            architecture.txt
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload 32-bit stage
         if: always()
         uses: actions/upload-artifact@v7
@@ -236,6 +308,9 @@ jobs:
           O_SWAP: ${{ steps.engineswap.outcome }}
           O_EXE32: ${{ steps.exe32.outcome }}
           O_PATCH32: ${{ steps.patch32.outcome }}
+          O_CHECK32: ${{ steps.check32.outcome }}
+          O_SMOKE: ${{ steps.smoke.outcome }}
+          O_PACK: ${{ steps.pack.outcome }}
         run: |
           function Emit($title, $lines) {
             $text = ($lines -join "`n")
@@ -244,7 +319,7 @@ jobs:
             Write-Host "::error title=$title::$enc"
           }
           Emit 'step outcomes' @(
-            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP patch32=$env:O_PATCH32 exe32=$env:O_EXE32"
+            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP patch32=$env:O_PATCH32 exe32=$env:O_EXE32 check32=$env:O_CHECK32 smoke=$env:O_SMOKE pack=$env:O_PACK"
           )
           if (Test-Path 'exe32.log') { Emit 'exe32 errors (compiler/linker)' @(Get-Content exe32.log | Where-Object { $_ -match ' error [A-Z]+\d+|fatal error|LNK\d{4}|C2220' } | Select-Object -First 40) }
           if (Test-Path 'exe32.log') { Emit 'exe32 probes' @(Get-Content exe32.log | Where-Object { $_ -match '^\[(before|after)' }) }
