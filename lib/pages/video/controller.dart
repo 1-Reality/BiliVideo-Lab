@@ -1102,6 +1102,8 @@ class VideoDetailController extends GetxController
   }
 
   bool isQuerying = false;
+  // 切换视频时加一，换视频前发出、晚回来的播放地址直接丢掉
+  int _queryId = 0;
 
   final languages = Rxn<List<LanguageItem>>();
   final currLang = Rxn<String>();
@@ -1332,6 +1334,7 @@ class VideoDetailController extends GetxController
       return;
     }
     isQuerying = true;
+    final id = _queryId;
     var hasDashResponse = false;
     plPlayerController.onNetworkPolicyChanged = _onNetworkPolicyChanged;
     try {
@@ -1341,6 +1344,7 @@ class VideoDetailController extends GetxController
       final networkProfileFuture = _syncNetworkProfile();
       final result = await _getVideoUrl(VideoQuality.hdrVivid.code);
       await networkProfileFuture;
+      if (id != _queryId) return;
 
       if (result case Success(:final response)) {
         data = response;
@@ -1353,6 +1357,7 @@ class VideoDetailController extends GetxController
               _targetVideoQa(),
             )) {
               await supplement;
+              if (id != _queryId) return;
             }
           }
         }
@@ -1441,9 +1446,11 @@ class VideoDetailController extends GetxController
         result.toast();
       }
     } finally {
-      isQuerying = false;
-      if (_pendingNetworkRefresh && hasDashResponse) {
-        await _reloadForNetworkPolicy();
+      if (id == _queryId) {
+        isQuerying = false;
+        if (_pendingNetworkRefresh && hasDashResponse) {
+          await _reloadForNetworkPolicy();
+        }
       }
     }
   }
@@ -1776,6 +1783,8 @@ class VideoDetailController extends GetxController
     audioUrl = null;
     _cdnIndex = 0;
     _cdnFallbackInProgress = false;
+    _queryId++;
+    isQuerying = false;
 
     // danmaku
     savedDanmaku = null;
