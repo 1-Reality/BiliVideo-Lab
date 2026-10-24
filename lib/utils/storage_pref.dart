@@ -1000,7 +1000,51 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showVipDanmaku, defaultValue: true);
 
   static bool get mergeDanmaku =>
-      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: true);
+      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: false);
+
+  static int get mergeDanmakuWindowSeconds =>
+      _setting.get(SettingBoxKey.mergeDanmakuWindowSeconds, defaultValue: 20);
+
+  static int get mergeDanmakuMaxDistance =>
+      _setting.get(SettingBoxKey.mergeDanmakuMaxDistance, defaultValue: 5);
+
+  static int get mergeDanmakuMaxCosine =>
+      _setting.get(SettingBoxKey.mergeDanmakuMaxCosine, defaultValue: 45);
+
+  static int get mergeDanmakuRepresentativePercent => _setting.get(
+    SettingBoxKey.mergeDanmakuRepresentativePercent,
+    defaultValue: 20,
+  );
+
+  static bool get mergeDanmakuUsePinyin =>
+      _setting.get(SettingBoxKey.mergeDanmakuUsePinyin, defaultValue: true);
+
+  static bool get mergeDanmakuCrossMode =>
+      _setting.get(SettingBoxKey.mergeDanmakuCrossMode, defaultValue: false);
+
+  static bool get mergeDanmakuSkipSubtitle =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipSubtitle, defaultValue: true);
+
+  static bool get mergeDanmakuSkipAdvanced =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipAdvanced, defaultValue: true);
+
+  static bool get mergeDanmakuSkipBottom =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipBottom, defaultValue: false);
+
+  static int get mergeDanmakuMarkPosition =>
+      _setting.get(SettingBoxKey.mergeDanmakuMarkPosition, defaultValue: 2);
+
+  static int get mergeDanmakuMarkThreshold =>
+      _setting.get(SettingBoxKey.mergeDanmakuMarkThreshold, defaultValue: 1);
+
+  static bool get danmakuEnlarge =>
+      _setting.get(SettingBoxKey.danmakuEnlarge, defaultValue: true);
+
+  static int get danmakuEnlargeThreshold =>
+      _setting.get(SettingBoxKey.danmakuEnlargeThreshold, defaultValue: 7);
+
+  static int get danmakuEnlargeLogBase =>
+      _setting.get(SettingBoxKey.danmakuEnlargeLogBase, defaultValue: 7);
 
   static bool get showHotRcmd =>
       _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
