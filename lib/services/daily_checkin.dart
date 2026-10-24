@@ -22,13 +22,25 @@ abstract final class DailyCheckin {
     extra: {'account': Accounts.main},
   );
 
-  static void onNewDay() {
+  // 漫画阅读按今年第几天打开轮流读的漫画与它的第一话，共 8 本
+  static const _comics = [
+    (28616, 492793),
+    (29665, 570343),
+    (28455, 529969),
+    (28509, 485290),
+    (27652, 401045),
+    (26985, 359465),
+    (26405, 366704),
+    (28390, 481060),
+  ];
+
+  static void onNewDay(int day) {
     if (!Accounts.main.isLogin) return;
     watchPending = true;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _report([
         _manga(),
-        _mangaRead(),
+        _mangaRead(_comics[day & 7]),
         if (_vip) _vipPoints(),
         if (Pref.silver2coin) _silver2coin(),
       ]),
@@ -68,15 +80,15 @@ abstract final class DailyCheckin {
     ),
   );
 
-  // 直接上报一条阅读记录，漫画与 BiliBiliToolPro 默认用的同一话
-  static Future<String?> _mangaRead() async => _check(
+  // 直接上报一条阅读记录
+  static Future<String?> _mangaRead((int, int) comic) async => _check(
     '漫画阅读',
     await Request().post(
       'https://manga.bilibili.com/twirp/bookshelf.v1.Bookshelf/AddHistory',
       queryParameters: {
         'platform': 'android',
-        'comic_id': 27355,
-        'ep_id': 381662,
+        'comic_id': comic.$1,
+        'ep_id': comic.$2,
       },
       options: _form(),
     ),

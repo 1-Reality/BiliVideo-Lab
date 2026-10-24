@@ -35,11 +35,9 @@ abstract final class Update {
           '$year': stamp % 1000,
         });
       }
-      cache.put(
-        LocalCacheKey.launchDay,
-        today * 1000 + (now.year == year ? stamp % 1000 + 1 : 1),
-      );
-      DailyCheckin.onNewDay();
+      final day = now.year == year ? stamp % 1000 + 1 : 1;
+      cache.put(LocalCacheKey.launchDay, today * 1000 + day);
+      DailyCheckin.onNewDay(day);
     }
     cache.put(LocalCacheKey.launchSlot, slot + 1);
     final bucket = slot % n;
