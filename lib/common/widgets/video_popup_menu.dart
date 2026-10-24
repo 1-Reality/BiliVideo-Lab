@@ -100,14 +100,11 @@ class VideoPopupMenu extends StatelessWidget {
                     '不感兴趣',
                     const Icon(MdiIcons.thumbDownOutline, size: 16),
                     () {
-                      final rcmd = Accounts.get(.recommend);
-                      if (rcmd.accessKey == null || rcmd.accessKey == "") {
-                        SmartDialog.showToast(
-                          rcmd.isLogin ? '请退出账号后重新登录' : '账号未登录',
-                        );
-                        return;
-                      }
                       if (videoItem case final RcmdVideoItemAppModel item) {
+                        if (VideoHttp.rcmdIdentity.$2 == null) {
+                          SmartDialog.showToast('当前推荐以未登录身份获取，无法提交');
+                          return;
+                        }
                         ThreePoint? tp = item.threePoint;
                         if (tp == null) {
                           SmartDialog.showToast("未能获取threePoint");
@@ -126,10 +123,9 @@ class VideoPopupMenu extends StatelessWidget {
                               Get.back();
                               SmartDialog.showLoading(msg: '正在提交');
                               final res = await VideoHttp.feedDislike(
+                                item,
                                 reasonId: r?.id,
                                 feedbackId: f?.id,
-                                id: item.param!,
-                                goto: item.goto!,
                               );
                               SmartDialog.dismiss();
                               if (res.isSuccess) {
@@ -182,8 +178,7 @@ class VideoPopupMenu extends StatelessWidget {
                                       );
                                       final res =
                                           await VideoHttp.feedDislikeCancel(
-                                            id: item.param!,
-                                            goto: item.goto!,
+                                            item,
                                           );
                                       SmartDialog.dismiss();
                                       SmartDialog.showToast(

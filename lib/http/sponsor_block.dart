@@ -9,6 +9,7 @@ import 'package:PiliBro/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliBro/models_new/sponsor_block/user_info.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:dio/dio.dart';
@@ -146,7 +147,7 @@ abstract final class SponsorBlock {
         'cid': cid.toString(),
         'userID': Pref.blockUserID,
         'userAgent': kDebugMode
-            ? Constants.userAgent
+            ? phoneUserAgent
             : '${Constants.appName}/${BuildConfig.versionName}',
         'videoDuration': videoDuration,
         'segments': segments

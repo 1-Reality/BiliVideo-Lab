@@ -1,9 +1,7 @@
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/models/common/live/live_contribution_rank_type.dart';
 import 'package:PiliBro/models/common/live/live_search_type.dart';
@@ -28,6 +26,7 @@ import 'package:PiliBro/models_new/live/live_superchat/data.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
@@ -196,44 +195,35 @@ abstract final class LiveHttp {
   }) async {
     final params = {
       'access_key': ?recommend.accessKey,
-      'channel': 'master',
+      'channel': BiliDevice.channel,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'version': recommend.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
-      'device_name': 'android',
+      'device_name': BiliDevice.model,
       'device_type': 0,
       'fnval': 912,
       'disable_rcmd': 0,
       'https_url_req': 1,
       if (moduleSelect) 'module_select': 1,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'network': 'wifi',
       'page': pn,
       'platform': 'android',
       if (recommend.isLogin) 'relation_page': 1,
-      's_locale': 'zh_CN',
+      's_locale': 'zh-Hans_CN',
       'scale': 2,
-      'statistics': Constants.statisticsApp,
+      'statistics': recommend.app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveFeedIndex,
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
-          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
-          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
-          'session_id': '11111111',
-          'env': 'prod',
-          'app-key': 'android',
-          'User-Agent': Constants.userAgentApp,
-          'x-bili-trace-id': Constants.traceId,
-          'x-bili-aurora-eid': '',
-          'x-bili-aurora-zone': '',
-          'bili-http-engine': 'cronet',
+          ...recommend.appHeaders,
+          'x-bili-trace-id': BiliDevice.traceId(),
         },
       ),
     );
@@ -270,19 +260,19 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?recommend.accessKey,
       'actionKey': 'appkey',
-      'channel': 'master',
+      'channel': BiliDevice.channel,
       'area_id': ?areaId,
       'parent_area_id': ?parentAreaId,
-      'build': 8430300,
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'version': recommend.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
-      'device_name': 'android',
+      'device_name': BiliDevice.model,
       'device_type': 0,
       'fnval': 912,
       'disable_rcmd': 0,
       'https_url_req': 1,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'module_select': 0,
       'network': 'wifi',
       'page': pn,
@@ -291,27 +281,18 @@ abstract final class LiveHttp {
       'qn': 0,
       'sort_type': ?sortType,
       'tag_version': 1,
-      's_locale': 'zh_CN',
+      's_locale': 'zh-Hans_CN',
       'scale': 2,
-      'statistics': Constants.statisticsApp,
+      'statistics': recommend.app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveSecondList,
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
-          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
-          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
-          'session_id': '11111111',
-          'env': 'prod',
-          'app-key': 'android',
-          'User-Agent': Constants.userAgentApp,
-          'x-bili-trace-id': Constants.traceId,
-          'x-bili-aurora-eid': '',
-          'x-bili-aurora-zone': '',
-          'bili-http-engine': 'cronet',
+          ...recommend.appHeaders,
+          'x-bili-trace-id': BiliDevice.traceId(),
         },
       ),
     );
@@ -326,18 +307,18 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?recommend.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'channel': BiliDevice.channel,
+      'version': recommend.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'disable_rcmd': 0,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': recommend.app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveAreaList,
       queryParameters: params,
@@ -357,18 +338,18 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?Accounts.main.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': Accounts.main.app.build,
+      'channel': BiliDevice.channel,
+      'version': Accounts.main.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'disable_rcmd': 0,
-      'mobi_app': 'android',
+      'mobi_app': Accounts.main.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': Accounts.main.app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, Accounts.main.app);
     final res = await Request().get(
       Api.getLiveFavTag,
       queryParameters: params,
@@ -393,18 +374,18 @@ abstract final class LiveHttp {
       'tags': ids,
       'access_key': Accounts.main.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': Accounts.main.app.build,
+      'channel': BiliDevice.channel,
+      'version': Accounts.main.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'disable_rcmd': 0,
-      'mobi_app': 'android',
+      'mobi_app': Accounts.main.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': Accounts.main.app.statistics,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, Accounts.main.app);
     final res = await Request().post(
       Api.setLiveFavTag,
       data: data,
@@ -424,21 +405,21 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?recommend.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'channel': BiliDevice.channel,
+      'version': recommend.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'disable_rcmd': 0,
       'need_entrance': 1,
       'parent_id': parentid,
       'source_id': 2,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': recommend.app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveRoomAreaList,
       queryParameters: params,
@@ -460,22 +441,22 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?recommend.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'channel': BiliDevice.channel,
+      'version': recommend.app.version,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'page': page,
       'pagesize': 30,
       'keyword': keyword,
       'disable_rcmd': 0,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': recommend.app.statistics,
       'type': type.name,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, recommend.app);
     final res = await Request().get(
       Api.liveSearch,
       queryParameters: params,
@@ -767,23 +748,23 @@ abstract final class LiveHttp {
     final params = {
       'access_key': ?recommend.accessKey,
       'actionKey': 'appkey',
-      'build': 8430300,
-      'channel': 'master',
-      'c_locale': 'zh_CN',
+      'build': recommend.app.build,
+      'channel': BiliDevice.channel,
+      'c_locale': 'zh-Hans_CN',
       'device': 'android',
       'disable_rcmd': 0,
-      'mobi_app': 'android',
+      'mobi_app': recommend.app.mobiApp,
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
-      'version': '8.43.0',
+      's_locale': 'zh-Hans_CN',
+      'statistics': recommend.app.statistics,
+      'version': recommend.app.version,
       'id': id,
       'id_type': type,
       'room_id': roomId,
       'type': 'dislike',
       'page': page,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(data, recommend.app);
     final res = await Request().get(
       Api.liveFeedback,
       queryParameters: params,

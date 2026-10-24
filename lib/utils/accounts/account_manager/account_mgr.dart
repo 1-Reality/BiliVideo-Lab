@@ -8,6 +8,7 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/accounts/api_type.dart';
 import 'package:PiliBro/utils/app_sign.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -58,7 +59,9 @@ class AccountManager extends Interceptor {
     final isApp = path.startsWith(HttpString.appBaseUrl);
 
     if (isApp && options.responseType == ResponseType.bytes) {
-      options.headers.addAll(account.grpcHeaders);
+      options.headers
+        ..addAll(account.grpcHeaders)
+        ..['x-bili-trace-id'] = BiliDevice.traceId();
       return handler.next(options);
     }
 
@@ -69,6 +72,10 @@ class AccountManager extends Interceptor {
     // app端不需要管理cookie
     if (isApp) {
       // if (kDebugMode) debugPrint('is app: ${options.path}');
+      final app = account.app;
+      options.headers
+        ..addAll(account.appHeaders)
+        ..['x-bili-trace-id'] = BiliDevice.traceId();
       final dataPtr = (options.method == 'POST' && options.data is Map
           ? (options.data as Map).cast<String, dynamic>()
           : options.queryParameters);
@@ -76,7 +83,14 @@ class AccountManager extends Interceptor {
         if (!account.accessKey.isNullOrEmpty) {
           dataPtr['access_key'] = account.accessKey!;
         }
-        AppSign.appSign(dataPtr..remove('sign'));
+        // 自报的客户端跟着签名用的 key 走
+        if (dataPtr.containsKey('mobi_app')) {
+          dataPtr
+            ..['mobi_app'] = app.mobiApp
+            ..['build'] = app.build
+            ..['statistics'] = app.statistics;
+        }
+        AppSign.appSign(dataPtr..remove('sign'), app);
         // if (kDebugMode) debugPrint(dataPtr.toString());
       }
       return handler.next(options);

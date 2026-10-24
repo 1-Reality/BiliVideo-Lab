@@ -13,6 +13,7 @@ import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
+import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
@@ -808,8 +809,29 @@ abstract final class Pref {
     _setting.get(SettingBoxKey.banWordForZone, defaultValue: ''),
   );
 
-  static bool get appRcmd =>
-      _setting.get(SettingBoxKey.appRcmd, defaultValue: false);
+  // 默认 Web：App 推荐会在登录设备里留下一条 App 记录，不替用户做这个决定
+  static RcmdSource get rcmdSource => RcmdSource.values[_setting.get(
+    SettingBoxKey.rcmdSource,
+    defaultValue: RcmdSource.web.index,
+  )];
+
+  static bool get rcmdTablet =>
+      _setting.get(SettingBoxKey.rcmdTablet, defaultValue: false);
+
+  static bool get rcmdPersonalized =>
+      _setting.get(SettingBoxKey.rcmdPersonalized, defaultValue: true);
+
+  static bool get rcmdAnonymous =>
+      _setting.get(SettingBoxKey.rcmdAnonymous, defaultValue: false);
+
+  static bool get rcmdInterestDone =>
+      _setting.get(SettingBoxKey.rcmdInterestDone, defaultValue: false);
+
+  static int get webRcmdPs =>
+      _setting.get(SettingBoxKey.webRcmdPs, defaultValue: 20);
+
+  static int get webRcmdFreshType =>
+      _setting.get(SettingBoxKey.webRcmdFreshType, defaultValue: 4);
 
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');

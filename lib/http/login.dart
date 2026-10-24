@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
@@ -8,6 +7,7 @@ import 'package:PiliBro/models_new/login_devices/data.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/login_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:crypto/crypto.dart';
@@ -17,17 +17,16 @@ import 'package:encrypt/encrypt.dart';
 abstract final class LoginHttp {
   static final String deviceId = LoginUtils.genDeviceId();
   static String get buvid => LoginUtils.buvid;
-  static final Map<String, String> headers = {
-    'buvid': buvid,
-    'env': 'prod',
-    'app-key': 'android_hd',
-    'user-agent': Constants.userAgent,
-    'x-bili-trace-id': Constants.traceId,
-    'x-bili-aurora-eid': '',
-    'x-bili-aurora-zone': '',
-    'bili-http-engine': 'cronet',
+  /// 短信、密码登录用短信 key，拿到的 token 归粉版
+  static Map<String, String> get headers => {
+    ...BiliDevice.appHeaders(BiliApp.sms, 0),
+    'x-bili-trace-id': BiliDevice.traceId(),
     'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
   };
+
+  static const _deviceName = '${BiliDevice.brand}${BiliDevice.model}';
+  static const _devicePlatform =
+      'Android${BiliDevice.osVer}${BiliDevice.brand}${BiliDevice.model}';
 
   @pragma('vm:notify-debugger-on-exception')
   static Future<LoadingState<({String authCode, String url})>>
@@ -102,10 +101,8 @@ abstract final class LoginHttp {
   }) async {
     int timestamp = DateTime.now().millisecondsSinceEpoch;
     final data = {
-      'build': '2001100',
+      ...BiliApp.sms.commonParams,
       'buvid': buvid,
-      'c_locale': 'zh_CN',
-      'channel': 'master',
       'cid': cid,
       // if (deviceTouristId != null) 'device_tourist_id': deviceTouristId,
       'disable_rcmd': '0',
@@ -117,15 +114,11 @@ abstract final class LoginHttp {
       'login_session_id': md5
           .convert(ascii.encode(buvid + timestamp.toString()))
           .toString(),
-      'mobi_app': 'android_hd',
-      'platform': 'android',
       'recaptcha_token': ?recaptchaToken,
-      's_locale': 'zh_CN',
-      'statistics': Constants.statistics,
       'tel': tel,
       'ts': (timestamp ~/ 1000).toString(),
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
 
     final res = await Request().post(
       Api.appSmsCode,
@@ -203,17 +196,15 @@ abstract final class LoginHttp {
       RSA(publicKey: publicKey),
     ).encrypt(salt + password).base64;
 
-    Map<String, String> data = {
+    final data = <String, dynamic>{
+      ...BiliApp.sms.commonParams,
       'bili_local_id': deviceId,
-      'build': '2001100',
       'buvid': buvid,
-      'c_locale': 'zh_CN',
-      'channel': 'master',
       'device': 'phone',
       'device_id': deviceId,
       //'device_meta': '',
-      'device_name': 'vivo',
-      'device_platform': 'Android14vivo',
+      'device_name': _deviceName,
+      'device_platform': _devicePlatform,
       'disable_rcmd': '0',
       'dt': Uri.encodeComponent(
         Encrypter(
@@ -226,16 +217,12 @@ abstract final class LoginHttp {
       'gee_seccode': ?geeSeccode,
       'gee_validate': ?geeValidate,
       'local_id': buvid, //LoginUtils.generateBuvid(),
-      'mobi_app': 'android_hd',
       'password': passwordEncrypted,
       'permission': 'ALL',
-      'platform': 'android',
       'recaptcha_token': ?recaptchaToken,
-      's_locale': 'zh_CN',
-      'statistics': Constants.statistics,
       'username': username,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
     final res = await Request().post(
       Api.loginByPwdApi,
       data: data,
@@ -271,20 +258,18 @@ abstract final class LoginHttp {
     required String key,
   }) async {
     dynamic publicKey = RSAKeyParser().parse(key);
-    Map<String, Object> data = {
+    final data = <String, dynamic>{
+      ...BiliApp.sms.commonParams,
       'bili_local_id': deviceId,
-      'build': '2001100',
       'buvid': buvid,
-      'c_locale': 'zh_CN',
       'captcha_key': captchaKey,
-      'channel': 'master',
       'cid': cid,
       'code': code,
       'device': 'phone',
       'device_id': deviceId,
       //'device_meta': '',
-      'device_name': 'vivo',
-      'device_platform': 'Android14vivo',
+      'device_name': _deviceName,
+      'device_platform': _devicePlatform,
       // 'device_tourist_id': '',
       'disable_rcmd': '0',
       'dt': Uri.encodeComponent(
@@ -295,13 +280,9 @@ abstract final class LoginHttp {
       'from_pv': 'main.my-information.my-login.0.click',
       'from_url': Uri.encodeComponent('bilibili://user_center/mine'),
       'local_id': buvid,
-      'mobi_app': 'android_hd',
-      'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statistics,
       'tel': tel,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
     final res = await Request().post(
       Api.logInByAppSms,
       data: data,
@@ -381,7 +362,7 @@ abstract final class LoginHttp {
       'gee_validate': ?geeValidate,
       'recaptcha_token': ?recaptchaToken,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
     final res = await Request().post(
       Api.safeCenterSmsCode,
       data: data,
@@ -423,7 +404,7 @@ abstract final class LoginHttp {
       'source': source,
       'captcha_key': captchaKey,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
     final res = await Request().post(
       Api.safeCenterSmsVerify,
       data: data,
@@ -451,25 +432,17 @@ abstract final class LoginHttp {
   static Future oauth2AccessToken({
     required String code,
   }) async {
-    final Map<String, String> data = {
-      'build': '2001100',
+    final data = <String, dynamic>{
+      'build': BiliApp.sms.build,
       'buvid': buvid,
-      // 'c_locale': 'zh_CN',
-      // 'channel': 'master',
       'code': code,
-      // 'device': 'phone',
-      // 'device_id': deviceId,
-      // 'device_name': 'vivo',
-      // 'device_platform': 'Android14vivo',
       'disable_rcmd': '0',
       'grant_type': 'authorization_code',
       'local_id': buvid,
-      'mobi_app': 'android_hd',
+      'mobi_app': BiliApp.sms.mobiApp,
       'platform': 'android',
-      // 's_locale': 'zh_CN',
-      // 'statistics': Constants.statistics,
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, BiliApp.sms);
     final res = await Request().post(
       Api.oauth2AccessToken,
       data: data,
@@ -510,18 +483,19 @@ abstract final class LoginHttp {
   static Future<LoadingState<LoginDevicesData>> loginDevices() async {
     final account = Accounts.main;
     final buvid = LoginUtils.buvid;
+    final app = account.app;
     final params = {
       'local_id': buvid,
       'buvid': buvid,
-      'device_name': 'android',
-      'device_platform': 'android',
+      'device_name': _deviceName,
+      'device_platform': _devicePlatform,
       'csrf': account.csrf,
-      'mobi_app': 'android_hd',
+      'mobi_app': app.mobiApp,
       'platform': 'android',
       'access_key': account.accessKey,
-      'statistics': Constants.statistics,
+      'statistics': app.statistics,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, app);
     final res = await Request().get(
       Api.loginDevices,
       queryParameters: params,

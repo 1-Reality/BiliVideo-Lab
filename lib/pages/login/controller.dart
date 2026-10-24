@@ -102,6 +102,7 @@ class LoginPageController extends GetxController
             await setAccount(
               value['data'],
               value['data']['cookie_info']['cookies'],
+              phone: false,
             );
             Get.back();
           } else if (value['code'] == 86038) {
@@ -190,6 +191,7 @@ class LoginPageController extends GetxController
             ),
             null,
             null,
+            phone: true,
           ).onChange();
           if (!Accounts.main.isLogin) await switchAccountDialog(Get.context!);
           SmartDialog.showToast('登录成功');
@@ -629,11 +631,17 @@ class LoginPageController extends GetxController
         captchaData.token?.isNotEmpty == true;
   }
 
-  Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
+  /// 扫码走电视接口拿到的是 HD token，其余登录方式拿到的是粉版 token
+  Future<void> setAccount(
+    Map tokenInfo,
+    List cookieInfo, {
+    bool phone = true,
+  }) async {
     final account = LoginAccount(
       BiliCookieJar.fromList(cookieInfo),
       tokenInfo['access_token'],
       tokenInfo['refresh_token'],
+      phone: phone,
     );
     await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
     for (int i = 0; i < AccountType.values.length; i++) {

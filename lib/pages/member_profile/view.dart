@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show File;
 
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
@@ -70,19 +69,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _getInfo() async {
-    Map<String, String> data = {
-      'build': '2001100',
-      'c_locale': 'zh_CN',
-      'channel': 'master',
-      'mobi_app': 'android_hd',
-      'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statistics,
-    };
     Request()
         .get(
           '${HttpString.appBaseUrl}/x/v2/account/myinfo',
-          queryParameters: data,
+          queryParameters: Accounts.main.app.commonParams,
         )
         .then((res) {
           if (mounted) {
@@ -350,15 +340,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       SmartDialog.showToast('请退出账号后重新登录');
       return;
     }
-    final data = <String, String>{
+    final app = Accounts.main.app;
+    final data = <String, dynamic>{
+      ...app.commonParams,
       'access_key': accessKey,
-      'build': '2001100',
-      'c_locale': 'zh_CN',
-      'channel': 'master',
-      'mobi_app': 'android_hd',
-      'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statistics,
       if (type == ProfileType.uname)
         'uname': _textController.text
       else if (type == ProfileType.sign)
@@ -368,7 +353,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       else if (type == ProfileType.sex)
         'sex': datum.toString(),
     };
-    AppSign.appSign(data);
+    AppSign.appSign(data, app);
     Request()
         .post(
           '/x/member/app/${type.name}/update',
