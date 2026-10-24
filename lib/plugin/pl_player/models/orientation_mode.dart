@@ -30,7 +30,7 @@ enum AppRotationMode {
 }
 
 enum WindowedPlayerRotationMode {
-  inheritApp('继承 APP 运行方向策略'),
+  inheritApp('和 APP 普通页面一样'),
   keepCurrent('保持进入视频页时的方向'),
   followSystem('遵循系统旋转设置'),
   alwaysAuto('始终自动旋转');
@@ -43,7 +43,7 @@ enum FullScreenRotationSource {
   keepCurrent('保持当前方向'),
   followSystem('遵循系统旋转设置'),
   alwaysAuto('始终自动旋转'),
-  appGravity('APP 重力方向');
+  appGravity('APP 自己读重力传感器');
 
   final String desc;
   const FullScreenRotationSource(this.desc);
@@ -72,9 +72,9 @@ enum OrientationFullscreenTrigger {
 
 enum OrientationTriggerSource {
   system('系统方向'),
-  appGravity('APP 重力方向'),
-  any('任一满足'),
-  both('同时满足');
+  appGravity('APP 自己读到的重力方向'),
+  any('两者任一满足'),
+  both('两者同时满足');
 
   final String desc;
   const OrientationTriggerSource(this.desc);
@@ -154,9 +154,9 @@ enum BrotherOrientationPhase {
 }
 
 enum BrotherDirectionAction {
-  keepCurrent('保持当前，不发送方向请求'),
-  systemCurrent('读取并采用当前界面方向'),
-  startupDirection('采用 APP 启动方向'),
+  keepCurrent('不转，保持现在的方向'),
+  systemCurrent('固定在现在的方向'),
+  startupDirection('转回 APP 启动时的方向'),
   video('按视频横竖方向'),
   ratio('按视频与屏幕比例判断'),
   portrait('竖屏'),
@@ -165,19 +165,19 @@ enum BrotherDirectionAction {
   portraitDown('倒竖屏'),
   landscapeLeft('左横屏'),
   landscapeRight('右横屏'),
-  triggerDirection('采用触发方向');
+  triggerDirection('转到触发时手机所处的方向');
 
   final String desc;
   const BrotherDirectionAction(this.desc);
 }
 
 enum BrotherRuntimeMode {
-  inheritRequest('沿用当前方向规则'),
+  inheritRequest('不改，沿用之前的设置'),
   unspecified('系统自行决定（UNSPECIFIED）'),
   landscape('横屏（LANDSCAPE）'),
   portrait('竖屏（PORTRAIT）'),
-  user('用户方向（USER）'),
-  behind('继承后层（BEHIND）'),
+  user('按系统旋转设置（USER）'),
+  behind('跟随下面那层页面（BEHIND）'),
   sensor('传感器（SENSOR）'),
   noSensor('禁用传感器（NOSENSOR）'),
   sensorLandscape('横屏传感器（SENSOR_LANDSCAPE）'),
@@ -189,27 +189,27 @@ enum BrotherRuntimeMode {
   userPortrait('用户竖屏（USER_PORTRAIT）'),
   fullUser('完整遵循用户设置（FULL_USER）'),
   locked('锁定当前（LOCKED）'),
-  followSystemAllowed('遵循系统旋转并应用方向许可'),
-  alwaysAutoAllowed('忽略系统锁定并应用方向许可'),
-  systemGate('仅读取系统旋转开关（关=LOCKED，开=FULL_SENSOR）'),
-  appGravity('APP 重力传感器');
+  followSystemAllowed('跟随系统旋转锁定，只在允许的方向里转'),
+  alwaysAutoAllowed('无视旋转锁定，只在允许的方向里转'),
+  systemGate('旋转锁定开着就固定，关着就四个方向都转'),
+  appGravity('APP 自己读重力传感器来转');
 
   final String desc;
   const BrotherRuntimeMode(this.desc);
 }
 
 enum BrotherRuntimeActivation {
-  immediate('立即接管'),
-  afterSourceChange('等待运行方向源首次变化后接管');
+  immediate('马上开始'),
+  afterSourceChange('等手机第一次转动后才开始');
 
   final String desc;
   const BrotherRuntimeActivation(this.desc);
 }
 
 enum BrotherAllowedBasis {
-  fixed('固定许可集合'),
-  entryAxis('进入时横竖轴'),
-  entryExact('进入时具体方向');
+  fixed('固定几个方向（在下一项里选）'),
+  entryAxis('和进入时同为横或同为竖'),
+  entryExact('只许进入时那一个方向');
 
   final String desc;
   const BrotherAllowedBasis(this.desc);
@@ -217,10 +217,10 @@ enum BrotherAllowedBasis {
 
 enum BrotherRuntimeLatchAxis {
   off('关闭'),
-  portrait('检测到竖屏后（状态命中）'),
-  landscape('检测到横屏后（状态命中）'),
-  portraitEdge('首次由横屏转入竖屏后（边沿检测）'),
-  landscapeEdge('首次由竖屏转入横屏后（边沿检测）');
+  portrait('处于竖屏时（进入时已是竖屏也算）'),
+  landscape('处于横屏时（进入时已是横屏也算）'),
+  portraitEdge('从横屏转到竖屏的那一刻（进入时已是竖屏不算）'),
+  landscapeEdge('从竖屏转到横屏的那一刻（进入时已是横屏不算）');
 
   final String desc;
   const BrotherRuntimeLatchAxis(this.desc);
