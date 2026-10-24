@@ -1129,9 +1129,12 @@ class VideoDetailController extends GetxController
     );
   }
 
-  Future<void> _supplementVideoQualities() async {
-    final quality = data.missingVideoQualityBelowHighest;
-    if (quality == -1) return;
+  // B 站画质不是一条线：按最高画质请求时，旁支上的画质（如 1080P60）不会一起给，
+  // 要按缺的那档再请求一次补上
+  Future<void> _supplementVideoQualities(
+    PlayUrlModel data,
+    int quality,
+  ) async {
     final result = await _getVideoUrl(quality);
     if (result case Success(:final response)) {
       data.dash!.video!.merge(response.dash?.video);
@@ -1185,18 +1188,22 @@ class VideoDetailController extends GetxController
     await playerInit(autoplay: wasPlaying);
   }
 
-  void _selectPreferredStreams() {
-    final videoList = data.dash!.video!;
-    final curHighestVideoQa = videoList.first.quality.code;
-    var targetVideoQa = curHighestVideoQa;
+  int _targetVideoQa() {
+    final curHighestVideoQa = data.dash!.video!.first.quality.code;
     final cacheVideoQa = plPlayerController.cacheVideoQa!;
     if (data.acceptQuality?.isNotEmpty == true &&
         cacheVideoQa <= curHighestVideoQa) {
-      targetVideoQa = data.acceptQuality!.findClosestTarget(
+      return data.acceptQuality!.findClosestTarget(
         (quality) => quality <= cacheVideoQa,
         (a, b) => a > b ? a : b,
       );
     }
+    return curHighestVideoQa;
+  }
+
+  void _selectPreferredStreams() {
+    final videoList = data.dash!.video!;
+    final targetVideoQa = _targetVideoQa();
     currentVideoQa.value = VideoQuality.fromCode(targetVideoQa);
 
     final supportFormats = data.supportFormats!;
@@ -1338,7 +1345,16 @@ class VideoDetailController extends GetxController
       if (result case Success(:final response)) {
         data = response;
         if (data.dash != null) {
-          await _supplementVideoQualities();
+          final missing = data.missingVideoQualityBelowHighest;
+          if (missing != -1) {
+            // 要播的画质首次就拿到了就先开播，补全只影响画质菜单
+            final supplement = _supplementVideoQualities(response, missing);
+            if (!data.dash!.video!.availableVideoQualities.contains(
+              _targetVideoQa(),
+            )) {
+              await supplement;
+            }
+          }
         }
 
         languages.value = data.language?.items;
