@@ -120,24 +120,25 @@ List<SettingsModel> get audioSettings => [
       getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
       onTap: showMaxVolumeDialog,
     ),
-  NormalModel(
-    title: '音量均衡',
-    leading: const Icon(Icons.multitrack_audio),
-    getSubtitle: () {
-      final audioNormalization = AudioNormalization.getTitleFromConfig(
-        Pref.audioNormalization,
-      );
-      String fallback = Pref.fallbackNormalization;
-      if (fallback == '0') {
-        fallback = '';
-      } else {
-        fallback =
-            '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
-      }
-      return '当前:「$audioNormalization」$fallback';
-    },
-    onTap: audioNormalization,
-  ),
+  if (kDebugMode || Platform.isAndroid)
+    NormalModel(
+      title: '音量均衡',
+      leading: const Icon(Icons.multitrack_audio),
+      getSubtitle: () {
+        final audioNormalization = AudioNormalization.getTitleFromConfig(
+          Pref.audioNormalization,
+        );
+        String fallback = Pref.fallbackNormalization;
+        if (fallback == '0') {
+          fallback = '';
+        } else {
+          fallback =
+              '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
+        }
+        return '当前:「$audioNormalization」$fallback';
+      },
+      onTap: audioNormalization,
+    ),
   if (kDebugMode || Platform.isAndroid)
     NormalModel(
       title: '音频输出设备',

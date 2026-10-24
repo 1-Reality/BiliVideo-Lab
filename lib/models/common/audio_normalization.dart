@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliBro/models/video/play/url.dart' show Volume;
 import 'package:PiliBro/utils/storage_pref.dart';
 
@@ -54,7 +56,8 @@ enum AudioNormalization {
 
 mixin AudioNormalizationMixin {
   late final _audioNormalization = Pref.audioNormalization;
-  late final enableAudioNormalization = _audioNormalization != '0';
+  late final enableAudioNormalization =
+      Platform.isAndroid && _audioNormalization != '0';
   late final _param = AudioNormalization.getParamFromConfig(
     _audioNormalization,
   );
