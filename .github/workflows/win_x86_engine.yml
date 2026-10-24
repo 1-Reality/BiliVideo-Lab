@@ -60,7 +60,9 @@ jobs:
           }
           # 与官方 Windows 引擎一样走 host 构建：加 --windows 会让 tools/gn 不给 ANGLE
           # 传 Flutter 的覆盖参数，ANGLE 退回自带默认值，找不到 test() 与 vulkan-headers
-          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          # --no-build-engine-artifacts：x86 目标下 build_engine_artifacts 会把 dart_sdk（经 create_sdk 拉入 dtd、
+          # kernel-service）、const_finder 挂进默认图，它们在 x64 宿主工具链里依赖的目标解析不了。只需要 dll 与 icudtl
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
           if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
           $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
           "OUT=$out" | Out-File -Append $env:GITHUB_ENV
