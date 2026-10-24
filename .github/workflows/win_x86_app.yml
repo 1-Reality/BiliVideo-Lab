@@ -119,6 +119,69 @@ jobs:
           Copy-Item $dill (Join-Path $kernelDir 'kernel_blob.bin')
           Get-Item (Join-Path $kernelDir 'kernel_blob.bin') | Format-Table Name, Length
 
+      - id: engine86
+        name: Fetch the 32-bit engine from our release and check its PE machine
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
+          $tag = "engine-win-x86-jit-$ver"
+          New-Item -ItemType Directory -Force engine86-dl | Out-Null
+          gh release download $tag -R $env:GITHUB_REPOSITORY -p "$tag.7z" -D engine86-dl
+          7z x -y -oengine86 "engine86-dl\$tag.7z" flutter_windows.dll flutter_windows.dll.lib icudtl.dat | Out-Null
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+            if (-not (Test-Path "engine86\$f")) { throw "missing $f in $tag" }
+          }
+          $b = [IO.File]::ReadAllBytes("$PWD\engine86\flutter_windows.dll")
+          $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+          "flutter_windows.dll machine=$machine (expect 014C)" | Tee-Object engine86-check.txt
+          if ($machine -ne '014C') { throw "engine dll is not x86: $machine" }
+
+      - id: engineswap
+        name: Put the x86 engine into the x64 engine cache copies (CI-only; flutter_assemble copies from there)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
+          $cache = Join-Path $flutterRoot 'bin\cache\artifacts\engine\windows-x64'
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+            Copy-Item "engine86\$f" (Join-Path $cache $f) -Force
+          }
+          # 不改仓库里的 CMake：tool_backend 拷进去的就是这些 x86 文件
+          Get-ChildItem $cache -Filter 'flutter_windows.dll*' | Format-Table Name, Length
+
+      - id: exe32
+        name: Configure and build the runner as Win32, then stage with cmake --install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path 'windows\flutter\ephemeral')) { throw 'ephemeral directory missing (debug build did not run)' }
+          cmake -S windows -B build32 -A Win32
+          if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
+          cmake --build build32 --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }
+          cmake --install build32 --config Release --prefix stage32
+          if ($LASTEXITCODE -ne 0) { throw 'cmake install failed' }
+          # 第 1 块的产品版 kernel 放进 flutter_assets（jit_release 运行时读 kernel_blob.bin）
+          Copy-Item kernel\kernel_blob.bin stage32\data\flutter_assets\kernel_blob.bin -Force
+          $exe = Get-ChildItem stage32 -Filter '*.exe' | Select-Object -First 1
+          $b = [IO.File]::ReadAllBytes($exe.FullName)
+          $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+          "$($exe.Name) machine=$machine (expect 014C)"
+          if ($machine -ne '014C') { throw "exe is not x86: $machine" }
+          Get-ChildItem stage32 -Recurse -File | Format-Table FullName, Length
+
+      - name: Upload 32-bit stage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-x86-stage-block2
+          path: stage32
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Diagnostics on failure (annotations; artifact downloads are blocked in some sessions)
         if: failure()
         shell: pwsh
@@ -129,6 +192,9 @@ jobs:
           O_PRECACHE: ${{ steps.precache.outcome }}
           O_DEBUG: ${{ steps.debug.outcome }}
           O_KERNEL: ${{ steps.kernel.outcome }}
+          O_ENGINE86: ${{ steps.engine86.outcome }}
+          O_SWAP: ${{ steps.engineswap.outcome }}
+          O_EXE32: ${{ steps.exe32.outcome }}
         run: |
           function Emit($title, $lines) {
             $text = ($lines -join "`n")
@@ -137,7 +203,7 @@ jobs:
             Write-Host "::error title=$title::$enc"
           }
           Emit 'step outcomes' @(
-            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL"
+            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP exe32=$env:O_EXE32"
           )
           foreach ($f in 'kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
             if (Test-Path $f) {
