@@ -42,12 +42,21 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$PWD"
 
-      - uses: actions/checkout@v4
-        with:
-          repository: bggRGjQaUbCoE/mpv-winbuild-cmake
-          ref: ${{ env.UPSTREAM_REF }}
-          path: upstream
-          fetch-depth: 1
+      - name: Fetch upstream at the pinned commit
+        working-directory: .
+        run: |
+          set -e
+          git config --global --add safe.directory '*'
+          git init -q upstream
+          cd upstream
+          git remote add origin https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake
+          # 先按 SHA 浅拉；不行就拉完整历史（仓库不大）再签出
+          if ! git fetch -q --depth 1 origin "$UPSTREAM_REF"; then
+            echo "shallow fetch by sha failed; fetching full history"
+            git fetch -q origin
+          fi
+          git -c advice.detachedHead=false checkout -q "$UPSTREAM_REF"
+          git log --oneline -1
 
       - name: Restore clang root
         uses: actions/cache/restore@v4
@@ -133,12 +142,21 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global --add safe.directory "$PWD"
 
-      - uses: actions/checkout@v4
-        with:
-          repository: bggRGjQaUbCoE/mpv-winbuild-cmake
-          ref: ${{ env.UPSTREAM_REF }}
-          path: upstream
-          fetch-depth: 1
+      - name: Fetch upstream at the pinned commit
+        working-directory: .
+        run: |
+          set -e
+          git config --global --add safe.directory '*'
+          git init -q upstream
+          cd upstream
+          git remote add origin https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake
+          # 先按 SHA 浅拉；不行就拉完整历史（仓库不大）再签出
+          if ! git fetch -q --depth 1 origin "$UPSTREAM_REF"; then
+            echo "shallow fetch by sha failed; fetching full history"
+            git fetch -q origin
+          fi
+          git -c advice.detachedHead=false checkout -q "$UPSTREAM_REF"
+          git log --oneline -1
 
       - name: Pin mpv to e7191f2a65 (temporary copy inside this job)
         run: |
