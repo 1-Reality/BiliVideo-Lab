@@ -197,23 +197,28 @@ jobs:
           cmake --build build32 --config Release 2>&1 | Tee-Object -Append exe32.log
           Show 'after-build' | Tee-Object -Append exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }
-          cmake --install build32 --config Release --prefix stage32 2>&1 | Tee-Object -Append exe32.log
+          # flutter 的 CMake 把安装前缀定死在 build32\runner\Release（见 exe32.log 的 Installing 行），--prefix 不生效
+          cmake --install build32 --config Release 2>&1 | Tee-Object -Append exe32.log
           if ($LASTEXITCODE -ne 0) { throw 'cmake install failed' }
+          $stage = 'build32\runner\Release'
+          if (-not (Test-Path (Join-Path $stage 'pilibro.exe'))) { throw "install output not found at $stage" }
+          # release 配置下 flutter_assemble 生成了 AOT 的 app.so；jit_release 引擎只用 kernel_blob.bin，删掉避免按 AOT 加载
+          Remove-Item (Join-Path $stage 'data\app.so') -ErrorAction SilentlyContinue
           # 第 1 块的产品版 kernel 放进 flutter_assets（jit_release 运行时读 kernel_blob.bin）
-          Copy-Item kernel\kernel_blob.bin stage32\data\flutter_assets\kernel_blob.bin -Force
-          $exe = Get-ChildItem stage32 -Filter '*.exe' | Select-Object -First 1
+          Copy-Item kernel\kernel_blob.bin (Join-Path $stage 'data\flutter_assets\kernel_blob.bin') -Force
+          $exe = Get-Item (Join-Path $stage 'pilibro.exe')
           $b = [IO.File]::ReadAllBytes($exe.FullName)
           $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
           "$($exe.Name) machine=$machine (expect 014C)"
           if ($machine -ne '014C') { throw "exe is not x86: $machine" }
-          Get-ChildItem stage32 -Recurse -File | Format-Table FullName, Length
+          Get-ChildItem $stage -Recurse -File | Format-Table FullName, Length
 
       - name: Upload 32-bit stage
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: app-x86-stage-block2
-          path: stage32
+          path: build32/runner/Release
           if-no-files-found: warn
           retention-days: 14
 
