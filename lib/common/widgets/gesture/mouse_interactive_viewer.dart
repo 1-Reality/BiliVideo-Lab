@@ -842,8 +842,8 @@ Offset _exceedsBy(Quad boundary, Quad viewport) {
 
 Offset _round(Offset offset) {
   return Offset(
-    double.parse(offset.dx.toStringAsFixed(9)),
-    double.parse(offset.dy.toStringAsFixed(9)),
+    (offset.dx * 1e9).roundToDouble() * 1e-9,
+    (offset.dy * 1e9).roundToDouble() * 1e-9,
   );
 }
 

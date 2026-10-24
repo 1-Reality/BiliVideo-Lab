@@ -28,23 +28,30 @@ import java.util.function.IntConsumer
 class MainActivity : AudioServiceActivity() {
     private var proposedRotationSink: EventChannel.EventSink? = null
     private var proposedRotationListener: IntConsumer? = null
-    private var pendingLocalNetworkPermissionResult: MethodChannel.Result? = null
+    private var localNetworkResult: MethodChannel.Result? = null
 
     companion object {
-        private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
-        private const val LOCAL_NETWORK_PERMISSION_REQUEST_CODE = 17371
-        private const val ANDROID_17_API = 37
+        private const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
+        private const val LOCAL_NETWORK_REQUEST = 17371
+        // Class.getPackageName() is missing on older Android: calling it
+        // there throws NoSuchMethodError, so take the prefix of the class name.
+        private val CLASS_PACKAGE = MainActivity::class.java.name.substringBeforeLast('.')
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        // Android 17 blocks local-network traffic for apps targeting API 37+ until
-        // ACCESS_LOCAL_NETWORK has been granted. Ask only when the router feature is used.
+        // Android 17 (API 37) blocks local-network traffic until ACCESS_LOCAL_NETWORK
+        // is granted; it is asked for only when the router page opens.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/local_network")
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "ensureAccess" -> ensureLocalNetworkPermission(result)
-                    else -> result.notImplemented()
+            .setMethodCallHandler { _, result ->
+                if (Build.VERSION.SDK_INT < 37 ||
+                    checkSelfPermission(LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    result.success(true)
+                } else {
+                    localNetworkResult?.success(false)
+                    localNetworkResult = result
+                    requestPermissions(arrayOf(LOCAL_NETWORK), LOCAL_NETWORK_REQUEST)
                 }
             }
 
@@ -123,36 +130,6 @@ class MainActivity : AudioServiceActivity() {
             }
     }
 
-    private fun ensureLocalNetworkPermission(result: MethodChannel.Result) {
-        // This runtime permission is enforced by Android 17. Older versions keep
-        // their existing behavior and do not need a request for this permission.
-        if (Build.VERSION.SDK_INT < ANDROID_17_API) {
-            result.success(true)
-            return
-        }
-
-        if (checkSelfPermission(LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
-            result.success(true)
-            return
-        }
-
-        if (pendingLocalNetworkPermissionResult != null) {
-            result.error("REQUEST_IN_PROGRESS", "Local-network permission request is already in progress", null)
-            return
-        }
-
-        pendingLocalNetworkPermissionResult = result
-        try {
-            requestPermissions(
-                arrayOf(LOCAL_NETWORK_PERMISSION),
-                LOCAL_NETWORK_PERMISSION_REQUEST_CODE,
-            )
-        } catch (error: Throwable) {
-            pendingLocalNetworkPermissionResult = null
-            result.error("PERMISSION_REQUEST_FAILED", error.message ?: error.javaClass.simpleName, null)
-        }
-    }
-
     @Suppress("DEPRECATION")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -160,13 +137,9 @@ class MainActivity : AudioServiceActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != LOCAL_NETWORK_PERMISSION_REQUEST_CODE) return
-
-        val pending = pendingLocalNetworkPermissionResult
-        pendingLocalNetworkPermissionResult = null
-        pending?.success(
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED,
-        )
+        if (requestCode != LOCAL_NETWORK_REQUEST) return
+        localNetworkResult?.success(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+        localNetworkResult = null
     }
 
     private fun startProposedRotation(events: EventChannel.EventSink) {
@@ -295,24 +268,23 @@ class MainActivity : AudioServiceActivity() {
     // file must never be deleted or renamed, or users who chose it lose
     // their launcher entry on update. Replacing its content is safe.
     private fun desktopIconComponent(fileName: String): ComponentName {
-        val packageName = MainActivity::class.java.packageName
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(fileName.toByteArray(Charsets.UTF_8))
         val id = digest.take(12).joinToString("") {
             "%02x".format(it.toInt() and 0xff)
         }
-        return ComponentName(
-            this.packageName,
-            packageName + ".DesktopIcon_" + id,
-        )
+        return ComponentName(packageName, "$CLASS_PACKAGE.DesktopIcon_$id")
     }
+
+    private val defaultComponent
+        get() = ComponentName(packageName, "$CLASS_PACKAGE.DesktopIconDefault")
 
     @Suppress("DEPRECATION")
     private fun desktopIconComponents(): List<ComponentName> {
         val launcherIntent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
             .setPackage(packageName)
-        val classPrefix = MainActivity::class.java.packageName + ".DesktopIcon_"
+        val classPrefix = "$CLASS_PACKAGE.DesktopIcon_"
         return packageManager
             .queryIntentActivities(
                 launcherIntent,
@@ -330,10 +302,6 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun currentBuiltInLauncherIcon(fileNames: List<String>): String? {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         if (
             packageManager.getComponentEnabledSetting(defaultComponent) !=
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
@@ -362,10 +330,6 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun setBuiltInLauncherIcon(fileName: String?): Boolean {
-        val defaultComponent = ComponentName(
-            packageName,
-            MainActivity::class.java.packageName + ".DesktopIconDefault",
-        )
         val aliases = desktopIconComponents()
         val target = fileName?.let(::desktopIconComponent)
         if (target != null && target !in aliases) {

@@ -170,7 +170,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       _actionButton(
         icon: Icon(MdiIcons.headphonesSettings, color: primary),
-        title: '音频模式',
+        title: '特色播放',
         onTap: () => Get.toNamed('/audioSettings'),
       ),
       _actionButton(

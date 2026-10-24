@@ -44,6 +44,12 @@ List<SettingsModel> get playSettings => [
     subtitle: '设置视频播放速度，高熵信息生活，节约时间就是延长生命！',
   ),
   NormalModel(
+    onTap: (context, setState) => Get.toNamed('/gestureSettings'),
+    leading: const Icon(Icons.swipe_outlined),
+    title: '手势',
+    subtitle: '上下、左右滑动的分区与动作：亮度、音量、倍速、进度、全屏',
+  ),
+  NormalModel(
     onTap: (context, setState) => Get.toNamed('/orientationSettings'),
     leading: const Icon(Icons.screen_rotation_outlined),
     title: '方向（横竖屏）设置',
@@ -70,6 +76,13 @@ List<SettingsModel> get playSettings => [
     defaultVal: true,
   ),
   const SwitchModel(
+    title: '评论区进入不自动播放',
+    subtitle: '从评论区链接进入视频详情页时，不自动播放',
+    leading: Icon(Icons.comment_outlined),
+    setKey: SettingBoxKey.replyNoAutoPlay,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '全屏显示锁定按钮',
     leading: Icon(Icons.lock_outline),
     setKey: SettingBoxKey.showFsLockBtn,
@@ -94,12 +107,6 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableQuickDouble,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '左右侧滑动调节亮度/音量',
-    leading: Icon(MdiIcons.tuneVerticalVariant),
-    setKey: SettingBoxKey.enableSlideVolumeBrightness,
-    defaultVal: true,
-  ),
   if (Platform.isAndroid)
     const SwitchModel(
       title: '调节系统亮度',
@@ -107,12 +114,6 @@ List<SettingsModel> get playSettings => [
       setKey: SettingBoxKey.setSystemBrightness,
       defaultVal: false,
     ),
-  const SwitchModel(
-    title: '中间滑动进入/退出全屏',
-    leading: Icon(MdiIcons.panVertical),
-    setKey: SettingBoxKey.enableSlideFS,
-    defaultVal: true,
-  ),
   getVideoFilterSelectModel(
     title: '双击快进/快退时长',
     suffix: 's',
@@ -201,13 +202,6 @@ List<SettingsModel> get playSettings => [
     subtitle: '开启后延长至30秒，便于屏幕阅读器滑动切换控件焦点',
     leading: Icon(Icons.timer_outlined),
     setKey: SettingBoxKey.enableLongShowControl,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '全屏手势反向',
-    subtitle: '默认播放器中部向上滑动进入全屏，向下退出\n开启后向下全屏，向上退出',
-    leading: Icon(Icons.swap_vert),
-    setKey: SettingBoxKey.fullScreenGestureReverse,
     defaultVal: false,
   ),
   const SwitchModel(

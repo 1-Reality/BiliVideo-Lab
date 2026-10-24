@@ -1,25 +1,23 @@
 import 'dart:convert' show utf8;
 
-import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:crypto/crypto.dart';
 
 abstract final class AppSign {
-  static void appSign(
-    Map<String, dynamic> params, {
-    String appkey = Constants.appKey,
-    String appsec = Constants.appSec,
-  }) {
+  static void appSign(Map<String, dynamic> params, [BiliApp app = BiliApp.hd]) {
     // retry error
     // assert(
     //   params['appkey'] == null,
     //   'appkey-appsec should be provided in appSign',
     // );
-    params['appkey'] = appkey;
+    params['appkey'] = app.appKey;
     params['ts'] = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
     final sorted = params.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     params['sign'] = md5
-        .convert(utf8.encode(_makeQueryFromParametersDefault(sorted) + appsec))
+        .convert(
+          utf8.encode(_makeQueryFromParametersDefault(sorted) + app.appSec),
+        )
         .toString(); // 获取MD5哈希值
   }
 

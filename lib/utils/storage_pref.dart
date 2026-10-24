@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' show sqrt;
 
 import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop;
@@ -12,6 +13,7 @@ import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
+import 'package:PiliBro/models/common/rcmd_source.dart';
 import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
@@ -59,9 +61,6 @@ abstract final class Pref {
   static final Box _setting = GStorage.setting;
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
-
-  static String parseBanWord(String value) =>
-      value.contains('|') ? value : value.replaceAll('，', '|');
 
   static UserInfoData? get userInfoCache =>
       GStorage.userInfo.get('userInfoCache');
@@ -403,7 +402,6 @@ abstract final class Pref {
         SettingBoxKey.advancedExitOrientationMode,
         defaultValue: ExitOrientationMode.keepPlayer.index,
       )];
-
 
   static const _brotherAppFallback = BrotherPhaseConfig(
     enterAction: BrotherDirectionAction.systemCurrent,
@@ -795,20 +793,38 @@ abstract final class Pref {
     ];
   }
 
-  static String get banWordForRecommend => parseBanWord(
-    _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: ''),
-  );
+  static String get banWordForRecommend =>
+      _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
 
-  static String get banWordForReply => parseBanWord(
-    _setting.get(SettingBoxKey.banWordForReply, defaultValue: ''),
-  );
+  static String get banWordForReply =>
+      _setting.get(SettingBoxKey.banWordForReply, defaultValue: '');
 
-  static String get banWordForZone => parseBanWord(
-    _setting.get(SettingBoxKey.banWordForZone, defaultValue: ''),
-  );
+  static String get banWordForZone =>
+      _setting.get(SettingBoxKey.banWordForZone, defaultValue: '');
 
-  static bool get appRcmd =>
-      _setting.get(SettingBoxKey.appRcmd, defaultValue: false);
+  // 默认 Web：App 推荐会在登录设备里留下一条 App 记录，不替用户做这个决定
+  static RcmdSource get rcmdSource => RcmdSource.values[_setting.get(
+    SettingBoxKey.rcmdSource,
+    defaultValue: RcmdSource.web.index,
+  )];
+
+  static bool get rcmdTablet =>
+      _setting.get(SettingBoxKey.rcmdTablet, defaultValue: false);
+
+  static bool get rcmdPersonalized =>
+      _setting.get(SettingBoxKey.rcmdPersonalized, defaultValue: true);
+
+  static bool get rcmdAnonymous =>
+      _setting.get(SettingBoxKey.rcmdAnonymous, defaultValue: false);
+
+  static bool get rcmdInterestDone =>
+      _setting.get(SettingBoxKey.rcmdInterestDone, defaultValue: false);
+
+  static int get webRcmdPs =>
+      _setting.get(SettingBoxKey.webRcmdPs, defaultValue: 20);
+
+  static int get webRcmdFreshType =>
+      _setting.get(SettingBoxKey.webRcmdFreshType, defaultValue: 4);
 
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
@@ -977,7 +993,51 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showVipDanmaku, defaultValue: true);
 
   static bool get mergeDanmaku =>
-      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: true);
+      _setting.get(SettingBoxKey.mergeDanmaku, defaultValue: false);
+
+  static int get mergeDanmakuWindowSeconds =>
+      _setting.get(SettingBoxKey.mergeDanmakuWindowSeconds, defaultValue: 20);
+
+  static int get mergeDanmakuMaxDistance =>
+      _setting.get(SettingBoxKey.mergeDanmakuMaxDistance, defaultValue: 5);
+
+  static int get mergeDanmakuMaxCosine =>
+      _setting.get(SettingBoxKey.mergeDanmakuMaxCosine, defaultValue: 45);
+
+  static int get mergeDanmakuRepresentativePercent => _setting.get(
+    SettingBoxKey.mergeDanmakuRepresentativePercent,
+    defaultValue: 20,
+  );
+
+  static bool get mergeDanmakuUsePinyin =>
+      _setting.get(SettingBoxKey.mergeDanmakuUsePinyin, defaultValue: true);
+
+  static bool get mergeDanmakuCrossMode =>
+      _setting.get(SettingBoxKey.mergeDanmakuCrossMode, defaultValue: false);
+
+  static bool get mergeDanmakuSkipSubtitle =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipSubtitle, defaultValue: true);
+
+  static bool get mergeDanmakuSkipAdvanced =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipAdvanced, defaultValue: true);
+
+  static bool get mergeDanmakuSkipBottom =>
+      _setting.get(SettingBoxKey.mergeDanmakuSkipBottom, defaultValue: false);
+
+  static int get mergeDanmakuMarkPosition =>
+      _setting.get(SettingBoxKey.mergeDanmakuMarkPosition, defaultValue: 2);
+
+  static int get mergeDanmakuMarkThreshold =>
+      _setting.get(SettingBoxKey.mergeDanmakuMarkThreshold, defaultValue: 1);
+
+  static bool get danmakuEnlarge =>
+      _setting.get(SettingBoxKey.danmakuEnlarge, defaultValue: true);
+
+  static int get danmakuEnlargeThreshold =>
+      _setting.get(SettingBoxKey.danmakuEnlargeThreshold, defaultValue: 7);
+
+  static int get danmakuEnlargeLogBase =>
+      _setting.get(SettingBoxKey.danmakuEnlargeLogBase, defaultValue: 7);
 
   static bool get showHotRcmd =>
       _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
@@ -1063,13 +1123,15 @@ abstract final class Pref {
   static bool get darkVideoPage =>
       _setting.get(SettingBoxKey.darkVideoPage, defaultValue: false);
 
-  static bool get enableSlideVolumeBrightness => _setting.get(
-    SettingBoxKey.enableSlideVolumeBrightness,
-    defaultValue: true,
+  // 三列：左亮度（桌面音量）、中全屏、右音量
+  static int get slideVertical => _setting.get(
+    SettingBoxKey.slideVertical,
+    defaultValue: PlatformUtils.isDesktop ? 0x28B : 0x287,
   );
 
-  static bool get enableSlideFS =>
-      _setting.get(SettingBoxKey.enableSlideFS, defaultValue: true);
+  // 四个象限都是进度，分界线在一半
+  static int get slideHorizontal =>
+      _setting.get(SettingBoxKey.slideHorizontal, defaultValue: 0x155);
 
   static int get retryCount =>
       _setting.get(SettingBoxKey.retryCount, defaultValue: 2);
@@ -1132,9 +1194,8 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
-  static String get banWordForDyn => parseBanWord(
-    _setting.get(SettingBoxKey.banWordForDyn, defaultValue: ''),
-  );
+  static String get banWordForDyn =>
+      _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
 
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);
@@ -1173,6 +1234,9 @@ abstract final class Pref {
 
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
+
+  static bool get replyNoAutoPlay =>
+      _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);
@@ -1351,31 +1415,18 @@ abstract final class Pref {
       : _setting.get(SettingBoxKey.bufferSecWeak, defaultValue: 985.0);
 
   // bufferProfile: 0=宽带，1=非蜂窝弱网，2=真蜂窝。
-  static double bufferSecFor(int bufferProfile) => switch (bufferProfile) {
-    2 => bufferSecCellular,
-    1 => bufferSecWeak,
-    _ => bufferSec,
-  };
-
   // 缓冲时长固定为墙钟秒，不随播放倍速变化。
-  static Map<String, String> cacheSecs(double seconds) {
-    return {
-      'cache-secs': seconds.toStringAsFixed(3),
-      'demuxer-hysteresis-secs':
-          (seconds * 0.6666666666666666).toStringAsFixed(3),
-    };
-  }
-
   static Map<String, String> initBuffer([int bufferProfile = 0]) {
-    final sizeMiB = switch (bufferProfile) {
-      2 => bufferSizeCellular,
-      1 => bufferSizeWeak,
-      _ => bufferSize,
+    final (sizeMiB, secs) = switch (bufferProfile) {
+      2 => (bufferSizeCellular, bufferSecCellular),
+      1 => (bufferSizeWeak, bufferSecWeak),
+      _ => (bufferSize, bufferSec),
     };
     final bufSiz = (sizeMiB * 0x100000).round().toString();
     return {
       'cache': 'yes',
-      ...cacheSecs(bufferSecFor(bufferProfile)),
+      'cache-secs': '$secs',
+      'demuxer-hysteresis-secs': '${secs * 0.6666666666666666}',
       'demuxer-max-bytes': bufSiz,
       'demuxer-max-back-bytes': bufSiz,
     };
@@ -1418,6 +1469,66 @@ abstract final class Pref {
     SettingBoxKey.enableLongPressSlideSpeed,
     defaultValue: true,
   );
+
+  // 倍速面板：0 原始列表，1 矩阵，2 滑杆；竖屏横屏分开
+  static int get speedPanelMode =>
+      _setting.get(SettingBoxKey.speedPanelMode, defaultValue: 0);
+
+  static int get speedPanelModeLandscape =>
+      _setting.get(SettingBoxKey.speedPanelModeLandscape, defaultValue: 0);
+
+  // 设置页还没算过时按倍速列表现算：竖屏向下取整、横屏向上取整的近正方形
+  static int get speedGridCols =>
+      _setting.get(SettingBoxKey.speedGridCols) ??
+      sqrt(speedList.length).toInt();
+
+  static int get speedGridColsLandscape =>
+      _setting.get(SettingBoxKey.speedGridColsLandscape) ??
+      sqrt(speedList.length - 1).toInt() + 1;
+
+  static bool get speedGridManual =>
+      _setting.get(SettingBoxKey.speedGridManual, defaultValue: false);
+
+  // 矩阵宽度和行高，设置页算好；默认倍速列表两个方向都不到 6 列，宽 280
+  static double get speedGridWidth =>
+      _setting.get(SettingBoxKey.speedGridWidth, defaultValue: 280.0);
+
+  static double get speedGridWidthLandscape =>
+      _setting.get(SettingBoxKey.speedGridWidthLandscape, defaultValue: 280.0);
+
+  static double get speedGridRowHeight =>
+      _setting.get(SettingBoxKey.speedGridRowHeight, defaultValue: 36.0);
+
+  static double get speedGridRowHeightLandscape => _setting.get(
+    SettingBoxKey.speedGridRowHeightLandscape,
+    defaultValue: 36.0,
+  );
+
+  // 以下倍速均为百分位整数
+  static int get speedSliderMin =>
+      _setting.get(SettingBoxKey.speedSliderMin, defaultValue: 50);
+
+  static int get speedSliderMax =>
+      _setting.get(SettingBoxKey.speedSliderMax, defaultValue: 400);
+
+  static int get speedSliderStep =>
+      _setting.get(SettingBoxKey.speedSliderStep, defaultValue: 10);
+
+  static int get speedSliderDivisions =>
+      _setting.get(SettingBoxKey.speedSliderDivisions, defaultValue: 35);
+
+  // 滑杆模式面板宽度，设置页按范围算好
+  static double get speedSliderWidth =>
+      _setting.get(SettingBoxKey.speedSliderWidth, defaultValue: 280.0);
+
+  static int get speedStep =>
+      _setting.get(SettingBoxKey.speedStep, defaultValue: 10);
+
+  static bool get wheelSpeed =>
+      _setting.get(SettingBoxKey.wheelSpeed, defaultValue: false);
+
+  static bool get arrowKeySpeed =>
+      _setting.get(SettingBoxKey.arrowKeySpeed, defaultValue: false);
 
   static double get playSpeedDefault =>
       _video.get(VideoBoxKey.playSpeedDefault, defaultValue: 1.0);
@@ -1584,18 +1695,11 @@ abstract final class Pref {
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
 
-  static bool get removeSafeArea =>
-      _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);
+  static bool get removeSafeAreaPortrait =>
+      _setting.get(SettingBoxKey.removeSafeAreaPortrait, defaultValue: false);
 
-  static bool get removeSafeAreaPortrait => _setting.get(
-    SettingBoxKey.removeSafeAreaPortrait,
-    defaultValue: removeSafeArea,
-  );
-
-  static bool get removeSafeAreaLandscape => _setting.get(
-    SettingBoxKey.removeSafeAreaLandscape,
-    defaultValue: removeSafeArea,
-  );
+  static bool get removeSafeAreaLandscape =>
+      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: false);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);

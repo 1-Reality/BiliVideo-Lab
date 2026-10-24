@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliBro/http/api.dart';
@@ -8,7 +7,6 @@ import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/http/login.dart';
 import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models/home/rcmd/result.dart';
@@ -29,7 +27,10 @@ import 'package:PiliBro/models_new/video/video_play_info/data.dart';
 import 'package:PiliBro/models_new/video/video_relation/data.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/app_sign.dart';
+import 'package:PiliBro/utils/bili_device.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/id_utils.dart';
@@ -51,7 +52,6 @@ abstract final class VideoHttp {
 
   // 首页推荐视频
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
-    required int ps,
     required int freshIdx,
   }) async {
     final res = await Request().get(
@@ -60,11 +60,15 @@ abstract final class VideoHttp {
         'version': 1,
         'feed_version': 'V8',
         'homepage_ver': 1,
-        'ps': ps,
+        'ps': Pref.webRcmdPs,
         'fresh_idx': freshIdx,
+        'fresh_idx_1h': freshIdx,
         'brush': freshIdx,
-        'fresh_type': 4,
+        'fresh_type': Pref.webRcmdFreshType,
       }),
+      options: Pref.rcmdAnonymous
+          ? Options(extra: {'account': AnonymousAccount()})
+          : null,
     );
     if (res.data['code'] == 0) {
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
@@ -85,61 +89,130 @@ abstract final class VideoHttp {
     }
   }
 
-  // 添加额外的loginState变量模拟未登录状态
-  static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
-    required int freshIdx,
-  }) async {
-    final params = {
-      'build': 8430300,
-      'c_locale': 'zh_CN',
-      'channel': 'master',
-      'column': 2,
-      'device': 'phone',
-      'device_name': 'android',
-      'device_type': 0,
-      'disable_rcmd': 0,
-      'flush': 8,
-      'fnval': 976,
-      'fnver': 0,
-      'force_host': 2, //使用https
-      'fourk': 1,
-      'guidance': 1,
-      'https_url_req': 1,
-      'idx': freshIdx,
-      'mobi_app': 'android_i',
-      'network': 'wifi',
-      'platform': 'android',
-      'player_net': 1,
-      'pull': freshIdx == 0 ? 'true' : 'false',
-      'qn': 32,
-      'recsys_mode': 0,
-      's_locale': 'zh_CN',
-      'splash_id': '',
-      'statistics': Constants.statisticsApp,
-      'voice_balance': 0,
-    };
-    final res = await Request().get(
-      Api.recommendListApp,
+  static bool _coldStart = true;
+
+  // 每次刷新换一个，不感兴趣时回传
+  static String _actionId = '';
+
+  /// App 推荐流用的客户端与账号：手机或平板；账号手里的 token 与之对口才带上，
+  /// 否则以未登录身份取流
+  static (BiliApp, Account?) get rcmdIdentity {
+    final app = Pref.rcmdTablet ? BiliApp.hd : BiliApp.phone;
+    final account = Accounts.get(AccountType.recommend);
+    return (
+      app,
+      Pref.rcmdAnonymous ||
+              account.app != app ||
+              account.accessKey.isNullOrEmpty
+          ? null
+          : account,
+    );
+  }
+
+  /// 推荐流相关的 App 请求：自己签名、自己带身份，不走拦截器的账号逻辑
+  static Future<Response> _rcmdAppGet(
+    String url,
+    Map<String, dynamic> params,
+    BiliApp app,
+    Account? account,
+  ) {
+    params.addAll(app.commonParams);
+    if (account != null) params['access_key'] = account.accessKey;
+    AppSign.appSign(params, app);
+    return Request().get(
+      url,
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
-          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
-          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
-          'session_id': '11111111',
-          'env': 'prod',
-          'app-key': 'android_hd',
-          'User-Agent': Constants.userAgent,
-          'x-bili-trace-id': Constants.traceId,
-          'x-bili-aurora-eid': '',
-          'x-bili-aurora-zone': '',
-          'bili-http-engine': 'cronet',
+          ...BiliDevice.appHeaders(app, account?.mid ?? 0),
+          ...BiliSession.dynamicHeaders,
         },
+        extra: {'account': const NoAccount()},
       ),
     );
+  }
+
+  /// [refresh] 为下拉刷新或首屏，[keepOld] 为刷新后保留旧内容（新内容插在顶部）
+  static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp(
+    RcmdAppCursor cursor, {
+    required bool refresh,
+    required bool keepOld,
+  }) async {
+    if (refresh) {
+      cursor.flush = 0;
+      _actionId = Utils.random
+          .nextInt(0x100000000)
+          .toRadixString(16)
+          .toUpperCase()
+          .padLeft(8, '0');
+    }
+    final cold = _coldStart;
+    final (app, account) = rcmdIdentity;
+    final res = await _rcmdAppGet(Api.recommendListApp, {
+      'auto_refresh_state': 1,
+      'autoplay_card': 11,
+      'autoplay_timestamp': 0,
+      'client_attr': 0,
+      'column': 2,
+      'column_timestamp': 0,
+      'device_name': BiliDevice.model,
+      'device_type': 0,
+      'disable_rcmd': Pref.rcmdPersonalized ? 0 : 1,
+      'flush': cursor.flush,
+      'fnval': 272,
+      'fnver': 0,
+      'force_host': 2, //使用https
+      'fourk': 0,
+      'guidance': 0,
+      'https_url_req': 1,
+      'idx': refresh ? cursor.top : cursor.bottom,
+      'inline_danmu': 2,
+      'inline_sound': 1,
+      'inline_sound_cold_state': 2,
+      'interest_id': 0,
+      'login_event': cold
+          ? account == null
+                ? 1
+                : 2
+          : 0,
+      'network': 'wifi',
+      'open_event': cold ? 'cold' : 'hot',
+      'player_extra_content':
+          '{"short_edge":"${BiliDevice.screenWidth}",'
+          '"long_edge":"${BiliDevice.screenHeight}"}',
+      'player_net': 1,
+      'pull': refresh,
+      'qn': 80,
+      'qn_policy': 0,
+      'recsys_mode': 0,
+      'splash_creative_id': 0,
+      'splash_id': '',
+      'video_mode': 1,
+      'voice_balance': 1,
+      'volume_balance': 1,
+      ...?cursor.interest,
+    }, app, account);
+    cursor.interest = null;
     if (res.data['code'] == 0) {
+      _coldStart = false;
+      cursor.flush++;
+      final data = res.data['data'];
+      if (!Pref.rcmdInterestDone) {
+        cursor.interestChoose = data['interest_choose'];
+      }
+      final List items = data['items'] ?? const [];
+      if (items.isNotEmpty) {
+        if (refresh) {
+          cursor.top = items.first['idx'] ?? 0;
+          if (!keepOld || cursor.bottom == 0) {
+            cursor.bottom = items.last['idx'] ?? 0;
+          }
+        } else {
+          cursor.bottom = items.last['idx'] ?? 0;
+        }
+      }
       final list = <RcmdVideoItemAppModel>[];
-      for (final i in res.data['data']['items']) {
+      for (final i in items) {
         // 屏蔽推广和拉黑用户
         if (i['card_goto'] != 'ad_av' &&
             i['card_goto'] != 'ad_web_s' &&
@@ -472,56 +545,47 @@ abstract final class VideoHttp {
     }
   }
 
-  // 推送不感兴趣反馈
-  static Future<LoadingState<void>> feedDislike({
-    required String goto,
-    required int id,
+  // 推送不感兴趣反馈：与取流同一套身份，带上卡片的上下文
+  static Future<LoadingState<void>> feedDislike(
+    RcmdVideoItemAppModel item, {
     int? reasonId,
     int? feedbackId,
   }) async {
-    if (Accounts.get(AccountType.recommend).accessKey.isNullOrEmpty) {
-      return const Error('请退出账号后重新登录');
-    }
     assert((reasonId != null) ^ (feedbackId != null));
-    final res = await Request().get(
-      Api.feedDislike,
-      queryParameters: {
-        'goto': goto,
-        'id': id,
-        'reason_id': ?reasonId,
-        'feedback_id': ?feedbackId,
-        'build': 1,
-        'mobi_app': 'android',
-      },
-    );
-    if (res.data['code'] == 0) {
-      return const Success(null);
-    } else {
-      return Error(res.data['message']);
-    }
+    return _feedDislikeRequest(Api.feedDislike, item, {
+      'reason_id': ?reasonId,
+      'feedback_id': ?feedbackId,
+    });
   }
 
   // 推送不感兴趣取消
-  static Future<LoadingState<void>> feedDislikeCancel({
-    required String goto,
-    required int id,
-    int? reasonId,
-    int? feedbackId,
-  }) async {
-    if (Accounts.get(AccountType.recommend).accessKey.isNullOrEmpty) {
-      return const Error('请退出账号后重新登录');
+  static Future<LoadingState<void>> feedDislikeCancel(
+    RcmdVideoItemAppModel item,
+  ) => _feedDislikeRequest(Api.feedDislikeCancel, item, {});
+
+  static Future<LoadingState<void>> _feedDislikeRequest(
+    String url,
+    RcmdVideoItemAppModel item,
+    Map<String, dynamic> params,
+  ) async {
+    final (app, account) = rcmdIdentity;
+    if (account == null) {
+      return const Error('当前推荐以未登录身份获取，无法提交');
     }
-    final res = await Request().get(
-      Api.feedDislikeCancel,
-      queryParameters: {
-        'goto': goto,
-        'id': id,
-        'reason_id': ?reasonId,
-        'feedback_id': ?feedbackId,
-        'build': 1,
-        'mobi_app': 'android',
-      },
-    );
+    final res = await _rcmdAppGet(url, {
+      ...params,
+      'id': item.param,
+      'goto': item.goto,
+      'is_light_panel': 'false',
+      'from_spmid': 'tm.recommend.0.0',
+      'spmid': 'tm.recommend.0.0',
+      'action_id': _actionId,
+      'track_id': ?item.trackId,
+      'report_data': ?item.reportData,
+      if (item.owner.mid case final mid? when mid > 0) 'mid': mid,
+      'rid': ?item.aid,
+      'tag_id': ?item.tid,
+    }, app, account);
     if (res.data['code'] == 0) {
       return const Success(null);
     } else {
@@ -1064,7 +1128,7 @@ abstract final class VideoHttp {
       'protocol': 0,
       'qn': qn ?? 80,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, BiliApp.hd);
     final res = await Request().get(Api.tvPlayUrl, queryParameters: params);
     if (res.data['code'] == 0) {
       return Success(PlayUrlModel.fromJson(res.data['data']));
@@ -1102,4 +1166,15 @@ abstract final class VideoHttp {
     }
     return Error(res.data['message']);
   }
+}
+
+/// App 推荐流的翻页状态：idx 取卡片自带的游标，flush 是本轮刷新后的请求序号
+class RcmdAppCursor {
+  int top = 0;
+  int bottom = 0;
+  int flush = 0;
+
+  /// 新用户首屏下发的兴趣选择，选完带着结果重新请求一次
+  Map<String, dynamic>? interestChoose;
+  Map<String, dynamic>? interest;
 }

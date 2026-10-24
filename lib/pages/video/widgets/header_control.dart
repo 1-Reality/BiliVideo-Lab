@@ -37,6 +37,7 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliBro/pages/video/widgets/header_mixin.dart';
 import 'package:PiliBro/pages/video/widgets/playback_cdn_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
@@ -1839,6 +1840,20 @@ class HeaderControlState extends State<HeaderControl>
                 }),
               if (!isFileSource) ...[
                 if (!isFSOrPip) ...[
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: IconButton(
+                      tooltip: '小窗',
+                      style: btnStyle,
+                      onPressed: () => PipOverlayService.start(videoDetailCtr),
+                      icon: const Icon(
+                        Icons.picture_in_picture_alt_outlined,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                   if (videoDetailCtr.isUgc)
                     SizedBox(
                       width: btnWidth,

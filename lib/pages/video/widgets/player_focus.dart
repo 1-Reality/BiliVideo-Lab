@@ -129,6 +129,30 @@ class PlayerFocus extends StatelessWidget {
     }
   }
 
+  // 按住连调期间不记选择，松手记一次
+  void _updateSpeed(KeyEvent event, {required bool isIncrease}) {
+    if (!hasPlayer) return;
+    if (event is KeyDownEvent) {
+      plPlayerController
+        ..stepPlaybackSpeed(isIncrease, recordSelection: false)
+        ..longPressTimer?.cancel()
+        ..longPressTimer = Timer.periodic(
+          const Duration(milliseconds: 150),
+          (_) => plPlayerController.stepPlaybackSpeed(
+            isIncrease,
+            recordSelection: false,
+          ),
+        );
+    } else if (event is KeyUpEvent) {
+      plPlayerController
+        ..cancelLongPressTimer()
+        ..setPlaybackSpeed(
+          plPlayerController.playbackSpeed,
+          forceRecordSelection: true,
+        );
+    }
+  }
+
   bool _handleKey(BuildContext context, KeyEvent event) {
     final key = event.logicalKey;
 
@@ -170,7 +194,11 @@ class PlayerFocus extends StatelessWidget {
 
     final isArrowUp = key == LogicalKeyboardKey.arrowUp;
     if (isArrowUp || key == LogicalKeyboardKey.arrowDown) {
-      _updateVolume(event, isIncrease: isArrowUp);
+      if (plPlayerController.arrowKeySpeed && !plPlayerController.isLive) {
+        _updateSpeed(event, isIncrease: isArrowUp);
+      } else {
+        _updateVolume(event, isIncrease: isArrowUp);
+      }
       return true;
     }
 

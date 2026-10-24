@@ -11,6 +11,11 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
   String? cardType;
   ThreePoint? threePoint;
 
+  // 不感兴趣回传给推荐系统的上下文
+  String? trackId;
+  String? reportData;
+  int? tid;
+
   RcmdVideoItemAppModel.fromJson(Map<String, dynamic> json) {
     aid = json['player_args']?['aid'] ?? parseIntOrNull(json['param']);
     bvid = json['bvid'] ?? IdUtils.av2bv(aid!);
@@ -50,6 +55,9 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
         ? ThreePoint.fromJson(json['three_point_v2'])
         : null;
     desc = json['desc'];
+    trackId = json['track_id'];
+    reportData = json['report_data'] ?? json['report_flow_data'];
+    tid = json['args']?['tid'];
   }
 }
 

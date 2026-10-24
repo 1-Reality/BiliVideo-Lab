@@ -21,6 +21,7 @@ import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/calc_window_position.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
@@ -122,6 +123,7 @@ void _showStartupAfterFirstFrame() {
 
 void _deferNonCriticalServicesUntilAfterFirstFrame() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    BiliSession.init();
     unawaited(Future<void>(() async {
       // Large telemetry/history is deliberately kept off the cold-start path.
       await GStorage.initializePlaybackStats();

@@ -2,18 +2,21 @@ import 'dart:math';
 
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliBro/common/widgets/stateful_builder.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/widgets/speed_panel.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
 import 'package:PiliBro/utils/filtering_text.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile, StatefulBuilder;
 
 class PlaySpeedPage extends StatefulWidget {
   const PlaySpeedPage({super.key});
@@ -29,6 +32,20 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  late int gridCols = Pref.speedGridCols;
+  late int gridColsLandscape = Pref.speedGridColsLandscape;
+  late bool gridManual = Pref.speedGridManual;
+  late double gridWidth = Pref.speedGridWidth;
+  late double gridWidthLandscape = Pref.speedGridWidthLandscape;
+  late double sliderWidth = Pref.speedSliderWidth;
+  late int sliderMin = Pref.speedSliderMin;
+  late int sliderMax = Pref.speedSliderMax;
+  late int sliderStep = Pref.speedSliderStep;
+  late int panelMode = Pref.speedPanelMode;
+  late int panelModeLandscape = Pref.speedPanelModeLandscape;
+  late int speedStep = Pref.speedStep;
+  late bool wheelSpeed = Pref.wheelSpeed;
+  late bool arrowKeySpeed = Pref.arrowKeySpeed;
   List<({int id, String title, Icon icon})> sheetMenu = [
     (
       id: 1,
@@ -105,6 +122,350 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
     if (result != null) await _saveLongPressSpeedFactor(result);
   }
 
+  // 自动宽度：矩阵不到 6 列给 280，否则每列 56；滑杆每 1 倍 80，
+  // 分度值小于 0.1 时再放宽 1.5 倍，不窄于 280，取 56 的整数倍
+  static double _autoGridWidth(int cols) => cols < 6 ? 280 : cols * 56.0;
+
+  static double _autoSliderWidth(int span, int step) {
+    final raw = span * (step < 10 ? 1.2 : 0.8);
+    return raw <= 280 ? 280 : (raw / 56).ceil() * 56.0;
+  }
+
+  static const _border = OutlineInputBorder(borderRadius: .all(.circular(6)));
+
+  // 矩阵宽度变了行高同比缩放，最矮 32 保证好点
+  void _saveGrid(int cols, int colsLandscape, double width, double widthL) {
+    final rowHeight = max(32.0, 36 * width / _autoGridWidth(cols));
+    final rowHeightL = max(32.0, 36 * widthL / _autoGridWidth(colsLandscape));
+    gridCols = cols;
+    gridColsLandscape = colsLandscape;
+    gridWidth = width;
+    gridWidthLandscape = widthL;
+    GStorage.setting.putAll({
+      SettingBoxKey.speedGridCols: cols,
+      SettingBoxKey.speedGridColsLandscape: colsLandscape,
+      SettingBoxKey.speedGridWidth: width,
+      SettingBoxKey.speedGridWidthLandscape: widthL,
+      SettingBoxKey.speedGridRowHeight: rowHeight,
+      SettingBoxKey.speedGridRowHeightLandscape: rowHeightL,
+    });
+    PlPlayerController.instance
+      ?..speedGridCols = cols
+      ..speedGridColsLandscape = colsLandscape
+      ..speedGridWidth = width
+      ..speedGridWidthLandscape = widthL
+      ..speedGridRowHeight = rowHeight
+      ..speedGridRowHeightLandscape = rowHeightL;
+  }
+
+  // 倍速列表变动后同步给播放器；列数没手动指定时按近正方形重算：竖屏向下取整、
+  // 横屏向上取整，宽度随列数回到自动
+  void _onSpeedListChanged() {
+    PlPlayerController.instance?.speedList = speedList;
+    if (gridManual) return;
+    final n = speedList.length;
+    final cols = sqrt(n).toInt();
+    final colsL = sqrt(n - 1).toInt() + 1;
+    _saveGrid(cols, colsL, _autoGridWidth(cols), _autoGridWidth(colsL));
+  }
+
+  // 宽度框只要没被手动改过，就跟着其他参数实时换成自动值；改过就以手填为准
+  Future<void> _setGridCols() async {
+    final colsCtrl = TextEditingController(text: '$gridCols');
+    final colsLCtrl = TextEditingController(text: '$gridColsLandscape');
+    final widthCtrl = TextEditingController(text: '${gridWidth.round()}');
+    final widthLCtrl = TextEditingController(
+      text: '${gridWidthLandscape.round()}',
+    );
+    var widthTouched = false;
+    var widthLTouched = false;
+    Widget field(
+      TextEditingController ctrl,
+      String label,
+      String suffix,
+      ValueChanged<String> onChanged,
+    ) => Expanded(
+      child: TextField(
+        controller: ctrl,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          labelText: label,
+          suffixText: suffix,
+          border: _border,
+        ),
+        onChanged: onChanged,
+      ),
+    );
+    // (0, …) 表示恢复自动
+    final result = await showDialog<(int, int, int, int)>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        onDispose: () {
+          colsCtrl.dispose();
+          colsLCtrl.dispose();
+          widthCtrl.dispose();
+          widthLCtrl.dispose();
+        },
+        builder: (context, _) => AlertDialog(
+          title: const Text('矩阵列数与宽度'),
+          content: Column(
+            spacing: 16,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                spacing: 12,
+                children: [
+                  field(colsCtrl, '竖屏', '列', (text) {
+                    if (!widthTouched) {
+                      widthCtrl.text =
+                          '${_autoGridWidth(int.tryParse(text) ?? 1).round()}';
+                    }
+                  }),
+                  field(widthCtrl, '竖屏宽', '', (_) => widthTouched = true),
+                ],
+              ),
+              Row(
+                spacing: 12,
+                children: [
+                  field(colsLCtrl, '横屏', '列', (text) {
+                    if (!widthLTouched) {
+                      widthLCtrl.text =
+                          '${_autoGridWidth(int.tryParse(text) ?? 1).round()}';
+                    }
+                  }),
+                  field(
+                    widthLCtrl,
+                    '横屏宽',
+                    '',
+                    (_) => widthLTouched = true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: Get.back, child: const Text('取消')),
+            TextButton(
+              onPressed: () => Get.back(result: (0, 0, 0, 0)),
+              child: const Text('自动'),
+            ),
+            TextButton(
+              onPressed: () {
+                final p = int.tryParse(colsCtrl.text) ?? 0;
+                final l = int.tryParse(colsLCtrl.text) ?? 0;
+                final w = int.tryParse(widthCtrl.text) ?? 0;
+                final wl = int.tryParse(widthLCtrl.text) ?? 0;
+                if (p < 1 || l < 1) {
+                  SmartDialog.showToast('列数至少为 1');
+                  return;
+                }
+                if (w < 280 || wl < 280) {
+                  SmartDialog.showToast('宽度至少 280，放得下加减按钮');
+                  return;
+                }
+                Get.back(result: (p, l, w, wl));
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    gridManual = result.$1 != 0;
+    GStorage.setting.put(SettingBoxKey.speedGridManual, gridManual);
+    if (gridManual) {
+      _saveGrid(
+        result.$1,
+        result.$2,
+        result.$3.toDouble(),
+        result.$4.toDouble(),
+      );
+    } else {
+      _onSpeedListChanged();
+    }
+    setState(() {});
+  }
+
+  Future<void> _setSliderRange() async {
+    final minCtrl = TextEditingController(text: formatCenti(sliderMin));
+    final maxCtrl = TextEditingController(text: formatCenti(sliderMax));
+    final stepCtrl = TextEditingController(text: formatCenti(sliderStep));
+    final widthCtrl = TextEditingController(text: '${sliderWidth.round()}');
+    var widthTouched = false;
+    // 内部精度 0.01，分度值不小于它；两端对齐到分度值的整数倍。不合法时返回 null
+    (int, int, int)? parse() {
+      final step = ((double.tryParse(stepCtrl.text) ?? 0) * 100).round();
+      if (step < 1) return null;
+      final lo =
+          ((double.tryParse(minCtrl.text) ?? 0) * 100 / step).round() * step;
+      final hi =
+          ((double.tryParse(maxCtrl.text) ?? 0) * 100 / step).round() * step;
+      return lo < step || hi <= lo ? null : (lo, hi, step);
+    }
+
+    void follow(String _) {
+      if (widthTouched) return;
+      if (parse() case (final lo, final hi, final step)) {
+        widthCtrl.text = '${_autoSliderWidth(hi - lo, step).round()}';
+      }
+    }
+
+    Widget field(TextEditingController ctrl, String label) => TextField(
+      controller: ctrl,
+      keyboardType: const .numberWithOptions(decimal: true),
+      inputFormatters: FilteringText.decimal,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: '倍',
+        border: _border,
+      ),
+      onChanged: follow,
+    );
+    final result = await showDialog<(int, int, int, int)>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        onDispose: () {
+          minCtrl.dispose();
+          maxCtrl.dispose();
+          stepCtrl.dispose();
+          widthCtrl.dispose();
+        },
+        builder: (context, _) => AlertDialog(
+          title: const Text('滑杆范围与宽度'),
+          content: Column(
+            spacing: 16,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              field(minCtrl, '最小'),
+              field(maxCtrl, '最大'),
+              field(stepCtrl, '分度值'),
+              TextField(
+                controller: widthCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: '宽度',
+                  helperText: '不改则随范围和分度值自动计算',
+                  border: _border,
+                ),
+                onChanged: (_) => widthTouched = true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: Get.back, child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                final range = parse();
+                if (range == null) {
+                  SmartDialog.showToast('分度值至少 0.01，最小要大于 0，且最大要大于最小');
+                  return;
+                }
+                final width = int.tryParse(widthCtrl.text) ?? 0;
+                if (width < 280) {
+                  SmartDialog.showToast('宽度至少 280，放得下加减按钮');
+                  return;
+                }
+                Get.back(result: (range.$1, range.$2, range.$3, width));
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    sliderMin = result.$1;
+    sliderMax = result.$2;
+    sliderStep = result.$3;
+    sliderWidth = result.$4.toDouble();
+    final divisions = (sliderMax - sliderMin) ~/ sliderStep;
+    GStorage.setting.putAll({
+      SettingBoxKey.speedSliderMin: sliderMin,
+      SettingBoxKey.speedSliderMax: sliderMax,
+      SettingBoxKey.speedSliderStep: sliderStep,
+      SettingBoxKey.speedSliderDivisions: divisions,
+      SettingBoxKey.speedSliderWidth: sliderWidth,
+    });
+    PlPlayerController.instance
+      ?..speedSliderMin = sliderMin
+      ..speedSliderMax = sliderMax
+      ..speedSliderDivisions = divisions
+      ..speedSliderWidth = sliderWidth;
+    setState(() {});
+  }
+
+  Future<void> _setSpeedInput() async {
+    var stepText = formatCenti(speedStep);
+    var wheel = wheelSpeed;
+    var arrowKey = arrowKeySpeed;
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('滚轮 / 方向键调倍速'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                initialValue: stepText,
+                keyboardType: const .numberWithOptions(decimal: true),
+                inputFormatters: FilteringText.decimal,
+                decoration: const InputDecoration(
+                  labelText: '分度值',
+                  suffixText: '倍',
+                  border: OutlineInputBorder(borderRadius: .all(.circular(6))),
+                ),
+                onChanged: (text) => stepText = text,
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                title: const Text('鼠标滚轮调倍速'),
+                value: wheel,
+                onChanged: (value) => setDialogState(() => wheel = value!),
+              ),
+              CheckboxListTile(
+                title: const Text('键盘上下键调倍速'),
+                value: arrowKey,
+                onChanged: (value) => setDialogState(() => arrowKey = value!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: Get.back, child: const Text('取消')),
+            TextButton(
+              onPressed: () {
+                final step = ((double.tryParse(stepText) ?? 0) * 100).round();
+                if (step < 1) {
+                  SmartDialog.showToast('分度值至少 0.01');
+                  return;
+                }
+                Get.back(result: step);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    speedStep = result;
+    wheelSpeed = wheel;
+    arrowKeySpeed = arrowKey;
+    GStorage.setting.putAll({
+      SettingBoxKey.speedStep: speedStep,
+      SettingBoxKey.wheelSpeed: wheelSpeed,
+      SettingBoxKey.arrowKeySpeed: arrowKeySpeed,
+    });
+    PlPlayerController.instance
+      ?..speedStep = speedStep
+      ..wheelSpeed = wheelSpeed
+      ..arrowKeySpeed = arrowKeySpeed;
+    setState(() {});
+  }
+
   // 添加自定义倍速
   void onAddSpeed() {
     String initialValue = '';
@@ -149,6 +510,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                     ..add(val)
                     ..sort();
                   video.put(VideoBoxKey.speedsList, speedList);
+                  _onSpeedListChanged();
                   setState(() {});
                 }
               } catch (e) {
@@ -225,6 +587,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
       }
       speedList.removeAt(index);
       video.put(VideoBoxKey.speedsList, speedList);
+      _onSpeedListChanged();
     }
     setState(() {});
   }
@@ -240,6 +603,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             onPressed: () async {
               await video.delete(VideoBoxKey.speedsList);
               speedList = Pref.speedList;
+              _onSpeedListChanged();
               setState(() {});
             },
             child: const Text('重置'),
@@ -316,6 +680,60 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 enableLongPressSlideSpeed = value;
                 PlPlayerController.instance?.enableLongPressSlideSpeed = value;
               },
+            ),
+            for (final landscape in const [false, true])
+              ListTile(
+                title: Text(landscape ? '横屏倍速面板' : '竖屏倍速面板'),
+                trailing: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 0, label: Text('原始')),
+                    ButtonSegment(value: 1, label: Text('矩阵')),
+                    ButtonSegment(value: 2, label: Text('滑杆')),
+                  ],
+                  selected: {landscape ? panelModeLandscape : panelMode},
+                  onSelectionChanged: (value) {
+                    final mode = value.first;
+                    if (landscape) {
+                      panelModeLandscape = mode;
+                      PlPlayerController.instance?.speedPanelModeLandscape =
+                          mode;
+                    } else {
+                      panelMode = mode;
+                      PlPlayerController.instance?.speedPanelMode = mode;
+                    }
+                    GStorage.setting.put(
+                      landscape
+                          ? SettingBoxKey.speedPanelModeLandscape
+                          : SettingBoxKey.speedPanelMode,
+                      mode,
+                    );
+                    setState(() {});
+                  },
+                ),
+              ),
+            ListTile(
+              title: const Text('矩阵列数与宽度'),
+              subtitle: Text(
+                '竖屏 $gridCols 列宽 ${gridWidth.round()}，横屏 $gridColsLandscape 列宽 ${gridWidthLandscape.round()}${gridManual ? '' : '，随倍速列表自动计算'}',
+              ),
+              onTap: _setGridCols,
+            ),
+            ListTile(
+              title: const Text('滑杆范围与宽度'),
+              subtitle: Text(
+                '${formatCenti(sliderMin)} ~ ${formatCenti(sliderMax)} 倍，分度值 ${formatCenti(sliderStep)}，宽 ${sliderWidth.round()}',
+              ),
+              onTap: _setSliderRange,
+            ),
+            ListTile(
+              title: const Text('滚轮 / 方向键调倍速'),
+              subtitle: Text(
+                wheelSpeed || arrowKeySpeed
+                    ? '${wheelSpeed && arrowKeySpeed ? '滚轮和上下键' : wheelSpeed ? '滚轮' : '上下键'}调倍速，每次 ${formatCenti(speedStep)} 倍'
+                    : '关闭，滚轮和上下键调音量',
+              ),
+              onTap: _setSpeedInput,
             ),
             ListTile(
               leading: const Icon(Icons.insights_outlined),

@@ -492,6 +492,10 @@ class VideoDetailController extends GetxController
   void onInit() {
     super.onInit();
     args = Get.arguments;
+    if (PageUtils.noAutoPlay) {
+      PageUtils.noAutoPlay = false;
+      _autoPlay.value = false;
+    }
     videoType = args['videoType'];
     if (videoType == VideoType.pgc) {
       if (!isLoginVideo) {

@@ -51,8 +51,6 @@ abstract final class PlaybackStatsService {
 
   static final NavigatorObserver pageRouteObserver =
       PlaybackPageRouteObserver();
-  static final _trailingZeros = RegExp(r'0+$');
-  static final _trailingDot = RegExp(r'\.$');
 
   static bool _active = false;
   static bool _live = false;
@@ -735,11 +733,14 @@ abstract final class PlaybackStatsService {
     item['aliases'] = aliases;
   }
 
+  // "1.00" → "1", "1.50" → "1.5"：只去掉固定两位小数里多余的 0，不跑正则。
   static String _speedKey(double speed) {
     final text = speed.toStringAsFixed(2);
-    return text
-        .replaceFirst(_trailingZeros, '')
-        .replaceFirst(_trailingDot, '');
+    return text.endsWith('00')
+        ? text.substring(0, text.length - 3)
+        : text.endsWith('0')
+        ? text.substring(0, text.length - 1)
+        : text;
   }
 
   static void _recordSourceSpeed(double speed, double defaultSpeed) {

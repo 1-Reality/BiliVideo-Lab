@@ -13,6 +13,7 @@ import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
@@ -57,13 +58,8 @@ abstract final class TvRemoteSetup {
       Navigator.of(current).pop(action);
     }
 
-    // Read this preference only when the TV configuration menu is opened.
     var isPassthrough =
-        GStorage.setting.get(
-          SettingBoxKey.hardwareDecoding,
-          defaultValue: HwDecType.kHwdec,
-        ) ==
-        HwDecType.mediacodecEmbed.hwdec;
+        Pref.hardwareDecoding == HwDecType.mediacodecEmbed.hwdec;
 
     final action = await showDialog<_TvRemoteMenuAction>(
       context: context,
@@ -90,21 +86,16 @@ abstract final class TvRemoteSetup {
                           ),
                         ),
                         TextButton(
-                          onPressed: () async {
-                            if (isPassthrough) {
-                              await GStorage.setting.delete(
-                                SettingBoxKey.hardwareDecoding,
-                              );
-                              if (!dialog.mounted) return;
-                              setDialogState(() => isPassthrough = false);
-                            } else {
-                              await GStorage.setting.put(
-                                SettingBoxKey.hardwareDecoding,
-                                HwDecType.mediacodecEmbed.hwdec,
-                              );
-                              if (!dialog.mounted) return;
-                              setDialogState(() => isPassthrough = true);
-                            }
+                          onPressed: () {
+                            setDialogState(() => isPassthrough = !isPassthrough);
+                            isPassthrough
+                                ? GStorage.setting.put(
+                                    SettingBoxKey.hardwareDecoding,
+                                    HwDecType.mediacodecEmbed.hwdec,
+                                  )
+                                : GStorage.setting.delete(
+                                    SettingBoxKey.hardwareDecoding,
+                                  );
                           },
                           child: Text(
                             isPassthrough ? '切换为常规渲染' : '切换为直通模式',

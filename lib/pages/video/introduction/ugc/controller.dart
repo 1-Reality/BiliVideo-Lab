@@ -338,7 +338,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     final addIndex = partIndex != null && partIndex > 0;
     final playedTimePos = videoDetailCtr.playedTimePos(addIndex);
     final videoUrl =
-        '${HttpString.baseUrl}/video/$bvid/${addIndex ? '?p=${partIndex + 1}' : ''}';
+        '${HttpString.baseUrl}/video/av${videoDetailCtr.aid}/${addIndex ? '?p=${partIndex + 1}' : ''}';
     showDialog(
       context: context,
       builder: (_) => SimpleDialog(

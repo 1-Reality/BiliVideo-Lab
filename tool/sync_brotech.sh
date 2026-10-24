@@ -5,7 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../assets/BroTech"
 
 while read -r repo src dest; do
-  curl -fsSL --retry 3 -o "$dest" "https://raw.githubusercontent.com/$repo/main/$src"
+  # Windows 的 Git Bash 把参数交给原生 curl 时按系统 ANSI 代码页转码，中文变成 ?，
+  # curl 再把 ? 换成 _；改由 bash 自己重定向写文件，文件名不经过转码
+  curl -fsSL --retry 3 "https://raw.githubusercontent.com/$repo/main/$src" >"$dest"
 done <<'EOF'
 ucxn/ZTE-Stat_Max .github/SECURITY.md ZTE/SECURITY.md
 ucxn/ZTE-Stat_Max assets/nc_custom_noversion.svg ZTE/nc_custom_noversion.svg

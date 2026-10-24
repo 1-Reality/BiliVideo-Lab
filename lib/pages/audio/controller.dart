@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
 
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/grpc/audio.dart';
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart'
@@ -38,6 +37,7 @@ import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
@@ -484,7 +484,7 @@ class AudioController extends GetxController
 
   Future<void> _onOpenMedia(
     String url, {
-    String ua = Constants.userAgentApp,
+    String ua = phoneUserAgent,
     String? referer,
     http_model.Volume? volume,
     bool autoplay = true,
@@ -754,7 +754,7 @@ class AudioController extends GetxController
 
   void actionShareVideo(BuildContext context) {
     final audioUrl = isUgc
-        ? '${HttpString.baseUrl}/video/${IdUtils.av2bv(oid.toInt())}'
+        ? '${HttpString.baseUrl}/video/av$oid'
         : '${HttpString.baseUrl}/audio/au$oid';
     showDialog(
       context: context,

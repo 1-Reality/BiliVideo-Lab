@@ -58,6 +58,7 @@ import 'package:PiliBro/pages/setting/pages/color_select.dart';
 import 'package:PiliBro/pages/setting/pages/av_settings.dart';
 import 'package:PiliBro/pages/setting/pages/display_mode.dart';
 import 'package:PiliBro/pages/setting/pages/font_setting.dart';
+import 'package:PiliBro/pages/setting/pages/gesture_settings.dart';
 import 'package:PiliBro/pages/setting/pages/logs.dart';
 import 'package:PiliBro/pages/setting/pages/network_policy.dart';
 import 'package:PiliBro/pages/setting/pages/orientation_settings.dart';
@@ -128,6 +129,7 @@ class Routes {
     // 历史记录搜索
     GetPage(name: '/avSettings', page: () => const AvSettingsPage()),
     GetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
+    GetPage(name: '/gestureSettings', page: () => const GestureSettingsPage()),
     GetPage(name: '/networkPolicy', page: () => const NetworkPolicyPage()),
     GetPage(name: '/orientationSettings', page: () => const OrientationSettingsPage()),
     GetPage(name: '/playbackStats', page: () => const PlaybackStatsPage()),

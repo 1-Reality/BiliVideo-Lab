@@ -31,6 +31,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -343,6 +344,43 @@ class PlPlayerController
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
+  late int speedPanelMode = Pref.speedPanelMode;
+  late int speedPanelModeLandscape = Pref.speedPanelModeLandscape;
+  late int speedGridCols = Pref.speedGridCols;
+  late int speedGridColsLandscape = Pref.speedGridColsLandscape;
+  late double speedGridWidth = Pref.speedGridWidth;
+  late double speedGridWidthLandscape = Pref.speedGridWidthLandscape;
+  late double speedGridRowHeight = Pref.speedGridRowHeight;
+  late double speedGridRowHeightLandscape = Pref.speedGridRowHeightLandscape;
+  late int speedSliderMin = Pref.speedSliderMin;
+  late int speedSliderMax = Pref.speedSliderMax;
+  late int speedSliderDivisions = Pref.speedSliderDivisions;
+  late double speedSliderWidth = Pref.speedSliderWidth;
+  late int speedStep = Pref.speedStep;
+  late bool wheelSpeed = Pref.wheelSpeed;
+  late bool arrowKeySpeed = Pref.arrowKeySpeed;
+  // 点面板中间数字时切回的倍速
+  int toggleSpeedCenti = 100;
+  final RxBool speedIndicator = false.obs;
+  Timer? _speedIndicatorTimer;
+
+  /// 滚轮、方向键按分度值调倍速，限制在滑杆范围内
+  void stepPlaybackSpeed(bool increase, {bool recordSelection = true}) {
+    setPlaybackSpeed(
+      ((playbackSpeed * 100).round() + (increase ? speedStep : -speedStep))
+              .clamp(speedSliderMin, speedSliderMax) /
+          100,
+      recordSelection: recordSelection,
+    );
+    speedIndicator.value = true;
+    _speedIndicatorTimer?.cancel();
+    _speedIndicatorTimer = Timer(
+      const Duration(milliseconds: 800),
+      () => speedIndicator.value = false,
+    );
+  }
+
   late final showControlDuration = Pref.enableLongShowControl
       ? const Duration(seconds: 30)
       : const Duration(seconds: 3);
@@ -360,8 +398,8 @@ class PlPlayerController
   late final showFSActionItem = Pref.showFSActionItem;
   late final enableShrinkVideoSize = Pref.enableShrinkVideoSize;
   late final darkVideoPage = Pref.darkVideoPage;
-  late final enableSlideVolumeBrightness = Pref.enableSlideVolumeBrightness;
-  late final enableSlideFS = Pref.enableSlideFS;
+  late final slideVertical = Pref.slideVertical;
+  late final slideHorizontal = Pref.slideHorizontal;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
   late final fastForBackwardDuration = Duration(
     seconds: Pref.fastForBackwardDuration,
@@ -404,8 +442,7 @@ class PlPlayerController
   late final bool _hwdecAllowsSoftware =
       hwdec == null || hwdec!.split(',').contains('no');
   // Settings only allow this entry alone.
-  late final bool mediacodecEmbed =
-      Platform.isAndroid && hwdec == 'mediacodec_embed';
+  late final bool mediacodecEmbed = hwdec == 'mediacodec_embed';
   // While playing, hwdec-current is read every few seconds and matched
   // against the user's keywords (settings are taken on each open). Only the
   // decoder actually playing is read: the ones a file switch creates and drops
@@ -2037,10 +2074,10 @@ class PlPlayerController
       temporary: temporary,
     );
 
+    _playbackSpeed.value = speed;
     if (!unchanged && player != null) {
       await player.setRate(speed);
     }
-    _playbackSpeed.value = speed;
     _updatePlaybackState();
     final danmaku = danmakuController;
     if (danmaku != null) {
@@ -3151,7 +3188,7 @@ class PlPlayerController
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
+      if (playerStatus.isPlaying && !PipOverlayService.active) {
         pause();
       }
 

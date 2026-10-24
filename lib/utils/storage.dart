@@ -371,34 +371,32 @@ abstract final class GStorage {
     );
   }
 
-  static Future<void> _applyFirstRunBufferLimit() async {
-    var limit = 192;
-    try {
-      final info = await DeviceInfoPlugin().deviceInfo;
-      limit = switch (info) {
-        AndroidDeviceInfo() => info.physicalRamSize >> 4,
-        IosDeviceInfo() => info.physicalRamSize >> 4,
-        WindowsDeviceInfo() => info.systemMemoryInMegabytes >> 4,
-        MacOsDeviceInfo() => info.memorySize >> 24,
-        _ => 192,
-      };
-      if (Platform.isLinux) {
-        for (final line in await File('/proc/meminfo').readAsLines()) {
-          if (line.startsWith('MemTotal:')) {
-            limit = int.parse(line.split(RegExp(r'\s+'))[1]) >> 14;
-            break;
-          }
-        }
-      }
-      if (limit < 1) limit = 192;
-    } catch (_) {}
-
-    if (Pref.bufferSize > limit) {
-      await setting.put(SettingBoxKey.bufferSize, limit.toDouble());
-    }
-    if (Pref.bufferSizeWeak > limit) {
-      await setting.put(SettingBoxKey.bufferSizeWeak, limit.toDouble());
-    }
+  /// One-time work on a fresh install; normal launches never get here.
+  static Future<void> _onFirstRun() async {
+    // Buffers are capped at 1/32 of RAM below 20 GiB, 1/16 above, in MiB;
+    // each platform's unit folds into its own shift.
+    final cap = (switch (await DeviceInfoPlugin().deviceInfo) {
+      AndroidDeviceInfo(physicalRamSize: final mib) ||
+      IosDeviceInfo(physicalRamSize: final mib) ||
+      WindowsDeviceInfo(systemMemoryInMegabytes: final mib) =>
+        mib >> (mib < 20 << 10 ? 5 : 4),
+      MacOsDeviceInfo(memorySize: final b) => b >> (b < 20 << 30 ? 25 : 24),
+      // Linux: MemTotal in KiB.
+      _ => switch (int.parse(
+        RegExp(r'MemTotal:\s+(\d+)')
+            .firstMatch(await File('/proc/meminfo').readAsString())![1]!,
+      )) {
+        final kib => kib >> (kib < 20 << 20 ? 15 : 14),
+      },
+    }).toDouble();
+    await setting.putAll({
+      if (Pref.bufferSize > cap) SettingBoxKey.bufferSize: cap,
+      if (Pref.bufferSizeWeak > cap) SettingBoxKey.bufferSizeWeak: cap,
+      // The system WebView on these desktops is the usual cause of crashes
+      // opening links; hand links to the default browser from the start.
+      if (Platform.isWindows || Platform.isLinux)
+        SettingBoxKey.openInBrowser: true,
+    });
   }
 
   static Future<num?> _runPlaybackMaintenanceIfDue() async {
@@ -411,7 +409,7 @@ abstract final class GStorage {
     // A negative future timestamp means the one-time maintenance already ran,
     // while the Android first-run device wizard still needs to finish.
     if (due < 1) {
-      if (due == 0) await _applyFirstRunBufferLimit();
+      if (due == 0) await _onFirstRun();
       return due;
     }
     if (now.millisecondsSinceEpoch < due.toInt()) return due;
