@@ -7,7 +7,8 @@ import 'package:material_ui/material_ui.dart';
 
 /// 「压低到」：别人说话时我们让一让。
 /// 显示：跷跷板左边是我们的一杯水，水位就是音量；右边是正在播报的导航，
-/// 我们压得越低，它的气泡越大；背景弹幕的条数和浓淡也跟着音量走；水位下降时杯口往外洒水。
+/// 我们压得越低，它的气泡越大；背景弹幕的条数和浓淡也跟着音量走；水位下降时杯口往外洒水；
+/// 左边一朵十瓣花，开几瓣就是几成。
 /// 调节和显示分开：拖跷跷板细调，点下面的杯子选档，按加减号 5% 微调
 Future<int?> showDuckVolumeDialog(BuildContext context, int initial) =>
     showDialog<int>(
@@ -117,94 +118,98 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
     final colors = theme.colorScheme;
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('压低到', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text(
-                '别人说话时我们让一让。拖跷跷板、点杯子或按加减号',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.outline,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('压低到', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              '别人说话时我们让一让。拖跷跷板、点杯子或按加减号',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.outline,
               ),
-              const SizedBox(height: 12),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  _scene = Size(width, math.min(width * 0.75, 300));
-                  return GestureDetector(
-                    onVerticalDragUpdate: _onDrag,
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                // 高度只按屏幕高度留余地，免得横屏时对话框超出屏幕
+                _scene = Size(
+                  width,
+                  math.min(
+                    width * 0.75,
+                    MediaQuery.sizeOf(context).height * 0.45,
+                  ),
+                );
+                return GestureDetector(
+                  onVerticalDragUpdate: _onDrag,
+                  child: CustomPaint(
+                    size: _scene,
+                    painter: _ScenePainter(
+                      shown: _shown,
+                      time: _time,
+                      drops: _drops,
+                      colors: colors,
+                      textStyle: theme.textTheme.bodySmall!,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (final cup in _cups)
+                  GestureDetector(
+                    onTap: () => _set(cup),
                     child: CustomPaint(
-                      size: _scene,
-                      painter: _ScenePainter(
-                        shown: _shown,
-                        time: _time,
-                        drops: _drops,
+                      size: const Size(40, 52),
+                      painter: _CupPainter(
+                        fill: cup / 100,
+                        selected: cup == _percent,
                         colors: colors,
-                        textStyle: theme.textTheme.bodySmall!,
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final cup in _cups)
-                    GestureDetector(
-                      onTap: () => _set(cup),
-                      child: CustomPaint(
-                        size: const Size(40, 52),
-                        painter: _CupPainter(
-                          fill: cup / 100,
-                          selected: cup == _percent,
-                          colors: colors,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: () => _set(_percent - 5),
-                    icon: const Icon(Icons.remove),
                   ),
-                  SizedBox(
-                    width: 96,
-                    child: Text(
-                      '$_percent%',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineMedium,
-                    ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: () => _set(_percent - 5),
+                  icon: const Icon(Icons.remove),
+                ),
+                SizedBox(
+                  width: 96,
+                  child: Text(
+                    '$_percent%',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium,
                   ),
-                  IconButton(
-                    onPressed: () => _set(_percent + 5),
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: Get.back, child: const Text('取消')),
-                  TextButton(
-                    onPressed: () => Get.back(result: _percent),
-                    child: const Text('确定'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                IconButton(
+                  onPressed: () => _set(_percent + 5),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(onPressed: Get.back, child: const Text('取消')),
+                TextButton(
+                  onPressed: () => Get.back(result: _percent),
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -317,6 +322,7 @@ class _ScenePainter extends CustomPainter {
 
     _paintGlass(canvas, size, geo);
     _paintNavigator(canvas, geo);
+    _paintFlower(canvas, size);
 
     final dropPaint = Paint()..color = colors.primary.withValues(alpha: 0.7);
     for (final drop in drops) {
@@ -350,6 +356,40 @@ class _ScenePainter extends CustomPainter {
         ..paint(canvas, Offset(x, top + i * lane))
         ..dispose();
     }
+  }
+
+  // 左上角一朵十瓣花，开了几瓣就是几成音量，半成的那瓣半透明
+  void _paintFlower(Canvas canvas, Size size) {
+    const petals = 10;
+    final radius = math.min(26.0, size.height * 0.1);
+    final center = Offset(radius + 4, radius + 4);
+    final open = shown / 100 * petals;
+    final petal = Path()
+      ..addOval(
+        Rect.fromCenter(
+          center: Offset(0, -radius * 0.55),
+          width: radius * 0.42,
+          height: radius * 0.9,
+        ),
+      );
+    canvas
+      ..save()
+      ..translate(center.dx, center.dy);
+    for (var i = 0; i < petals; i++) {
+      final fill = (open - i).clamp(0.0, 1.0);
+      canvas
+        ..drawPath(
+          petal,
+          Paint()
+            ..color = fill > 0
+                ? colors.secondary.withValues(alpha: 0.25 + 0.75 * fill)
+                : colors.outlineVariant.withValues(alpha: 0.5),
+        )
+        ..rotate(2 * math.pi / petals);
+    }
+    canvas
+      ..drawCircle(Offset.zero, radius * 0.22, Paint()..color = colors.primary)
+      ..restore();
   }
 
   // 杯子随板倾斜，水面始终水平
