@@ -330,6 +330,14 @@ jobs:
           else
             echo "::error title=mpv-build.log::missing"
           fi
+          # 各 ExternalProject 包的 build/configure 日志里的错误行（curl 的失败看这里）
+          for f in $(find build_i686/packages -path '*-stamp/*' \( -name '*-build-*.log' -o -name '*-configure-*.log' \) -mmin -180 2>/dev/null | head -10); do
+            hits=$(grep -n -iE 'error|fatal|failed' "$f" | head -12 | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')
+            [ -n "$hits" ] && echo "::error title=$f::$hits"
+          done
+          for f in $(find build_i686/packages -name 'CMakeError.log' -mmin -180 2>/dev/null | head -4); do
+            echo "::error title=$f::$(tail -n 40 "$f" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"
+          done
 
   publish:
     name: Publish to our release
