@@ -198,6 +198,10 @@ jobs:
             ${{ env.CACHE_PREFIX }}-mpv-build-
             ${{ env.CACHE_PREFIX }}-toolchain-build-
 
+      - name: Discard a restored build dir that lacks the mingw runtime (poisoned by an earlier failed run)
+        if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
+        run: rm -rf upstream/build_i686
+
       - name: Fall back to the toolchain cache when the mingw runtime is missing
         if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
         uses: actions/cache/restore@v4
@@ -293,8 +297,8 @@ jobs:
           path: upstream/src_packages
           key: ${{ env.CACHE_PREFIX }}-src-${{ github.run_id }}
 
-      - name: Save i686 build dir (ccache included)
-        if: always()
+      - name: Save i686 build dir (ccache included; only when the mingw runtime is present, so no poisoned cache)
+        if: ${{ always() && hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') != '' }}
         uses: actions/cache/save@v4
         with:
           path: upstream/build_i686
