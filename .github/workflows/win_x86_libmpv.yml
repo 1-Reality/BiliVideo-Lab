@@ -171,13 +171,19 @@ jobs:
           git -c advice.detachedHead=false checkout -q "$UPSTREAM_REF"
           git log --oneline -1
 
-      - name: Pin mpv to e7191f2a65 (temporary copy inside this job)
+      - name: Pin mpv to e7191f2a65 and apply CI build adjustments (temporary copy inside this job)
         run: |
           set -e
           n=$(grep -c 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake)
           [ "$n" = "1" ] || { echo "expected one GIT_REPOSITORY line, found $n"; exit 1; }
           sed -i "/GIT_REPOSITORY https:\/\/github.com\/mpv-player\/mpv.git/a\    GIT_TAG ${MPV_PIN}" packages/mpv.cmake
           grep -n -A1 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake
+          # curl 的 libssh 后端（只用于 SFTP/SCP）与今天拉到的 libssh 不兼容（ssh_scp 类型已不存在）；
+          # 视频播放只走 HTTP(S)，这里关掉它。这是相对上游的偏差，报告里要写明。
+          n2=$(grep -c -- '-DCURL_USE_LIBSSH=ON' packages/curl.cmake)
+          [ "$n2" = "1" ] || { echo "expected one -DCURL_USE_LIBSSH=ON, found $n2"; exit 1; }
+          sed -i 's/-DCURL_USE_LIBSSH=ON/-DCURL_USE_LIBSSH=OFF/' packages/curl.cmake
+          grep -n 'CURL_USE_LIBSSH' packages/curl.cmake
 
       - name: Restore clang root
         uses: actions/cache/restore@v4
@@ -249,7 +255,7 @@ jobs:
           cmake -DTARGET_ARCH=i686-w64-mingw32 -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_i686/i686-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -DENABLE_CCACHE=ON -DCLANG_PACKAGES_LTO=ON -G Ninja --fresh -B build_i686 -S $PWD
           ninja -C build_i686 download || true
           ninja -C build_i686 update
-          ninja -C build_i686 mpv
+          ninja -k 0 -C build_i686 mpv
           ninja -C build_i686 mpv-packaging
 
       - name: Collect mpv-dev package
@@ -330,6 +336,15 @@ jobs:
           else
             echo "::error title=mpv-build.log::missing"
           fi
+          # 只看 FAILED 行里出现的包：它们的 build/configure 日志里的错误行
+          pkgs=$(grep -oE 'packages/[A-Za-z0-9_.+-]+-prefix/' "$GITHUB_WORKSPACE/mpv-build.log" 2>/dev/null | sed -E 's#^packages/(.*)-prefix/$#\1#' | sort -u)
+          for n in $pkgs; do
+            for f in build_i686/packages/$n-prefix/src/$n-stamp/*.log; do
+              [ -f "$f" ] || continue
+              hits=$(grep -n -iE 'error|fatal|failed' "$f" | head -15 | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')
+              [ -n "$hits" ] && echo "::error title=$n $(basename "$f")::$hits"
+            done
+          done
           # 各 ExternalProject 包的 build/configure 日志里的错误行（curl 的失败看这里）
           for f in $(find build_i686/packages -path '*-stamp/*' \( -name '*-build-*.log' -o -name '*-configure-*.log' \) -mmin -180 2>/dev/null | head -10); do
             hits=$(grep -n -iE 'error|fatal|failed' "$f" | head -12 | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')
