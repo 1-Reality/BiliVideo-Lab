@@ -240,9 +240,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: upstream/src_packages
-          key: ${{ env.MPV_CACHE }}-src-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-src2-${{ github.run_id }}
           restore-keys: |
-            ${{ env.MPV_CACHE }}-src-
+            ${{ env.MPV_CACHE }}-src2-
 
       - name: Build mpv (one step so the timeout still leaves time to save)
         timeout-minutes: 330
@@ -264,7 +264,15 @@ jobs:
               c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true)
             fi
             if [ -z "$c" ]; then echo "::error title=no commit before pin::$r"; exit 1; fi
-            git -C "$r" -c advice.detachedHead=false checkout -q "$c"
+            # 上游每个包装完后会跑 reset_head.sh，执行 git reset --hard @{u}。
+            # 跟踪分支的仓库要留在分支上，并把 @{u} 也挪到钉住的提交，否则分离 HEAD 下 @{u} 报错（run 108882707681）。
+            # 上游本来就按哈希钉的仓库没有 @{u}，照旧直接切过去
+            if u=$(git -C "$r" rev-parse -q --symbolic-full-name '@{u}' 2>/dev/null) && [ -n "$u" ]; then
+              git -C "$r" update-ref "$u" "$c"
+              git -C "$r" reset -q --hard "$c"
+            else
+              git -C "$r" -c advice.detachedHead=false checkout -q "$c"
+            fi
             # 不带 --init：只更新上游已经初始化过的子模块，与 update-repo.sh 的做法一致；
             # 没初始化的（如 angle-headers 的 gles1_conform，需要内部账号）保持不动
             git -C "$r" submodule update --recursive -q
@@ -338,7 +346,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: upstream/src_packages
-          key: ${{ env.MPV_CACHE }}-src-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-src2-${{ github.run_id }}
 
       - name: Save i686 build dir (ccache included; only when the mingw runtime is present, so no poisoned cache)
         if: ${{ always() && hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') != '' }}
