@@ -207,7 +207,10 @@ jobs:
         if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
         uses: actions/cache/restore@v4
         with:
-          path: upstream/build_i686
+          # 缓存版本由 path 列表决定：必须与工具链任务保存时的两个路径完全一致，否则恢复不到
+          path: |
+            upstream/build_i686
+            upstream/build_x86_64
           key: ${{ env.CACHE_PREFIX }}-toolchain-build-fallback-${{ github.run_id }}
           restore-keys: |
             ${{ env.CACHE_PREFIX }}-toolchain-build-
