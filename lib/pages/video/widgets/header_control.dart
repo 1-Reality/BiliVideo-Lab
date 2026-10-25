@@ -370,7 +370,6 @@ class HeaderControlState extends State<HeaderControl>
   late final PlPlayerController plPlayerController = widget.controller;
   late final VideoDetailController videoDetailCtr = widget.videoDetailCtr;
   late final PlayUrlModel videoInfo = videoDetailCtr.data;
-  late final _inAppPip = Pref.enableInAppPip;
   static const TextStyle subTitleStyle = TextStyle(fontSize: 12);
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
@@ -1841,22 +1840,20 @@ class HeaderControlState extends State<HeaderControl>
                 }),
               if (!isFileSource) ...[
                 if (!isFSOrPip) ...[
-                  if (_inAppPip)
-                    SizedBox(
-                      width: btnWidth,
-                      height: btnHeight,
-                      child: IconButton(
-                        tooltip: '小窗',
-                        style: btnStyle,
-                        onPressed: () =>
-                            PipOverlayService.start(videoDetailCtr),
-                        icon: const Icon(
-                          Icons.picture_in_picture_alt_outlined,
-                          size: 19,
-                          color: Colors.white,
-                        ),
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: IconButton(
+                      tooltip: '小窗',
+                      style: btnStyle,
+                      onPressed: () => PipOverlayService.start(videoDetailCtr),
+                      icon: const Icon(
+                        Icons.picture_in_picture_alt_outlined,
+                        size: 19,
+                        color: Colors.white,
                       ),
                     ),
+                  ),
                   if (videoDetailCtr.isUgc)
                     SizedBox(
                       width: btnWidth,

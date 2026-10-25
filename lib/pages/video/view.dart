@@ -274,18 +274,27 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     setState(() {});
   }
 
-  // 锁定、桌面小窗、全屏时照旧交给播放器处理
+  late final bool _autoInAppPip =
+      Pref.autoInAppPip && !videoDetailController.isFileSource;
+
+  // 锁定、桌面小窗、全屏时照旧交给播放器处理；之后先退相关视频栈，
+  // 栈空且开了自动小窗、正在播放时进应用内小窗，否则照常退出
   void _onPopInvoked(bool didPop, Object? result) {
     final c = videoDetailController.plPlayerController;
     if (!didPop &&
-        _relatedStack.isNotEmpty &&
         !c.controlsLock.value &&
         !c.isDesktopPip &&
         !c.isFullScreen.value) {
-      ugcIntroController.onChangeEpisode(_relatedStack.removeLast());
-      videoDetailController.introScrollCtr?.jumpToTop();
-      setState(() {});
-      return;
+      if (_relatedStack.isNotEmpty) {
+        ugcIntroController.onChangeEpisode(_relatedStack.removeLast());
+        videoDetailController.introScrollCtr?.jumpToTop();
+        setState(() {});
+        return;
+      }
+      if (_autoInAppPip && c.playerStatus.isPlaying) {
+        PipOverlayService.start(videoDetailController);
+        return;
+      }
     }
     c.onPopInvokedWithResult(didPop, result);
   }
@@ -1422,6 +1431,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     key: videoDetailController.videoPlayerKey,
     canPop:
         _relatedStack.isEmpty &&
+        !_autoInAppPip &&
         !isFullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait),

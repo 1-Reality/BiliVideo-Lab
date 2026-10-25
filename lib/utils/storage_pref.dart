@@ -1238,8 +1238,8 @@ abstract final class Pref {
   static bool get replyNoAutoPlay =>
       _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);
 
-  static bool get enableInAppPip =>
-      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
+  static bool get autoInAppPip =>
+      _setting.get(SettingBoxKey.autoInAppPip, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: true);

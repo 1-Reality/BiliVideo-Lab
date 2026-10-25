@@ -399,8 +399,6 @@ abstract final class GStorage {
       // opening links; hand links to the default browser from the start.
       if (Platform.isWindows || Platform.isLinux)
         SettingBoxKey.openInBrowser: true,
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
-        SettingBoxKey.enableInAppPip: true,
     });
   }
 
