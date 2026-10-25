@@ -261,7 +261,9 @@ jobs:
             if [ -z "$c" ]; then git -C "$r" fetch -q --unshallow origin 2>/dev/null || true; c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true); fi
             if [ -z "$c" ]; then echo "::error title=no commit before pin::$r"; exit 1; fi
             git -C "$r" -c advice.detachedHead=false checkout -q "$c"
-            git -C "$r" submodule update --init --recursive -q
+            # 不带 --init：只更新上游已经初始化过的子模块，与 update-repo.sh 的做法一致；
+            # 没初始化的（如 angle-headers 的 gles1_conform，需要内部账号）保持不动
+            git -C "$r" submodule update --recursive -q
             echo "pinned $r -> $(git -C "$r" log -1 --format='%h %cd' --date=short)"
           done < <(find src_packages -maxdepth 3 -name .git -prune -print)
           ninja -k 0 -C build_i686 mpv
