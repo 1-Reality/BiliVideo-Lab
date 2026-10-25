@@ -32,6 +32,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/services/pip_overlay_service.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -577,6 +578,8 @@ class PlPlayerController
       recordStats: recordStats,
     );
   }
+
+  static Player? get playerIfExists => _instance?._videoPlayerController;
 
   static double? getVolumeIfExists() {
     return _instance?.volume.value;
@@ -1805,6 +1808,7 @@ class PlPlayerController
       stream.playing.listen((bool playing) {
         PlaybackStatsService.updatePlaying(playing, player.state.position);
         if (playing) {
+          PlaybackFocus.onStart();
           playerStatus = .playing;
           _stopWakeLockTimer();
           _updatePlaybackState();
@@ -2139,8 +2143,6 @@ class PlPlayerController
 
     await _videoPlayerController?.play();
 
-    audioSessionHandler?.setActive(true);
-
     playerStatus = .playing;
   }
 
@@ -2150,9 +2152,7 @@ class PlPlayerController
     playerStatus = .paused;
 
     // 主动暂停时让出音频焦点
-    if (!isInterrupt) {
-      audioSessionHandler?.setActive(false);
-    }
+    if (!isInterrupt) PlaybackFocus.onStop();
   }
 
   bool tripling = false;

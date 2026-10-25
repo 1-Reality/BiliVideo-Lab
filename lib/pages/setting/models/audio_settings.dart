@@ -56,22 +56,11 @@ List<SettingsModel> get audioSettings => [
     needReboot: true,
   ),
   if (PlatformUtils.isMobile)
-    SwitchModel(
-      title: '后台音频服务',
-      subtitle: '避免画中画没有播放暂停功能',
-      leading: const Icon(Icons.volume_up_outlined),
-      setKey: SettingBoxKey.enableBackgroundPlay,
-      defaultVal: true,
-      onChanged: (value) =>
-          videoPlayerServiceHandler!.enableBackgroundPlay = value,
-    ),
-  if (PlatformUtils.isMobile)
-    const SwitchModel(
-      title: '后台播放',
-      subtitle: '进入后台时继续播放',
-      leading: Icon(Icons.motion_photos_pause_outlined),
-      setKey: SettingBoxKey.continuePlayInBackground,
-      defaultVal: false,
+    NormalModel(
+      title: '后台播放与声音',
+      subtitle: '后台音频服务；视频、听视频各自的后台与锁屏播放；与其他 App 的声音怎么相处；拔耳机',
+      leading: const Icon(Icons.motion_photos_pause_outlined),
+      onTap: (context, setState) => Get.toNamed('/backgroundSettings'),
     ),
   if (Platform.isAndroid) ...[
     SwitchModel(

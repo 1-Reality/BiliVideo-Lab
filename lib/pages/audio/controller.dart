@@ -32,6 +32,7 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart';
@@ -326,8 +327,9 @@ class AudioController extends GetxController
     return player?.play();
   }
 
-  Future<void>? onPause() {
-    return player?.pause();
+  Future<void> onPause() async {
+    await player?.pause();
+    PlaybackFocus.onStop();
   }
 
   Future<void>? onSeek(Duration duration) {
@@ -579,6 +581,7 @@ class AudioController extends GetxController
       stream.playing.listen((playing) {
         isPlayingRx.value = playing;
         if (playing) {
+          PlaybackFocus.onStart();
           animController.forward();
           _playerStatus = .playing;
           _stopStatusTimer();

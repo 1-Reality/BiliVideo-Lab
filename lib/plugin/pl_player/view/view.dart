@@ -52,6 +52,7 @@ import 'package:PiliBro/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/speed_panel.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -66,6 +67,7 @@ import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -359,16 +361,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       currentPlayer?.state.position ?? Duration.zero,
     );
     if (isBackground) unawaited(PlaybackStatsService.flush());
-    if (!plPlayerController.continuePlayInBackground.value) {
-      if (isBackground) {
-        if (currentPlayer != null && currentPlayer.state.playing) {
+    if (isBackground) {
+      if (currentPlayer != null && currentPlayer.state.playing) {
+        PlaybackFocus.keepInBackground(
+          plPlayerController.continuePlayInBackground.value,
+          Pref.lockPlayVideo,
+        ).then((keep) {
+          if (keep ||
+              !currentPlayer.state.playing ||
+              WidgetsBinding.instance.lifecycleState == .resumed) {
+            return;
+          }
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           currentPlayer.pause();
-        }
-      } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
-        _pauseDueToPauseUponEnteringBackgroundMode = false;
-        if (!recoverOutput) currentPlayer?.play();
+        });
       }
+    } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
+      _pauseDueToPauseUponEnteringBackgroundMode = false;
+      if (!recoverOutput) currentPlayer?.play();
     }
     if (recoverOutput) {
       // A fresh Player also creates a fresh Android SurfaceTexture. Merely

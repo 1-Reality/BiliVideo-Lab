@@ -9,6 +9,7 @@ import 'package:PiliBro/models/common/bar_hide_type.dart';
 import 'package:PiliBro/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
+import 'package:PiliBro/models/common/focus_reaction.dart';
 import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
 import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
@@ -1585,6 +1586,44 @@ abstract final class Pref {
 
   static bool get continuePlayInBackground =>
       _setting.get(SettingBoxKey.continuePlayInBackground, defaultValue: false);
+
+  // 后台播放与声音：都在事件发生时现读，改了立即生效
+  // 锁屏没单独设过时沿用后台播放，升级后行为不变
+  static bool get lockPlayVideo => _setting.get(
+    SettingBoxKey.lockPlayVideo,
+    defaultValue: continuePlayInBackground,
+  );
+
+  static bool get listenContinueOnExit =>
+      _setting.get(SettingBoxKey.listenContinueOnExit, defaultValue: true);
+
+  static bool get audioBackgroundPlay =>
+      _setting.get(SettingBoxKey.audioBackgroundPlay, defaultValue: true);
+
+  static bool get audioLockPlay =>
+      _setting.get(SettingBoxKey.audioLockPlay, defaultValue: true);
+
+  static bool get audioContinueOnLeave =>
+      _setting.get(SettingBoxKey.audioContinueOnLeave, defaultValue: true);
+
+  static bool get focusTakeover =>
+      _setting.get(SettingBoxKey.focusTakeover, defaultValue: true);
+
+  static FocusReaction get focusOnDuck => FocusReaction.values[_setting.get(
+    SettingBoxKey.focusOnDuck,
+    defaultValue: FocusReaction.duck.index,
+  )];
+
+  static FocusReaction get focusOnLoss => FocusReaction.values[_setting.get(
+    SettingBoxKey.focusOnLoss,
+    defaultValue: FocusReaction.pause.index,
+  )];
+
+  static int get duckPercent =>
+      _setting.get(SettingBoxKey.duckPercent, defaultValue: 50);
+
+  static bool get pauseOnNoisy =>
+      _setting.get(SettingBoxKey.pauseOnNoisy, defaultValue: true);
 
   static bool get directExitOnBack =>
       _setting.get(SettingBoxKey.directExitOnBack, defaultValue: false);

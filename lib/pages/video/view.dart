@@ -506,7 +506,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         !videoDetailController.isFileSource &&
         !playerController.isCloseAll &&
         playerController.onlyPlayAudio.value &&
-        plPlayerController != null;
+        plPlayerController != null &&
+        Pref.listenContinueOnExit;
     final listenAid = videoDetailController.aid;
     final listenCid = videoDetailController.cid.value;
     final listenProgress = videoDetailController.playedTime;
