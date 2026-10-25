@@ -328,6 +328,9 @@ jobs:
       - name: Failure annotations (disk, failing targets, build log tail)
         if: failure()
         run: |
+          # 诊断步骤不能因为自己的子命令失败而退出：不设 -e，并标出每一段
+          set +e
+          echo "::notice title=diag::start"
           df -h / | tail -1 | awk '{print "::notice title=disk::"$0}'
           if [ -f "$GITHUB_WORKSPACE/mpv-build.log" ]; then
             grep -E "FAILED:|ninja: build stopped|No space|ENOSPC|Killed|Terminated|error:" "$GITHUB_WORKSPACE/mpv-build.log" | head -20 | sed -e 's/%/%25/g' | awk '{print "::error title=failing line::"$0}'
@@ -336,6 +339,7 @@ jobs:
           else
             echo "::error title=mpv-build.log::missing"
           fi
+          echo "::notice title=diag::per-package section"
           # 只看 FAILED 行里出现的包：它们的 build/configure 日志里的错误行
           pkgs=$(grep -oE 'packages/[A-Za-z0-9_.+-]+-prefix/' "$GITHUB_WORKSPACE/mpv-build.log" 2>/dev/null | sed -E 's#^packages/(.*)-prefix/$#\1#' | sort -u)
           for n in $pkgs; do
