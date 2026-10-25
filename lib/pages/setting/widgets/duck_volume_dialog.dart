@@ -512,7 +512,6 @@ class _ClaudeFlower extends StatelessWidget {
   });
 
   static const _asset = 'assets/images/claude_ai_symbol.svg';
-  static const _claudeOrange = Color(0xFFD97757);
 
   final _Scene scene;
   final ColorScheme colors;
@@ -547,7 +546,7 @@ class _ClaudeFlower extends StatelessWidget {
                     child: SvgPicture.asset(
                       _asset,
                       colorFilter: ColorFilter.mode(
-                        _claudeOrange,
+                        const Color(0xFFD97757),
                         BlendMode.srcIn,
                       ),
                     ),
@@ -561,7 +560,7 @@ class _ClaudeFlower extends StatelessWidget {
                       child: SvgPicture.asset(
                         _asset,
                         colorFilter: ColorFilter.mode(
-                          _claudeOrange.withValues(
+                          const Color(0xFFD97757).withValues(
                             alpha: 0.25 + 0.75 * fraction,
                           ),
                           BlendMode.srcIn,
