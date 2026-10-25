@@ -22,7 +22,7 @@ Package.resolved
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
-.vscode/
+.vscode/*
 
 # Flutter repo-specific
 /bin/cache/
@@ -139,6 +139,7 @@ app.*.symbols
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
+!.vscode/*.svg
 
 devtools_options.yaml
 
