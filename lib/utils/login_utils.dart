@@ -99,7 +99,6 @@ abstract final class LoginUtils {
 
   /// 不读设备标识，按官方「以上都拿不到时」的随机 UUID 规则生成：XW + 大写 md5
   static String generateBuvid() {
-    freshBuvid = true;
     final md5Str = Digest(
       List.generate(16, (_) => Utils.random.nextInt(256)),
     ).toString().toUpperCase();

@@ -1657,6 +1657,7 @@ abstract final class Pref {
     String? buvid = _localCache.get(LocalCacheKey.buvid);
     if (buvid == null) {
       buvid = LoginUtils.generateBuvid();
+      LoginUtils.freshBuvid = true;
       _localCache.put(LocalCacheKey.buvid, buvid);
     }
     return buvid;

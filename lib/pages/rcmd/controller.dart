@@ -100,11 +100,11 @@ class RcmdController extends CommonListController {
     }
   }
 
-  /// 重新选择兴趣：存过兴趣卡片就当场弹，带着结果重刷 App 推荐；
-  /// 没存过就清掉已完成标记，等服务端下次下发再弹
-  static void redoInterest() {
+  /// 重新选择兴趣：以新设备、未登录的身份请求一次推荐，拿新用户才有的兴趣选择
+  /// 当场弹，选完带着结果用自己的身份重刷 App 推荐；拿不到就用存过的那份。
+  /// 已完成标记先清掉，之后服务端再下发时还会再问
+  static Future<void> redoInterest() async {
     GStorage.setting.put(SettingBoxKey.rcmdInterestDone, false);
-    final choose = GStorage.localCache.get(LocalCacheKey.rcmdInterestChoose);
     final controller = Get.isRegistered<RcmdController>()
         ? Get.find<RcmdController>()
         : null;
@@ -112,13 +112,32 @@ class RcmdController extends CommonListController {
         .map((feed) => feed.cursor)
         .nonNulls
         .firstOrNull;
-    if (choose is! Map || controller == null || cursor == null) {
+    if (controller == null || cursor == null) {
       SmartDialog.showToast(
-        cursor == null && controller != null
-            ? '兴趣偏好只对 App 推荐生效，请先勾选手机或平板推荐'
-            : '已重置，下次 App 推荐下发兴趣选择时会弹出',
+        controller == null
+            ? '已重置，下次 App 推荐下发兴趣选择时会弹出'
+            : '兴趣偏好只对 App 推荐生效，请先勾选手机或平板推荐',
       );
       return;
+    }
+    SmartDialog.showLoading(msg: '获取兴趣选择');
+    final probe = RcmdAppCursor(cursor.app);
+    await VideoHttp.rcmdVideoListApp(
+      probe,
+      refresh: true,
+      keepOld: false,
+      newDevice: true,
+    );
+    SmartDialog.dismiss();
+    final choose =
+        probe.interestChoose ??
+        GStorage.localCache.get(LocalCacheKey.rcmdInterestChoose);
+    if (choose is! Map) {
+      SmartDialog.showToast('没拿到兴趣选择，已重置，下次 App 推荐下发时会弹出');
+      return;
+    }
+    if (probe.interestChoose != null) {
+      GStorage.localCache.put(LocalCacheKey.rcmdInterestChoose, choose);
     }
     controller._askInterest(cursor, Map<String, dynamic>.from(choose));
   }

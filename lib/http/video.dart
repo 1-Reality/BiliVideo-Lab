@@ -35,6 +35,7 @@ import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/id_utils.dart';
+import 'package:PiliBro/utils/login_utils.dart';
 import 'package:PiliBro/utils/recommend_filter.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -101,13 +102,26 @@ abstract final class VideoHttp {
     return null;
   }
 
+  /// 一台新设备的标识：新的 buvid 和对应指纹，不带本机的 ticket 与 guestid
+  static Map<String, String> _newDevice() {
+    final buvid = LoginUtils.generateBuvid();
+    final fp = BiliDevice.genFp(buvid);
+    return {
+      'buvid': buvid,
+      'fp_local': fp,
+      'fp_remote': fp,
+      'x-bili-trace-id': BiliDevice.traceId(),
+    };
+  }
+
   /// 推荐流相关的 App 请求：自己签名、自己带身份，不走拦截器的账号逻辑
   static Future<Response> _rcmdAppGet(
     String url,
     Map<String, dynamic> params,
     BiliApp app,
-    (LoginAccount, String)? identity,
-  ) {
+    (LoginAccount, String)? identity, {
+    Map<String, String>? device,
+  }) {
     params.addAll(app.commonParams);
     if (identity != null) params['access_key'] = identity.$2;
     AppSign.appSign(params, app);
@@ -117,18 +131,20 @@ abstract final class VideoHttp {
       options: Options(
         headers: {
           ...BiliDevice.appHeaders(app, identity?.$1.mid ?? 0),
-          ...BiliSession.dynamicHeaders,
+          ...device ?? BiliSession.dynamicHeaders,
         },
         extra: {'account': const NoAccount()},
       ),
     );
   }
 
-  /// [refresh] 为下拉刷新或首屏，[keepOld] 为刷新后保留旧内容（新内容插在顶部）
+  /// [refresh] 为下拉刷新或首屏，[keepOld] 为刷新后保留旧内容（新内容插在顶部）。
+  /// [newDevice] 以一台从没用过的设备、未登录的身份请求，用来拿新用户才有的兴趣选择
   static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp(
     RcmdAppCursor cursor, {
     required bool refresh,
     required bool keepOld,
+    bool newDevice = false,
   }) async {
     if (refresh) {
       cursor.flush = 0;
@@ -140,7 +156,7 @@ abstract final class VideoHttp {
     }
     final cold = cursor.cold;
     final app = cursor.app;
-    final identity = rcmdIdentity(app);
+    final identity = newDevice ? null : rcmdIdentity(app);
     final res = await _rcmdAppGet(Api.recommendListApp, {
       'auto_refresh_state': 1,
       'autoplay_card': 11,
@@ -184,7 +200,7 @@ abstract final class VideoHttp {
       'voice_balance': 1,
       'volume_balance': 1,
       ...?cursor.interest,
-    }, app, identity);
+    }, app, identity, device: newDevice ? _newDevice() : null);
     cursor.interest = null;
     if (res.data['code'] == 0) {
       cursor.cold = false;
