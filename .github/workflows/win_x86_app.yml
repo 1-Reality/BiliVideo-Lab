@@ -322,6 +322,12 @@ jobs:
           if ($alive) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           if (-not $alive) { throw "pilibro.exe exited (exit $($p.ExitCode)) after ${elapsed}s" }
           if (-not $seen) { throw "pilibro.exe is alive after ${elapsed}s but has no visible window" }
+          # 红屏（断言开启时的 Bad state / 释放模式下的调试辅助函数）出现在输出里就算失败
+          $bad = @()
+          foreach ($f in 'app-stdout.txt','app-stderr.txt','smoke.txt') {
+            if (Test-Path $f) { $bad += Select-String -Path $f -Pattern 'Bad state|was called in Release mode|Another exception was thrown' }
+          }
+          if ($bad) { throw "red-screen markers in app output: $(($bad | ForEach-Object { $_.Line.Trim() }) -join ' | ')" }
 
       - id: pack
         name: Pack the portable 7z (not published; artifact only)
