@@ -485,19 +485,20 @@ class _ScenePainter extends CustomPainter {
       oldDelegate.colors != colors || oldDelegate.textStyle != textStyle;
 }
 
-const _claudePetalAngles = <double>[
-  279.75,
-  310.75,
-  351.25,
-  373.75,
-  401.75,
-  417.25,
-  452.75,
-  484.25,
-  506.75,
-  541.25,
-  573.75,
-  604.25,
+const _claudePetalEdges = <double>[
+  271.8,
+  297.8,
+  341.4,
+  364.7,
+  386.9,
+  408.3,
+  433.9,
+  460.4,
+  488.1,
+  518.8,
+  548.5,
+  590.3,
+  631.8,
 ];
 
 class _ClaudeFlower extends StatelessWidget {
@@ -531,8 +532,8 @@ class _ClaudeFlower extends StatelessWidget {
           AnimatedBuilder(
             animation: scene,
             builder: (context, _) {
-              final open = (scene.shown / 100 * _claudePetalAngles.length)
-                  .clamp(0.0, _claudePetalAngles.length.toDouble());
+              final open = (scene.shown / 100 * (_claudePetalEdges.length - 1))
+                  .clamp(0.0, (_claudePetalEdges.length - 1).toDouble());
               final fraction = open - open.floor();
               return Stack(
                 fit: StackFit.expand,
@@ -581,7 +582,7 @@ class _ClaudePetalClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    final shown = open.clamp(0.0, _claudePetalAngles.length.toDouble());
+    final shown = open.clamp(0.0, (_claudePetalEdges.length - 1).toDouble());
     final fullCount = shown.floor();
     final fraction = shown - fullCount;
     final center = size.center(Offset.zero);
@@ -590,7 +591,7 @@ class _ClaudePetalClipper extends CustomClipper<Path> {
     final path = Path();
 
     if (partialOnly) {
-      if (fraction > 0 && fullCount < _claudePetalAngles.length) {
+      if (fraction > 0 && fullCount < (_claudePetalEdges.length - 1)) {
         _addPetalSector(
           path,
           size,
@@ -617,14 +618,8 @@ class _ClaudePetalClipper extends CustomClipper<Path> {
     double innerRadius,
     double outerRadius,
   ) {
-    final angles = _claudePetalAngles;
-    final current = angles[index];
-    final previous = index == 0 ? angles.last - 360 : angles[index - 1];
-    final next = index == angles.length - 1
-        ? angles.first + 360
-        : angles[index + 1];
-    var start = (previous + current) / 2;
-    var end = (current + next) / 2;
+    var start = _claudePetalEdges[index];
+    var end = _claudePetalEdges[index + 1];
     if (partialOnly) {
       end = start + (end - start) * (open - open.floor());
     }
