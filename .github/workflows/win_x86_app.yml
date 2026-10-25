@@ -333,7 +333,8 @@ jobs:
           foreach ($root in @("$env:USERPROFILE\Documents", "$env:APPDATA", "$env:LOCALAPPDATA")) {
             if (-not (Test-Path $root)) { continue }
             Get-ChildItem $root -Recurse -File -Include *.log,*.txt -ErrorAction SilentlyContinue |
-              Where-Object { $_.LastWriteTime -gt $since -and $_.Length -lt 5MB } | Select-Object -First 5 | ForEach-Object {
+              # 内置浏览器（WebView2）的 .log 是 leveldb 二进制，打印出来是乱码，跳过
+              Where-Object { $_.LastWriteTime -gt $since -and $_.Length -lt 5MB -and $_.FullName -notlike '*\EBWebView\*' } | Select-Object -First 5 | ForEach-Object {
                 "== $($_.FullName) ($($_.Length) bytes)" | Tee-Object -Append smoke.txt
                 Get-Content $_.FullName -Tail 40 -ErrorAction SilentlyContinue | Tee-Object -Append smoke.txt
               }
