@@ -10,6 +10,13 @@ on:
       build_number:
         type: string
         default: "0"
+      # 发行仓跨仓调用本工作流时用 7z 和 release-* 工件名
+      archive:
+        type: string
+        default: rar
+      artifact:
+        type: string
+        default: Windows-file-x86-release
   workflow_dispatch:
 
 permissions:
@@ -152,7 +159,7 @@ jobs:
           $ver = (Select-String -Path pubspec.yaml -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
           $tag = "engine-win-x86-jit-$ver"
           New-Item -ItemType Directory -Force engine86-dl | Out-Null
-          gh release download $tag -R $env:GITHUB_REPOSITORY -p "$tag.7z" -D engine86-dl
+          gh release download $tag -R 1-Reality/BiliVideo-Lab -p "$tag.7z" -D engine86-dl
           7z x -y -oengine86 "engine86-dl\$tag.7z" flutter_windows.dll flutter_windows.dll.lib icudtl.dat | Out-Null
           foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
             if (-not (Test-Path "engine86\$f")) { throw "missing $f in $tag" }
@@ -343,25 +350,33 @@ jobs:
 
       - id: pack
         # 本仓库 32 位发 rar、64 位发 7z；发行仓反过来（64 位 rar，32 位 7z），App 检查更新按发行仓的约定挑
-        name: Pack the portable rar
+        name: Pack the portable archive
         shell: pwsh
+        env:
+          ARCHIVE: ${{ inputs.archive || 'rar' }}
         run: |
           $ErrorActionPreference = 'Stop'
-          choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
-          $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
-          $name = "PiliBro_windows_${env:version}_x86_portable.rar"
+          $name = "PiliBro_windows_${env:version}_x86_portable.$env:ARCHIVE"
           # 附带英文 README 和 Win7 说明，放在包的根目录
-          & $rar a -ep1 -ma5 -m5 -s -md512m -r $name 'build32\runner\Release\*' 'windows\packaging\win32\*'
-          if ($LASTEXITCODE -ne 0) { throw "rar failed ($LASTEXITCODE)" }
+          $items = 'build32\runner\Release\*', 'windows\packaging\win32\*'
+          if ($env:ARCHIVE -eq '7z') {
+            # 最高压缩、固实
+            7z a -t7z -m0=lzma2 -mx=9 -mfb=273 -md=512m -ms=on $name @items
+          } else {
+            choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
+            $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
+            & $rar a -ep1 -ma5 -m5 -s -md512m -r $name @items
+          }
+          if ($LASTEXITCODE -ne 0) { throw "$env:ARCHIVE failed ($LASTEXITCODE)" }
           Get-Item $name | Format-Table Name, Length
 
       # Build 的发布步骤会收走本次运行的全部工件，所以这里只放安装包
-      - name: Upload portable rar
+      - name: Upload portable archive
         uses: actions/upload-artifact@v7
         with:
-          name: Windows-file-x86-release
-          path: PiliBro_windows_*_x86_portable.rar
+          name: ${{ inputs.artifact || 'Windows-file-x86-release' }}
+          path: PiliBro_windows_*_x86_portable.*
           if-no-files-found: error
 
       - name: Upload screenshot and smoke logs
