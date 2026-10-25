@@ -245,6 +245,7 @@ jobs:
         timeout-minutes: 330
         run: |
           set -e
+          exec > >(tee -a "$GITHUB_WORKSPACE/mpv-build.log") 2>&1
           cmake -DTARGET_ARCH=i686-w64-mingw32 -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_i686/i686-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -DENABLE_CCACHE=ON -DCLANG_PACKAGES_LTO=ON -G Ninja --fresh -B build_i686 -S $PWD
           ninja -C build_i686 download || true
           ninja -C build_i686 update
@@ -318,12 +319,17 @@ jobs:
           path: upstream/clang_root
           key: ${{ env.CACHE_PREFIX }}-mpv-clang-root-${{ github.run_id }}
 
-      - name: Failure annotations (recent logs)
+      - name: Failure annotations (disk, failing targets, build log tail)
         if: failure()
         run: |
-          for f in $(find . -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -3 | cut -d' ' -f2-); do
-            echo "::error title=$f::$(tail -n 40 "$f" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')"
-          done
+          df -h / | tail -1 | awk '{print "::notice title=disk::"$0}'
+          if [ -f "$GITHUB_WORKSPACE/mpv-build.log" ]; then
+            grep -E "FAILED:|ninja: build stopped|No space|ENOSPC|Killed|Terminated|error:" "$GITHUB_WORKSPACE/mpv-build.log" | head -20 | sed -e 's/%/%25/g' | awk '{print "::error title=failing line::"$0}'
+            tail_txt=$(tail -n 60 "$GITHUB_WORKSPACE/mpv-build.log" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}')
+            echo "::error title=mpv-build.log tail::$tail_txt"
+          else
+            echo "::error title=mpv-build.log::missing"
+          fi
 
   publish:
     name: Publish to our release
