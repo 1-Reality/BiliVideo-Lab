@@ -1,7 +1,6 @@
-name: Windows x86 app (PiliBro portable, staged)
+name: Windows x86 app (PiliBro portable)
 
-# 第二阶段：用 32 位引擎打出能运行的便携包。引擎与 ANGLE 直接从 Release 下载，不在这里重编。
-# 按块推进：每个块验证通过后再接下一块。
+# 用 32 位引擎打便携包。引擎与 ANGLE 直接从 Release 下载，不在这里重编。
 on:
   workflow_dispatch:
   # 本文件还没在默认分支上，workflow_dispatch 只能在默认分支的工作流上用；先靠推送本分支触发
@@ -14,7 +13,7 @@ permissions:
 
 jobs:
   kernel:
-    # 块 1：kernel_blob.bin。kernel 与 CPU 位数无关，在 x64 机器上用 product 平台 dill 编。
+    # kernel 与 CPU 位数无关，在 x64 机器上用 product 平台 dill 编。
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
@@ -46,7 +45,8 @@ jobs:
         run: flutter precache --windows
 
       - id: debug
-        name: Official x64 debug build (sanity check of the same toolchain; not used for the kernel)
+        # 只用它生成的 .dart_tool（package_config、dart_plugin_registrant），kernel 步骤依赖这两样
+        name: x64 debug build (generates the plugin registrant used by the kernel step)
         shell: pwsh
         run: flutter build windows --debug -v 2>&1 | Tee-Object flutter-debug-build.log
 
@@ -330,7 +330,7 @@ jobs:
           if ($bad) { throw "red-screen markers in app output: $(($bad | ForEach-Object { $_.Line.Trim() }) -join ' | ')" }
 
       - id: pack
-        name: Pack the portable 7z (not published; artifact only)
+        name: Pack the portable 7z
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -344,7 +344,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: app-x86-portable-block4
+          name: app-x86-portable
           path: |
             PiliBro_windows_x86_portable.7z
             smoke.png
@@ -352,15 +352,6 @@ jobs:
             app-stdout.txt
             app-stderr.txt
             architecture.txt
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload 32-bit stage
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-x86-stage-block2
-          path: build32/runner/Release
           if-no-files-found: warn
           retention-days: 14
 
@@ -402,14 +393,12 @@ jobs:
             } else { Emit "$f" @("(missing)") }
           }
 
-      - name: Upload kernel and logs
-        if: always()
+      - name: Upload logs on failure
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: app-kernel-block1
+          name: app-x86-logs
           path: |
-            kernel/kernel_blob.bin
-            kernel/app.dill
             kernel-command.txt
             kernel-build.log
             kernel-error.txt
