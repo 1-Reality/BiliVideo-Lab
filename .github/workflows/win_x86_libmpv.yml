@@ -20,6 +20,9 @@ env:
   UPSTREAM_REF: "0694931"
   MPV_PIN: "e7191f2a65"
   CACHE_PREFIX: "libmpv-i686-v1"
+  # mpv 任务的缓存用 v2：依赖改成按日期钉之后，旧的 checkout 与新源码不能混用。工具链缓存仍用 CACHE_PREFIX，不重编 LLVM
+  MPV_CACHE: "libmpv-i686-v2"
+  PIN_DATE: "2026-08-19 23:59"
   RELEASE_TAG: "libmpv-win-x86-20260819"
   PACKAGE_NAME: "mpv-dev-i686-20260819-git-e7191f2a65.7z"
 
@@ -171,27 +174,21 @@ jobs:
           git -c advice.detachedHead=false checkout -q "$UPSTREAM_REF"
           git log --oneline -1
 
-      - name: Pin mpv to e7191f2a65 and apply CI build adjustments (temporary copy inside this job)
+      - name: Pin mpv to e7191f2a65 (temporary copy inside this job)
         run: |
           set -e
           n=$(grep -c 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake)
           [ "$n" = "1" ] || { echo "expected one GIT_REPOSITORY line, found $n"; exit 1; }
           sed -i "/GIT_REPOSITORY https:\/\/github.com\/mpv-player\/mpv.git/a\    GIT_TAG ${MPV_PIN}" packages/mpv.cmake
           grep -n -A1 'GIT_REPOSITORY https://github.com/mpv-player/mpv.git' packages/mpv.cmake
-          # curl 的 libssh 后端（只用于 SFTP/SCP）与今天拉到的 libssh 不兼容（ssh_scp 类型已不存在）；
-          # 视频播放只走 HTTP(S)，这里关掉它。这是相对上游的偏差，报告里要写明。
-          n2=$(grep -c -- '-DCURL_USE_LIBSSH=ON' packages/curl.cmake)
-          [ "$n2" = "1" ] || { echo "expected one -DCURL_USE_LIBSSH=ON, found $n2"; exit 1; }
-          sed -i 's/-DCURL_USE_LIBSSH=ON/-DCURL_USE_LIBSSH=OFF/' packages/curl.cmake
-          grep -n 'CURL_USE_LIBSSH' packages/curl.cmake
 
       - name: Restore clang root
         uses: actions/cache/restore@v4
         with:
           path: upstream/clang_root
-          key: ${{ env.CACHE_PREFIX }}-mpv-clang-root-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-mpv-clang-root-${{ github.run_id }}
           restore-keys: |
-            ${{ env.CACHE_PREFIX }}-mpv-clang-root-
+            ${{ env.MPV_CACHE }}-mpv-clang-root-
             ${{ env.CACHE_PREFIX }}-toolchain-clang-root-
 
       - id: restore_build
@@ -199,9 +196,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: upstream/build_i686
-          key: ${{ env.CACHE_PREFIX }}-mpv-build-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-mpv-build-${{ github.run_id }}
           restore-keys: |
-            ${{ env.CACHE_PREFIX }}-mpv-build-
+            ${{ env.MPV_CACHE }}-mpv-build-
             ${{ env.CACHE_PREFIX }}-toolchain-build-
 
       - name: Discard a restored build dir that lacks the mingw runtime (poisoned by an earlier failed run)
@@ -243,9 +240,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: upstream/src_packages
-          key: ${{ env.CACHE_PREFIX }}-src-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-src-${{ github.run_id }}
           restore-keys: |
-            ${{ env.CACHE_PREFIX }}-src-
+            ${{ env.MPV_CACHE }}-src-
 
       - name: Build mpv (one step so the timeout still leaves time to save)
         timeout-minutes: 330
@@ -255,8 +252,34 @@ jobs:
           cmake -DTARGET_ARCH=i686-w64-mingw32 -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_i686/i686-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -DENABLE_CCACHE=ON -DCLANG_PACKAGES_LTO=ON -G Ninja --fresh -B build_i686 -S $PWD
           ninja -C build_i686 download || true
           ninja -C build_i686 update
+          # 依赖按日期钉：每个 git 仓库回到 PIN_DATE 当时的提交，再拉子模块。
+          # 找不到提交时先补拉历史（浅克隆），还找不到就失败，不回退到 HEAD。
+          while read -r g; do
+            r=$(dirname "$g")
+            c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true)
+            if [ -z "$c" ]; then git -C "$r" fetch -q --shallow-since=2026-07-01 origin 2>/dev/null || true; c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true); fi
+            if [ -z "$c" ]; then git -C "$r" fetch -q --unshallow origin 2>/dev/null || true; c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true); fi
+            if [ -z "$c" ]; then echo "::error title=no commit before pin::$r"; exit 1; fi
+            git -C "$r" -c advice.detachedHead=false checkout -q "$c"
+            git -C "$r" submodule update --init --recursive -q
+            echo "pinned $r -> $(git -C "$r" log -1 --format='%h %cd' --date=short)"
+          done < <(find src_packages -maxdepth 3 -name .git -prune -print)
           ninja -k 0 -C build_i686 mpv
           ninja -C build_i686 mpv-packaging
+
+      - name: Check pinned source dates after the build (fail if a package moved past the pin)
+        if: always()
+        run: |
+          limit=$(date -u -d "$PIN_DATE" +%s)
+          bad=0
+          while read -r g; do
+            r=$(dirname "$g")
+            ct=$(git -C "$r" log -1 --format=%ct 2>/dev/null || echo 0)
+            line=$(git -C "$r" log -1 --format='%h %cd' --date=short 2>/dev/null || echo unknown)
+            echo "::notice title=pin check::$r $line"
+            if [ "$ct" -gt "$limit" ]; then echo "::error title=moved after pin::$r $line"; bad=1; fi
+          done < <(find src_packages -maxdepth 3 -name .git -prune -print)
+          exit $bad
 
       - name: Collect mpv-dev package
         run: |
@@ -309,21 +332,21 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: upstream/src_packages
-          key: ${{ env.CACHE_PREFIX }}-src-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-src-${{ github.run_id }}
 
       - name: Save i686 build dir (ccache included; only when the mingw runtime is present, so no poisoned cache)
         if: ${{ always() && hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') != '' }}
         uses: actions/cache/save@v4
         with:
           path: upstream/build_i686
-          key: ${{ env.CACHE_PREFIX }}-mpv-build-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-mpv-build-${{ github.run_id }}
 
       - name: Save clang root
         if: always()
         uses: actions/cache/save@v4
         with:
           path: upstream/clang_root
-          key: ${{ env.CACHE_PREFIX }}-mpv-clang-root-${{ github.run_id }}
+          key: ${{ env.MPV_CACHE }}-mpv-clang-root-${{ github.run_id }}
 
       - name: Failure annotations (disk, failing targets, build log tail)
         if: failure()
