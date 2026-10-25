@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/scheduler.dart' show Ticker;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -154,12 +155,30 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
                 );
                 return GestureDetector(
                   onVerticalDragUpdate: _onDrag,
-                  child: CustomPaint(
-                    size: _sceneSize,
-                    painter: _ScenePainter(
-                      scene: _scene,
-                      colors: colors,
-                      textStyle: theme.textTheme.bodySmall!,
+                  child: SizedBox(
+                    width: _sceneSize.width,
+                    height: _sceneSize.height,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _ScenePainter(
+                              scene: _scene,
+                              colors: colors,
+                              textStyle: theme.textTheme.bodySmall!,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 4,
+                          top: 4,
+                          child: _ClaudeFlower(
+                            scene: _scene,
+                            colors: colors,
+                            size: math.min(54, _sceneSize.height * 0.2),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -328,7 +347,6 @@ class _ScenePainter extends CustomPainter {
 
     _paintGlass(canvas, size, geo);
     _paintNavigator(canvas, geo);
-    _paintFlower(canvas, size);
 
     final dropPaint = Paint()..color = colors.primary.withValues(alpha: 0.7);
     for (final drop in drops) {
@@ -364,36 +382,99 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
-  // 左上角 Claude 风格的放射花，开几瓣就是几成音量，半成的那瓣半透明
-  void _paintFlower(Canvas canvas, Size size) {
-    const petals = 12;
-    final radius = math.min(26.0, size.height * 0.1);
-    final center = Offset(radius + 4, radius + 4);
-    final open = shown / 100 * petals;
-    final petal = Path()
-      ..moveTo(-radius * 0.11, -radius * 0.18)
-      ..lineTo(-radius * 0.16, -radius * 0.72)
-      ..lineTo(0, -radius * 0.95)
-      ..lineTo(radius * 0.16, -radius * 0.72)
-      ..lineTo(radius * 0.11, -radius * 0.18)
-      ..close();
-    canvas
-      ..save()
-      ..translate(center.dx, center.dy);
-    for (var i = 0; i < petals; i++) {
-      final fill = (open - i).clamp(0.0, 1.0);
-      canvas
-        ..drawPath(
-          petal,
-          Paint()
-            ..color = fill > 0
-                ? colors.secondary.withValues(alpha: 0.25 + 0.75 * fill)
-                : colors.outlineVariant.withValues(alpha: 0.5),
-        )
-        ..rotate(2 * math.pi / petals);
-    }
-    canvas.restore();
+class _ClaudeFlower extends StatelessWidget {
+  const _ClaudeFlower({
+    required this.scene,
+    required this.colors,
+    required this.size,
+  });
+
+  static const _asset = 'assets/images/claude_ai_symbol.svg';
+  static const _angles = <double>[
+    279.75,
+    310.75,
+    351.25,
+    13.75,
+    41.75,
+    57.25,
+    92.75,
+    124.25,
+    146.75,
+    181.25,
+    213.75,
+    244.25,
+  ];
+
+  final _Scene scene;
+  final ColorScheme colors;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: scene,
+      builder: (context, _) {
+        final open = scene.shown / 100 * _angles.length;
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              SvgPicture.asset(
+                _asset,
+                colorFilter: ColorFilter.mode(
+                  colors.outlineVariant.withValues(alpha: 0.5),
+                  BlendMode.srcIn,
+                ),
+              ),
+              for (var i = 0; i < _angles.length; i++)
+                if (open - i > 0)
+                  ClipPath(
+                    clipper: _ClaudePetalClipper(_angles[i]),
+                    child: SvgPicture.asset(
+                      _asset,
+                      colorFilter: ColorFilter.mode(
+                        colors.secondary.withValues(
+                          alpha: 0.25 + 0.75 * (open - i).clamp(0.0, 1.0),
+                        ),
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        );
+      },
+    );
   }
+}
+
+class _ClaudePetalClipper extends CustomClipper<Path> {
+  _ClaudePetalClipper(this.angle);
+
+  final double angle;
+
+  @override
+  Path getClip(Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.width * 1.5;
+    const halfAngle = 9 * math.pi / 180;
+    final mid = angle * math.pi / 180;
+    final path = Path()..moveTo(center.dx, center.dy);
+    for (var i = 0; i <= 8; i++) {
+      final a = mid - halfAngle + (halfAngle * 2) * i / 8;
+      path.lineTo(
+        center.dx + radius * math.cos(a),
+        center.dy + radius * math.sin(a),
+      );
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_ClaudePetalClipper oldClipper) => oldClipper.angle != angle;
+}
 
   // 杯子随板倾斜，水面始终水平
   void _paintGlass(Canvas canvas, Size size, _Geo geo) {
