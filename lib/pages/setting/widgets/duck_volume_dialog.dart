@@ -46,11 +46,9 @@ class _Scene extends ChangeNotifier {
 
 class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
     with SingleTickerProviderStateMixin {
-  static const _min = 5;
-  static const _max = 95;
   static const _cups = [15, 30, 50, 70, 90];
 
-  late int _percent = widget.initial.clamp(_min, _max);
+  late int _percent = widget.initial;
   // 拖动时的连续值，落到 15 格里的某一格才改 _percent
   late double _dragValue = _percent.toDouble();
   // 画面上的值追着 _percent 缓动
@@ -108,7 +106,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
   }
 
   void _set(int value) {
-    final next = value.clamp(_min, _max);
+    final next = value.clamp(0, 100);
     if (next == _percent) return;
     HapticFeedback.selectionClick();
     setState(() {
@@ -120,7 +118,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
   void _onDrag(DragUpdateDetails details) {
     // 往下拖压低我们这边
     final delta = details.delta.dy / _sceneSize.height * 120;
-    _dragValue = (_dragValue - delta).clamp(_min.toDouble(), _max.toDouble());
+    _dragValue = (_dragValue - delta).clamp(0.0, 100.0);
     _set(((_dragValue * 15 / 100).round() * 100 / 15).round());
   }
 
@@ -232,7 +230,8 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
               children: [
                 TextButton(onPressed: Get.back, child: const Text('取消')),
                 TextButton(
-                  onPressed: () => Get.back(result: _percent),
+                  // 0 等于静音、100 等于没压低，存的时候收到 1 和 99
+                  onPressed: () => Get.back(result: _percent.clamp(1, 99)),
                   child: const Text('确定'),
                 ),
               ],
