@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart';
 /// 「压低到」：别人说话时我们让一让。
 /// 显示：跷跷板左边是我们的一杯水，水位就是音量；右边是正在播报的导航，
 /// 我们压得越低，它的气泡越大；背景弹幕的条数和浓淡也跟着音量走；水位下降时杯口往外洒水；
-/// 左边一朵十瓣花，开几瓣就是几成。
+/// 左上角一朵放射花，开几瓣就是几成。
 /// 调节和显示分开：拖跷跷板细调，点下面的杯子选档，按加减号 5% 微调
 Future<int?> showDuckVolumeDialog(BuildContext context, int initial) =>
     showDialog<int>(
@@ -32,6 +32,17 @@ class _Drop {
   Offset velocity;
 }
 
+/// 画面状态。每帧只通知画布重画，不重建对话框里的其他部件
+class _Scene extends ChangeNotifier {
+  _Scene(this.shown);
+
+  double shown;
+  double time = 0;
+  final drops = <_Drop>[];
+
+  void repaint() => notifyListeners();
+}
+
 class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
     with SingleTickerProviderStateMixin {
   static const _min = 5;
@@ -41,14 +52,12 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
   late int _percent = widget.initial.clamp(_min, _max);
   // 拖动时的连续值，落到 5 的倍数才改 _percent
   late double _dragValue = _percent.toDouble();
-  // 画面上的值，追着 _percent 缓动
-  late double _shown = _percent.toDouble();
+  // 画面上的值追着 _percent 缓动
+  late final _scene = _Scene(_percent.toDouble());
 
   late final Ticker _ticker = createTicker(_tick);
   Duration _last = Duration.zero;
-  double _time = 0;
-  Size _scene = Size.zero;
-  final _drops = <_Drop>[];
+  Size _sceneSize = Size.zero;
   final _random = math.Random();
 
   @override
@@ -60,6 +69,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
   @override
   void dispose() {
     _ticker.dispose();
+    _scene.dispose();
     super.dispose();
   }
 
@@ -67,13 +77,13 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
     final dt = (elapsed - _last).inMicroseconds / 1e6;
     _last = elapsed;
     if (dt <= 0 || dt > 0.1) return;
-    _time += dt;
-    final diff = _percent - _shown;
-    if (diff < -0.5 && _scene != Size.zero) {
-      final geo = _Geo(_scene, _shown);
+    final scene = _scene..time += dt;
+    final diff = _percent - scene.shown;
+    if (diff < -0.5 && _sceneSize != Size.zero) {
+      final geo = _Geo(_sceneSize, scene.shown);
       final away = geo.lipOnLeft ? -1.0 : 1.0;
       for (var i = 0; i < 2; i++) {
-        _drops.add(
+        scene.drops.add(
           _Drop(
             geo.lip + Offset(_random.nextDouble() * 4 - 2, 0),
             Offset(
@@ -84,13 +94,13 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
         );
       }
     }
-    _shown += diff * math.min(1, dt * 6);
-    for (final drop in _drops) {
+    scene.shown += diff * math.min(1, dt * 6);
+    for (final drop in scene.drops) {
       drop.velocity += Offset(0, 900 * dt);
       drop.position += drop.velocity * dt;
     }
-    _drops.removeWhere((drop) => drop.position.dy > _scene.height);
-    setState(() {});
+    scene.drops.removeWhere((drop) => drop.position.dy > _sceneSize.height);
+    scene.repaint();
   }
 
   void _set(int value) {
@@ -105,10 +115,8 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
 
   void _onDrag(DragUpdateDetails details) {
     // 往下拖压低我们这边
-    _dragValue = (_dragValue - details.delta.dy / _scene.height * 120).clamp(
-      _min.toDouble(),
-      _max.toDouble(),
-    );
+    final delta = details.delta.dy / _sceneSize.height * 120;
+    _dragValue = (_dragValue - delta).clamp(_min.toDouble(), _max.toDouble());
     _set((_dragValue / 5).round() * 5);
   }
 
@@ -137,7 +145,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
               builder: (context, constraints) {
                 final width = constraints.maxWidth;
                 // 高度只按屏幕高度留余地，免得横屏时对话框超出屏幕
-                _scene = Size(
+                _sceneSize = Size(
                   width,
                   math.min(
                     width * 0.75,
@@ -147,11 +155,9 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
                 return GestureDetector(
                   onVerticalDragUpdate: _onDrag,
                   child: CustomPaint(
-                    size: _scene,
+                    size: _sceneSize,
                     painter: _ScenePainter(
-                      shown: _shown,
-                      time: _time,
-                      drops: _drops,
+                      scene: _scene,
                       colors: colors,
                       textStyle: theme.textTheme.bodySmall!,
                     ),
@@ -262,18 +268,18 @@ class _Geo {
 
 class _ScenePainter extends CustomPainter {
   _ScenePainter({
-    required this.shown,
-    required this.time,
-    required this.drops,
+    required this.scene,
     required this.colors,
     required this.textStyle,
-  });
+  }) : super(repaint: scene);
 
-  final double shown;
-  final double time;
-  final List<_Drop> drops;
+  final _Scene scene;
   final ColorScheme colors;
   final TextStyle textStyle;
+
+  double get shown => scene.shown;
+  double get time => scene.time;
+  List<_Drop> get drops => scene.drops;
 
   static const _danmaku = [
     '前方高能',
@@ -488,7 +494,8 @@ class _ScenePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ScenePainter oldDelegate) => true;
+  bool shouldRepaint(_ScenePainter oldDelegate) =>
+      oldDelegate.colors != colors || oldDelegate.textStyle != textStyle;
 }
 
 class _CupPainter extends CustomPainter {
