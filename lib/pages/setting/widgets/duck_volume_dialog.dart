@@ -95,7 +95,10 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
         );
       }
     }
-    scene.shown += diff * math.min(1, dt * 6);
+    // 足够接近就落到整数，之后花的裁剪路径不再每帧重算
+    scene.shown = diff.abs() < 0.05
+        ? _percent.toDouble()
+        : scene.shown + diff * math.min(1, dt * 6);
     for (final drop in scene.drops) {
       drop.velocity += Offset(0, 900 * dt);
       drop.position += drop.velocity * dt;
