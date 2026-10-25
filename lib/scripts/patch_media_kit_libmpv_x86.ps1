@@ -1,5 +1,6 @@
 # 32 位 media-kit 的 Windows 库替换。只在 x86 工作流里执行；改的是 pub 缓存里的 CMake 与 CMake 构建目录。
-# 1) libmpv：用 bggRGjQaUbCoE 的 20260607 i686 包（匿名直链可下，MD5 校验）。20260819 的 i686 包完成后只换文件名与 MD5。
+# 1) libmpv：用 bggRGjQaUbCoE 的 20250930 i686 包（匿名直链可下，MD5 校验）。2026 年的 i686 包（含 shinchiro 官方）一启动就报
+#    OpenSSL lock != NULL，本地文件和断网也一样；0930 在 Win10 和虚拟机里都能正常播放。
 # 2) ANGLE：用本仓库 angle-win-x86-<版本> 的包（gh 下载，匿名直链不可用）；MD5 在这里现算写入 CMake。
 # 3) 捆绑清单只保留 libEGL.dll、libGLESv2.dll（d3dcompiler_47 用系统自带的 SysWOW64 版本，其余为可选依赖，我们包里没有）。
 # 4) 把两个压缩包预先放进 CMake 构建目录：download_and_verify 发现本地已有且 MD5 一致就跳过下载。
@@ -11,9 +12,9 @@ $angleTag = "angle-win-x86-$ver"
 $angleAsset = "angle-win-x86-$ver.7z"
 $angleUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$angleTag/$angleAsset"
 
-$libmpvName = 'mpv-dev-i686-20260607-git-43b14a4.7z'
-$libmpvUrl = "https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20260607/$libmpvName"
-$libmpvMd5 = '7e8f5610a8dff2fd948a5a51ae36a54e'
+$libmpvName = 'mpv-dev-i686-20250930-git-05656cd.7z'
+$libmpvUrl = "https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20250930/$libmpvName"
+$libmpvMd5 = '909dc64c76b3f5c160774bb0b96bae30'
 
 # --- 找 pub 缓存里的 media_kit_libs_windows_video CMakeLists（与 patch_media_kit_libmpv.ps1 同一套方法）
 $pubGit = Join-Path $env:LOCALAPPDATA 'Pub\Cache\git'
