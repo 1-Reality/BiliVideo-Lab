@@ -3,11 +3,11 @@ import 'dart:io' show Platform;
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/models/common/focus_reaction.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
+import 'package:PiliBro/pages/setting/widgets/duck_volume_dialog.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
-import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 后台播放与声音：每一项对应底层的一处判断。常用里是视频和听视频共用的
@@ -123,30 +123,7 @@ class BackgroundSettingsPage extends StatelessWidget {
     BuildContext context,
     VoidCallback setState,
   ) async {
-    var percent = Pref.duckPercent.toDouble();
-    final result = await showDialog<int>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('压低到 ${percent.round()}%'),
-          content: Slider(
-            value: percent,
-            min: 5,
-            max: 95,
-            divisions: 18,
-            label: '${percent.round()}%',
-            onChanged: (value) => setDialogState(() => percent = value),
-          ),
-          actions: [
-            TextButton(onPressed: Get.back, child: const Text('取消')),
-            TextButton(
-              onPressed: () => Get.back(result: percent.round()),
-              child: const Text('确定'),
-            ),
-          ],
-        ),
-      ),
-    );
+    final result = await showDuckVolumeDialog(context, Pref.duckPercent);
     if (result == null) return;
     await GStorage.setting.put(SettingBoxKey.duckPercent, result);
     setState();
