@@ -43,6 +43,12 @@ on:
                 default: true
                 type: boolean
 
+            build_win_x86:
+                description: "Build Win-x86（失败不影响发布）"
+                required: false
+                default: false
+                type: boolean
+
             build_linux_x64:
                 description: "Build Linux-x64"
                 required: false
@@ -212,6 +218,16 @@ jobs:
             build_number: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_number || '0' }}
             include_portable: ${{ github.event_name == 'workflow_dispatch' }}
 
+    # 旁路：发布会等它跑完以便带上安装包，但成败不参与发布判断
+    win_x86:
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_win_x86 == 'true' }}
+        uses: ./.github/workflows/win_x86_app.yml
+        permissions:
+            contents: read
+        with:
+            tag: ${{ github.event.inputs.tag }}
+            build_number: ${{ github.event.inputs.build_number }}
+
     linux_x64:
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_linux_x64 == 'true' }}
         uses: ./.github/workflows/linux_x64.yml
@@ -223,7 +239,7 @@ jobs:
 
     publish:
         name: Publish Release
-        needs: [android, win_x64, ios, mac, linux_x64]
+        needs: [android, win_x64, ios, mac, linux_x64, win_x86]
         if: >-
             ${{
                 always() &&

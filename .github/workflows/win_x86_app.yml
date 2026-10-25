@@ -2,6 +2,14 @@ name: Windows x86 app (PiliBro portable)
 
 # 用 32 位引擎打便携包。引擎与 ANGLE 直接从 Release 下载，不在这里重编。
 on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        default: ""
+      build_number:
+        type: string
+        default: "0"
   workflow_dispatch:
   # 本文件还没在默认分支上，workflow_dispatch 只能在默认分支的工作流上用；先靠推送本分支触发
   push:
@@ -29,9 +37,17 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml
 
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
       - id: version
         name: Set version and write pili_release.json
         shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
         run: lib/scripts/build.ps1
 
       - id: patch
@@ -330,23 +346,33 @@ jobs:
           if ($bad) { throw "red-screen markers in app output: $(($bad | ForEach-Object { $_.Line.Trim() }) -join ' | ')" }
 
       - id: pack
-        name: Pack the portable 7z
+        # 本仓库 32 位发 rar、64 位发 7z；发行仓反过来（64 位 rar，32 位 7z），App 检查更新按发行仓的约定挑
+        name: Pack the portable rar
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $ver = (Select-String -Path pubspec.yaml -Pattern '^\s*version:\s*([0-9.]+)' | Select-Object -First 1).Matches.Groups[1].Value
-          $dir = 'PiliBro-Win-x86'
-          Copy-Item build32\runner\Release $dir -Recurse
-          7z a -mx9 'PiliBro_windows_x86_portable.7z' $dir | Out-Null
-          Get-Item 'PiliBro_windows_x86_portable.7z' | Format-Table Name, Length
+          choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
+          $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
+          $name = "PiliBro_windows_${env:version}_x86_portable.rar"
+          & $rar a -ep1 -ma5 -m5 -s -md512m -r $name 'build32\runner\Release\*'
+          if ($LASTEXITCODE -ne 0) { throw "rar failed ($LASTEXITCODE)" }
+          Get-Item $name | Format-Table Name, Length
 
-      - name: Upload portable 7z, screenshot and smoke logs
-        if: always()
+      # Build 的发布步骤会收走本次运行的全部工件，所以这里只放安装包
+      - name: Upload portable rar
         uses: actions/upload-artifact@v7
         with:
-          name: app-x86-portable
+          name: Windows-file-x86-release
+          path: PiliBro_windows_*_x86_portable.rar
+          if-no-files-found: error
+
+      - name: Upload screenshot and smoke logs
+        if: ${{ always() && inputs.tag == '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-x86-smoke
           path: |
-            PiliBro_windows_x86_portable.7z
             smoke.png
             smoke.txt
             app-stdout.txt
@@ -394,7 +420,7 @@ jobs:
           }
 
       - name: Upload logs on failure
-        if: failure()
+        if: ${{ failure() && inputs.tag == '' }}
         uses: actions/upload-artifact@v7
         with:
           name: app-x86-logs

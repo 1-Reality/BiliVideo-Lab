@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io' show Platform;
 
 import 'package:PiliBro/build_config.dart';
@@ -160,9 +161,14 @@ abstract final class Update {
                     ),
                   ),
                 ],
+                // 发行仓：64 位便携包是 rar，32 位是 7z，32 位没有安装包
                 if (Platform.isWindows) ...[
-                  downloadBtn('rar', ext: 'rar'),
-                  downloadBtn('exe', ext: 'exe'),
+                  if (Abi.current() == Abi.windowsIA32)
+                    downloadBtn('7z', ext: '7z')
+                  else ...[
+                    downloadBtn('rar', ext: 'rar'),
+                    downloadBtn('exe', ext: 'exe'),
+                  ],
                 ] else if (Platform.isLinux) ...[
                   downloadBtn('rpm', ext: 'rpm'),
                   downloadBtn('deb', ext: 'deb'),
