@@ -4,10 +4,6 @@ name: Windows x86 ANGLE (libEGL / libGLESv2)
 # 结果发到独立的 Release，引擎工作流不变。
 on:
   workflow_dispatch:
-  # 本文件还没在默认分支上，workflow_dispatch 只能在默认分支的工作流上用；先靠推送本分支触发
-  push:
-    branches: [fix/experimental-x86-git-am-identity]
-    paths: [.github/workflows/win_x86_angle.yml]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

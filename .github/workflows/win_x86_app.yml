@@ -11,10 +11,6 @@ on:
         type: string
         default: "0"
   workflow_dispatch:
-  # 本文件还没在默认分支上，workflow_dispatch 只能在默认分支的工作流上用；先靠推送本分支触发
-  push:
-    branches: [fix/experimental-x86-git-am-identity]
-    paths: [.github/workflows/win_x86_app.yml, lib/scripts/**]
 
 permissions:
   contents: read
@@ -355,7 +351,8 @@ jobs:
           $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
           $name = "PiliBro_windows_${env:version}_x86_portable.rar"
-          & $rar a -ep1 -ma5 -m5 -s -md512m -r $name 'build32\runner\Release\*'
+          # 附带英文 README 和 Win7 说明，放在包的根目录
+          & $rar a -ep1 -ma5 -m5 -s -md512m -r $name 'build32\runner\Release\*' 'windows\packaging\win32\*'
           if ($LASTEXITCODE -ne 0) { throw "rar failed ($LASTEXITCODE)" }
           Get-Item $name | Format-Table Name, Length
 

@@ -3,9 +3,6 @@ name: Android JIT (debug)
 # 好奇用：安卓的 JIT 版就是 debug 包。和正式包同一个签名，可以直接覆盖安装、保留数据
 on:
   workflow_dispatch:
-  push:
-    branches: [fix/experimental-x86-git-am-identity]
-    paths: [.github/workflows/android_jit.yml]
 
 jobs:
   apk:

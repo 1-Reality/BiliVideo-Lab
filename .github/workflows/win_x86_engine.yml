@@ -3,10 +3,6 @@ name: Windows x86 engine (jit_release)
 # 32 位引擎只取决于 Flutter 版本，编一次传到发布附件，之后每次打 32 位包直接下载
 on:
   workflow_dispatch:
-  # 本文件可能不在默认分支上，workflow_dispatch 不一定能用；推送本分支触发
-  push:
-    branches: [fix/experimental-x86-git-am-identity]
-    paths: [.github/workflows/win_x86_engine.yml]
 
 # 一次构建要几个小时，后续推送不取消正在跑的构建
 concurrency:

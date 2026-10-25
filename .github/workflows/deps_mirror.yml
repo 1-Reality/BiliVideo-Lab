@@ -1,11 +1,8 @@
 name: Mirror third-party deps
 
-# 小众第三方包备份到本仓库 Release（deps-mirror），原地址失效时改用这里。新增一项就加一行再推送
+# 小众第三方包备份到本仓库 Release（deps-mirror），原地址失效时改用这里。新增一项就加一行再手动运行
 on:
   workflow_dispatch:
-  push:
-    branches: [fix/experimental-x86-git-am-identity]
-    paths: [.github/workflows/deps_mirror.yml]
 
 permissions:
   contents: write
