@@ -20,8 +20,8 @@ env:
   UPSTREAM_REF: "0694931"
   MPV_PIN: "e7191f2a65"
   CACHE_PREFIX: "libmpv-i686-v1"
-  # mpv 任务的缓存用 v2：依赖改成按日期钉之后，旧的 checkout 与新源码不能混用。工具链缓存仍用 CACHE_PREFIX，不重编 LLVM
-  MPV_CACHE: "libmpv-i686-v2"
+  # mpv 任务的缓存用 v3：v2 的依赖仓库被浅克隆过，不能再用；v3 重新克隆。工具链缓存仍用 CACHE_PREFIX，不重编 LLVM
+  MPV_CACHE: "libmpv-i686-v3"
   PIN_DATE: "2026-08-19 23:59"
   RELEASE_TAG: "libmpv-win-x86-20260819"
   PACKAGE_NAME: "mpv-dev-i686-20260819-git-e7191f2a65.7z"
@@ -253,12 +253,16 @@ jobs:
           ninja -C build_i686 download || true
           ninja -C build_i686 update
           # 依赖按日期钉：每个 git 仓库回到 PIN_DATE 当时的提交，再拉子模块。
-          # 找不到提交时先补拉历史（浅克隆），还找不到就失败，不回退到 HEAD。
+          # 上游用 --filter=tree:0 克隆，历史是完整的；只有确实是浅克隆时才补拉完整历史。
+          # 不再用 --shallow-since：它会把仓库截成近期历史，之后 reset 到旧提交就找不到（见 run 40168679079）。
+          # 找不到提交就失败，不回退到 HEAD。
           while read -r g; do
             r=$(dirname "$g")
             c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true)
-            if [ -z "$c" ]; then git -C "$r" fetch -q --shallow-since=2026-07-01 origin 2>/dev/null || true; c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true); fi
-            if [ -z "$c" ]; then git -C "$r" fetch -q --unshallow origin 2>/dev/null || true; c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true); fi
+            if [ -z "$c" ] && [ "$(git -C "$r" rev-parse --is-shallow-repository)" = "true" ]; then
+              git -C "$r" fetch -q --unshallow origin || true
+              c=$(git -C "$r" rev-list -n1 --before="$PIN_DATE" HEAD 2>/dev/null || true)
+            fi
             if [ -z "$c" ]; then echo "::error title=no commit before pin::$r"; exit 1; fi
             git -C "$r" -c advice.detachedHead=false checkout -q "$c"
             # 不带 --init：只更新上游已经初始化过的子模块，与 update-repo.sh 的做法一致；
