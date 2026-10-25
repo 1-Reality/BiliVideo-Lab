@@ -202,7 +202,8 @@ jobs:
         if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
         run: rm -rf upstream/build_i686
 
-      - name: Fall back to the toolchain cache when the mingw runtime is missing
+      - id: fallback
+        name: Fall back to the toolchain cache when the mingw runtime is missing
         if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
         uses: actions/cache/restore@v4
         with:
@@ -213,8 +214,11 @@ jobs:
 
       - name: Fail fast if the i686 mingw runtime is still missing
         run: |
+          n=$(ls build_i686/i686-w64-mingw32/lib 2>/dev/null | wc -l)
+          top=$(ls build_i686 2>/dev/null | head -20 | tr '\n' ' ')
+          echo "::notice title=after fallback::mpv matched=${{ steps.restore_build.outputs.cache-matched-key }} fallback matched=${{ steps.fallback.outputs.cache-matched-key }} lib files=$n build_i686=[$top]"
           if [ ! -f build_i686/i686-w64-mingw32/lib/libkernel32.a ]; then
-            echo "::error title=mingw runtime missing::no i686 mingw runtime after restoring caches (mpv matched=${{ steps.restore_build.outputs.cache-matched-key }})"
+            echo "::error title=mingw runtime missing::no i686 mingw runtime after restoring caches"
             exit 1
           fi
 
