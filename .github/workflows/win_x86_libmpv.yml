@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -80,6 +80,11 @@ jobs:
         timeout-minutes: 330
         run: |
           set -e
+          # 缓存里已有 clang 与 i686 mingw 运行时就跳过编译（llvm_clang.yml 的 cache-matched-key 判断在这里等价）
+          if [ -n "$(ls clang_root/bin/clang* 2>/dev/null)" ] && [ -f build_i686/i686-w64-mingw32/lib/libkernel32.a ]; then
+            echo "::notice title=toolchain::clang and i686 mingw runtime already present; skipping the LLVM build"
+            exit 0
+          fi
           # 与 llvm_clang.yml 相同的顺序；去掉了 cache-matched-key 的 if，靠 ninja 增量续编
           cmake -DTARGET_ARCH=x86_64-w64-mingw32 -DLLVM_ENABLE_PGO=GEN -DCOMPILER_TOOLCHAIN=clang -DCMAKE_INSTALL_PREFIX=$PWD/clang_root -DMINGW_INSTALL_PREFIX=$PWD/build_x86_64/x86_64-w64-mingw32 -DSINGLE_SOURCE_LOCATION=$PWD/src_packages -DRUSTUP_LOCATION=$PWD/clang_root/install_rustup -G Ninja -B build_x86_64 -S $PWD
           ninja -C build_x86_64 llvm
@@ -192,6 +197,22 @@ jobs:
           restore-keys: |
             ${{ env.CACHE_PREFIX }}-mpv-build-
             ${{ env.CACHE_PREFIX }}-toolchain-build-
+
+      - name: Fall back to the toolchain cache when the mingw runtime is missing
+        if: ${{ hashFiles('upstream/build_i686/i686-w64-mingw32/lib/libkernel32.a') == '' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: upstream/build_i686
+          key: ${{ env.CACHE_PREFIX }}-toolchain-build-fallback-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-toolchain-build-
+
+      - name: Fail fast if the i686 mingw runtime is still missing
+        run: |
+          if [ ! -f build_i686/i686-w64-mingw32/lib/libkernel32.a ]; then
+            echo "::error title=mingw runtime missing::no i686 mingw runtime after restoring caches (mpv matched=${{ steps.restore_build.outputs.cache-matched-key }})"
+            exit 1
+          fi
 
       - name: Report restored caches and mingw runtime
         if: always()
