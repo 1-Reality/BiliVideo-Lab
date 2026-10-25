@@ -3,6 +3,15 @@ name: Windows x86 engine (jit_release)
 # 32 位引擎只取决于 Flutter 版本，编一次传到发布附件，之后每次打 32 位包直接下载
 on:
   workflow_dispatch:
+  # 本文件可能不在默认分支上，workflow_dispatch 不一定能用；推送本分支触发
+  push:
+    branches: [fix/experimental-x86-git-am-identity]
+    paths: [.github/workflows/win_x86_engine.yml]
+
+# 一次构建要几个小时，后续推送不取消正在跑的构建
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -80,6 +89,18 @@ jobs:
             git -C "$env:SRC/engine/src/flutter" apply "$env:GITHUB_WORKSPACE/lib/scripts/$p"
             if ($LASTEXITCODE -ne 0) { throw "patch failed: $p" }
           }
+          # 红屏修复：jit_release 运行时默认开断言，而 kernel 按 product 编译，框架的调试辅助函数因此抛 Bad state。
+          # 在 dart_vm.cc 的 enable_asserts 设置之后，jit_release 下强制关闭。锚点必须恰好命中一次。
+          $vm = "$env:SRC/engine/src/flutter/runtime/dart_vm.cc"
+          $text = [IO.File]::ReadAllText($vm)
+          $pattern = '(    enable_asserts = false;\r?\n  \}\r?\n#endif  // !OS_FUCHSIA)'
+          $n = ([regex]::Matches($text, $pattern)).Count
+          if ($n -ne 1) { throw "expected one enable_asserts anchor in dart_vm.cc, found $n" }
+          $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+          $insert = "#if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_JIT_RELEASE$nl  enable_asserts = false;$nl#endif"
+          $text = [regex]::Replace($text, $pattern, "`$1$nl$insert")
+          [IO.File]::WriteAllText($vm, $text, [Text.UTF8Encoding]::new($false))
+          Select-String -Path $vm -Pattern 'enable_asserts|FLUTTER_RUNTIME_MODE' -Context 2,2 | Tee-Object $env:GITHUB_WORKSPACE/dart_vm-patch.txt
           ninja -C "out/$out" flutter_windows.dll icudtl.dat 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/ninja.log
           if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/ninja.log" 'ninja' }
 
@@ -113,4 +134,5 @@ jobs:
           path: |
             gn.log
             ninja.log
+            dart_vm-patch.txt
           retention-days: 14
