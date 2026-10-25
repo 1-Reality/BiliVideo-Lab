@@ -38,6 +38,13 @@ abstract final class BiliDevice {
       GStorage.localCache.get(LocalCacheKey.fp) as String? ?? _newFp();
 
   static String _newFp() {
+    final value = genFp(buvid);
+    GStorage.localCache.put(LocalCacheKey.fp, value);
+    return value;
+  }
+
+  /// 按 [buvid] 生成设备指纹，不存
+  static String genFp(String buvid) {
     final now = DateTime.now();
     String two(int v) => v < 10 ? '0$v' : '$v';
     final raw =
@@ -49,9 +56,7 @@ abstract final class BiliDevice {
     for (var i = 0; i < 62; i += 2) {
       veri += int.parse(raw.substring(i, i + 2), radix: 16);
     }
-    final value = '$raw${(veri & 255).toRadixString(16).padLeft(2, '0')}';
-    GStorage.localCache.put(LocalCacheKey.fp, value);
-    return value;
+    return '$raw${(veri & 255).toRadixString(16).padLeft(2, '0')}';
   }
 
   static String _hex(int length) => String.fromCharCodes(

@@ -1,5 +1,6 @@
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:audio_session/audio_session.dart';
 
 class AudioSessionHandler {
@@ -63,13 +64,7 @@ class AudioSessionHandler {
       }
     });
 
-    // 耳机拔出暂停
-    session.becomingNoisyEventStream.listen((_) {
-      PlPlayerController.pauseIfExists();
-      // final player = PlPlayerController.getInstance();
-      // if (player.playerStatus.playing) {
-      //   player.pause();
-      // }
-    });
+    // 安卓的焦点和拔耳机由 PlaybackFocus 自己管，这里只在其他平台起作用
+    session.becomingNoisyEventStream.listen((_) => PlaybackFocus.onNoisy());
   }
 }

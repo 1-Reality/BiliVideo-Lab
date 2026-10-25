@@ -32,6 +32,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/services/pip_overlay_service.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -357,6 +358,12 @@ class PlPlayerController
   late int speedSliderDivisions = Pref.speedSliderDivisions;
   late double speedSliderWidth = Pref.speedSliderWidth;
   late int speedStep = Pref.speedStep;
+  late int speedSlideHardH = Pref.speedSlideHardH;
+  late List<int> speedSlideSoftH = Pref.speedSlideSoftH;
+  late int speedSlideHoldH = Pref.speedSlideHoldH;
+  late int speedSlideHardV = Pref.speedSlideHardV;
+  late List<int> speedSlideSoftV = Pref.speedSlideSoftV;
+  late int speedSlideHoldV = Pref.speedSlideHoldV;
   late bool wheelSpeed = Pref.wheelSpeed;
   late bool arrowKeySpeed = Pref.arrowKeySpeed;
   // 点面板中间数字时切回的倍速
@@ -364,11 +371,18 @@ class PlPlayerController
   final RxBool speedIndicator = false.obs;
   Timer? _speedIndicatorTimer;
 
-  /// 滚轮、方向键按分度值调倍速，限制在滑杆范围内
-  void stepPlaybackSpeed(bool increase, {bool recordSelection = true}) {
+  /// 滚轮、方向键按分度值调倍速；滚轮限制在滑杆范围内，方向键只保底 0.01 ~ 100 倍
+  void stepPlaybackSpeed(
+    bool increase, {
+    bool recordSelection = true,
+    bool bounded = true,
+  }) {
     setPlaybackSpeed(
       ((playbackSpeed * 100).round() + (increase ? speedStep : -speedStep))
-              .clamp(speedSliderMin, speedSliderMax) /
+              .clamp(
+                bounded ? speedSliderMin : 1,
+                bounded ? speedSliderMax : 10000,
+              ) /
           100,
       recordSelection: recordSelection,
     );
@@ -440,8 +454,11 @@ class PlPlayerController
   // decode fails to play.
   late final bool _hwdecAllowsSoftware =
       hwdec == null || hwdec!.split(',').contains('no');
-  // Settings only allow this entry alone.
-  late final bool mediacodecEmbed = hwdec == 'mediacodec_embed';
+  // 设置页里直通只能单选；平板、电视预设写的是带回退列表的直通，先比较前者
+  late final bool mediacodecEmbed =
+      hwdec == 'mediacodec_embed' || _embedWithFallback;
+  late final bool _embedWithFallback =
+      hwdec?.startsWith('mediacodec_embed,') ?? false;
   // While playing, hwdec-current is read every few seconds and matched
   // against the user's keywords (settings are taken on each open). Only the
   // decoder actually playing is read: the ones a file switch creates and drops
@@ -561,6 +578,8 @@ class PlPlayerController
       recordStats: recordStats,
     );
   }
+
+  static Player? get playerIfExists => _instance?._videoPlayerController;
 
   static double? getVolumeIfExists() {
     return _instance?.volume.value;
@@ -1789,6 +1808,7 @@ class PlPlayerController
       stream.playing.listen((bool playing) {
         PlaybackStatsService.updatePlaying(playing, player.state.position);
         if (playing) {
+          PlaybackFocus.onStart();
           playerStatus = .playing;
           _stopWakeLockTimer();
           _updatePlaybackState();
@@ -1976,7 +1996,16 @@ class PlPlayerController
             },
           );
         } else if (event.startsWith('Could not open codec')) {
-          SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
+          if (mediacodecEmbed && _embedWithFallback) {
+            // 预设写入的直通解不了：改回普通硬解列表，下次进视频生效
+            GStorage.setting.delete(SettingBoxKey.hardwareDecoding);
+            SmartDialog.showToast(
+              '直通解码失败，已改回常规渲染，退出视频重新进入即可播放',
+              displayTime: const Duration(seconds: 4),
+            );
+          } else {
+            SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
+          }
         } else if (!onlyPlayAudio.value) {
           // A damaged/partial access unit is an FFmpeg decoder diagnostic,
           // not a Dart crash. Do not send its full signed playlist to Catcher.
@@ -2114,8 +2143,6 @@ class PlPlayerController
 
     await _videoPlayerController?.play();
 
-    audioSessionHandler?.setActive(true);
-
     playerStatus = .playing;
   }
 
@@ -2125,9 +2152,7 @@ class PlPlayerController
     playerStatus = .paused;
 
     // 主动暂停时让出音频焦点
-    if (!isInterrupt) {
-      audioSessionHandler?.setActive(false);
-    }
+    if (!isInterrupt) PlaybackFocus.onStop();
   }
 
   bool tripling = false;

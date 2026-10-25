@@ -6,7 +6,6 @@ import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/pair.dart';
 import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/device_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -99,34 +98,33 @@ class WebDav {
         for (final file in files.values.expand((list) => list))
           path.basename(file.path): file,
       };
-      // A file the server already holds with the same hash is not sent again.
-      final held = {};
-      try {
-        final previous = jsonDecode(
-          utf8.decode(await client.read('$remote/manifest.json')),
-        );
-        if (previous['databaseVersion'] == GStorage.databaseVersion) {
-          for (final List entries in (previous['parts'] as Map).values) {
-            for (final Map entry in entries) {
-              held[entry['file']] = entry['sha256'];
-            }
-          }
-        }
-      } catch (_) {}
+      // 文件名带内容哈希：服务器上已有同名文件就是同一份内容，跳过；
+      // 变了就是新名字，只新增不覆盖，旧备份原样留着
+      final held = {
+        for (final file in await client.readDir(remote)) file.name,
+      };
       for (final List entries in (manifest['parts'] as Map).values) {
         for (final Map entry in entries) {
-          final name = entry['file'] as String;
-          if (held[name] != entry['sha256']) {
-            await _uploadReplacing(client, local[name]!, '$remote/$name');
+          final name = _remoteName(entry);
+          if (!held.contains(name)) {
+            await client.writeFromFile(
+              local[entry['file']]!.path,
+              '$remote/$name',
+            );
           }
         }
       }
-      await _uploadReplacing(
-        client,
-        await File(
+      // 清单最后上传，也是新文件名；中途失败时之前的各次备份都完整
+      final now = DateTime.now();
+      String two(int v) => v.toString().padLeft(2, '0');
+      final stamp =
+          '${now.year}${two(now.month)}${two(now.day)}-'
+          '${two(now.hour)}${two(now.minute)}${two(now.second)}';
+      await client.writeFromFile(
+        (await File(
           path.join(temp.path, 'manifest.json'),
-        ).writeAsString(jsonEncode(manifest)),
-        '$remote/manifest.json',
+        ).writeAsString(jsonEncode(manifest))).path,
+        '$remote/manifest_$stamp.json',
       );
       SmartDialog.showToast('备份成功');
     } catch (e) {
@@ -150,9 +148,28 @@ class WebDav {
       final config = _getConfig();
       final client = await _connect(config);
       final remote = _snapshotDirectory(config);
+      // 取时间戳最新的一份清单；没有的话是改版前的备份，读旧的 manifest.json
+      final manifests = [
+        for (final file in await client.readDir(remote))
+          if (file.name case final name?
+              when name.startsWith('manifest_') && name.endsWith('.json'))
+            name,
+      ]..sort();
+      final legacy = manifests.isEmpty;
       final manifest =
-          jsonDecode(utf8.decode(await client.read('$remote/manifest.json')))
+          jsonDecode(
+                utf8.decode(
+                  await client.read(
+                    '$remote/${legacy ? 'manifest.json' : manifests.last}',
+                  ),
+                ),
+              )
               as Map;
+      final remoteNames = {
+        for (final List entries in (manifest['parts'] as Map).values)
+          for (final Map entry in entries)
+            entry['file']: legacy ? entry['file'] : _remoteName(entry),
+      };
       if (!context.mounted) return;
       final parts = await selectRestoreParts(context, manifest);
       if (parts == null) return;
@@ -161,7 +178,8 @@ class WebDav {
           manifest,
           parts,
           temp,
-          (name, target) => client.read2File('$remote/$name', target.path),
+          (name, target) =>
+              client.read2File('$remote/${remoteNames[name]}', target.path),
         ),
       );
       SmartDialog.showToast('恢复成功');
@@ -175,16 +193,11 @@ class WebDav {
     }
   }
 
-  Future<void> _uploadReplacing(
-    webdav.Client client,
-    File local,
-    String remote,
-  ) async {
-    final uploading = '$remote.uploading';
-    try {
-      await client.remove(uploading);
-    } catch (_) {}
-    await client.writeFromFile(local.path, uploading);
-    await client.rename(uploading, remote, true);
+  /// 服务器上的文件名：在扩展名前插入内容哈希的前 16 位
+  static String _remoteName(Map entry) {
+    final String name = entry['file'];
+    final String sha = entry['sha256'];
+    return '${path.basenameWithoutExtension(name)}.${sha.substring(0, 16)}'
+        '${path.extension(name)}';
   }
 }

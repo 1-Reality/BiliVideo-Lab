@@ -55,6 +55,23 @@ final _signedDecimalFormatters = [
 ];
 
 List<SettingsModel> get styleSettings => [
+  // 单列就是主页列宽取一个远超屏宽、滑杆拉不到的值（备份是 JSON，存不了无穷大），
+  // 不另存开关；推荐页建网格时照常读这个宽度
+  NormalModel(
+    leading: const Icon(Icons.view_agenda_outlined),
+    title: '首页推荐单列',
+    subtitle: '一行只放一个视频，封面更大；重启生效',
+    getTrailing: (theme) => IgnorePointer(
+      child: Switch(value: Pref.recommendCardWidth > 500, onChanged: (_) {}),
+    ),
+    onTap: (context, setState) async {
+      await (Pref.recommendCardWidth > 500
+          ? GStorage.setting.delete(SettingBoxKey.recommendCardWidth)
+          : GStorage.setting.put(SettingBoxKey.recommendCardWidth, 10000.0));
+      SmartDialog.showToast('重启生效');
+      setState();
+    },
+  ),
   if (PlatformUtils.isDesktop) ...[
     const SwitchModel(
       title: '显示窗口标题栏',
@@ -124,7 +141,7 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.calendar_view_week_outlined),
     title: '列表宽度（dp）限制',
     getSubtitle: () =>
-        '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+        '当前: 主页${Pref.recommendCardWidth > 500 ? '单列' : '${Pref.recommendCardWidth.toInt()}dp'} 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
     onTap: _showCardWidthDialog,
   ),
   NormalModel(
@@ -666,7 +683,7 @@ Future<void> _showCardWidthDialog(
     context: context,
     builder: (context) => DualSliderDialog(
       title: const Text('列表最大列宽度（默认240dp）'),
-      value1: Pref.recommendCardWidth,
+      value1: math.min(Pref.recommendCardWidth, 500.0),
       value2: Pref.smallCardWidth,
       description1: const Text('主页推荐流'),
       description2: const Text('其他'),

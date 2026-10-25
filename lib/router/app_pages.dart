@@ -56,6 +56,7 @@ import 'package:PiliBro/pages/search_trending/view.dart';
 import 'package:PiliBro/pages/setting/pages/bar_set.dart';
 import 'package:PiliBro/pages/setting/pages/color_select.dart';
 import 'package:PiliBro/pages/setting/pages/av_settings.dart';
+import 'package:PiliBro/pages/setting/pages/background_settings.dart';
 import 'package:PiliBro/pages/setting/pages/display_mode.dart';
 import 'package:PiliBro/pages/setting/pages/font_setting.dart';
 import 'package:PiliBro/pages/setting/pages/gesture_settings.dart';
@@ -135,6 +136,10 @@ class Routes {
     GetPage(name: '/playbackStats', page: () => const PlaybackStatsPage()),
     GetPage(name: '/watchLog', page: () => const WatchLogPage()),
     GetPage(name: '/audioSettings', page: () => const AudioSettingsPage()),
+    GetPage(
+      name: '/backgroundSettings',
+      page: () => const BackgroundSettingsPage(),
+    ),
     GetPage(name: '/trafficStats', page: () => const TrafficStatsPage()),
     // 收藏搜索
     GetPage(name: '/favSearch', page: () => const FavSearchPage()),

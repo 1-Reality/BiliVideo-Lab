@@ -43,6 +43,7 @@ import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/gesture_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/slide_action.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliBro/plugin/pl_player/utils/speed_drag.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/backward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/bottom_control.dart';
@@ -51,6 +52,7 @@ import 'package:PiliBro/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/speed_panel.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -65,6 +67,7 @@ import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -358,16 +361,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       currentPlayer?.state.position ?? Duration.zero,
     );
     if (isBackground) unawaited(PlaybackStatsService.flush());
-    if (!plPlayerController.continuePlayInBackground.value) {
-      if (isBackground) {
-        if (currentPlayer != null && currentPlayer.state.playing) {
+    if (isBackground) {
+      if (currentPlayer != null && currentPlayer.state.playing) {
+        PlaybackFocus.keepInBackground(
+          plPlayerController.continuePlayInBackground.value,
+          Pref.lockPlayVideo,
+        ).then((keep) {
+          if (keep ||
+              !currentPlayer.state.playing ||
+              WidgetsBinding.instance.lifecycleState == .resumed) {
+            return;
+          }
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           currentPlayer.pause();
-        }
-      } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
-        _pauseDueToPauseUponEnteringBackgroundMode = false;
-        if (!recoverOutput) currentPlayer?.play();
+        });
       }
+    } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
+      _pauseDueToPauseUponEnteringBackgroundMode = false;
+      if (!recoverOutput) currentPlayer?.play();
     }
     if (recoverOutput) {
       // A fresh Player also creates a fresh Android SurfaceTexture. Merely
@@ -965,6 +976,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return PopupMenuButton<double>(
           tooltip: '倍速',
           requestFocus: false,
+          popUpAnimationStyle: AnimationStyle.noAnimation,
           initialValue: plPlayerController.playbackSpeed,
           color: panel
               ? Colors.transparent
@@ -1156,11 +1168,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double _columnEdge2;
   late double _halfWidth;
   late double _splitHeight;
-  // 倍速手势：横滑按分度值细调，竖滑按倍速列表粗调
-  static const _fineSpeedPerPixel = 0.0625; // 每 16 逻辑像素一档
-  static const _coarseSpeedPerPixel = 0.025; // 每 40 逻辑像素一档
+  // 倍速手势：横滑拖 1200 逻辑像素走完滑杆范围、落在分度值上，不受滑杆范围限制；
+  // 竖滑每 40 逻辑像素走倍速列表的一项
+  static const _speedRangePx = 1200.0;
+  static const _speedItemPx = 40.0;
   double _speedOrigin = 1;
-  int _speedSteps = 0;
+  int _speedCenti = 100;
+  late SpeedDrag _speedDrag;
+  // 横滑：起手倍速折成几个分度值、分度值；竖滑：往上、往下第一档的前一项
+  double _speedBase = 0;
+  int _speedUnit = 1;
   int _speedListUp = 0;
   int _speedListDown = 0;
   late double _quarterWidth;
@@ -1256,6 +1273,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             _gestureType = .horizontal;
           case HorizontalSlide.speed when !plPlayerController.isLive:
             _onSpeedSlideStart();
+            _startSpeedHorizontal(start.dx);
             _gestureType = .speed_horizontal;
           default:
             break;
@@ -1274,16 +1292,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             _gestureType = .fullscreen;
           case VerticalSlide.speed when !plPlayerController.isLive:
             _onSpeedSlideStart();
-            final list = plPlayerController.speedList;
-            var i = 0;
-            while (i < list.length && list[i] < _speedOrigin) {
-              i++;
-            }
-            // 当前倍速不在列表里时，往上第一档是比它大的那个，往下第一档是比它小的那个
-            _speedListDown = i;
-            _speedListUp = i < list.length && list[i] == _speedOrigin
-                ? i
-                : i - 1;
+            _startSpeedVertical(start.dy);
             _gestureType = .speed_vertical;
           default:
             break;
@@ -1383,46 +1392,126 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       );
     } else if (_gestureType == .speed_horizontal) {
-      final steps =
-          ((details.localFocalPoint.dx - _initialFocalPoint!.dx) *
-                  _fineSpeedPerPixel)
-              .toInt();
-      if (steps != _speedSteps) {
-        _speedSteps = steps;
-        _applySlideSpeed(
-          steps == 0
-              ? _speedOrigin
-              : ((_speedOrigin * 100).round() +
-                            steps * plPlayerController.speedStep)
-                        .clamp(
-                          plPlayerController.speedSliderMin,
-                          plPlayerController.speedSliderMax,
-                        ) /
-                    100,
-        );
-      }
+      final r = _speedDrag.units(details.localFocalPoint.dx);
+      // 起手倍速不在分度值上时，先走到下一个分度值
+      final centi =
+          _speedDrag.hit ??
+          (r > 0
+              ? math.max(
+                  (_speedBase + r + 1e-9).floor() * _speedUnit,
+                  _speedCenti,
+                )
+              : math.min(
+                  (_speedBase + r - 1e-9).ceil() * _speedUnit,
+                  _speedCenti,
+                ));
+      _applySlideSpeed(centi / 100);
     } else if (_gestureType == .speed_vertical) {
-      final steps =
-          ((_initialFocalPoint!.dy - details.localFocalPoint.dy) *
-                  _coarseSpeedPerPixel)
-              .toInt();
-      if (steps != _speedSteps) {
-        _speedSteps = steps;
-        final list = plPlayerController.speedList;
-        _applySlideSpeed(
-          steps == 0
-              ? _speedOrigin
-              : list[(steps > 0 ? _speedListUp + steps : _speedListDown + steps)
-                    .clamp(0, list.length - 1)],
-        );
-      }
+      final r = _speedDrag.units(-details.localFocalPoint.dy);
+      final n = (r.abs() + 1e-9).toInt();
+      final i =
+          _speedDrag.hit ??
+          (n == 0
+              ? -1
+              : r > 0
+              ? _speedListUp + n
+              : _speedListDown - n);
+      _applySlideSpeed(
+        i < 0 ? _speedOrigin : plPlayerController.speedList[i],
+      );
     }
   }
 
   void _onSpeedSlideStart() {
     _speedOrigin = plPlayerController.playbackSpeed;
-    _speedSteps = 0;
+    _speedCenti = (_speedOrigin * 100).round();
     plPlayerController.speedIndicator.value = true;
+  }
+
+  // 硬挡在起手那一侧才生效，起手正好在硬挡上则两边都放开；
+  // 两端保底 0.01 ~ 100 倍，即 mpv 的 speed 范围
+  void _startSpeedHorizontal(double x) {
+    final c = plPlayerController;
+    final origin = _speedCenti;
+    final unit = _speedUnit =
+        (c.speedSliderMax - c.speedSliderMin) ~/ c.speedSliderDivisions;
+    _speedBase = origin / unit;
+    final hard = c.speedSlideHardH;
+    SpeedDragSide side(int end, bool up) {
+      final soft = [
+        for (final v in c.speedSlideSoftH)
+          if (up ? v > origin && v < end : v < origin && v > end) v,
+      ]..sort(up ? null : (a, b) => b - a);
+      return (
+        stops: [for (final v in soft) (v - origin).abs() / unit],
+        hits: soft,
+        end: (end - origin).abs() / unit,
+        endHit: end,
+      );
+    }
+
+    final unitsPerPx = c.speedSliderDivisions / _speedRangePx;
+    _speedDrag = SpeedDrag(
+      x,
+      unitsPerPx,
+      c.speedSlideHoldH * unitsPerPx,
+      side(hard > origin ? hard : 10000, true),
+      side(hard > 0 && hard < origin ? hard : 1, false),
+    );
+  }
+
+  // 硬挡不在列表里时，停在它旁边靠起手那一侧的一项
+  void _startSpeedVertical(double y) {
+    final c = plPlayerController;
+    final list = c.speedList;
+    var i = 0;
+    while (i < list.length && list[i] < _speedOrigin) {
+      i++;
+    }
+    // 当前倍速不在列表里时，往上第一档是比它大的那个，往下第一档是比它小的那个
+    final down = _speedListDown = i;
+    final up = _speedListUp = i < list.length && list[i] == _speedOrigin
+        ? i
+        : i - 1;
+    final hard = c.speedSlideHardV / 100;
+    var top = list.length - 1;
+    var bottom = 0;
+    if (hard > _speedOrigin) {
+      while (top > up && list[top] > hard) {
+        top--;
+      }
+    } else if (hard > 0 && hard < _speedOrigin) {
+      while (bottom < down && list[bottom] < hard) {
+        bottom++;
+      }
+    }
+    final soft = c.speedSlideSoftV;
+    bool isSoft(int j) => soft.contains((list[j] * 100).round());
+    final upHits = [
+      for (var j = up + 1; j < top; j++)
+        if (isSoft(j)) j,
+    ];
+    final downHits = [
+      for (var j = down - 1; j > bottom; j--)
+        if (isSoft(j)) j,
+    ];
+    _speedDrag = SpeedDrag(
+      -y,
+      1 / _speedItemPx,
+      c.speedSlideHoldV / _speedItemPx,
+      (
+        stops: [for (final j in upHits) (j - up).toDouble()],
+        hits: upHits,
+        end: (top - up).toDouble(),
+        endHit: top > up ? top : null,
+      ),
+      (
+        stops: [for (final j in downHits) (down - j).toDouble()],
+        hits: downHits,
+        end: (down - bottom).toDouble(),
+        endHit: down > bottom ? bottom : null,
+      ),
+    );
   }
 
   // 到了边界档位不变时不调 mpv、也不震

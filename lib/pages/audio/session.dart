@@ -1,5 +1,8 @@
 import 'package:PiliBro/pages/audio/controller.dart';
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
+import 'package:PiliBro/services/playback_focus.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 /// Keep audio playback alive while its detail route is not on screen.
@@ -36,6 +39,7 @@ abstract final class AudioPlaybackSession {
       permanent: true,
     );
     current.value = controller;
+    WidgetsBinding.instance.addObserver(_lifecycle);
     return controller;
   }
 
@@ -43,6 +47,11 @@ abstract final class AudioPlaybackSession {
 
   static void onPageClosed() {
     if (visiblePages.value > 0) visiblePages.value--;
+    if (Pref.audioContinueOnLeave) return;
+    // 页面还在释放中，等这一帧结束再关；期间又打开了听视频页就不关
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (visiblePages.value == 0) stop();
+    });
   }
 
   static Future<void>? reopen() {
@@ -79,13 +88,46 @@ abstract final class AudioPlaybackSession {
 
   static void pauseForVideo() => current.value?.onPause();
 
+  static final _lifecycle = _BackgroundPause();
+
   static void stop() {
     final active = current.value;
     current.value = null;
     _arguments = null;
+    WidgetsBinding.instance.removeObserver(_lifecycle);
     active?.onPause();
     if (Get.isRegistered<AudioController>(tag: _tag)) {
       Get.delete<AudioController>(tag: _tag, force: true);
+    }
+  }
+}
+
+/// 听视频进后台时按设置暂停，回到前台时恢复由它暂停的播放
+class _BackgroundPause with WidgetsBindingObserver {
+  bool _paused = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = AudioPlaybackSession.current.value;
+    if (controller == null) return;
+    if (state == AppLifecycleState.paused) {
+      if (!controller.isPlaying()) return;
+      PlaybackFocus.keepInBackground(
+        Pref.audioBackgroundPlay,
+        Pref.audioLockPlay,
+      ).then((keep) {
+        if (keep ||
+            !controller.isPlaying() ||
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed) {
+          return;
+        }
+        _paused = true;
+        controller.onPause();
+      });
+    } else if (state == AppLifecycleState.resumed && _paused) {
+      _paused = false;
+      controller.onPlay();
     }
   }
 }

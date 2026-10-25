@@ -1,0 +1,451 @@
+name: Windows x86 app (PiliBro portable)
+
+# 用 32 位引擎打便携包。引擎与 ANGLE 直接从 Release 下载，不在这里重编。
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        default: ""
+      build_number:
+        type: string
+        default: "0"
+      # 发行仓跨仓调用本工作流时用 7z 和 release-* 工件名
+      archive:
+        type: string
+        default: rar
+      artifact:
+        type: string
+        default: Windows-file-x86-release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    # kernel 与 CPU 位数无关，在 x64 机器上用 product 平台 dill 编。
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: setup
+        name: Setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
+      - id: version
+        name: Set version and write pili_release.json
+        shell: pwsh
+        env:
+          BUILD_NUMBER_OVERRIDE: ${{ inputs.build_number }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.tag }}
+        run: lib/scripts/build.ps1
+
+      - id: patch
+        name: Apply project Windows patches
+        shell: pwsh
+        run: lib/scripts/patch.ps1 windows
+
+      - id: precache
+        name: Precache Windows engine artifacts (including product platform dill)
+        shell: pwsh
+        run: flutter precache --windows
+
+      - id: debug
+        # 只用它生成的 .dart_tool（package_config、dart_plugin_registrant），kernel 步骤依赖这两样
+        name: x64 debug build (generates the plugin registrant used by the kernel step)
+        shell: pwsh
+        run: flutter build windows --debug -v 2>&1 | Tee-Object flutter-debug-build.log
+
+      - id: kernel
+        name: Build product kernel_blob.bin with the official KernelSnapshot arguments
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandArgumentPassing = 'Standard'
+          # 出错时把异常写进工件，诊断步骤会读它（日志下载不可用）
+          trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File kernel-error.txt -Encoding UTF8; break }
+
+          # 参数来源（flutter_tools 3.47.5）：
+          #   targets/common.dart  KernelSnapshot.build：aot=false，release 下 trackWidgetCreation=false，windows_x64 强制 link platform
+          #   compile.dart         buildModeOptions(release)、kDartCompilerExperiments（空）、参数拼装顺序
+          $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
+          $engine = Join-Path $flutterRoot 'bin\cache\artifacts\engine'
+          $flutterRoot | Out-File flutter-root.txt -Encoding UTF8
+          Get-ChildItem $engine -Recurse -File -Include 'dartaotruntime.exe','frontend_server_aot.dart.snapshot','*.dill' -ErrorAction SilentlyContinue |
+            ForEach-Object { "$($_.FullName)  $($_.Length)" } | Out-File engine-artifacts.txt -Encoding UTF8
+          # engineDartAotRuntime 在宿主上是 cache/dart-sdk/bin/dartaotruntime.exe（artifacts.dart:716）
+          $dartaot = Join-Path $flutterRoot 'bin\cache\dart-sdk\bin\dartaotruntime.exe'
+          $frontend = (Get-ChildItem $engine -Recurse -Filter 'frontend_server_aot.dart.snapshot' | Select-Object -First 1).FullName
+          $sdk = Get-ChildItem $engine -Recurse -Directory -Filter 'flutter_patched_sdk_product' | Select-Object -First 1
+          if (-not (Test-Path $dartaot)) { throw "dartaotruntime.exe not found at $dartaot" }
+          if (-not $frontend) { throw 'frontend_server_aot.dart.snapshot not found under the engine cache' }
+          if (-not $sdk) { throw 'flutter_patched_sdk_product not found under the engine cache' }
+          Write-Host "dartaotruntime: $dartaot"
+          Write-Host "frontend_server: $frontend"
+          Write-Host "sdk-root: $($sdk.FullName)"
+          Write-Host "platform_strong.dill present: $(Test-Path (Join-Path $sdk.FullName 'platform_strong.dill'))"
+
+          $pkgs = Join-Path $env:GITHUB_WORKSPACE '.dart_tool\package_config.json'
+          $main = Join-Path $env:GITHUB_WORKSPACE 'lib\main.dart'
+          if (-not (Test-Path $pkgs)) { throw "missing $pkgs (pub get did not run?)" }
+          if (-not (Test-Path $main)) { throw "missing $main" }
+
+          $kernelDir = Join-Path $env:GITHUB_WORKSPACE 'kernel'
+          New-Item -ItemType Directory -Force $kernelDir | Out-Null
+          $dill = Join-Path $kernelDir 'app.dill'
+
+          # 等价于 --dart-define-from-file=pili_release.json：每个键转成 -Dkey=value
+          $defs = Get-Content pili_release.json -Raw | ConvertFrom-Json
+          $defArgs = @($defs.PSObject.Properties | ForEach-Object { "-D$($_.Name)=$($_.Value)" })
+
+          $frontendArgs = @(
+            $frontend,
+            '--sdk-root', $sdk.FullName,
+            '--target=flutter',
+            '--no-print-incremental-dependencies'
+          ) + $defArgs + @(
+            '-Ddart.vm.profile=false',
+            '-Ddart.vm.product=true',
+            '--delete-tostring-package-uri=dart:ui',
+            '--delete-tostring-package-uri=package:flutter',
+            '--packages', $pkgs,
+            '--output-dill', $dill,
+            '--verbosity=error',
+            $main
+          )
+
+          # 与官方一致：dartPluginRegistrantUri 存在时追加三组参数（compile.dart:387-392），插在 --packages 之前。
+          # 没有它，纯 Dart 插件（如 path_provider_windows，dartPluginClass）不会注册，getApplicationSupportDirectory 报 MissingPluginException。
+          $registrant = Join-Path $env:GITHUB_WORKSPACE '.dart_tool\flutter_build\dart_plugin_registrant.dart'
+          if (-not (Test-Path $registrant)) { throw "dart plugin registrant missing: $registrant" }
+          $regUri = ([Uri]$registrant).AbsoluteUri
+          $regArgs = @('--source', $regUri, '--source', 'package:flutter/src/dart_plugin_registrant.dart', "-Dflutter.dart_plugin_registrant=$regUri")
+          $at = [array]::IndexOf($frontendArgs, '--packages')
+          if ($at -lt 0) { throw '--packages not found in the frontend_server arguments' }
+          $frontendArgs = @($frontendArgs[0..($at - 1)]) + $regArgs + @($frontendArgs[$at..($frontendArgs.Count - 1)])
+          Write-Host "plugin registrant: $regUri"
+
+          # 日志里只写参数形状，不写 define 的值
+          $shape = $frontendArgs | ForEach-Object { if ($_ -like '-D*=*') { ($_ -split '=')[0] + '=<value>' } else { $_ } }
+          "dartaotruntime: $dartaot" | Tee-Object kernel-command.txt
+          ($shape -join ' ') | Tee-Object -Append kernel-command.txt
+
+          & $dartaot @frontendArgs 2>&1 | Tee-Object kernel-build.log
+          if ($LASTEXITCODE -ne 0) { throw "product kernel compile failed (exit $LASTEXITCODE)" }
+
+          Copy-Item $dill (Join-Path $kernelDir 'kernel_blob.bin')
+          Get-Item (Join-Path $kernelDir 'kernel_blob.bin') | Format-Table Name, Length
+
+      - id: engine86
+        name: Fetch the 32-bit engine from our release and check its PE machine
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
+          $tag = "engine-win-x86-jit-$ver"
+          New-Item -ItemType Directory -Force engine86-dl | Out-Null
+          gh release download $tag -R 1-Reality/BiliVideo-Lab -p "$tag.7z" -D engine86-dl
+          7z x -y -oengine86 "engine86-dl\$tag.7z" flutter_windows.dll flutter_windows.dll.lib icudtl.dat | Out-Null
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+            if (-not (Test-Path "engine86\$f")) { throw "missing $f in $tag" }
+          }
+          $b = [IO.File]::ReadAllBytes("$PWD\engine86\flutter_windows.dll")
+          $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+          "flutter_windows.dll machine=$machine (expect 014C)" | Tee-Object engine86-check.txt
+          if ($machine -ne '014C') { throw "engine dll is not x86: $machine" }
+
+      - id: engineswap
+        name: Put the x86 engine into the x64 engine cache copies (CI-only; flutter_assemble copies from there)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterRoot = Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent
+          # artifacts.dart:797-802：debug 用 windows-x64，其余模式用 windows-x64-<mode>。
+          # 上一轮证明 cmake --config Release 时 flutter_assemble 拷的是 windows-x64-release，所以所有 windows-x64* 都要换
+          $dirs = Get-ChildItem (Join-Path $flutterRoot 'bin\cache\artifacts\engine') -Directory -Filter 'windows-x64*'
+          if (-not $dirs) { throw 'no windows-x64* engine directories in the cache' }
+          foreach ($d in $dirs) {
+            foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+              if (Test-Path (Join-Path $d.FullName $f)) { Copy-Item "engine86\$f" (Join-Path $d.FullName $f) -Force }
+            }
+            "swapped $($d.FullName)" | Out-Host
+          }
+          # 不改仓库里的 CMake：tool_backend 拷进去的就是这些 x86 文件
+
+      - id: patch32
+        name: Apply x86-only plugin patches (CI working copies only; not committed)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lib/scripts/patch_x86_plugins.ps1
+          lib/scripts/patch_media_kit_libmpv_x86.ps1
+
+      - id: exe32
+        name: Configure and build the runner as Win32, then stage with cmake --install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File exe32-error.txt -Encoding UTF8; break }
+          if (-not (Test-Path 'windows\flutter\ephemeral')) { throw 'ephemeral directory missing (debug build did not run)' }
+          # ephemeral 里的 flutter_windows.dll.lib 是 x64 调试构建拷进去的；plugin 链接用的就是它，必须换成 x86
+          # （上一轮 LNK4272 x64 冲突 + 大量 LNK2019 都由此而来）
+          function Show($label) {
+            $cacheDir = Join-Path (Split-Path (Split-Path (Get-Command flutter).Source -Parent) -Parent) 'bin\cache\artifacts\engine\windows-x64'
+            foreach ($p in @((Join-Path $cacheDir 'flutter_windows.dll'), 'windows\flutter\ephemeral\flutter_windows.dll', 'windows\flutter\ephemeral\flutter_windows.dll.lib', 'engine86\flutter_windows.dll', 'engine86\flutter_windows.dll.lib')) {
+              if (Test-Path $p) {
+                $h = (Get-FileHash $p -Algorithm SHA256).Hash.Substring(0,12)
+                $b = [IO.File]::ReadAllBytes((Resolve-Path $p).Path)
+                $m = if ($p -like '*.dll') { '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4) } else { '-' }
+                "[$label] $p sha=$h machine=$m"
+              } else { "[$label] $p MISSING" }
+            }
+          }
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') {
+            Copy-Item "engine86\$f" "windows\flutter\ephemeral\$f" -Force
+          }
+          Show 'before-configure' | Tee-Object exe32.log
+          Get-ChildItem 'windows\flutter\ephemeral' -Filter 'flutter_windows.dll*' | Format-Table Name, Length
+          cmake -S windows -B build32 -A Win32 2>&1 | Tee-Object -Append exe32.log
+          Show 'after-configure' | Tee-Object -Append exe32.log
+          if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
+          cmake --build build32 --config Release 2>&1 | Tee-Object -Append exe32.log
+          Show 'after-build' | Tee-Object -Append exe32.log
+          if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }
+          # flutter 的 CMake 把安装前缀定死在 build32\runner\Release（见 exe32.log 的 Installing 行），--prefix 不生效
+          cmake --install build32 --config Release 2>&1 | Tee-Object -Append exe32.log
+          if ($LASTEXITCODE -ne 0) { throw 'cmake install failed' }
+          $stage = 'build32\runner\Release'
+          if (-not (Test-Path (Join-Path $stage 'pilibro.exe'))) { throw "install output not found at $stage" }
+          # release 配置下 flutter_assemble 生成了 AOT 的 app.so；jit_release 引擎只用 kernel_blob.bin，删掉避免按 AOT 加载
+          Remove-Item (Join-Path $stage 'data\app.so') -ErrorAction SilentlyContinue
+          # 第 1 块的产品版 kernel 放进 flutter_assets（jit_release 运行时读 kernel_blob.bin）
+          Copy-Item kernel\kernel_blob.bin (Join-Path $stage 'data\flutter_assets\kernel_blob.bin') -Force
+          $exe = Get-Item (Join-Path $stage 'pilibro.exe')
+          $b = [IO.File]::ReadAllBytes($exe.FullName)
+          $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+          "$($exe.Name) machine=$machine (expect 014C)"
+          if ($machine -ne '014C') { throw "exe is not x86: $machine" }
+          Get-ChildItem $stage -Recurse -File | Format-Table FullName, Length
+
+      - id: check32
+        name: Check every DLL and the exe in the staged folder is x86 (0x14c)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'build32\runner\Release'
+          $bad = New-Object System.Collections.Generic.List[string]
+          $root = (Resolve-Path $stage).Path
+          $lines = New-Object System.Collections.Generic.List[string]
+          foreach ($f in Get-ChildItem $stage -Recurse -File -Include *.dll,*.exe) {
+            $b = [IO.File]::ReadAllBytes($f.FullName)
+            $m = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+            $lines.Add("$m  $($f.FullName.Substring($root.Length + 1))")
+            if ($m -ne '014C') { $bad.Add("$($f.Name)=$m") }
+          }
+          $lines | Set-Content architecture.txt
+          $lines | ForEach-Object { Write-Host $_ }
+          if ($bad.Count -gt 0) { throw "non-x86 binaries in the stage: $($bad -join ', ')" }
+
+      - id: smoke
+        name: "Smoke test: launch pilibro.exe, poll up to 90 s for a visible window, screenshot"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          trap { "$($_.Exception.Message) @ line $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())" | Out-File smoke-error.txt -Encoding UTF8; break }
+          Add-Type @"
+          using System;
+          using System.Text;
+          using System.Collections.Generic;
+          using System.Runtime.InteropServices;
+          public class WinEnum {
+            public delegate bool EnumProc(IntPtr h, IntPtr l);
+            [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
+            [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+            [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+            public static List<string> ForPid(uint pid) {
+              var list = new List<string>();
+              EnumWindows((h, l) => {
+                uint p; GetWindowThreadProcessId(h, out p);
+                if (p == pid) {
+                  var t = new StringBuilder(256); GetWindowText(h, t, 256);
+                  var c = new StringBuilder(256); GetClassName(h, c, 256);
+                  list.Add(string.Format("hwnd={0} class='{1}' title='{2}' visible={3}", h, c, t, IsWindowVisible(h)));
+                }
+                return true;
+              }, IntPtr.Zero);
+              return list;
+            }
+          }
+          "@
+          $stage = 'build32\runner\Release'
+          $exe = (Resolve-Path (Join-Path $stage 'pilibro.exe')).Path
+          $start = Get-Date
+          $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru -RedirectStandardOutput app-stdout.txt -RedirectStandardError app-stderr.txt
+          $seen = $false
+          $deadline = (Get-Date).AddSeconds(90)
+          while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 2
+            $p.Refresh()
+            if ($p.HasExited) { break }
+            $wins = [WinEnum]::ForPid([uint32]$p.Id) | Where-Object { $_ -match 'visible=True' }
+            if ($wins) { $seen = $true; break }
+          }
+          $p.Refresh()
+          $alive = -not $p.HasExited
+          $elapsed = [int]((Get-Date) - $start).TotalSeconds
+          "elapsed=${elapsed}s alive=$alive visibleWindowSeen=$seen mainWindowHandle=$($p.MainWindowHandle) threads=$($p.Threads.Count) workingSetMB=$([int]($p.WorkingSet64/1MB)) responding=$($p.Responding)" | Tee-Object smoke.txt
+          "all top-level windows for pid $($p.Id):" | Tee-Object -Append smoke.txt
+          [WinEnum]::ForPid([uint32]$p.Id) | Tee-Object -Append smoke.txt
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
+          $g = [Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+          $bmp.Save((Join-Path $PWD 'smoke.png'), [Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $bmp.Dispose()
+          $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $start } -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -match 'pilibro|flutter_windows|media_kit|libmpv|libEGL|libGLESv2' } | Select-Object -First 5
+          $events | ForEach-Object { "event $($_.Id) $($_.LevelDisplayName): $($_.Message.Substring(0,[Math]::Min(300,$_.Message.Length)))" } | Tee-Object -Append smoke.txt
+          "--- app stdout (tail) ---" | Tee-Object -Append smoke.txt
+          if (Test-Path app-stdout.txt) { Get-Content app-stdout.txt -Tail 40 | Tee-Object -Append smoke.txt }
+          "--- app stderr (tail) ---" | Tee-Object -Append smoke.txt
+          if (Test-Path app-stderr.txt) { Get-Content app-stderr.txt -Tail 40 | Tee-Object -Append smoke.txt }
+          "--- recent app log files under Documents/AppData ---" | Tee-Object -Append smoke.txt
+          $since = $start.AddMinutes(-1)
+          foreach ($root in @("$env:USERPROFILE\Documents", "$env:APPDATA", "$env:LOCALAPPDATA")) {
+            if (-not (Test-Path $root)) { continue }
+            Get-ChildItem $root -Recurse -File -Include *.log,*.txt -ErrorAction SilentlyContinue |
+              Where-Object { $_.LastWriteTime -gt $since -and $_.Length -lt 5MB } | Select-Object -First 5 | ForEach-Object {
+                "== $($_.FullName) ($($_.Length) bytes)" | Tee-Object -Append smoke.txt
+                Get-Content $_.FullName -Tail 40 -ErrorAction SilentlyContinue | Tee-Object -Append smoke.txt
+              }
+          }
+          if ($alive) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          if (-not $alive) { throw "pilibro.exe exited (exit $($p.ExitCode)) after ${elapsed}s" }
+          if (-not $seen) { throw "pilibro.exe is alive after ${elapsed}s but has no visible window" }
+          # 红屏（断言开启时的 Bad state / 释放模式下的调试辅助函数）出现在输出里就算失败
+          $bad = @()
+          foreach ($f in 'app-stdout.txt','app-stderr.txt','smoke.txt') {
+            if (Test-Path $f) { $bad += Select-String -Path $f -Pattern 'Bad state|was called in Release mode|Another exception was thrown' }
+          }
+          if ($bad) { throw "red-screen markers in app output: $(($bad | ForEach-Object { $_.Line.Trim() }) -join ' | ')" }
+
+      - id: pack
+        # 本仓库 32 位发 rar、64 位发 7z；发行仓反过来（64 位 rar，32 位 7z），App 检查更新按发行仓的约定挑
+        name: Pack the portable archive
+        shell: pwsh
+        env:
+          ARCHIVE: ${{ inputs.archive || 'rar' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $name = "PiliBro_windows_${env:version}_x86_portable.$env:ARCHIVE"
+          # 附带英文 README 和 Win7 说明，放在包的根目录
+          $items = 'build32\runner\Release\*', 'windows\packaging\win32\*'
+          if ($env:ARCHIVE -eq '7z') {
+            # 最高压缩、固实
+            7z a -t7z -m0=lzma2 -mx=9 -mfb=273 -md=512m -ms=on $name @items
+          } else {
+            choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
+            $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
+            & $rar a -ep1 -ma5 -m5 -s -md512m -r $name @items
+          }
+          if ($LASTEXITCODE -ne 0) { throw "$env:ARCHIVE failed ($LASTEXITCODE)" }
+          Get-Item $name | Format-Table Name, Length
+
+      # Build 的发布步骤会收走本次运行的全部工件，所以这里只放安装包
+      - name: Upload portable archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact || 'Windows-file-x86-release' }}
+          path: PiliBro_windows_*_x86_portable.*
+          if-no-files-found: error
+
+      - name: Upload screenshot and smoke logs
+        if: ${{ always() && inputs.tag == '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-x86-smoke
+          path: |
+            smoke.png
+            smoke.txt
+            app-stdout.txt
+            app-stderr.txt
+            architecture.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Diagnostics on failure (annotations; artifact downloads are blocked in some sessions)
+        if: failure()
+        shell: pwsh
+        env:
+          O_SETUP: ${{ steps.setup.outcome }}
+          O_VERSION: ${{ steps.version.outcome }}
+          O_PATCH: ${{ steps.patch.outcome }}
+          O_PRECACHE: ${{ steps.precache.outcome }}
+          O_DEBUG: ${{ steps.debug.outcome }}
+          O_KERNEL: ${{ steps.kernel.outcome }}
+          O_ENGINE86: ${{ steps.engine86.outcome }}
+          O_SWAP: ${{ steps.engineswap.outcome }}
+          O_EXE32: ${{ steps.exe32.outcome }}
+          O_PATCH32: ${{ steps.patch32.outcome }}
+          O_CHECK32: ${{ steps.check32.outcome }}
+          O_SMOKE: ${{ steps.smoke.outcome }}
+          O_PACK: ${{ steps.pack.outcome }}
+        run: |
+          function Emit($title, $lines) {
+            $text = ($lines -join "`n")
+            if ($text.Length -gt 3500) { $text = $text.Substring($text.Length - 3500) }
+            $enc = ($text -replace '%','%25' -replace "`r",'' -replace "`n",'%0A')
+            Write-Host "::error title=$title::$enc"
+          }
+          Emit 'step outcomes' @(
+            "setup=$env:O_SETUP version=$env:O_VERSION patch=$env:O_PATCH precache=$env:O_PRECACHE debug=$env:O_DEBUG kernel=$env:O_KERNEL engine86=$env:O_ENGINE86 swap=$env:O_SWAP patch32=$env:O_PATCH32 exe32=$env:O_EXE32 check32=$env:O_CHECK32 smoke=$env:O_SMOKE pack=$env:O_PACK"
+          )
+          if (Test-Path 'exe32.log') { Emit 'exe32 errors (compiler/linker)' @(Get-Content exe32.log | Where-Object { $_ -match ' error [A-Z]+\d+|fatal error|LNK\d{4}|C2220' } | Select-Object -First 40) }
+          if (Test-Path 'exe32.log') { Emit 'exe32 probes' @(Get-Content exe32.log | Where-Object { $_ -match '^\[(before|after)' }) }
+          foreach ($f in 'smoke-error.txt','smoke.txt','architecture.txt','exe32-error.txt','exe32.log','kernel-error.txt','engine-artifacts.txt','flutter-root.txt','flutter-debug-build.log','kernel-build.log','kernel-command.txt') {
+            if (Test-Path $f) {
+              $all = Get-Content $f
+              $hits = $all | Where-Object { $_ -match 'error|Error|ERROR|Exception|FAILED|failed' } | Select-Object -First 25
+              Emit "$f errors" @($hits)
+              Emit "$f tail" @($all | Select-Object -Last 40)
+            } else { Emit "$f" @("(missing)") }
+          }
+
+      - name: Upload logs on failure
+        if: ${{ failure() && inputs.tag == '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-x86-logs
+          path: |
+            kernel-command.txt
+            kernel-build.log
+            kernel-error.txt
+            smoke-error.txt
+            smoke.txt
+            exe32-error.txt
+            exe32.log
+            engine-artifacts.txt
+            flutter-root.txt
+            flutter-debug-build.log
+          if-no-files-found: warn
+          retention-days: 14

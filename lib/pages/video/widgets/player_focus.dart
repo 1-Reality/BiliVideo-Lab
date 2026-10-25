@@ -134,13 +134,18 @@ class PlayerFocus extends StatelessWidget {
     if (!hasPlayer) return;
     if (event is KeyDownEvent) {
       plPlayerController
-        ..stepPlaybackSpeed(isIncrease, recordSelection: false)
+        ..stepPlaybackSpeed(
+          isIncrease,
+          recordSelection: false,
+          bounded: false,
+        )
         ..longPressTimer?.cancel()
         ..longPressTimer = Timer.periodic(
           const Duration(milliseconds: 150),
           (_) => plPlayerController.stepPlaybackSpeed(
             isIncrease,
             recordSelection: false,
+            bounded: false,
           ),
         );
     } else if (event is KeyUpEvent) {

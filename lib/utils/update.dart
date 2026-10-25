@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io' show Platform;
 
 import 'package:PiliBro/build_config.dart';
@@ -6,6 +7,7 @@ import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
+import 'package:PiliBro/services/daily_checkin.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -34,10 +36,9 @@ abstract final class Update {
           '$year': stamp % 1000,
         });
       }
-      cache.put(
-        LocalCacheKey.launchDay,
-        today * 1000 + (now.year == year ? stamp % 1000 + 1 : 1),
-      );
+      final day = now.year == year ? stamp % 1000 + 1 : 1;
+      cache.put(LocalCacheKey.launchDay, today * 1000 + day);
+      DailyCheckin.onNewDay(day);
     }
     cache.put(LocalCacheKey.launchSlot, slot + 1);
     final bucket = slot % n;
@@ -160,9 +161,14 @@ abstract final class Update {
                     ),
                   ),
                 ],
+                // 发行仓：64 位便携包是 rar，32 位是 7z，32 位没有安装包
                 if (Platform.isWindows) ...[
-                  downloadBtn('rar', ext: 'rar'),
-                  downloadBtn('exe', ext: 'exe'),
+                  if (Abi.current() == Abi.windowsIA32)
+                    downloadBtn('7z', ext: '7z')
+                  else ...[
+                    downloadBtn('rar', ext: 'rar'),
+                    downloadBtn('exe', ext: 'exe'),
+                  ],
                 ] else if (Platform.isLinux) ...[
                   downloadBtn('rpm', ext: 'rpm'),
                   downloadBtn('deb', ext: 'deb'),

@@ -41,8 +41,8 @@ List<SettingsModel> get audioSettings => [
     onChanged: AudioFirstMode.onEnabledChanged,
   ),
   const SwitchModel(
-    title: '应用内小窗',
-    subtitle: '视频页头部出现小窗按钮：点击后视频缩成可拖动、可缩放的悬浮小窗，点返回无缝回到视频页',
+    title: '返回时自动进入应用内小窗',
+    subtitle: '视频播放中按返回，视频缩成可拖动、可缩放的悬浮小窗，点小窗无缝回到视频页；暂停时照常退出。视频页头部的小窗按钮始终可用',
     leading: Icon(Icons.picture_in_picture_alt_outlined),
     setKey: SettingBoxKey.enableInAppPip,
     defaultVal: false,
@@ -56,22 +56,11 @@ List<SettingsModel> get audioSettings => [
     needReboot: true,
   ),
   if (PlatformUtils.isMobile)
-    SwitchModel(
-      title: '后台音频服务',
-      subtitle: '避免画中画没有播放暂停功能',
-      leading: const Icon(Icons.volume_up_outlined),
-      setKey: SettingBoxKey.enableBackgroundPlay,
-      defaultVal: true,
-      onChanged: (value) =>
-          videoPlayerServiceHandler!.enableBackgroundPlay = value,
-    ),
-  if (PlatformUtils.isMobile)
-    const SwitchModel(
-      title: '后台播放',
-      subtitle: '进入后台时继续播放',
-      leading: Icon(Icons.motion_photos_pause_outlined),
-      setKey: SettingBoxKey.continuePlayInBackground,
-      defaultVal: false,
+    NormalModel(
+      title: '后台播放与声音',
+      subtitle: '后台音频服务；视频、听视频各自的后台与锁屏播放；与其他 App 的声音怎么相处；拔耳机',
+      leading: const Icon(Icons.motion_photos_pause_outlined),
+      onTap: (context, setState) => Get.toNamed('/backgroundSettings'),
     ),
   if (Platform.isAndroid) ...[
     SwitchModel(

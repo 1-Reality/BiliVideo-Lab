@@ -121,6 +121,8 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
+        PlaybackBridge(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pilibro/device")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

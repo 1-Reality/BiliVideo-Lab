@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -52,6 +55,8 @@ abstract final class DevicePresets {
       SettingBoxKey.angleDegrees: 30,
       SettingBoxKey.exitOrientationMode: ExitOrientationMode.lockPlayer.index,
       SettingBoxKey.finalDirectionMask: 0,
+      if (Platform.isAndroid)
+        SettingBoxKey.hardwareDecoding: HwDecType.embedWithFallback,
     },
     applyNow: applyNow,
   );
@@ -109,6 +114,8 @@ abstract final class DevicePresets {
         SettingBoxKey.finalDirectionMask: 0,
         SettingBoxKey.defaultShowComment: false,
         SettingBoxKey.enableAutoEnter: true,
+        if (Platform.isAndroid)
+          SettingBoxKey.hardwareDecoding: HwDecType.embedWithFallback,
       },
       applyNow: false,
     );

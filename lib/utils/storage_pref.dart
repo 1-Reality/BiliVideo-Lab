@@ -9,6 +9,7 @@ import 'package:PiliBro/models/common/bar_hide_type.dart';
 import 'package:PiliBro/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
+import 'package:PiliBro/models/common/focus_reaction.dart';
 import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
 import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
@@ -872,6 +873,9 @@ abstract final class Pref {
   static bool get checkDynamic =>
       _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
 
+  static bool get silver2coin =>
+      _setting.get(SettingBoxKey.silver2coin, defaultValue: false);
+
   static int get dynamicPeriod =>
       _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
 
@@ -1039,7 +1043,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showHotRcmd, defaultValue: true);
 
   static String get audioNormalization =>
-      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '2');
+      _setting.get(SettingBoxKey.audioNormalization, defaultValue: '0');
 
   static String get fallbackNormalization =>
       _setting.get(SettingBoxKey.fallbackNormalization, defaultValue: '0');
@@ -1523,6 +1527,27 @@ abstract final class Pref {
   static int get speedStep =>
       _setting.get(SettingBoxKey.speedStep, defaultValue: 10);
 
+  // 倍速手势挡位：H 横滑、V 竖滑；硬挡 0 表示不设，软挡加长单位是逻辑像素
+  static int get speedSlideHardH =>
+      _setting.get(SettingBoxKey.speedSlideHardH, defaultValue: 0);
+
+  static List<int> get speedSlideSoftH => List<int>.from(
+    _setting.get(SettingBoxKey.speedSlideSoftH, defaultValue: const <int>[]),
+  );
+
+  static int get speedSlideHoldH =>
+      _setting.get(SettingBoxKey.speedSlideHoldH, defaultValue: 40);
+
+  static int get speedSlideHardV =>
+      _setting.get(SettingBoxKey.speedSlideHardV, defaultValue: 100);
+
+  static List<int> get speedSlideSoftV => List<int>.from(
+    _setting.get(SettingBoxKey.speedSlideSoftV, defaultValue: const <int>[]),
+  );
+
+  static int get speedSlideHoldV =>
+      _setting.get(SettingBoxKey.speedSlideHoldV, defaultValue: 40);
+
   static bool get wheelSpeed =>
       _setting.get(SettingBoxKey.wheelSpeed, defaultValue: false);
 
@@ -1562,6 +1587,44 @@ abstract final class Pref {
   static bool get continuePlayInBackground =>
       _setting.get(SettingBoxKey.continuePlayInBackground, defaultValue: false);
 
+  // 后台播放与声音：都在事件发生时现读，改了立即生效
+  // 锁屏没单独设过时沿用后台播放，升级后行为不变
+  static bool get lockPlayVideo => _setting.get(
+    SettingBoxKey.lockPlayVideo,
+    defaultValue: continuePlayInBackground,
+  );
+
+  static bool get listenContinueOnExit =>
+      _setting.get(SettingBoxKey.listenContinueOnExit, defaultValue: true);
+
+  static bool get audioBackgroundPlay =>
+      _setting.get(SettingBoxKey.audioBackgroundPlay, defaultValue: true);
+
+  static bool get audioLockPlay =>
+      _setting.get(SettingBoxKey.audioLockPlay, defaultValue: true);
+
+  static bool get audioContinueOnLeave =>
+      _setting.get(SettingBoxKey.audioContinueOnLeave, defaultValue: true);
+
+  static bool get focusTakeover =>
+      _setting.get(SettingBoxKey.focusTakeover, defaultValue: true);
+
+  static FocusReaction get focusOnDuck => FocusReaction.values[_setting.get(
+    SettingBoxKey.focusOnDuck,
+    defaultValue: FocusReaction.duck.index,
+  )];
+
+  static FocusReaction get focusOnLoss => FocusReaction.values[_setting.get(
+    SettingBoxKey.focusOnLoss,
+    defaultValue: FocusReaction.pause.index,
+  )];
+
+  static int get duckPercent =>
+      _setting.get(SettingBoxKey.duckPercent, defaultValue: 50);
+
+  static bool get pauseOnNoisy =>
+      _setting.get(SettingBoxKey.pauseOnNoisy, defaultValue: true);
+
   static bool get directExitOnBack =>
       _setting.get(SettingBoxKey.directExitOnBack, defaultValue: false);
 
@@ -1594,6 +1657,7 @@ abstract final class Pref {
     String? buvid = _localCache.get(LocalCacheKey.buvid);
     if (buvid == null) {
       buvid = LoginUtils.generateBuvid();
+      LoginUtils.freshBuvid = true;
       _localCache.put(LocalCacheKey.buvid, buvid);
     }
     return buvid;
