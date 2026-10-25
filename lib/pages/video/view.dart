@@ -612,6 +612,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
     isShowing = true;
 
+    // 从听视频页返回由视频接管，还在放的听视频直接关掉，免得两个声音一起放
+    if (AudioPlaybackSession.current.value?.isPlayingRx.value ?? false) {
+      AudioPlaybackSession.stop();
+    }
+
     addObserverMobile(this);
 
     plPlayerController?.isLive = false;
