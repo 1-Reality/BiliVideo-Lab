@@ -12,7 +12,7 @@ abstract final class SettingBoxKey {
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
       replyNoAutoPlay = 'replyNoAutoPlay',
-      autoInAppPip = 'autoInAppPip',
+      enableInAppPip = 'enableInAppPip',
       fullScreenMode = 'fullScreenMode',
       preferCodecs = 'preferCodecs',
       preferCodecsCellular = 'preferCodecsCellular',

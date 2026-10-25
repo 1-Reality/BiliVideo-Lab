@@ -275,7 +275,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   late final bool _autoInAppPip =
-      Pref.autoInAppPip && !videoDetailController.isFileSource;
+      Pref.enableInAppPip && !videoDetailController.isFileSource;
 
   // 锁定、桌面小窗、全屏时照旧交给播放器处理；之后先退相关视频栈，
   // 栈空且开了自动小窗、正在播放时进应用内小窗，否则照常退出

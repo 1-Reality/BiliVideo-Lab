@@ -44,7 +44,7 @@ List<SettingsModel> get audioSettings => [
     title: '返回时自动进入应用内小窗',
     subtitle: '视频播放中按返回，视频缩成可拖动、可缩放的悬浮小窗，点小窗无缝回到视频页；暂停时照常退出。视频页头部的小窗按钮始终可用',
     leading: Icon(Icons.picture_in_picture_alt_outlined),
-    setKey: SettingBoxKey.autoInAppPip,
+    setKey: SettingBoxKey.enableInAppPip,
     defaultVal: false,
   ),
   const SwitchModel(
