@@ -67,11 +67,10 @@ class AvSettingsPage extends StatelessWidget {
     return DefaultTabController(
       length: 4,
       child: SimpleScaffold(
-        appBar: AppBar(
-          title: const Text('音画设置'),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
-            child: Padding(
+        appBar: AppBar(title: const Text('音画设置')),
+        body: Column(
+          children: [
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TabBar(
                 dividerHeight: 0,
@@ -91,21 +90,23 @@ class AvSettingsPage extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            list(
-              cdn,
-              ListTile(
-                leading: const Icon(Icons.network_check),
-                title: const Text('宽带网络诊断'),
-                onTap: () => Get.to(() => const BroTechPage()),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  list(
+                    cdn,
+                    ListTile(
+                      leading: const Icon(Icons.network_check),
+                      title: const Text('宽带网络诊断'),
+                      onTap: () => Get.to(() => const BroTechPage()),
+                    ),
+                  ),
+                  list(quality),
+                  list(buffer),
+                  list(misc),
+                ],
               ),
             ),
-            list(quality),
-            list(buffer),
-            list(misc),
           ],
         ),
       ),

@@ -142,11 +142,10 @@ class BackgroundSettingsPage extends StatelessWidget {
     return DefaultTabController(
       length: 3,
       child: SimpleScaffold(
-        appBar: AppBar(
-          title: const Text('后台播放与声音'),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
-            child: Padding(
+        appBar: AppBar(title: const Text('后台播放与声音')),
+        body: Column(
+          children: [
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TabBar(
                 dividerHeight: 0,
@@ -165,10 +164,12 @@ class BackgroundSettingsPage extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ),
-        body: TabBarView(
-          children: [list(_common), list(_video), list(_listen)],
+            Expanded(
+              child: TabBarView(
+                children: [list(_common), list(_video), list(_listen)],
+              ),
+            ),
+          ],
         ),
       ),
     );
