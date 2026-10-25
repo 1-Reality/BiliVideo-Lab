@@ -358,20 +358,19 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
-  // 左上角一朵十瓣花，开了几瓣就是几成音量，半成的那瓣半透明
+  // 左上角 Claude 风格的放射花，开几瓣就是几成音量，半成的那瓣半透明
   void _paintFlower(Canvas canvas, Size size) {
-    const petals = 10;
+    const petals = 12;
     final radius = math.min(26.0, size.height * 0.1);
     final center = Offset(radius + 4, radius + 4);
     final open = shown / 100 * petals;
     final petal = Path()
-      ..addOval(
-        Rect.fromCenter(
-          center: Offset(0, -radius * 0.55),
-          width: radius * 0.42,
-          height: radius * 0.9,
-        ),
-      );
+      ..moveTo(-radius * 0.11, -radius * 0.18)
+      ..lineTo(-radius * 0.16, -radius * 0.72)
+      ..lineTo(0, -radius * 0.95)
+      ..lineTo(radius * 0.16, -radius * 0.72)
+      ..lineTo(radius * 0.11, -radius * 0.18)
+      ..close();
     canvas
       ..save()
       ..translate(center.dx, center.dy);
@@ -387,9 +386,7 @@ class _ScenePainter extends CustomPainter {
         )
         ..rotate(2 * math.pi / petals);
     }
-    canvas
-      ..drawCircle(Offset.zero, radius * 0.22, Paint()..color = colors.primary)
-      ..restore();
+    canvas.restore();
   }
 
   // 杯子随板倾斜，水面始终水平
