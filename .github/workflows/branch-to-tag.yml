@@ -1,0 +1,38 @@
+name: Convert branch to tag
+
+# 在「Use workflow from」里选要归档的分支：在它当前的提交上建同名 tag，确认建好后删除该分支。
+# 分支里需要有本文件（从 dev 新拉的分支都有）；默认分支不允许归档。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tag the branch head, verify, then delete the branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          [ "$GITHUB_REF_TYPE" = branch ] || { echo "请在 Use workflow from 里选分支"; exit 1; }
+          [ "$NAME" != "$DEFAULT" ] || { echo "默认分支 $NAME 不能归档"; exit 1; }
+          head=$(gh api "repos/$REPO/git/ref/heads/$NAME" -q .object.sha)
+          [ "$head" = "$SHA" ] || { echo "分支在运行期间有新提交（$SHA -> $head），请重新运行"; exit 1; }
+
+          if existing=$(gh api "repos/$REPO/git/ref/tags/$NAME" -q .object.sha 2>/dev/null); then
+            [ "$existing" = "$SHA" ] || { echo "tag $NAME 已存在且指向 $existing，与分支 $SHA 不同"; exit 1; }
+          else
+            gh api --method POST "repos/$REPO/git/refs" -f "ref=refs/tags/$NAME" -f "sha=$SHA" >/dev/null
+          fi
+          tagged=$(gh api "repos/$REPO/git/ref/tags/$NAME" -q .object.sha)
+          [ "$tagged" = "$SHA" ] || { echo "tag 校验失败：$tagged"; exit 1; }
+
+          gh api --method DELETE "repos/$REPO/git/refs/heads/$NAME"
+          echo "已归档：tag $NAME -> $SHA，分支已删除" | tee -a "$GITHUB_STEP_SUMMARY"
