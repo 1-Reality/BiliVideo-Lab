@@ -382,100 +382,6 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
-class _ClaudeFlower extends StatelessWidget {
-  const _ClaudeFlower({
-    required this.scene,
-    required this.colors,
-    required this.size,
-  });
-
-  static const _asset = 'assets/images/claude_ai_symbol.svg';
-  static const _angles = <double>[
-    279.75,
-    310.75,
-    351.25,
-    13.75,
-    41.75,
-    57.25,
-    92.75,
-    124.25,
-    146.75,
-    181.25,
-    213.75,
-    244.25,
-  ];
-
-  final _Scene scene;
-  final ColorScheme colors;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: scene,
-      builder: (context, _) {
-        final open = scene.shown / 100 * _angles.length;
-        return SizedBox(
-          width: size,
-          height: size,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              SvgPicture.asset(
-                _asset,
-                colorFilter: ColorFilter.mode(
-                  colors.outlineVariant.withValues(alpha: 0.5),
-                  BlendMode.srcIn,
-                ),
-              ),
-              for (var i = 0; i < _angles.length; i++)
-                if (open - i > 0)
-                  ClipPath(
-                    clipper: _ClaudePetalClipper(_angles[i]),
-                    child: SvgPicture.asset(
-                      _asset,
-                      colorFilter: ColorFilter.mode(
-                        colors.secondary.withValues(
-                          alpha: 0.25 + 0.75 * (open - i).clamp(0.0, 1.0),
-                        ),
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                  ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ClaudePetalClipper extends CustomClipper<Path> {
-  _ClaudePetalClipper(this.angle);
-
-  final double angle;
-
-  @override
-  Path getClip(Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width * 1.5;
-    const halfAngle = 9 * math.pi / 180;
-    final mid = angle * math.pi / 180;
-    final path = Path()..moveTo(center.dx, center.dy);
-    for (var i = 0; i <= 8; i++) {
-      final a = mid - halfAngle + (halfAngle * 2) * i / 8;
-      path.lineTo(
-        center.dx + radius * math.cos(a),
-        center.dy + radius * math.sin(a),
-      );
-    }
-    return path..close();
-  }
-
-  @override
-  bool shouldReclip(_ClaudePetalClipper oldClipper) => oldClipper.angle != angle;
-}
-
   // 杯子随板倾斜，水面始终水平
   void _paintGlass(Canvas canvas, Size size, _Geo geo) {
     final glass = geo.glassPath();
@@ -577,6 +483,191 @@ class _ClaudePetalClipper extends CustomClipper<Path> {
   @override
   bool shouldRepaint(_ScenePainter oldDelegate) =>
       oldDelegate.colors != colors || oldDelegate.textStyle != textStyle;
+}
+
+const _claudePetalAngles = <double>[
+  279.75,
+  310.75,
+  351.25,
+  373.75,
+  401.75,
+  417.25,
+  452.75,
+  484.25,
+  506.75,
+  541.25,
+  573.75,
+  604.25,
+];
+
+class _ClaudeFlower extends StatelessWidget {
+  const _ClaudeFlower({
+    required this.scene,
+    required this.colors,
+    required this.size,
+  });
+
+  static const _asset = 'assets/images/claude_ai_symbol.svg';
+
+  final _Scene scene;
+  final ColorScheme colors;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          SvgPicture.asset(
+            _asset,
+            colorFilter: ColorFilter.mode(
+              colors.outlineVariant.withValues(alpha: 0.5),
+              BlendMode.srcIn,
+            ),
+          ),
+          AnimatedBuilder(
+            animation: scene,
+            builder: (context, _) {
+              final open = (scene.shown / 100 * _claudePetalAngles.length)
+                  .clamp(0.0, _claudePetalAngles.length.toDouble());
+              final fraction = open - open.floor();
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipPath(
+                    clipper: _ClaudePetalClipper(open: open),
+                    child: SvgPicture.asset(
+                      _asset,
+                      colorFilter: ColorFilter.mode(
+                        colors.secondary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                  if (fraction > 0)
+                    ClipPath(
+                      clipper: _ClaudePetalClipper(
+                        open: open,
+                        partialOnly: true,
+                      ),
+                      child: SvgPicture.asset(
+                        _asset,
+                        colorFilter: ColorFilter.mode(
+                          colors.secondary.withValues(
+                            alpha: 0.25 + 0.75 * fraction,
+                          ),
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClaudePetalClipper extends CustomClipper<Path> {
+  const _ClaudePetalClipper({required this.open, this.partialOnly = false});
+
+  final double open;
+  final bool partialOnly;
+
+  @override
+  Path getClip(Size size) {
+    final shown = open.clamp(0.0, _claudePetalAngles.length.toDouble());
+    final fullCount = shown.floor();
+    final fraction = shown - fullCount;
+    final center = size.center(Offset.zero);
+    final innerRadius = size.width * 0.12;
+    final outerRadius = size.width * 0.8;
+    final path = Path();
+
+    if (partialOnly) {
+      if (fraction > 0 && fullCount < _claudePetalAngles.length) {
+        _addPetalSector(
+          path,
+          size,
+          fullCount,
+          innerRadius,
+          outerRadius,
+        );
+      }
+      return path;
+    }
+
+    // 中心保持完整，外侧按真实花瓣的角度逐瓣点亮。
+    path.addOval(Rect.fromCircle(center: center, radius: innerRadius));
+    for (var i = 0; i < fullCount; i++) {
+      _addPetalSector(path, size, i, innerRadius, outerRadius);
+    }
+    return path;
+  }
+
+  void _addPetalSector(
+    Path path,
+    Size size,
+    int index,
+    double innerRadius,
+    double outerRadius,
+  ) {
+    final angles = _claudePetalAngles;
+    final current = angles[index];
+    final previous = index == 0 ? angles.last - 360 : angles[index - 1];
+    final next = index == angles.length - 1
+        ? angles.first + 360
+        : angles[index + 1];
+    var start = (previous + current) / 2;
+    var end = (current + next) / 2;
+    if (partialOnly) {
+      end = start + (end - start) * (open - open.floor());
+    }
+
+    final center = size.center(Offset.zero);
+    final startRad = start * math.pi / 180;
+    final endRad = end * math.pi / 180;
+    final sector = Path()
+      ..moveTo(
+        center.dx + innerRadius * math.cos(startRad),
+        center.dy + innerRadius * math.sin(startRad),
+      )
+      ..lineTo(
+        center.dx + outerRadius * math.cos(startRad),
+        center.dy + outerRadius * math.sin(startRad),
+      );
+
+    for (var i = 1; i <= 8; i++) {
+      final a = startRad + (endRad - startRad) * i / 8;
+      sector.lineTo(
+        center.dx + outerRadius * math.cos(a),
+        center.dy + outerRadius * math.sin(a),
+      );
+    }
+
+    sector.lineTo(
+      center.dx + innerRadius * math.cos(endRad),
+      center.dy + innerRadius * math.sin(endRad),
+    );
+    for (var i = 7; i >= 0; i--) {
+      final a = startRad + (endRad - startRad) * i / 8;
+      sector.lineTo(
+        center.dx + innerRadius * math.cos(a),
+        center.dy + innerRadius * math.sin(a),
+      );
+    }
+    sector.close();
+    path.addPath(sector, Offset.zero);
+  }
+
+  @override
+  bool shouldReclip(_ClaudePetalClipper oldClipper) =>
+      oldClipper.open != open || oldClipper.partialOnly != partialOnly;
 }
 
 class _CupPainter extends CustomPainter {
