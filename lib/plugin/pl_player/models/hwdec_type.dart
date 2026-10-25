@@ -1,8 +1,6 @@
 // mpv --hwdec=help
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kDebugMode;
-
 enum HwDecType {
   no('no', '启用软解'),
   auto('auto', '启用任意可用解码器'),
@@ -51,9 +49,12 @@ enum HwDecType {
   /// 普通列表，不带 no，直通期间不退软解，失败才会报出来
   static const embedWithFallback = 'mediacodec_embed,mediacodec,auto-safe';
 
-  static final String androidDefault = kDebugMode
-      ? [autoSafe.hwdec, no.hwdec].join(',')
-      : [mediacodec.hwdec, autoSafe.hwdec, no.hwdec].join(',');
+  // 显式把 mediacodec 放最前：只写 auto-safe 时安卓会选到 mediacodec-copy
+  static final String androidDefault = [
+    mediacodec.hwdec,
+    autoSafe.hwdec,
+    no.hwdec,
+  ].join(',');
 
   static final String windowsDefault = [
     d3d12va.hwdec,
