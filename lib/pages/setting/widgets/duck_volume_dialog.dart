@@ -10,7 +10,7 @@ import 'package:material_ui/material_ui.dart';
 /// 显示：跷跷板左边是我们的一杯水，水位就是音量；右边是正在播报的导航，
 /// 我们压得越低，它的气泡越大；背景弹幕的条数和浓淡也跟着音量走；水位下降时杯口往外洒水；
 /// 左上角一朵放射花，开几瓣就是几成。
-/// 调节和显示分开：拖跷跷板细调，点下面的杯子选档，按加减号 5% 微调
+/// 调节和显示分开：拖跷跷板按安卓音量的 15 格走，点下面的杯子选档，按加减号 1% 微调
 Future<int?> showDuckVolumeDialog(BuildContext context, int initial) =>
     showDialog<int>(
       context: context,
@@ -51,7 +51,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
   static const _cups = [15, 30, 50, 70, 90];
 
   late int _percent = widget.initial.clamp(_min, _max);
-  // 拖动时的连续值，落到 5 的倍数才改 _percent
+  // 拖动时的连续值，落到 15 格里的某一格才改 _percent
   late double _dragValue = _percent.toDouble();
   // 画面上的值追着 _percent 缓动
   late final _scene = _Scene(_percent.toDouble());
@@ -121,7 +121,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
     // 往下拖压低我们这边
     final delta = details.delta.dy / _sceneSize.height * 120;
     _dragValue = (_dragValue - delta).clamp(_min.toDouble(), _max.toDouble());
-    _set((_dragValue / 5).round() * 5);
+    _set(((_dragValue * 15 / 100).round() * 100 / 15).round());
   }
 
   @override
@@ -210,7 +210,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
-                  onPressed: () => _set(_percent - 5),
+                  onPressed: () => _set(_percent - 1),
                   icon: const Icon(Icons.remove),
                 ),
                 SizedBox(
@@ -222,7 +222,7 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
                   ),
                 ),
                 IconButton(
-                  onPressed: () => _set(_percent + 5),
+                  onPressed: () => _set(_percent + 1),
                   icon: const Icon(Icons.add),
                 ),
               ],
