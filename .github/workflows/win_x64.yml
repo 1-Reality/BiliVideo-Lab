@@ -84,9 +84,10 @@ jobs:
 
       - name: Compress portable 7z
         if: ${{ inputs.include_portable }}
-        run: |
-          7z a -mx9 "PiliBro_windows_${{env.version}}_x64_portable.7z" "Release/PiliBro-Win"
         shell: pwsh
+        run: |
+          Copy-Item "windows/packaging/win32/Win7 跑不了？报错：参考方案！.txt" "Release/PiliBro-Win/"
+          7z a -mx9 "PiliBro_windows_${{env.version}}_x64_portable.7z" "Release/PiliBro-Win/*"
 
       - name: Upload windows portable release
         if: ${{ inputs.include_portable }}
