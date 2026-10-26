@@ -24,15 +24,19 @@ abstract final class PipOverlayService {
 
   /// 从视频页进入小窗：弹出连续叠着的视频页，播放器和控制器留给小窗。
   /// 页面在 dispose 里看到 [owns] 为真就不释放它们
+  /// 所有权（[_ctr]）同步交出，播放器出栈回调据此不暂停；返回键触发时本页正在
+  /// 出栈、导航器加锁，弹出其余视频页放到微任务里
   static void start(VideoDetailController ctr) {
     if (_ctr != null) return;
     _ctr = ctr;
-    Get.until((route) => route.settings.name != '/videoV');
     _entry = OverlayEntry(builder: (_) => const _PipWindow());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final overlay = Get.overlayContext;
-      if (overlay == null || _entry == null) return;
-      Overlay.of(overlay).insert(_entry!);
+    scheduleMicrotask(() {
+      Get.until((route) => route.settings.name != '/videoV');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final overlay = Get.overlayContext;
+        if (overlay == null || _entry == null) return;
+        Overlay.of(overlay).insert(_entry!);
+      });
     });
   }
 

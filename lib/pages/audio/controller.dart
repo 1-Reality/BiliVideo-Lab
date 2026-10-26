@@ -758,7 +758,7 @@ class AudioController extends GetxController
 
   void actionShareVideo(BuildContext context) {
     final audioUrl = isUgc
-        ? '${HttpString.baseUrl}/video/av$oid'
+        ? ShareUtils.videoUrl('av$oid')
         : '${HttpString.baseUrl}/audio/au$oid';
     showDialog(
       context: context,
@@ -789,11 +789,7 @@ class AudioController extends GetxController
                   :final arc,
                   :final owner,
                 )) {
-                  ShareUtils.shareText(
-                    '${arc.title} '
-                    'UP主: ${owner.name}'
-                    ' - $audioUrl',
-                  );
+                  ShareUtils.shareVideo(arc.title, owner.name, audioUrl);
                 }
               },
             ),

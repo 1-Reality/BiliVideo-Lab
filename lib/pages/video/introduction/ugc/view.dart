@@ -40,6 +40,7 @@ import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -308,6 +309,19 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           },
           child: const Text('复制 b23.tv 链接'),
         ),
+        if (PlatformUtils.isMobile)
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              final d = introController.videoDetail.value;
+              ShareUtils.shareVideo(
+                d.title,
+                d.owner?.name,
+                ShareUtils.videoUrl('av$aid'),
+              );
+            },
+            child: const Text('分享视频'),
+          ),
         SimpleDialogOption(
           onPressed: () {
             Navigator.of(context).pop();

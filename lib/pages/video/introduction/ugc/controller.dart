@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:PiliBro/common/widgets/button/icon_button.dart';
 import 'package:PiliBro/common/widgets/scroll_physics.dart' show ReloadMixin;
 import 'package:PiliBro/http/api.dart';
-import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/member.dart';
@@ -338,8 +337,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     final partIndex = videoDetail.pages?.indexWhere((e) => e.cid == cid);
     final addIndex = partIndex != null && partIndex > 0;
     final playedTimePos = videoDetailCtr.playedTimePos(addIndex);
-    final videoUrl =
-        '${HttpString.baseUrl}/video/av${videoDetailCtr.aid}/${addIndex ? '?p=${partIndex + 1}' : ''}';
+    final videoUrl = ShareUtils.videoUrl(
+      'av${videoDetailCtr.aid}',
+      addIndex ? partIndex + 1 : null,
+    );
     showDialog(
       context: context,
       builder: (_) => SimpleDialog(
@@ -387,10 +388,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
               ),
               onTap: () {
                 Get.back();
-                ShareUtils.shareText(
-                  '${videoDetail.title} '
-                  'UP主: ${videoDetail.owner!.name!}'
-                  ' - $videoUrl',
+                ShareUtils.shareVideo(
+                  videoDetail.title,
+                  videoDetail.owner?.name,
+                  videoUrl,
                 );
               },
             ),

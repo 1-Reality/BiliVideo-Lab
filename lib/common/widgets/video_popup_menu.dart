@@ -9,6 +9,8 @@ import 'package:PiliBro/pages/search/widgets/search_text.dart';
 import 'package:PiliBro/pages/video/ai_conclusion/view.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -55,6 +57,16 @@ class VideoPopupMenu extends StatelessWidget {
                     const Icon(CustomIcons.identifier_circle, size: 16),
                     () => Utils.copyText(videoItem.bvid!),
                   ),
+                  if (PlatformUtils.isMobile)
+                    _VideoCustomAction(
+                      '分享视频',
+                      const Icon(CustomIcons.share_node, size: 16),
+                      () => ShareUtils.shareVideo(
+                        videoItem.title,
+                        videoItem.owner.name,
+                        ShareUtils.videoUrl(videoItem.bvid!),
+                      ),
+                    ),
                   if (Accounts.main.isLogin)
                     _VideoCustomAction(
                       '稍后再看',

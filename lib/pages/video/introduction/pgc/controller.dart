@@ -121,6 +121,13 @@ class PgcIntroController extends CommonIntroController {
   @override
   int get copyright => 1;
 
+  void shareEpisode(String url) {
+    final item = pgcItem.episodes?.firstWhereOrNull((e) => e.epId == epId);
+    ShareUtils.shareText(
+      '${pgcItem.title}${item != null ? ' ${item.showTitle}' : ''} - $url',
+    );
+  }
+
   // 分享视频
   @override
   void actionShareVideo(BuildContext context) {
@@ -150,14 +157,8 @@ class PgcIntroController extends CommonIntroController {
             DialogOption(
               child: const Text('分享视频', style: TextStyle(fontSize: 14)),
               onPressed: () {
-                final item = pgcItem.episodes?.firstWhereOrNull(
-                  (item) => item.epId == epId,
-                );
                 Get.back();
-                ShareUtils.shareText(
-                  '${pgcItem.title}${item != null ? ' ${item.showTitle}' : ''}'
-                  ' - $videoUrl',
-                );
+                shareEpisode(videoUrl);
               },
             ),
           DialogOption(

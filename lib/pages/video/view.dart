@@ -1,3 +1,4 @@
+import 'dart:async' show scheduleMicrotask;
 import 'dart:io' show Platform;
 import 'dart:math';
 
@@ -235,9 +236,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     addObserverMobile(this);
   }
 
-  // 相关视频原地切换：不开新页面、不重建播放器，返回键依次回到之前的视频
-  final List<ugc.BaseEpisodeItem> _relatedStack = [];
-
+  // 相关视频原地切换：不开新页面、不重建播放器。
+  // 每次切换往本路由压一条 LocalHistoryEntry，和二级评论等面板共用路由自己的
+  // 历史栈、按时间先后出栈，返回键的优先级由 Flutter 天然保证，无需自维护列表
   late final ValueChanged<HotVideoItemModel>? _onRelatedSelect =
       videoDetailController.isUgc && !videoDetailController.isPlayAll
       ? _switchRelated
@@ -252,6 +253,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         PageUtils.viewPgcFromUri(item.redirectUrl!)) {
       return;
     }
+    final route = Get.routing.route! as ModalRoute;
     final prev = ugc.BaseEpisodeItem(
       aid: videoDetailController.aid,
       bvid: videoDetailController.bvid,
@@ -269,39 +271,31 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ),
     );
     if (!ok || !mounted) return;
-    _relatedStack.add(prev);
+    route.addLocalHistoryEntry(
+      LocalHistoryEntry(
+        impliesAppBarDismissal: false,
+        // 出栈发生在导航器内部；放到微任务里，届时页面仍在栈顶才是用户返回，
+        // 否则是整页离开（关闭全部、进小窗等 popUntil）顺带清栈，不切视频
+        onRemove: () => scheduleMicrotask(() {
+          if (!route.isCurrent) return;
+          ugcIntroController.onChangeEpisode(prev);
+          videoDetailController.introScrollCtr?.jumpToTop();
+        }),
+      ),
+    );
     videoDetailController.introScrollCtr?.jumpToTop();
-    setState(() {});
   }
 
   late final bool _autoInAppPip =
       Pref.enableInAppPip && !videoDetailController.isFileSource;
 
-  // 锁定、桌面小窗、全屏时照旧交给播放器处理；之后先退相关视频栈，
-  // 栈空且开了自动小窗、正在播放时进应用内小窗，否则照常退出
+  // 返回优先级：播放器状态（全屏、桌面小窗、横屏）由 PopScope 拦截 >
+  // 路由本地历史（面板、相关视频，按时间先后）> 页面出栈。
+  // 自动小窗挂在最底层：页面真正出栈时正在播放才进小窗，不再用 canPop 抢先拦截
   void _onPopInvoked(bool didPop, Object? result) {
     final c = videoDetailController.plPlayerController;
-    if (!didPop &&
-        !c.controlsLock.value &&
-        !c.isDesktopPip &&
-        !c.isFullScreen.value) {
-      // 二级评论等面板是路由的本地历史条目，canPop 为 false 时 PopScope 会先于它们
-      // 收到返回事件，这里先让面板自己出栈，不能误切视频或进小窗
-      final route = ModalRoute.of(context)!;
-      if (route.willHandlePopInternally) {
-        route.didPop(null);
-        return;
-      }
-      if (_relatedStack.isNotEmpty) {
-        ugcIntroController.onChangeEpisode(_relatedStack.removeLast());
-        videoDetailController.introScrollCtr?.jumpToTop();
-        setState(() {});
-        return;
-      }
-      if (_autoInAppPip && c.playerStatus.isPlaying) {
-        PipOverlayService.start(videoDetailController);
-        return;
-      }
+    if (didPop && _autoInAppPip && !c.isCloseAll && c.playerStatus.isPlaying) {
+      PipOverlayService.start(videoDetailController);
     }
     c.onPopInvokedWithResult(didPop, result);
   }
@@ -1443,8 +1437,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }) => popScope(
     key: videoDetailController.videoPlayerKey,
     canPop:
-        _relatedStack.isEmpty &&
-        !_autoInAppPip &&
         !isFullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait),

@@ -8,6 +8,7 @@ import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/image_viewer/hero.dart';
 import 'package:PiliBro/common/widgets/stat/stat.dart';
+import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
@@ -20,6 +21,7 @@ import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -68,6 +70,16 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
               Utils.copyText(action.$2);
             },
             child: Text(action.$1),
+          ),
+        if (PlatformUtils.isMobile)
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              introController.shareEpisode(
+                '${HttpString.baseUrl}/bangumi/play/ep${introController.epId}',
+              );
+            },
+            child: const Text('分享视频'),
           ),
         SimpleDialogOption(
           onPressed: () {
