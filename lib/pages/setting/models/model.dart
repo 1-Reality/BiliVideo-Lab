@@ -245,6 +245,7 @@ SettingsModel getBanWordModel({
               });
             }
             return AlertDialog(
+              scrollable: true,
               constraints: Style.dialogFixedConstraints,
               title: Text(title),
               content: Column(
