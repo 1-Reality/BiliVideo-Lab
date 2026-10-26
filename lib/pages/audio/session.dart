@@ -38,12 +38,17 @@ abstract final class AudioPlaybackSession {
       tag: _tag,
       permanent: true,
     );
-    current.value = controller;
+    // 听视频页在路由 build 期间创建，此时通知底部播放条（不在同一棵子树）会
+    // 触发 setState during build，等这一帧结束再通知
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => current.value = controller,
+    );
     WidgetsBinding.instance.addObserver(_lifecycle);
     return controller;
   }
 
-  static void onPageOpened() => visiblePages.value++;
+  static void onPageOpened() =>
+      WidgetsBinding.instance.addPostFrameCallback((_) => visiblePages.value++);
 
   static void onPageClosed() {
     if (visiblePages.value > 0) visiblePages.value--;
