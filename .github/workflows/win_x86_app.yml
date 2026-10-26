@@ -387,7 +387,7 @@ jobs:
       - name: Upload portable archive
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact || 'Windows-file-x86-release' }}
+          archive: false
           path: PiliBro_windows_*_x86_portable.*
           if-no-files-found: error
 
