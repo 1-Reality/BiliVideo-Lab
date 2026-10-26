@@ -358,19 +358,30 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $name = "PiliBro_windows_${env:version}_x86_portable.$env:ARCHIVE"
-          # 附带英文 README 和 Win7 说明，放在包的根目录
-          $items = 'build32\runner\Release\*', 'windows\packaging\win32\*'
-          if ($env:ARCHIVE -eq '7z') {
-            # 最高压缩、固实
-            7z a -t7z -m0=lzma2 -mx=9 -mfb=273 -md=512m -ms=on $name @items
-          } else {
-            choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
-            $rar = @("$env:ProgramFiles\WinRAR\rar.exe", "${env:ProgramFiles(x86)}\WinRAR\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-            if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
-            & $rar a -ep1 -ma5 -m5 -s -md512m -r $name @items
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE $name
+          $stage = Join-Path $env:GITHUB_WORKSPACE 'portable32-stage'
+          $programDir = Join-Path $stage 'PiliBro-Win32'
+          New-Item -ItemType Directory -Force -Path $programDir | Out-Null
+          Copy-Item 'build32\\runner\\Release\\*' $programDir -Recurse -Force
+          # 两份说明放在压缩包根目录；程序文件放在单独的一层目录里。
+          Copy-Item 'windows\\packaging\\win32\\README.md' (Join-Path $stage 'README.md') -Force
+          Copy-Item 'windows\\packaging\\win32\\Win7 跑不了？报错：参考方案！.txt' (Join-Path $stage 'Win7 跑不了？报错：参考方案！.txt') -Force
+          Push-Location $stage
+          try {
+            if ($env:ARCHIVE -eq '7z') {
+              # 最高压缩、固实
+              7z a -t7z -m0=lzma2 -mx=9 -mfb=273 -md=512m -ms=on $archivePath 'PiliBro-Win32' 'README.md' 'Win7 跑不了？报错：参考方案！.txt'
+            } else {
+              choco install winrar --version=7.20.0 -y --no-progress --params="'/English'"
+              $rar = @("$env:ProgramFiles\\WinRAR\\rar.exe", "${env:ProgramFiles(x86)}\\WinRAR\\rar.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+              if (-not $rar) { throw 'WinRAR rar.exe not found after installation.' }
+              & $rar a -ma5 -m5 -s -md512m -r $archivePath 'PiliBro-Win32' 'README.md' 'Win7 跑不了？报错：参考方案！.txt'
+            }
+            if ($LASTEXITCODE -ne 0) { throw "$env:ARCHIVE failed ($LASTEXITCODE)" }
+          } finally {
+            Pop-Location
           }
-          if ($LASTEXITCODE -ne 0) { throw "$env:ARCHIVE failed ($LASTEXITCODE)" }
-          Get-Item $name | Format-Table Name, Length
+          Get-Item $archivePath | Format-Table Name, Length
 
       # Build 的发布步骤会收走本次运行的全部工件，所以这里只放安装包
       - name: Upload portable archive
