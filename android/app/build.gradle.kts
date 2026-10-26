@@ -197,6 +197,8 @@ android {
 //            )
         }
         debug {
+            // 调试包换个包名与正式版共存；签名不变（上面 all 里统一用正式签名）
+            applicationIdSuffix = ".jiejie.daren"
         }
     }
 
