@@ -55,6 +55,8 @@ abstract final class DevicePresets {
       SettingBoxKey.angleDegrees: 30,
       SettingBoxKey.exitOrientationMode: ExitOrientationMode.lockPlayer.index,
       SettingBoxKey.finalDirectionMask: 0,
+      SettingBoxKey.preferCodecs: ['HEVC', 'AVC'],
+      SettingBoxKey.preferCodecsCellular: ['HEVC', 'AVC'],
       if (Platform.isAndroid)
         SettingBoxKey.hardwareDecoding: HwDecType.embedWithFallback,
     },
@@ -114,6 +116,8 @@ abstract final class DevicePresets {
         SettingBoxKey.finalDirectionMask: 0,
         SettingBoxKey.defaultShowComment: false,
         SettingBoxKey.enableAutoEnter: true,
+        SettingBoxKey.preferCodecs: ['HEVC', 'AVC'],
+        SettingBoxKey.preferCodecsCellular: ['HEVC', 'AVC'],
         if (Platform.isAndroid)
           SettingBoxKey.hardwareDecoding: HwDecType.embedWithFallback,
       },
