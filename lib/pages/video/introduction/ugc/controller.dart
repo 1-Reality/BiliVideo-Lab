@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -393,6 +394,14 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                 );
               },
             ),
+          ListTile(
+            dense: true,
+            title: const Text('二维码分享', style: TextStyle(fontSize: 14)),
+            onTap: () {
+              Get.back();
+              showQrDialog(context, data: videoUrl, title: videoDetail.title);
+            },
+          ),
           if (isLogin)
             ListTile(
               dense: true,

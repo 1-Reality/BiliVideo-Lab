@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/style.dart';
@@ -306,6 +307,17 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             Utils.copyText('https://b23.tv/$bvid');
           },
           child: const Text('复制 b23.tv 链接'),
+        ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            showQrDialog(
+              this.context,
+              data: 'https://www.bilibili.com/video/$bvid',
+              title: bvid,
+            );
+          },
+          child: const Text('二维码分享'),
         ),
       ],
     ),

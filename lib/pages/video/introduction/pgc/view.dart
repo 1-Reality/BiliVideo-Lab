@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:math';
 
 import 'package:PiliBro/common/style.dart';
@@ -68,6 +69,17 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
             },
             child: Text(action.$1),
           ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            showQrDialog(
+              this.context,
+              data: 'https://www.bilibili.com/video/$bvid',
+              title: bvid,
+            );
+          },
+          child: const Text('二维码分享'),
+        ),
       ],
     ),
   );

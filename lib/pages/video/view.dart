@@ -285,6 +285,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         !c.controlsLock.value &&
         !c.isDesktopPip &&
         !c.isFullScreen.value) {
+      // 二级评论等面板是路由的本地历史条目，canPop 为 false 时 PopScope 会先于它们
+      // 收到返回事件，这里先让面板自己出栈，不能误切视频或进小窗
+      final route = ModalRoute.of(context)!;
+      if (route.willHandlePopInternally) {
+        route.didPop(null);
+        return;
+      }
       if (_relatedStack.isNotEmpty) {
         ugcIntroController.onChangeEpisode(_relatedStack.removeLast());
         videoDetailController.introScrollCtr?.jumpToTop();

@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:async';
 import 'dart:math' show max;
 
@@ -159,6 +160,13 @@ class PgcIntroController extends CommonIntroController {
                 );
               },
             ),
+          DialogOption(
+            child: const Text('二维码分享', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              showQrDialog(context, data: videoUrl, title: pgcItem.title);
+            },
+          ),
           if (isLogin)
             DialogOption(
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),

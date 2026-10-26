@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:async';
 import 'dart:io' show File, Platform;
 
@@ -796,6 +797,17 @@ class AudioController extends GetxController
                 }
               },
             ),
+          DialogOption(
+            child: const Text('二维码分享', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              showQrDialog(
+                context,
+                data: audioUrl,
+                title: audioItem.value?.arc.title,
+              );
+            },
+          ),
           if (isLogin)
             DialogOption(
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
