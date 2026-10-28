@@ -485,13 +485,10 @@ abstract final class OrientationPolicy {
     final windowed = Pref.brotherWindowedPhase;
     final fullscreen = Pref.brotherFullscreenPhase;
     bool usesGravity(BrotherPhaseConfig phase, {required bool appPhase}) =>
-        phase.possibleRuntimeModes.any(
-          (mode) => interpretBrotherRuntime(
-            phase.copyWith(runtimeMode: mode),
-            allowedMask: OrientationMask.all,
-            appPhase: appPhase,
-          ).usesAppGravity,
-        );
+        !appPhase &&
+        (phase.runtimeMode == BrotherRuntimeMode.appGravity ||
+            phase.resumePortraitRuntimeMode == BrotherRuntimeMode.appGravity ||
+            phase.resumeLandscapeRuntimeMode == BrotherRuntimeMode.appGravity);
     final gravityNeeded =
         usesGravity(app, appPhase: true) ||
         usesGravity(windowed, appPhase: false) ||
@@ -819,12 +816,11 @@ abstract final class OrientationPolicy {
     bool appPhase = false,
   }) {
     if (!_brotherEnabled) return;
-    final runtime = interpretBrotherRuntime(
-      phase,
-      allowedMask: mask,
-      appPhase: appPhase,
-    );
-    _brotherGuard.update(runtime.needsMetricsGuard ? mask : 0);
+    final needsGuard =
+        mask != 0 &&
+        !(appPhase && phase.runtimeMode == BrotherRuntimeMode.appGravity) &&
+        brotherRuntimeNeedsGuard(phase, mask);
+    _brotherGuard.update(needsGuard ? mask : 0);
   }
 
   static Future<void> applyBrotherRuntime(
