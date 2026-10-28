@@ -2599,11 +2599,6 @@ class PlPlayerController
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
-      runtimePhase,
-      allowedMask: _brotherAllowedMask,
-      appPhase: false,
-    );
     OrientationPolicy.setBrotherActiveAllowedMask(
       _brotherAllowedMask,
       runtimePhase,
@@ -2614,7 +2609,7 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.usesAppGravity) {
+    if (runtimePhase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (runtimePhase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2629,7 +2624,10 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.waitsForSourceChange) {
+    if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.appGravity &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.locked) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
@@ -2662,13 +2660,8 @@ class PlPlayerController
       return;
     }
 
-    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
-      phase,
-      allowedMask: _brotherAllowedMask,
-      appPhase: false,
-    );
 
-    if (runtimeInterpretation.usesAppGravity) {
+    if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2683,7 +2676,10 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.waitsForSourceChange) {
+    if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        phase.runtimeMode != BrotherRuntimeMode.appGravity &&
+        phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        phase.runtimeMode != BrotherRuntimeMode.locked) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
