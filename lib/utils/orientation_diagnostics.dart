@@ -141,23 +141,27 @@ abstract final class BrotherDiagnosticsCompiler {
     void addRuntime(BrotherRuntimeMode mode) {
       final candidate = phase.copyWith(runtimeMode: mode);
       for (final mask in masks) {
-        final interpreted = OrientationPolicy.interpretBrotherRuntime(
-          candidate,
-          allowedMask: mask,
-          appPhase: appPhase,
-        );
-        if (!interpreted.executable) {
-          notes.add('${mode.desc}：APP 普通页面不可用');
+        final active =
+            mask != 0 && !(appPhase && mode == BrotherRuntimeMode.appGravity);
+        if (!active) {
+          if (appPhase && mode == BrotherRuntimeMode.appGravity) {
+            notes.add('${mode.desc}：APP 普通页面不可用');
+          }
           continue;
         }
-        if (interpreted.usesAppGravity) {
+        if (!appPhase && mode == BrotherRuntimeMode.appGravity) {
           if (candidate.gravityFollowSystemLock && !plan.systemAutoRotate) {
             notes.add('${mode.desc}：系统旋转锁定已开启，改为锁定当前方向');
           } else {
             listeners |= BrotherDiagnosticListener.appGravity;
           }
         }
-        if (interpreted.waitsForSourceChange) {
+        if (!appPhase &&
+            candidate.runtimeActivation ==
+                BrotherRuntimeActivation.afterSourceChange &&
+            mode != BrotherRuntimeMode.appGravity &&
+            mode != BrotherRuntimeMode.inheritRequest &&
+            mode != BrotherRuntimeMode.locked) {
           if (!_supportsProposedRotation) {
             notes.add('${mode.desc}：系统低于 Android 14，无法等待首次转动');
           } else if (mode == BrotherRuntimeMode.followSystemAllowed &&
@@ -167,15 +171,24 @@ abstract final class BrotherDiagnosticsCompiler {
             listeners |= BrotherDiagnosticListener.proposedSystem;
           }
         }
-        if (interpreted.needsMetricsGuard) {
+        if (brotherRuntimeNeedsGuard(candidate, mask)) {
           listeners |= BrotherDiagnosticListener.metrics;
         }
       }
     }
 
-    final runtimeModes = hasResume
-        ? phase.possibleRuntimeModes
-        : <BrotherRuntimeMode>[phase.runtimeMode];
+    final runtimeModes = <BrotherRuntimeMode>[
+      phase.runtimeMode,
+      if (hasResume &&
+          phase.resumePortraitRuntimeMode case final mode?
+              when mode != phase.runtimeMode)
+        mode,
+      if (hasResume &&
+          phase.resumeLandscapeRuntimeMode case final mode?
+              when mode != phase.runtimeMode &&
+                  mode != phase.resumePortraitRuntimeMode)
+        mode,
+    ];
     for (final mode in runtimeModes) {
       addRuntime(mode);
     }
@@ -190,20 +203,10 @@ abstract final class BrotherDiagnosticsCompiler {
           );
           if (!interpreted.enabled) continue;
           latchListening = true;
-          final target = interpreted.targetRuntime;
-          if (target.usesAppGravity) {
-            listeners |= BrotherDiagnosticListener.appGravity;
-          }
-          if (target.waitsForSourceChange && _supportsProposedRotation) {
-            listeners |= BrotherDiagnosticListener.proposedSystem;
-          }
-          if (target.needsMetricsGuard) {
+          final target = interpreted.targetPhase;
+          if (target.runtimeMode != BrotherRuntimeMode.appGravity &&
+              brotherRuntimeNeedsGuard(target, mask)) {
             listeners |= BrotherDiagnosticListener.metrics;
-          }
-          if (!target.executable) {
-            notes.add(
-              '${interpreted.targetPhase.runtimeMode.desc}：APP 普通页面不可用',
-            );
           }
         }
       }
@@ -253,11 +256,7 @@ abstract final class BrotherDiagnosticsCompiler {
   ) {
     final candidate = phase.copyWith(runtimeMode: mode);
     for (final mask in _possibleAllowedMasks(plan, phase)) {
-      if (OrientationPolicy.interpretBrotherRuntime(
-        candidate,
-        allowedMask: mask,
-        appPhase: appPhase,
-      ).executable) {
+      if (!(appPhase && mode == BrotherRuntimeMode.appGravity)) {
         return mode.desc;
       }
     }
