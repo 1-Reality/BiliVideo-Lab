@@ -28,6 +28,7 @@ class DanmakuNormalizer {
   };
 
   static final RegExp _extraSpaceRe = RegExp(r'[ \u3000]+');
+  static final RegExp _lineBreakRe = RegExp(r'[\r\n\t]');
   static final RegExp _cjkSpaceRe = RegExp(
     r'([\u3000-\u9FFF\uFF00-\uFFEF]) (?=[\u3000-\u9FFF\uFF00-\uFFEF])',
   );
@@ -135,7 +136,7 @@ class DanmakuNormalizer {
   static String normalize(String input) {
     // Adapted from pakku's text normalization flow: trim, width folding,
     // ending punctuation trimming, whitespace cleanup, and fixed replacements.
-    var text = input.replaceAll(RegExp(r'[\r\n\t]'), '').trim();
+    var text = input.replaceAll(_lineBreakRe, '').trim();
     if (text.isEmpty) {
       return text;
     }
