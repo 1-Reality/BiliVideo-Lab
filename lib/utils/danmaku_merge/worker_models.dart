@@ -1,7 +1,7 @@
 // Inspired by the existing danmaku merge pipeline.
 // This file defines isolate-safe request/response payloads.
 
-import 'dart:typed_data';
+import 'dart:isolate';
 
 import 'package:PiliBro/utils/danmaku_merge/models.dart';
 
@@ -17,8 +17,8 @@ class DanmakuMergeTaskPayload {
   final int taskId;
   final int segmentIndex;
   final DanmakuMergeConfig config;
-  final Uint8List currentSegment;
-  final Uint8List nextSegmentPrefix;
+  final TransferableTypedData currentSegment;
+  final TransferableTypedData nextSegmentPrefix;
 
   Map<String, Object?> toMessage() {
     return <String, Object?>{
@@ -36,8 +36,10 @@ class DanmakuMergeTaskPayload {
       taskId: message['taskId']! as int,
       segmentIndex: message['segmentIndex']! as int,
       config: _configFromMessage(message['config']! as Map<Object?, Object?>),
-      currentSegment: message['currentSegment']! as Uint8List,
-      nextSegmentPrefix: message['nextSegmentPrefix']! as Uint8List,
+      currentSegment:
+          message['currentSegment']! as TransferableTypedData,
+      nextSegmentPrefix:
+          message['nextSegmentPrefix']! as TransferableTypedData,
     );
   }
 
@@ -81,7 +83,7 @@ class DanmakuMergeResultPayload {
 
   final int taskId;
   final int segmentIndex;
-  final Uint8List mergedSegment;
+  final TransferableTypedData mergedSegment;
 
   Map<String, Object?> toMessage() {
     return <String, Object?>{
@@ -96,7 +98,7 @@ class DanmakuMergeResultPayload {
     return DanmakuMergeResultPayload(
       taskId: message['taskId']! as int,
       segmentIndex: message['segmentIndex']! as int,
-      mergedSegment: message['mergedSegment']! as Uint8List,
+      mergedSegment: message['mergedSegment']! as TransferableTypedData,
     );
   }
 }

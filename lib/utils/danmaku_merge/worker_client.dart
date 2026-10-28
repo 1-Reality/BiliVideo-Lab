@@ -53,10 +53,12 @@ class DanmakuMergeWorkerClient {
         taskId: taskId,
         segmentIndex: segmentIndex,
         config: config,
-        currentSegment:
-            (DmSegMobileReply()..elems.addAll(currentSegment)).writeToBuffer(),
-        nextSegmentPrefix:
-            (DmSegMobileReply()..elems.addAll(nextSegmentPrefix)).writeToBuffer(),
+        currentSegment: TransferableTypedData.fromList([
+          (DmSegMobileReply()..elems.addAll(currentSegment)).writeToBuffer(),
+        ]),
+        nextSegmentPrefix: TransferableTypedData.fromList([
+          (DmSegMobileReply()..elems.addAll(nextSegmentPrefix)).writeToBuffer(),
+        ]),
       ).toMessage(),
     );
     return completer.future;

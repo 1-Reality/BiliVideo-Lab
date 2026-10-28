@@ -58,6 +58,8 @@ void danmakuMergeWorkerMain(List<Object?> args) {
       );
     }
     try {
+      final currentBytes = task.currentSegment.materialize().asUint8List();
+      final nextBytes = task.nextSegmentPrefix.materialize().asUint8List();
       final clusterer = DanmakuClusterer(
         config: task.config,
         pinyinEncoder: pinyinEncoder,
@@ -65,9 +67,8 @@ void danmakuMergeWorkerMain(List<Object?> args) {
       );
       final merged = clusterer.mergeSegment(
         segmentIndex: task.segmentIndex,
-        currentSegment: DmSegMobileReply.fromBuffer(task.currentSegment).elems,
-        nextSegmentPrefix:
-            DmSegMobileReply.fromBuffer(task.nextSegmentPrefix).elems,
+        currentSegment: DmSegMobileReply.fromBuffer(currentBytes).elems,
+        nextSegmentPrefix: DmSegMobileReply.fromBuffer(nextBytes).elems,
       );
       if (kDebugMode) {
         debugPrint(
@@ -76,12 +77,13 @@ void danmakuMergeWorkerMain(List<Object?> args) {
           'textCache=${preparedTextCache.length}',
         );
       }
+      final mergedBytes =
+          (DmSegMobileReply()..elems.addAll(merged)).writeToBuffer();
       sendPort.send(
         DanmakuMergeResultPayload(
           taskId: task.taskId,
           segmentIndex: task.segmentIndex,
-          mergedSegment:
-              (DmSegMobileReply()..elems.addAll(merged)).writeToBuffer(),
+          mergedSegment: TransferableTypedData.fromList([mergedBytes]),
         ).toMessage(),
       );
     } catch (error, stackTrace) {
