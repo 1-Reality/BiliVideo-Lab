@@ -1752,7 +1752,7 @@ class PlPlayerController
 
   List<StreamSubscription>? _subscriptions;
   final Set<ValueChanged<Duration>> _positionListeners = {};
-  final Set<ValueChanged<Duration>> _rawPositionListeners = {};
+  ValueChanged<Duration>? _rawPositionListener;
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   Timer? _wakeLockTimer;
@@ -1860,9 +1860,7 @@ class PlPlayerController
           PlaybackStatsService.samplePosition(position);
         }
 
-        for (final element in _rawPositionListeners) {
-          element(position);
-        }
+        _rawPositionListener?.call(position);
 
         final positionUs = position.inMicroseconds;
         final lastSecond = _lastPositionEventSecond;
@@ -2900,11 +2898,14 @@ class PlPlayerController
 
   void addRawPositionListener(ValueChanged<Duration> listener) {
     if (_playerCount == 0) return;
-    _rawPositionListeners.add(listener);
+    _rawPositionListener = listener;
   }
 
-  void removeRawPositionListener(ValueChanged<Duration> listener) =>
-      _rawPositionListeners.remove(listener);
+  void removeRawPositionListener(ValueChanged<Duration> listener) {
+    if (identical(_rawPositionListener, listener)) {
+      _rawPositionListener = null;
+    }
+  }
 
   void addStatusLister(ValueChanged<PlayerStatus> listener) {
     if (_playerCount == 0) return;
@@ -3080,7 +3081,7 @@ class PlPlayerController
 
     _removeListeners();
     _positionListeners.clear();
-    _rawPositionListeners.clear();
+    _rawPositionListener = null;
     _statusListeners.clear();
     _stopWakeLockTimer();
     WakelockPlus.disable();
