@@ -59,9 +59,9 @@ class DanmakuClusterer {
       return currentSegment;
     }
 
-    final current = List<DanmakuElem>.from(currentSegment)
+    final current = currentSegment
       ..sort((a, b) => a.progress.compareTo(b.progress));
-    final next = List<DanmakuElem>.from(nextSegmentPrefix)
+    final next = nextSegmentPrefix
       ..sort((a, b) => a.progress.compareTo(b.progress));
 
     final output = <DanmakuElem>[];
