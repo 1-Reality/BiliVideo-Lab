@@ -1751,7 +1751,7 @@ class PlPlayerController
   }
 
   List<StreamSubscription>? _subscriptions;
-  final Set<ValueChanged<Duration>> _positionListeners = {};
+  final List<ValueChanged<Duration>> _positionListeners = [];
   ValueChanged<Duration>? _rawPositionListener;
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
@@ -2890,11 +2890,14 @@ class PlPlayerController
 
   void addPositionListener(ValueChanged<Duration> listener) {
     if (_playerCount == 0) return;
-    _positionListeners.add(listener);
+    if (!_positionListeners.contains(listener)) {
+      _positionListeners.add(listener);
+    }
   }
 
-  void removePositionListener(ValueChanged<Duration> listener) =>
-      _positionListeners.remove(listener);
+  void removePositionListener(ValueChanged<Duration> listener) {
+    _positionListeners.remove(listener);
+  }
 
   void addRawPositionListener(ValueChanged<Duration> listener) {
     if (_playerCount == 0) return;
