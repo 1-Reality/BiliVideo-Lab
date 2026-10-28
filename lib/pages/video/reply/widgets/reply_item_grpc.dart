@@ -822,7 +822,6 @@ class ReplyItemGrpc extends StatelessWidget {
             ..onTap = () {
               if (url.appUrlSchema.isEmpty) {
                 if (_avBvRegExp.hasMatch(matchStr)) {
-                  PageUtils.noAutoPlay = Pref.replyNoAutoPlay;
                   UrlUtils.matchUrlPush(matchStr, '');
                 } else {
                   final match = _cvidRegExp.firstMatch(matchStr);
@@ -847,8 +846,6 @@ class ReplyItemGrpc extends StatelessWidget {
                     parameters: {'keyword': url.title},
                   );
                 } else {
-                  PageUtils.noAutoPlay =
-                      Pref.replyNoAutoPlay && matchStr.contains('/video/');
                   PageUtils.handleWebview(matchStr);
                 }
               }
@@ -982,8 +979,6 @@ class ReplyItemGrpc extends StatelessWidget {
                 style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
                   ..onTap = () {
-                    PageUtils.noAutoPlay =
-                        Pref.replyNoAutoPlay && matchStr.contains('/video/');
                     PageUtils.handleWebview(matchStr);
                   },
               ),
