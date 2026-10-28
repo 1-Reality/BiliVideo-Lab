@@ -53,8 +53,7 @@ void danmakuMergeWorkerMain(List<Object?> args) {
     if (kDebugMode) {
       debugPrint(
         '[DanmakuMergeWorker:Isolate] run task=${task.taskId} '
-        'segment=${task.segmentIndex} current=${task.currentSegment.length} '
-        'next=${task.nextSegmentPrefix.length}',
+        'segment=${task.segmentIndex}',
       );
     }
     try {
