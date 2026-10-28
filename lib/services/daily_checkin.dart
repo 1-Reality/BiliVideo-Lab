@@ -67,7 +67,9 @@ abstract final class DailyCheckin {
     final data = res.data;
     final code = data is Map ? data['code'] : null;
     final msg = data is Map ? '${data['message'] ?? data['msg'] ?? ''}' : '';
-    if (code == 0 || code == doneCode || msg.contains(_done)) return null;
+    if (code == 0 || (doneCode != null && code == doneCode) || msg.contains(_done)) {
+      return null;
+    }
     return '$name失败：${code ?? ''} $msg';
   }
 
