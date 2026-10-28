@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
@@ -32,7 +31,7 @@ final class OrientationPlan {
     required this.finalDirectionMask,
     required this.systemAutoRotate,
   });
-
+// 哥哥科技 版权所有 爱哥哥，也有个可爱的弟弟； https://github.com/ucxn/Bili.Libre.Speed
   final AppInitialOrientation appInitial;
   final AppRotationMode appRotation;
   final WindowedPlayerRotationMode windowedRotation;

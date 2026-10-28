@@ -37,8 +37,8 @@ List<SettingsModel> get videoSettings => [
     defaultVal: true,
   ),
   NormalModel(
-    title: 'B站定向流量支持',
-    subtitle: '若套餐含B站定向流量，则会自动使用。可查阅运营商的流量记录确认。',
+    title: 'B站定向流量说明',
+    subtitle: '若套餐含B站定向流量，则会自动使用。可查阅运营商的流量记录确认。继承自上游，不保证有效。',
     leading: const Icon(Icons.perm_data_setting_outlined),
     getTrailing: (theme) => IgnorePointer(
       child: Transform.scale(
@@ -147,7 +147,7 @@ List<SettingsModel> get videoSettings => [
     onTap: _showCellularCodecsDialog,
   ),
   NormalModel(
-    title: 'PC 网络状态联动判断',
+    title: 'PC & Android网络状态联动判断',
     subtitle: '按有线或 Wi-Fi 状态联动画质、音质与编码偏好，并可设置网络高峰期',
     leading: const Icon(Icons.lan_outlined),
     onTap: (_, _) => Get.toNamed('/networkPolicy'),

@@ -54,7 +54,7 @@ enum FullScreenAllowedOrientation {
   landscape('仅横屏'),
   portrait('仅竖屏'),
   entryAxis('只允许进入时那一轴（同为横或同为竖）'),
-  entryExact('只允许进入时那一个方向');
+  entryExact('只允许进入时精确那个方向');
 
   final String desc;
   const FullScreenAllowedOrientation(this.desc);
@@ -189,9 +189,9 @@ enum BrotherRuntimeMode {
   userPortrait('竖屏，旋转锁定关闭时可切换正倒竖屏（USER_PORTRAIT）'),
   fullUser('跟随系统旋转锁定，四向旋转（FULL_USER）'),
   locked('锁定当前方向（LOCKED）'),
-  followSystemAllowed('跟随系统旋转锁定，限于允许方向'),
-  alwaysAutoAllowed('忽略系统旋转锁定，限于允许方向'),
-  systemGate('只看系统旋转锁定：开启时锁定，关闭时四向旋转'),
+  followSystemAllowed('跟随系统旋转锁定，限于最终许可'),
+  alwaysAutoAllowed('忽略系统旋转锁定，限于最终许可'),
+  systemGate('只读系统旋转开关：开启时锁定，关闭时四向旋转'),
   appGravity('由 APP 重力传感器控制');
 
   final String desc;
@@ -207,9 +207,9 @@ enum BrotherRuntimeActivation {
 }
 
 enum BrotherAllowedBasis {
-  fixed('固定方向（在下一项中选择）'),
-  entryAxis('与进入时同轴（同为横或同为竖）'),
-  entryExact('仅限进入时的方向');
+  fixed('固定允许的方向（手工选择）'),
+  entryAxis('与进入时同大方向'),
+  entryExact('仅限进入时具体方向');
 
   final String desc;
   const BrotherAllowedBasis(this.desc);

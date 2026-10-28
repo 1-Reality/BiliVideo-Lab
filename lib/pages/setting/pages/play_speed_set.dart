@@ -416,7 +416,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   Widget _panelModeTile(int shift, String name) {
     final mode = panelLayout >> shift & 15;
     return ListTile(
-      title: Text('$name倍速面板'),
+      title: Text('$name面板'),
       subtitle: Text(_panelModeDesc(mode)),
       trailing: SegmentedButton<int>(
         multiSelectionEnabled: true,
@@ -901,9 +901,9 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
               },
             ),
             for (final (shift, name) in const [
-              (0, '半屏'),
-              (4, '全屏'),
-              (8, '电脑'),
+              (0, '竖屏倍速'),
+              (4, '全屏倍速'),
+              (8, '电脑半屏'),
             ])
               _panelModeTile(shift, name),
             ListTile(

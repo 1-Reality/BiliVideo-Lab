@@ -98,7 +98,7 @@ abstract final class TvRemoteSetup {
                                   );
                           },
                           child: Text(
-                            isPassthrough ? '切换为常规渲染' : '切换为直通模式',
+                            isPassthrough ? '切换为一般渲染' : '点击切换为直通',
                             style: TextStyle(
                               color: isPassthrough ? Colors.blue : Colors.red,
                             ),

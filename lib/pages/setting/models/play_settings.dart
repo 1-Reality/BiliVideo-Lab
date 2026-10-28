@@ -77,7 +77,7 @@ List<SettingsModel> get playSettings => [
   ),
   const SwitchModel(
     title: '评论区进入不自动播放',
-    subtitle: '从评论区链接进入视频详情页时，不自动播放',
+    subtitle: '从评论区上下文查看视频详情页时，不自动播放：治好完播强迫症',
     leading: Icon(Icons.comment_outlined),
     setKey: SettingBoxKey.replyNoAutoPlay,
     defaultVal: false,
@@ -144,7 +144,7 @@ List<SettingsModel> get playSettings => [
     onTap: _showSubtitleDialog,
   ),
   NormalModel(
-    title: 'AI 字幕粉丝数限值',
+    title: 'AI 字幕粉丝数经验限值',
     leading: const Icon(Icons.people_outline),
     getSubtitle: () => Pref.subtitleFollowerThreshold == 0
         ? '当前关闭；仅用于“静音时自动启用”偏好'

@@ -185,7 +185,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
               'https://www.goofish.com/personal?userId=2216485229713',
             ),
             leading: const Icon(Icons.storefront_outlined),
-            title: const Text('影像鱼小铺（第三方）'),
+            title: const Text('影像 音频 闲鱼小铺（点我交流）'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(

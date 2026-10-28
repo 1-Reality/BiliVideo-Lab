@@ -29,7 +29,7 @@ List<SettingsModel> get audioSettings => [
   NormalModel(
     onTap: (context, setState) => Get.toNamed('/gestureSettings'),
     leading: const Icon(Icons.swipe_outlined),
-    title: '手势',
+    title: '手势、播放器区域',
     subtitle: '上下、左右滑动的分区与动作：亮度、音量、倍速、进度、全屏',
   ),
   const SwitchModel(
@@ -143,7 +143,7 @@ class AudioSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = audioSettings;
     return SimpleScaffold(
-      appBar: AppBar(title: const Text('特色播放')),
+      appBar: AppBar(title: const Text('特色播放~ 哥哥的播放器工具箱')),
       body: ListView.builder(
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewPaddingOf(context).bottom + 100,

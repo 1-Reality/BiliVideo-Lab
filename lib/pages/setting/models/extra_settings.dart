@@ -316,7 +316,7 @@ List<SettingsModel> get extraSettings => [
     title: '超分辨率',
     leading: const Icon(Icons.stay_current_landscape_outlined),
     getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
+        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 copy系',
     onTap: _showSuperResolutionDialog,
   ),
   const SwitchModel(
@@ -584,7 +584,7 @@ List<SettingsModel> get extraSettings => [
     onTap: _showReplySortDialog,
   ),
   NormalModel(
-    title: '二级评论展示',
+    title: '楼中楼评论展示',
     leading: const Icon(Icons.subdirectory_arrow_right_outlined),
     getSubtitle: () => '当前优先展示「${Pref.reply2SortType.reply2Title}」',
     onTap: _showReply2SortDialog,
@@ -1128,7 +1128,7 @@ Future<void> _showReply2SortDialog(
   final res = await showDialog<ReplySortType>(
     context: context,
     builder: (context) => SelectDialog<ReplySortType>(
-      title: '二级评论展示',
+      title: '评论楼中楼展示',
       value: Pref.reply2SortType,
       values: ReplySortType.values
           .take(2)

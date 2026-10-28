@@ -283,9 +283,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             onPressed: () {
               Get
                 ..back()
-                ..toNamed('/member?mid=501430041');
+                ..toNamed('/member?mid=388010726');
             },
-            child: const Text('访问主页'),
+            child: const Text('访问支持者'),
           ),
         ],
       ),

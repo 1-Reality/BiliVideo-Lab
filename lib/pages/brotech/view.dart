@@ -290,7 +290,7 @@ class _BroTechPageState extends State<BroTechPage> {
       appBar: AppBar(
         title: Text.rich(
           TextSpan(
-            text: '路由器高级统计与增强（哥哥科技原创）',
+            text: '路由器高阶统计增强组件（哥哥科技原创）',
             children: [
               WidgetSpan(
                 alignment: PlaceholderAlignment.top,
@@ -331,7 +331,7 @@ class _BroTechPageState extends State<BroTechPage> {
                 onLongPress: () => _editExisting(preset),
               ),
           ],
-          header('新建：填好地址和注入时机后点品牌'),
+          header('新建：填好地址和注入时机后点品牌<拒绝软漏油和万物皆“刷”机从我做起>'),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: TextField(

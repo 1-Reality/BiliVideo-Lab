@@ -22,7 +22,7 @@ import 'package:material_ui/material_ui.dart';
 List<SettingsModel> get recommendSettings => [
   for (final source in RcmdSource.values) _sourceModel(source),
   NormalModel(
-    title: '推荐权重',
+    title: '推荐权重（比值）',
     leading: const Icon(Icons.balance_outlined),
     getSubtitle: () {
       final sources = Pref.rcmdSources;
@@ -37,7 +37,7 @@ List<SettingsModel> get recommendSettings => [
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('推荐权重'),
+          title: const Text('推荐权重（输入数值比例）'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -212,8 +212,8 @@ List<SettingsModel> get recommendSettings => [
   ),
   const NormalModel(
     title: '致谢',
-    subtitle: '推荐请求的参数、翻页、身份与混合推荐参考了 bbspace、BiliPai、PiliNara 与 '
-        'Bili.Copilot，谢谢这些项目',
+    subtitle: '推荐请求的参数、翻页、身份与混合推荐参考了 bbspace、BiliPai、PiliNara、Pro 与 '
+        'Bili.Copilot，谢谢这些项目。也感谢Sonnet4.6和Opus5.5的妙手',
     leading: Icon(Icons.favorite_outline),
   ),
 ];

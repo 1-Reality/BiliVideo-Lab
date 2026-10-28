@@ -91,7 +91,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('最终方向许可（任何设置都不会转出这些方向）'),
+            title: const Text('最终方向可能集：取值限制'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -140,7 +140,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('竖置自动退出对哪些全屏生效'),
+            title: const Text('竖着转自动退出适用于哪些全屏'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -298,7 +298,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherEnterAction() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '进入本生命周期时的方向',
+      title: '进入本页面状态时的方向',
       value: phase.enterAction,
       values: _brotherActionValues(resume: false),
       label: (e) => e.desc,
@@ -309,7 +309,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherResumeAction() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '从下级生命周期返回时的方向',
+      title: '从下级页面返回时的方向',
       value: phase.resumeAction,
       values: _brotherActionValues(resume: true),
       label: (e) => e.desc,
@@ -320,7 +320,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeMode() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '运行期间的旋转方式',
+      title: '运行期间的默认旋转（执行）方式',
       value: phase.runtimeMode,
       values: _brotherRuntimeValues,
       label: _brotherRuntimeLabel,
@@ -383,7 +383,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeActivation() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '旋转方式何时生效',
+      title: '运行接管时机(GPT)|旋转方式何时生效（Claude书）',
       value: phase.runtimeActivation,
       values: BrotherRuntimeActivation.values,
       label: (e) => e.desc,
@@ -396,7 +396,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherAllowedBasis() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '允许方向的确定方式',
+      title: '允许方向的确定样子',
       value: phase.allowedBasis,
       values: BrotherAllowedBasis.values,
       label: (e) => e.desc,
@@ -460,7 +460,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherAllowedMask() async {
     final phase = _brotherPhaseConfig;
     final res = await _directionMaskDialog(
-      title: '固定允许的方向',
+      title: '固定允许的旋转方向',
       initial: phase.allowedMask,
     );
     if (res != null) await _writeBrotherPhase(phase.copyWith(allowedMask: res));
@@ -624,13 +624,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     return [
       _section(_brotherPhase.desc),
       _selectTile(
-        title: '进入本生命周期时的方向',
+        title: '进入本页面周期时的方向',
         subtitle: phase.enterAction.desc,
         onTap: _editBrotherEnterAction,
       ),
       if (_brotherPhase != BrotherOrientationPhase.fullscreen)
         _selectTile(
-          title: '从下级生命周期返回时的方向',
+          title: '从下级页面返回时的方向',
           subtitle: phase.resumeAction.desc,
           onTap: _editBrotherResumeAction,
         ),
@@ -675,7 +675,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
           onTap: _editBrotherRuntimeActivation,
         ),
       _selectTile(
-        title: '允许方向的确定方式',
+        title: '旋转方向的确定基准',
         subtitle: phase.allowedBasis.desc,
         onTap: _editBrotherAllowedBasis,
       ),
@@ -757,7 +757,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             _writeBrotherValue(SettingBoxKey.brotherLandscapeEnter, value),
       ),
       _selectTile(
-        title: '判断横置所用的信号',
+        title: '判断横转全屏所用的信号',
         subtitle: _signalMaskLabel(Pref.brotherEnterSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherEnterSignalMask,
@@ -795,7 +795,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       const Divider(),
       const Padding(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-        child: Text('从全屏返回时，可按退出原因分别指定方向，覆盖上面的「从下级生命周期返回时的方向」。'),
+        child: Text('从全屏返回时，可按退出原因分别指定方向，覆盖上面的「从下级周期返回时的方向」。'),
       ),
       _brotherBitSwitch(
         title: '手动退出：单独指定返回方向',
@@ -907,7 +907,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             _writeBrotherValue(SettingBoxKey.brotherPortraitExit, value),
       ),
       _selectTile(
-        title: '判断竖置所用的信号',
+        title: '判断竖置（自动退出全屏）所需信号',
         subtitle: _signalMaskLabel(Pref.brotherExitSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherExitSignalMask,
@@ -1009,9 +1009,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     const Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
-        '三个生命周期由上到下依次是：APP 普通页面、视频非全屏、视频全屏，共用同一套选项：'
+        '三个父子周期由上到下依次是：APP 普通页面、视频非全屏、视频全屏，共用同一套选项：'
         '进入时的方向、从下级返回时的方向、运行期间的旋转方式。'
-        '系统无法原生实现的组合也按您的选择执行，不会被自动改写。',
+        '系统无法原生实现的组合也按您的选择执行，不会被自动改写。'
+        '架构设定：哥哥科技，底层&数学：Chat模式GPT6，文案定版：Opus姐姐。',
       ),
     ),
     _selectTile(
@@ -1356,13 +1357,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             ),
             SetSwitchItem(
               title: '竖屏播放页移除安全边距',
-              subtitle: '与方向模式无关，只影响竖屏时的播放页',
+              subtitle: '与方向模式无关，只影响竖屏时的播放页上沿',
               setKey: SettingBoxKey.removeSafeAreaPortrait,
               defaultVal: Pref.removeSafeAreaPortrait,
             ),
             SetSwitchItem(
               title: '横屏播放页移除安全边距',
-              subtitle: '与方向模式无关，只影响横屏时的播放页',
+              subtitle: '公共布局设置；仅影响播放页横屏/美化布局',
               setKey: SettingBoxKey.removeSafeAreaLandscape,
               defaultVal: Pref.removeSafeAreaLandscape,
             ),
@@ -1375,7 +1376,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 onChanged: (_) => OrientationPolicy.compile(),
               ),
               _selectTile(
-                title: '最终方向许可（任何设置都不会转出这些方向）',
+                title: '最终允许方向集合',
                 subtitle: Pref.finalDirectionMask == 0
                     ? '关闭'
                     : [
@@ -1414,11 +1415,4 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 OrientationPolicyMode.simple => _simpleSettings(),
                 OrientationPolicyMode.advanced => _advancedSettings(),
                 OrientationPolicyMode.brotherTech => _brotherSettings(),
-              },
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+              }, ],], ), ), );}}

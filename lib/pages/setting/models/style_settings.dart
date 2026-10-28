@@ -311,6 +311,7 @@ List<SettingsModel> get styleSettings => [
   SwitchModel(
     leading: const Icon(Icons.invert_colors),
     title: '纯黑主题',
+    subtitle: '通常对OLED用户才稍有那么点意义',
     setKey: SettingBoxKey.isPureBlackTheme,
     defaultVal: false,
     onChanged: (value) {
@@ -400,6 +401,7 @@ List<SettingsModel> get styleSettings => [
     NormalModel(
       onTap: (context, setState) => Get.toNamed('/displayModeSetting'),
       title: '屏幕帧率',
+      subtitle: '个人认为短边像素/帧率<18时，分辨率更有意义更重要',
       leading: const Icon(Icons.autofps_select_outlined),
     ),
 ];
