@@ -212,6 +212,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           aid: videoDetailController.aid,
           videoType: videoDetailController.videoType,
           heroTag: heroTag,
+          targetReplyId: Get.arguments?['replyRootId'] as int?,
         ),
         tag: heroTag,
       );

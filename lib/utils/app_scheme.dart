@@ -180,12 +180,21 @@ abstract final class PiliScheme {
             String? bvid = IdUtils.bvRegex.firstMatch(path)?.group(0);
             if (aid != null || bvid != null) {
               final cid = queryParameters['cid'];
+              final replyRootId = parameters?['replyRootId'];
+              final replyId = parameters?['replyId'];
+              final replyTarget = replyRootId == null
+                  ? null
+                  : {
+                      'replyRootId': replyRootId,
+                      if (replyId != null) 'replyId': replyId,
+                    };
               if (cid != null) {
                 bvid ??= IdUtils.av2bv(int.parse(aid!));
                 PageUtils.toVideoPage(
                   bvid: bvid,
                   cid: int.parse(cid),
                   progress: _videoProgress(queryParameters),
+                  extraArguments: replyTarget,
                   off: off,
                 );
               } else {
@@ -194,6 +203,7 @@ abstract final class PiliScheme {
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
+                  extraArguments: replyTarget,
                 );
               }
               return true;
@@ -893,6 +903,7 @@ abstract final class PiliScheme {
     bool off = false,
     int? progress, // milliseconds
     String? part,
+    Map? extraArguments,
   }) async {
     try {
       aid ??= IdUtils.bv2av(bvid!);
@@ -915,6 +926,7 @@ abstract final class PiliScheme {
           bvid: bvid,
           cid: cid,
           progress: progress,
+          extraArguments: extraArguments,
           off: off,
           dimension: res!.dimension,
           // title: res.title,

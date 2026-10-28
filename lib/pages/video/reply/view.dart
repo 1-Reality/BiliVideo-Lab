@@ -45,6 +45,9 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         FabMixin {
   late ColorScheme colorScheme;
   late VideoReplyController _videoReplyController;
+  final _targetReplyKey = GlobalKey();
+  bool _targetJumpQueued = false;
+  bool _targetJumpDone = false;
 
   String get heroTag => widget.heroTag;
 
@@ -191,7 +194,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   ),
                 );
               } else {
-                return ReplyItemGrpc(
+                final child = ReplyItemGrpc(
                   replyItem: response[index],
                   replyLevel: widget.replyLevel,
                   replyReply: replyReply,
@@ -209,6 +212,22 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                     _videoReplyController.videoType.replyType,
                   ),
                 );
+                if (_videoReplyController.targetReplyId ==
+                    response[index].id.toInt()) {
+                  if (!_targetJumpQueued && !_targetJumpDone) {
+                    _targetJumpQueued = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _targetJumpQueued = false;
+                      final context = _targetReplyKey.currentContext;
+                      if (context != null && mounted) {
+                        _targetJumpDone = true;
+                        Scrollable.ensureVisible(context, alignment: 0.25);
+                      }
+                    });
+                  }
+                  return KeyedSubtree(key: _targetReplyKey, child: child);
+                }
+                return child;
               }
             },
             itemCount: count,

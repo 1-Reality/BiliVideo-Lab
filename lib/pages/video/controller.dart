@@ -534,7 +534,9 @@ class VideoDetailController extends GetxController
     tabCtr = TabController(
       length: 2,
       vsync: this,
-      initialIndex: Pref.defaultShowComment ? 1 : 0,
+      initialIndex: args['replyRootId'] != null
+          ? 1
+          : (Pref.defaultShowComment ? 1 : 0),
     );
   }
 
