@@ -325,17 +325,6 @@ final class BrotherPhaseConfig {
     return selected == runtimeMode ? this : copyWith(runtimeMode: selected);
   }
 
-  Iterable<BrotherRuntimeMode> get possibleRuntimeModes sync* {
-    yield runtimeMode;
-    final portrait = resumePortraitRuntimeMode;
-    if (portrait != null && portrait != runtimeMode) yield portrait;
-    final landscape = resumeLandscapeRuntimeMode;
-    if (landscape != null &&
-        landscape != runtimeMode &&
-        landscape != portrait) {
-      yield landscape;
-    }
-  }
 
   List<Object> toStorage() => [
     enterAction.index,
@@ -352,80 +341,26 @@ final class BrotherPhaseConfig {
     runtimeLatchMode.index,
   ];
 
-  static BrotherPhaseConfig fromStorage(
-    Object? raw, {
-    required BrotherPhaseConfig fallback,
-  }) {
-    if (raw is! List || raw.length < 7) return fallback;
-    T value<T extends Enum>(List<T> values, Object? index, T orElse) =>
-        index is int && index >= 0 && index < values.length
-            ? values[index]
-            : orElse;
-    final v2 = raw.length >= 8;
-    final v3 = raw.length >= 12;
-    BrotherRuntimeMode? nullableRuntime(Object? index) =>
-        index is int &&
-            index >= 0 &&
-            index < BrotherRuntimeMode.values.length
-        ? BrotherRuntimeMode.values[index]
-        : null;
+  static BrotherPhaseConfig fromStorage(List raw) {
+    final resumePortrait = raw[8] as int;
+    final resumeLandscape = raw[9] as int;
     return BrotherPhaseConfig(
-      enterAction: value(
-        BrotherDirectionAction.values,
-        raw[0],
-        fallback.enterAction,
-      ),
-      resumeAction: value(
-        BrotherDirectionAction.values,
-        raw[1],
-        fallback.resumeAction,
-      ),
-      runtimeMode: value(
-        BrotherRuntimeMode.values,
-        raw[2],
-        fallback.runtimeMode,
-      ),
-      runtimeActivation: v2
-          ? value(
-              BrotherRuntimeActivation.values,
-              raw[3],
-              fallback.runtimeActivation,
-            )
-          : fallback.runtimeActivation,
-      allowedBasis: value(
-        BrotherAllowedBasis.values,
-        raw[v2 ? 4 : 3],
-        fallback.allowedBasis,
-      ),
-      allowedMask: raw[v2 ? 5 : 4] is int
-          ? raw[v2 ? 5 : 4] as int
-          : fallback.allowedMask,
-      gravityFollowSystemLock: raw[v2 ? 6 : 5] is bool
-          ? raw[v2 ? 6 : 5] as bool
-          : fallback.gravityFollowSystemLock,
-      angleDegrees: raw[v2 ? 7 : 6] is int
-          ? raw[v2 ? 7 : 6] as int
-          : fallback.angleDegrees,
-      resumePortraitRuntimeMode: v3
-          ? nullableRuntime(raw[8])
-          : fallback.resumePortraitRuntimeMode,
-      resumeLandscapeRuntimeMode: v3
-          ? nullableRuntime(raw[9])
-          : fallback.resumeLandscapeRuntimeMode,
-      runtimeLatchAxis: v3
-          ? value(
-              BrotherRuntimeLatchAxis.values,
-              raw[10],
-              fallback.runtimeLatchAxis,
-            )
-          : fallback.runtimeLatchAxis,
-      runtimeLatchMode: v3
-          ? value(
-              BrotherRuntimeMode.values,
-              raw[11],
-              fallback.runtimeLatchMode,
-            )
-          : fallback.runtimeLatchMode,
+      enterAction: BrotherDirectionAction.values[raw[0] as int],
+      resumeAction: BrotherDirectionAction.values[raw[1] as int],
+      runtimeMode: BrotherRuntimeMode.values[raw[2] as int],
+      runtimeActivation: BrotherRuntimeActivation.values[raw[3] as int],
+      allowedBasis: BrotherAllowedBasis.values[raw[4] as int],
+      allowedMask: raw[5] as int,
+      gravityFollowSystemLock: raw[6] as bool,
+      angleDegrees: raw[7] as int,
+      resumePortraitRuntimeMode: resumePortrait == -1
+          ? null
+          : BrotherRuntimeMode.values[resumePortrait],
+      resumeLandscapeRuntimeMode: resumeLandscape == -1
+          ? null
+          : BrotherRuntimeMode.values[resumeLandscape],
+      runtimeLatchAxis: BrotherRuntimeLatchAxis.values[raw[10] as int],
+      runtimeLatchMode: BrotherRuntimeMode.values[raw[11] as int],
     );
   }
 }
