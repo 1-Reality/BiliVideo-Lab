@@ -24,7 +24,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class WhisperSessionItem extends StatelessWidget {
-  static final _vipInfoCache = Expando<Map?>();
+  static final _vipInfoCache = Expando<Map>();
   const WhisperSessionItem({
     super.key,
     required this.item,
