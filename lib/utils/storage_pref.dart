@@ -404,55 +404,19 @@ abstract final class Pref {
         defaultValue: ExitOrientationMode.keepPlayer.index,
       )];
 
-  static const _brotherAppFallback = BrotherPhaseConfig(
-    enterAction: BrotherDirectionAction.systemCurrent,
-    resumeAction: BrotherDirectionAction.keepCurrent,
-    runtimeMode: BrotherRuntimeMode.unspecified,
-    runtimeActivation: BrotherRuntimeActivation.immediate,
-    allowedBasis: BrotherAllowedBasis.fixed,
-    allowedMask: OrientationMask.all,
-    gravityFollowSystemLock: true,
-    angleDegrees: 30,
-  );
-
-  static const _brotherWindowedFallback = BrotherPhaseConfig(
-    enterAction: BrotherDirectionAction.keepCurrent,
-    resumeAction: BrotherDirectionAction.keepCurrent,
-    runtimeMode: BrotherRuntimeMode.inheritRequest,
-    runtimeActivation: BrotherRuntimeActivation.immediate,
-    allowedBasis: BrotherAllowedBasis.fixed,
-    allowedMask: OrientationMask.all,
-    gravityFollowSystemLock: true,
-    angleDegrees: 30,
-  );
-
-  static const _brotherFullscreenFallback = BrotherPhaseConfig(
-    enterAction: BrotherDirectionAction.video,
-    resumeAction: BrotherDirectionAction.keepCurrent,
-    runtimeMode: BrotherRuntimeMode.locked,
-    runtimeActivation: BrotherRuntimeActivation.immediate,
-    allowedBasis: BrotherAllowedBasis.fixed,
-    allowedMask: OrientationMask.all,
-    gravityFollowSystemLock: true,
-    angleDegrees: 30,
-  );
-
   static BrotherPhaseConfig get brotherAppPhase =>
       BrotherPhaseConfig.fromStorage(
         _setting.get(SettingBoxKey.brotherAppPhase),
-        fallback: _brotherAppFallback,
       );
 
   static BrotherPhaseConfig get brotherWindowedPhase =>
       BrotherPhaseConfig.fromStorage(
         _setting.get(SettingBoxKey.brotherWindowedPhase),
-        fallback: _brotherWindowedFallback,
       );
 
   static BrotherPhaseConfig get brotherFullscreenPhase =>
       BrotherPhaseConfig.fromStorage(
         _setting.get(SettingBoxKey.brotherFullscreenPhase),
-        fallback: _brotherFullscreenFallback,
       );
 
   static int get brotherFullscreenEnterOverrideMask => _setting.get(
