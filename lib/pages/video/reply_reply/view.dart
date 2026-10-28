@@ -86,7 +86,7 @@ class VideoReplyReplyPanel extends CommonSlidePage {
                         uri,
                         businessId: type,
                         parameters: {
-                          'replyRootId': rpid,
+                          'replyRootId': rootId,
                           if (rpId != null) 'replyId': rpId,
                         },
                       );

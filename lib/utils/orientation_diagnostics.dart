@@ -171,24 +171,25 @@ abstract final class BrotherDiagnosticsCompiler {
             listeners |= BrotherDiagnosticListener.proposedSystem;
           }
         }
-        if (brotherRuntimeNeedsGuard(candidate, mask)) {
+        if (OrientationPolicy.brotherRuntimeNeedsGuard(candidate, mask)) {
           listeners |= BrotherDiagnosticListener.metrics;
         }
       }
     }
 
-    final runtimeModes = <BrotherRuntimeMode>[
-      phase.runtimeMode,
-      if (hasResume &&
-          phase.resumePortraitRuntimeMode case final mode?
-              when mode != phase.runtimeMode)
-        mode,
-      if (hasResume &&
-          phase.resumeLandscapeRuntimeMode case final mode?
-              when mode != phase.runtimeMode &&
-                  mode != phase.resumePortraitRuntimeMode)
-        mode,
-    ];
+    final runtimeModes = <BrotherRuntimeMode>[phase.runtimeMode];
+    if (hasResume) {
+      final portraitMode = phase.resumePortraitRuntimeMode;
+      if (portraitMode != null && portraitMode != phase.runtimeMode) {
+        runtimeModes.add(portraitMode);
+      }
+      final landscapeMode = phase.resumeLandscapeRuntimeMode;
+      if (landscapeMode != null &&
+          landscapeMode != phase.runtimeMode &&
+          landscapeMode != portraitMode) {
+        runtimeModes.add(landscapeMode);
+      }
+    }
     for (final mode in runtimeModes) {
       addRuntime(mode);
     }
@@ -205,7 +206,7 @@ abstract final class BrotherDiagnosticsCompiler {
           latchListening = true;
           final target = interpreted.targetPhase;
           if (target.runtimeMode != BrotherRuntimeMode.appGravity &&
-              brotherRuntimeNeedsGuard(target, mask)) {
+              OrientationPolicy.brotherRuntimeNeedsGuard(target, mask)) {
             listeners |= BrotherDiagnosticListener.metrics;
           }
         }
