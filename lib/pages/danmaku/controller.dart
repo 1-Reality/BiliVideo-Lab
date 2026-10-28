@@ -178,7 +178,7 @@ class PlDanmakuController {
     final filters = _plPlayerController.filters;
     final shouldFilter = filters.count != 0;
     for (final element in elems) {
-      if (_isLogin) {
+      if (_isLogin && !_mergeDanmaku) {
         element.isSelf = element.midHash == _plPlayerController.midHash;
       }
 
