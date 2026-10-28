@@ -43,7 +43,7 @@ class DanmakuPinyinEncoder {
           }
         }
       }
-      return List<int>.unmodifiable(tokens);
+      return tokens;
     });
   }
 
