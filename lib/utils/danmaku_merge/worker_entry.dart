@@ -26,6 +26,19 @@ void danmakuMergeWorkerMain(List<Object?> args) {
   // tasks are processed strictly one at a time by the listener itself.
   final pinyinEncoder = DanmakuPinyinEncoder.withDictionaryContent(dictContent);
   final preparedTextCache = <String, DanmakuPreparedText>{};
+  const textCacheLimit = 8192;
+
+  DanmakuPreparedText prepareCachedText(String text) {
+    final cached = preparedTextCache[text];
+    if (cached != null) return cached;
+    if (preparedTextCache.length >= textCacheLimit) {
+      preparedTextCache.clear();
+      pinyinEncoder.clearCache();
+    }
+    final prepared = DanmakuClusterer.prepareText(text, pinyinEncoder);
+    preparedTextCache[text] = prepared;
+    return prepared;
+  }
 
   receivePort.listen((message) {
     if (message is! Map<Object?, Object?>) {
@@ -55,10 +68,7 @@ void danmakuMergeWorkerMain(List<Object?> args) {
       final clusterer = DanmakuClusterer(
         config: task.config,
         pinyinEncoder: pinyinEncoder,
-        prepareText: (text) => preparedTextCache.putIfAbsent(
-          text,
-          () => DanmakuClusterer.prepareText(text, pinyinEncoder),
-        ),
+        prepareText: prepareCachedText,
       );
       final merged = clusterer.mergeSegment(
         segmentIndex: task.segmentIndex,

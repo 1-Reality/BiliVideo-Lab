@@ -26,6 +26,8 @@ class DanmakuPinyinEncoder {
   final Map<String, List<int>> _cache = HashMap<String, List<int>>();
   final Map<int, List<int>> _dict = HashMap<int, List<int>>();
 
+  void clearCache() => _cache.clear();
+
   List<int> encode(String text) {
     return _cache.putIfAbsent(text, () {
       // Adapted from pakku's pinyin token strategy: map Hanzi to lightweight
