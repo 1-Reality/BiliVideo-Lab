@@ -32,7 +32,7 @@ class DanmakuClusterer {
     final normalizedText = DanmakuNormalizer.normalize(text);
     final charTokens = normalizedText.runes.toList(growable: false);
     final gramCounts = DanmakuSimilarityMatcher.countTokens(
-      DanmakuSimilarityMatcher.buildGramTokens(normalizedText),
+      DanmakuSimilarityMatcher.buildGramTokens(charTokens),
     );
     var gramSelfDot = 0;
     for (final value in gramCounts.values) {
@@ -71,15 +71,21 @@ class DanmakuClusterer {
     final Map<int, ListQueue<DanmakuMergeCluster>>? activeClustersByMode =
         config.crossMode ? null : <int, ListQueue<DanmakuMergeCluster>>{};
 
-    final exactMatchMap = <String, DanmakuMergeCluster>{};
-
-    String getExactKey(DanmakuMergeCandidate c) =>
-        config.crossMode ? c.normalizedText : '${c.mode}:${c.normalizedText}';
+    final exactMatchMap = config.crossMode
+        ? <String, DanmakuMergeCluster>{}
+        : null;
+    final exactMatchMapsByMode = config.crossMode
+        ? null
+        : <int, Map<String, DanmakuMergeCluster>>{};
 
     void removeCluster(DanmakuMergeCluster cluster) {
       output.add(_buildRepresentative(cluster));
       for (final peer in cluster.peers) {
-        exactMatchMap.remove(getExactKey(peer));
+        if (config.crossMode) {
+          exactMatchMap!.remove(peer.normalizedText);
+        } else {
+          exactMatchMapsByMode![peer.mode]?.remove(peer.normalizedText);
+        }
       }
     }
 
@@ -112,8 +118,14 @@ class DanmakuClusterer {
       final candidate = _toCandidate(element, segmentIndex);
       var matched = false;
 
-      final exactKey = getExactKey(candidate);
-      final exactCluster = exactMatchMap[exactKey];
+      final Map<String, DanmakuMergeCluster> exactMap;
+      if (config.crossMode) {
+        exactMap = exactMatchMap!;
+      } else {
+        exactMap = exactMatchMapsByMode![candidate.mode] ??=
+            <String, DanmakuMergeCluster>{};
+      }
+      final exactCluster = exactMap[candidate.normalizedText];
       if (exactCluster != null) {
         exactCluster.add(candidate);
         continue;
@@ -127,7 +139,7 @@ class DanmakuClusterer {
         final result = _matcher.match(candidate, cluster.root);
         if (result != null) {
           cluster.add(candidate);
-          exactMatchMap[exactKey] = cluster;
+          exactMap[candidate.normalizedText] = cluster;
           matched = true;
           break;
         }
@@ -135,7 +147,7 @@ class DanmakuClusterer {
 
       if (!matched) {
         final newCluster = DanmakuMergeCluster(candidate);
-        exactMatchMap[exactKey] = newCluster;
+        exactMap[candidate.normalizedText] = newCluster;
         if (config.crossMode) {
           activeClustersFlat!.add(newCluster);
         } else {
@@ -153,8 +165,14 @@ class DanmakuClusterer {
       }
       final candidate = _toCandidate(element, segmentIndex + 1);
 
-      final exactKey = getExactKey(candidate);
-      final exactCluster = exactMatchMap[exactKey];
+      final Map<String, DanmakuMergeCluster> exactMap;
+      if (config.crossMode) {
+        exactMap = exactMatchMap!;
+      } else {
+        exactMap = exactMatchMapsByMode![candidate.mode] ??=
+            <String, DanmakuMergeCluster>{};
+      }
+      final exactCluster = exactMap[candidate.normalizedText];
       if (exactCluster != null) {
         exactCluster.add(candidate);
         continue;
@@ -168,7 +186,7 @@ class DanmakuClusterer {
         final result = _matcher.match(candidate, cluster.root);
         if (result != null) {
           cluster.add(candidate);
-          exactMatchMap[exactKey] = cluster;
+          exactMap[candidate.normalizedText] = cluster;
           break;
         }
       }
