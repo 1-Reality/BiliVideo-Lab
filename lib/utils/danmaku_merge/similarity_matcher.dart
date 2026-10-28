@@ -23,13 +23,6 @@ class DanmakuSimilarityMatcher {
 
     final sourceText = source.prepared;
     final targetText = target.prepared;
-    if (sourceText.normalizedText == targetText.normalizedText) {
-      return const DanmakuSimilarityMatchResult(
-        reason: DanmakuMergeReason.exact,
-        distance: 0,
-      );
-    }
-
     final lenSum = sourceText.charLength + targetText.charLength;
     int? charDist;
     if ((sourceText.charLength - targetText.charLength).abs() <=
