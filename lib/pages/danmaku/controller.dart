@@ -143,7 +143,10 @@ class PlDanmakuController {
       return;
     }
     _mergeStarted.add(segmentIndex);
-    if (current.isEmpty) return;
+    if (current.isEmpty) {
+      _rawSeg.remove(segmentIndex);
+      return;
+    }
 
     var lastProgress = 0;
     for (final element in current) {
@@ -164,6 +167,8 @@ class PlDanmakuController {
     } catch (e, s) {
       Utils.reportError(e, s);
       if (!_disposed) handleDanmaku(current);
+    } finally {
+      _rawSeg.remove(segmentIndex);
     }
   }
 

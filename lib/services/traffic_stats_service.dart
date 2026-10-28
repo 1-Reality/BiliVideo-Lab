@@ -66,7 +66,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
     _networkSubscription = ConnectivityUtils.changes.listen((_) => _sample());
     _timer = Timer.periodic(
       Platform.isWindows
-          ? const Duration(milliseconds: 250)
+          ? const Duration(seconds: 1)
           : const Duration(seconds: 90),
       (_) => _sample(),
     );
