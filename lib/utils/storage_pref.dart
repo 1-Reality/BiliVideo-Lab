@@ -323,14 +323,14 @@ abstract final class Pref {
   static WindowedPlayerRotationMode get advancedWindowedPlayerRotationMode =>
       WindowedPlayerRotationMode.values[_setting.get(
         SettingBoxKey.advancedWindowedPlayerRotationMode,
-        defaultValue: WindowedPlayerRotationMode.inheritApp.index,
+        defaultValue: WindowedPlayerRotationMode.alwaysAuto.index,
       )];
 
   static bool get advancedLandscapeEnter =>
-      _setting.get(SettingBoxKey.advancedLandscapeEnter, defaultValue: false);
+      _setting.get(SettingBoxKey.advancedLandscapeEnter, defaultValue: true);
 
   static bool get advancedPortraitExit =>
-      _setting.get(SettingBoxKey.advancedPortraitExit, defaultValue: false);
+      _setting.get(SettingBoxKey.advancedPortraitExit, defaultValue: true);
 
   static OrientationTriggerSource get advancedEnterTriggerSource =>
       OrientationTriggerSource.values[_setting.get(
@@ -347,7 +347,7 @@ abstract final class Pref {
   static OrientationTriggerContent get advancedTriggerContent =>
       OrientationTriggerContent.values[_setting.get(
         SettingBoxKey.advancedTriggerContent,
-        defaultValue: OrientationTriggerContent.all.index,
+        defaultValue: OrientationTriggerContent.landscapeVideo.index,
       )];
 
   static EntryOrientationPolicy get advancedManualEntryOrientation =>
@@ -371,7 +371,7 @@ abstract final class Pref {
   static FullScreenRotationSource get advancedFullScreenRotationSource =>
       FullScreenRotationSource.values[_setting.get(
         SettingBoxKey.advancedFullScreenRotationSource,
-        defaultValue: FullScreenRotationSource.keepCurrent.index,
+        defaultValue: FullScreenRotationSource.alwaysAuto.index,
       )];
 
   static FullScreenAllowedOrientation get advancedFullScreenAllowedOrientation =>
@@ -382,7 +382,7 @@ abstract final class Pref {
 
   static bool get advancedGravityFollowSystemLock => _setting.get(
     SettingBoxKey.advancedGravityFollowSystemLock,
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static int get advancedAngleDegrees =>
@@ -390,7 +390,8 @@ abstract final class Pref {
 
   static int get advancedAutoExitCauses => _setting.get(
     SettingBoxKey.advancedAutoExitCauses,
-    defaultValue: FullscreenEntryCauseMask.orientation,
+    defaultValue:
+        FullscreenEntryCauseMask.manual | FullscreenEntryCauseMask.orientation,
   );
 
   static int get advancedManualExitConfirmations => _setting.get(
@@ -401,27 +402,33 @@ abstract final class Pref {
   static ExitOrientationMode get advancedExitOrientationMode =>
       ExitOrientationMode.values[_setting.get(
         SettingBoxKey.advancedExitOrientationMode,
-        defaultValue: ExitOrientationMode.keepPlayer.index,
+        defaultValue: ExitOrientationMode.restoreApp.index,
       )];
 
-  static BrotherPhaseConfig get brotherAppPhase =>
-      BrotherPhaseConfig.fromStorage(
-        _setting.get(SettingBoxKey.brotherAppPhase),
-      );
+  static BrotherPhaseConfig get brotherAppPhase {
+    final raw = _setting.get(SettingBoxKey.brotherAppPhase);
+    return raw == null
+        ? BrotherPhaseConfig.defaultApp
+        : BrotherPhaseConfig.fromStorage(raw);
+  }
 
-  static BrotherPhaseConfig get brotherWindowedPhase =>
-      BrotherPhaseConfig.fromStorage(
-        _setting.get(SettingBoxKey.brotherWindowedPhase),
-      );
+  static BrotherPhaseConfig get brotherWindowedPhase {
+    final raw = _setting.get(SettingBoxKey.brotherWindowedPhase);
+    return raw == null
+        ? BrotherPhaseConfig.defaultWindowed
+        : BrotherPhaseConfig.fromStorage(raw);
+  }
 
-  static BrotherPhaseConfig get brotherFullscreenPhase =>
-      BrotherPhaseConfig.fromStorage(
-        _setting.get(SettingBoxKey.brotherFullscreenPhase),
-      );
+  static BrotherPhaseConfig get brotherFullscreenPhase {
+    final raw = _setting.get(SettingBoxKey.brotherFullscreenPhase);
+    return raw == null
+        ? BrotherPhaseConfig.defaultFullscreen
+        : BrotherPhaseConfig.fromStorage(raw);
+  }
 
   static int get brotherFullscreenEnterOverrideMask => _setting.get(
     SettingBoxKey.brotherFullscreenEnterOverrideMask,
-    defaultValue: FullscreenEntryCauseMask.all,
+    defaultValue: 0,
   );
 
   static BrotherDirectionAction get brotherFullscreenManualEnter =>
@@ -466,14 +473,14 @@ abstract final class Pref {
       )];
 
   static bool get brotherLandscapeEnter =>
-      _setting.get(SettingBoxKey.brotherLandscapeEnter, defaultValue: false);
+      _setting.get(SettingBoxKey.brotherLandscapeEnter, defaultValue: true);
 
   static bool get brotherPortraitExit =>
-      _setting.get(SettingBoxKey.brotherPortraitExit, defaultValue: false);
+      _setting.get(SettingBoxKey.brotherPortraitExit, defaultValue: true);
 
   static int get brotherEnterSignalMask => _setting.get(
     SettingBoxKey.brotherEnterSignalMask,
-    defaultValue: BrotherOrientationSignalMask.window,
+    defaultValue: BrotherOrientationSignalMask.proposedSystem,
   );
 
   static int get brotherEnterSignalRequired => _setting.get(
@@ -483,7 +490,7 @@ abstract final class Pref {
 
   static int get brotherExitSignalMask => _setting.get(
     SettingBoxKey.brotherExitSignalMask,
-    defaultValue: BrotherOrientationSignalMask.window,
+    defaultValue: BrotherOrientationSignalMask.proposedSystem,
   );
 
   static int get brotherExitSignalRequired => _setting.get(
@@ -493,12 +500,12 @@ abstract final class Pref {
 
   static int get brotherManualExitSignalMask => _setting.get(
     SettingBoxKey.brotherManualExitSignalMask,
-    defaultValue: BrotherOrientationSignalMask.proposedSystem,
+    defaultValue: BrotherOrientationSignalMask.window,
   );
 
   static int get brotherManualExitSignalRequired => _setting.get(
     SettingBoxKey.brotherManualExitSignalRequired,
-    defaultValue: 1,
+    defaultValue: 0,
   );
 
   static OrientationTriggerContent get brotherEnterTriggerContent =>
@@ -515,7 +522,8 @@ abstract final class Pref {
 
   static int get brotherAutoExitCauses => _setting.get(
     SettingBoxKey.brotherAutoExitCauses,
-    defaultValue: FullscreenEntryCauseMask.orientation,
+    defaultValue:
+        FullscreenEntryCauseMask.manual | FullscreenEntryCauseMask.orientation,
   );
 
   static int get brotherManualExitConfirmations => _setting.get(

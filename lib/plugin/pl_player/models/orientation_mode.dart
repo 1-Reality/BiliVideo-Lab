@@ -250,6 +250,48 @@ final class BrotherPhaseConfig {
     this.runtimeLatchMode = BrotherRuntimeMode.locked,
   });
 
+  static const defaultApp = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.systemCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.unspecified,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    resumePortraitRuntimeMode: BrotherRuntimeMode.locked,
+    resumeLandscapeRuntimeMode: BrotherRuntimeMode.alwaysAutoAllowed,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.portrait,
+    runtimeLatchMode: BrotherRuntimeMode.followSystemAllowed,
+  );
+
+  static const defaultWindowed = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.keepCurrent,
+    resumeAction: BrotherDirectionAction.startupDirection,
+    runtimeMode: BrotherRuntimeMode.alwaysAutoAllowed,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    resumeLandscapeRuntimeMode: BrotherRuntimeMode.followSystemAllowed,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    runtimeLatchMode: BrotherRuntimeMode.locked,
+  );
+
+  static const defaultFullscreen = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.video,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.locked,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    runtimeLatchMode: BrotherRuntimeMode.locked,
+  );
+
   final BrotherDirectionAction enterAction;
   final BrotherDirectionAction resumeAction;
   final BrotherRuntimeMode runtimeMode;
