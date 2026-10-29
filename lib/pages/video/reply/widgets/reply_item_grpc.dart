@@ -60,6 +60,9 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:protobuf/protobuf.dart';
 
+
+final Map<String, String> _locationCache = {};
+
 part 'package:PiliBro/common/widgets/context_menu/reply_menu_helper.dart';
 
 class ReplyItemGrpc extends StatelessWidget {
@@ -263,7 +266,8 @@ class ReplyItemGrpc extends StatelessWidget {
                     ),
                     if (replyItem.replyControl.hasLocation())
                       Text(
-                        ' • ${replyItem.replyControl.location}',
+                        _locationCache[replyItem.replyControl.location] ??=
+                            ' • ${replyItem.replyControl.location.substring(5)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: colorScheme.outline,
