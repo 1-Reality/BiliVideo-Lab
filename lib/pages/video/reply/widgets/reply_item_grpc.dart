@@ -61,9 +61,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:protobuf/protobuf.dart';
 
 
-final Map<String, String> _locationCache = {};
-
 part 'package:PiliBro/common/widgets/context_menu/reply_menu_helper.dart';
+
+final Map<String, String> _locationCache = {};
 
 class ReplyItemGrpc extends StatelessWidget {
   const ReplyItemGrpc({
