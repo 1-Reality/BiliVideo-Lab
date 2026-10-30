@@ -78,7 +78,9 @@ abstract final class DailyCheckin {
     await Request().post(
       'https://manga.bilibili.com/twirp/activity.v1.Activity/ClockIn',
       queryParameters: {'platform': 'android'},
-      options: _form(),
+      options: _form()
+        ..validateStatus = (status) =>
+            status != null && (status >= 200 && status < 300 || status == 400),
     ),
   );
 
