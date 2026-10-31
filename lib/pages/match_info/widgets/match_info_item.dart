@@ -8,9 +8,9 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
-class MatchInfoItem extends StatelessWidget {
-  static final _stimeFormat = DateFormat('yy-MM-dd HH:mm');
+final _stimeFormat = DateFormat('yy-MM-dd HH:mm');
 
+class MatchInfoItem extends StatelessWidget {
   const MatchInfoItem({super.key, required this.contest});
 
   final MatchContest contest;
