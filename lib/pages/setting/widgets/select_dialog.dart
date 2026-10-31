@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
 import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';

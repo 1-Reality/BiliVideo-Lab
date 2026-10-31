@@ -18,15 +18,17 @@ import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
-import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
-import 'package:PiliBro/utils/calc_window_position.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/date_utils.dart';
+import 'package:PiliBro/utils/desktop/calc_window_position.dart';
+import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/core_palettes_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/font_utils.dart';
+import 'package:PiliBro/utils/ios/pip_helper.dart';
 import 'package:PiliBro/utils/json_file_handler.dart';
 import 'package:PiliBro/utils/max_screen_size.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
@@ -52,7 +54,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
-import 'package:window_manager/window_manager.dart' hide calcWindowPosition;
+import 'package:window_manager/window_manager.dart';
 
 WebViewEnvironment? webViewEnvironment;
 
@@ -132,7 +134,7 @@ void main() async {
   } catch (e) {
     await Utils.copyText(e.toString(), needToast: false);
     if (kDebugMode) debugPrint('GStorage init error: $e');
-    exit(0);
+    DeviceUtils.exitApp();
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
@@ -160,6 +162,7 @@ void main() async {
           ? fullMode() ?? Future<void>.value()
           : OrientationPolicy.applyStartup(),
       setupServiceLocator(),
+      if (Platform.isIOS) IOSPipHelper.init(),
     ]);
     if (showFirstRunDeviceSetup) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -175,7 +178,7 @@ void main() async {
         ),
       );
     }
-  } else if (Platform.isMacOS) {
+  } else if (Platform.isMacOS || Platform.isLinux) {
     await setupServiceLocator();
   }
 
@@ -183,6 +186,8 @@ void main() async {
   Request.setCookie();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
+
+  FocusManager.instance.addEarlyKeyEventHandler(_onKeyEvent);
 
   if (PlatformUtils.isMobile) {
     SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
@@ -210,28 +215,6 @@ void main() async {
     } else {
       ScreenBrightnessPlatform.instance.setAutoReset(false);
     }
-  } else if (PlatformUtils.isDesktop) {
-    FocusManager.instance.addEarlyKeyEventHandler(_onKeyEvent);
-
-    await windowManager.ensureInitialized();
-
-    final windowOptions = WindowOptions(
-      minimumSize: const Size(400, 720),
-      skipTaskbar: false,
-      titleBarStyle: Pref.showWindowTitleBar
-          ? TitleBarStyle.normal
-          : TitleBarStyle.hidden,
-      title: Constants.appName,
-    );
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      final windowSize = Pref.windowSize;
-      await windowManager.setBounds(
-        await calcWindowPosition(windowSize) & windowSize,
-      );
-      if (Pref.isWindowMaximized) await windowManager.maximize();
-      await windowManager.show();
-      await windowManager.focus();
-    });
   }
 
   if (Pref.dynamicColor) {
@@ -263,10 +246,33 @@ void main() async {
   } else {
     runApp(const MyApp());
   }
+
+  if (PlatformUtils.isDesktop) {
+    final window = WindowManager.instance.getCurrent();
+    if (window != null) {
+      window
+        ..titleBarStyle = Pref.showWindowTitleBar ? .normal : .hidden
+        ..isWindowControlButtonsVisible = true
+        ..bounds = calcWindowBounds()
+        ..minimumSize = DeviceUtils.desktopMinSize
+        ..isVisibleInTaskbar = true
+        ..title = Constants.appName;
+      if (Pref.isWindowMaximized) window.maximize();
+      void show([_]) => window
+        ..focus()
+        ..show();
+      switch (WidgetsBinding.instance.schedulerPhase) {
+        case .idle || .postFrameCallbacks:
+          WidgetsBinding.instance.scheduleFrameCallback(show);
+        case .transientCallbacks || .midFrameMicrotasks || .persistentCallbacks:
+          WidgetsBinding.instance.addPostFrameCallback(show);
+      }
+    }
+  }
 }
 
 KeyEventResult _onKeyEvent(KeyEvent event) {
-  if (event.logicalKey == .escape && event is KeyDownEvent) {
+  if (event is KeyDownEvent && event.logicalKey == .escape) {
     _onBack();
     return .handled;
   }

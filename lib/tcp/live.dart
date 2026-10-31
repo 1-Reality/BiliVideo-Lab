@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:brotli/brotli.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -294,7 +295,7 @@ class LiveMessageStream {
             decompressedData = _zlib.convert(Uint8List.sublistView(data, 0x10));
             break;
           case 3:
-            decompressedData = const BrotliDecoder().convert(
+            decompressedData = Request.brotli.convert(
               Uint8List.sublistView(data, 0x10),
             );
           //debugPrint('Body: ${utf8.decode()}');

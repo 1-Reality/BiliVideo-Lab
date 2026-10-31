@@ -9,6 +9,7 @@ import 'package:PiliBro/models/common/webview_menu_type.dart';
 import 'package:PiliBro/plugin/linux_webview.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/linux_cookie_manager.dart';
 import 'package:PiliBro/utils/login_utils.dart';
@@ -483,9 +484,7 @@ document.styleSheets[0].insertRule('#app__display-area > div.control-panel {disp
                           builder: (context) {
                             String suggestedFilename = request.suggestedFilename
                                 .toString();
-                            final fileSize = CacheManager.formatSize(
-                              request.contentLength,
-                            );
+                            final fileSize = request.contentLength.formatSize;
                             try {
                               suggestedFilename = Uri.decodeComponent(
                                 suggestedFilename,

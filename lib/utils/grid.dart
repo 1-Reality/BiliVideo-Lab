@@ -95,14 +95,13 @@ class SliverGridDelegateWithExtentAndRatio extends SliverGridDelegate {
       return layoutCache!;
     }
     crossAxisExtentCache = constraints.crossAxisExtent;
-    final crossAxisCount = max(
-      1,
-      ((constraints.crossAxisExtent - crossAxisSpacing) /
-              (maxCrossAxisExtent + crossAxisSpacing))
-          .ceil(),
-    );
     // Ensure a minimum count of 1, can be zero and result in an infinite extent
     // below when the window size is 0.
+    final crossAxisCount = max(
+      1,
+      (constraints.crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing))
+          .ceil(),
+    );
     final double usableCrossAxisExtent = max(
       0.0,
       constraints.crossAxisExtent - crossAxisSpacing * (crossAxisCount - 1),
@@ -200,13 +199,13 @@ class SliverGridDelegateWithMaxCrossAxisExtent extends SliverGridDelegate {
       return layoutCache!;
     }
     crossAxisExtentCache = constraints.crossAxisExtent;
+    // Ensure a minimum count of 1, can be zero and result in an infinite extent
+    // below when the window size is 0.
     final crossAxisCount = max(
       1,
       (constraints.crossAxisExtent / (maxCrossAxisExtent + crossAxisSpacing))
           .ceil(),
     );
-    // Ensure a minimum count of 1, can be zero and result in an infinite extent
-    // below when the window size is 0.
     final double usableCrossAxisExtent = max(
       0.0,
       constraints.crossAxisExtent - crossAxisSpacing * (crossAxisCount - 1),

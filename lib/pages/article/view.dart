@@ -1,10 +1,11 @@
 import 'dart:math';
 
+import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/badge.dart';
-import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliBro/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/scroll_physics.dart'
@@ -12,16 +13,20 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart'
 import 'package:PiliBro/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/dynamics/article_content_model.dart' show Pic;
-import 'package:PiliBro/models/dynamics/result.dart' show DynamicStat;
+import 'package:PiliBro/models/dynamics/result.dart' show DynamicStat, Tribee;
 import 'package:PiliBro/pages/article/controller.dart';
 import 'package:PiliBro/pages/article/widgets/article_ops.dart';
 import 'package:PiliBro/pages/article/widgets/html_render.dart';
 import 'package:PiliBro/pages/article/widgets/opus_content.dart';
+import 'package:PiliBro/pages/article/widgets/sliver_list_ext.dart';
+import 'package:PiliBro/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:PiliBro/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliBro/pages/dynamics_repost/view.dart';
+import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
+import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
@@ -42,17 +47,31 @@ class ArticlePage extends StatefulWidget {
   State<ArticlePage> createState() => _ArticlePageState();
 }
 
-class _ArticlePageState extends CommonDynPageState<ArticlePage> {
+class _ArticlePageState extends CommonDynPageState<ArticlePage>
+    with DynReplyLocateStateMixin {
   @override
-  final ArticleController controller = Get.putOrFind(
-    ArticleController.new,
-    tag: Get.parameters['type']! + Get.parameters['id']!,
-  );
+  late final ArticleController controller;
+  @override
+  bool get isArticle => true;
 
   @override
-  dynamic get arguments => {
-    'id': controller.id,
-  };
+  dynamic get arguments => {'id': controller.id};
+
+  UniqueKey? _centerKey;
+  bool get reverse => _centerKey != null;
+
+  @override
+  void initState() {
+    final params = Get.parameters;
+    controller = Get.putOrFind(
+      ArticleController.new,
+      tag: params['type']! + params['id']!,
+    );
+    if (params.containsKey('viewComment') || controller.rootRpId != null) {
+      _centerKey = UniqueKey();
+    }
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,6 +97,9 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
         padding: .symmetric(horizontal: padding),
         child: SelectionArea(
           child: CustomScrollView(
+            primary: true,
+            key: _centerKey,
+            center: _centerKey,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _buildContent(
@@ -91,7 +113,10 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                   ),
                 ),
               ),
-              SelectionContainer.disabled(child: buildReplyHeader()),
+              SelectionContainer.disabled(
+                key: _centerKey,
+                child: buildReplyHeader(),
+              ),
               SelectionContainer.disabled(
                 child: Obx(() => replyList(controller.loadingState.value)),
               ),
@@ -101,6 +126,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       );
     }
 
+    _centerKey = null;
     padding *= 0.25;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
@@ -111,6 +137,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
           flex: flex,
           child: SelectionArea(
             child: CustomScrollView(
+              primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverPadding(
@@ -162,6 +189,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       () {
         if (controller.isLoaded.value) {
           final Widget content;
+          late final modules = controller.opusData?.modules;
           if (controller.opus != null) {
             // if (kDebugMode) debugPrint('json page');
             content = OpusContent(
@@ -169,17 +197,22 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
               images: controller.images,
               maxWidth: maxWidth,
               opusId: controller.id,
+              reverse: reverse,
             );
-          } else if (controller.opusData?.modules.moduleBlocked
-              case final moduleBlocked?) {
+          } else if (modules?.moduleBlocked case final moduleBlocked?) {
             // if (kDebugMode) debugPrint('moduleBlocked');
             content = SliverToBoxAdapter(
-              child: moduleBlockedItem(context, theme, moduleBlocked),
+              child: moduleBlockedItem(
+                context,
+                theme.colorScheme,
+                moduleBlocked,
+              ),
             );
           } else if (controller.articleData?.content != null) {
             if (controller.articleData?.type == 3) {
               // json
               return ArticleOpus(
+                reverse: reverse,
                 ops: controller.articleData?.ops,
                 maxWidth: maxWidth,
               );
@@ -195,7 +228,8 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 ),
               );
             } else {
-              content = SliverList.separated(
+              content = SliverListExt.separated(
+                reverse: reverse,
                 itemCount: res.body!.children.length,
                 itemBuilder: (context, index) {
                   return htmlRender(
@@ -211,11 +245,13 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             content = const SliverToBoxAdapter(child: Text('NULL'));
           }
 
+          final isOpus = controller.type != 'read';
+
           return SliverMainAxisGroup(
             slivers: [
-              if (controller.type != 'read')
-                if (controller.opusData?.modules.moduleTop?.display?.album?.pics
-                    case final pics? when pics.isNotEmpty)
+              if (isOpus)
+                if (modules?.moduleTop?.display?.album?.pics case final pics?
+                    when pics.isNotEmpty)
                   SliverToBoxAdapter(child: _buildImageGallery(pics)),
               if (controller.summary.title != null)
                 SliverToBoxWithVisibilityAdapter(
@@ -226,13 +262,13 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                   ),
                 ),
               SliverToBoxAdapter(child: _buildAuthor()),
-              if (controller.type != 'read' &&
-                  controller.opusData?.modules.moduleCollection != null)
+              if (isOpus) ...?modules?.moduleTribee?.items?.map(_buildTribee),
+              if (isOpus && modules?.moduleCollection != null)
                 SliverToBoxAdapter(
                   child: SelectionContainer.disabled(
                     child: opusCollection(
-                      theme,
-                      controller.opusData!.modules.moduleCollection!,
+                      theme.colorScheme,
+                      modules!.moduleCollection!,
                     ),
                   ),
                 ),
@@ -245,6 +281,53 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       },
     ),
   );
+
+  Widget _buildTribee(Tribee tribee) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const .only(bottom: 8),
+        child: Material(
+          borderRadius: Style.borderRadius6,
+          color: colorScheme.onInverseSurface,
+          child: InkWell(
+            borderRadius: Style.borderRadius6,
+            onTap: tribee.jumpUrl == null
+                ? null
+                : () => PiliScheme.routePushFromUrl(tribee.jumpUrl!),
+            child: Padding(
+              padding: const .symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  NetworkImgLayer(
+                    src: tribee.faceUrl,
+                    width: 30,
+                    height: 30,
+                    borderRadius: Style.borderRadius6,
+                  ),
+                  const SizedBox(width: 10),
+                  Text('${tribee.name}${tribee.suffix ?? ''}'),
+                  SizedBox(
+                    height: 20,
+                    child: VerticalDivider(
+                      width: 20,
+                      color: colorScheme.outline.withValues(alpha: .4),
+                    ),
+                  ),
+                  Text(
+                    '${tribee.dynCountText ?? ''} · ${tribee.latestTimeText ?? ''}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
     title: Obx(() {
@@ -432,6 +515,11 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                                 pic: summary.cover,
                                 title: summary.title,
                                 uname: summary.author?.name,
+                                replyInfo: (
+                                  oid: controller.oid,
+                                  replyType: controller.replyType,
+                                ),
+                                mentionItem: summary.author?.mentionItem,
                                 onSuccess: () {
                                   if (forward != null) {
                                     int count = forward.count ?? 0;
@@ -449,14 +537,14 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                       },
                     ),
                   ),
-                  Expanded(
-                    child: textIconButton(
-                      text: '分享',
-                      icon: CustomIcons.share_node,
-                      stat: null,
-                      onPressed: () => ShareUtils.shareText(controller.url),
-                    ),
-                  ),
+                  // Expanded(
+                  //   child: textIconButton(
+                  //     text: '分享',
+                  //     icon: CustomIcons.share_node,
+                  //     stat: null,
+                  //     onPressed: () => ShareUtils.shareText(controller.url),
+                  //   ),
+                  // ),
                   Expanded(
                     child: textIconButton(
                       icon: FontAwesomeIcons.star,
@@ -464,6 +552,14 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                       text: '收藏',
                       stat: stats.favorite,
                       onPressed: controller.onFav,
+                    ),
+                  ),
+                  Expanded(
+                    child: textIconButton(
+                      icon: FontAwesomeIcons.comment,
+                      text: '评论',
+                      stat: stats.comment,
+                      onPressed: _jumpToComment,
                     ),
                   ),
                   Expanded(
@@ -539,6 +635,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                       CachedNetworkImage(
                         height: height,
                         width: maxWidth,
+                        gaplessPlayback: true,
                         memCacheWidth: memCacheWidth,
                         memCacheHeight: memCacheHeight,
                         fit: pic.isLongPic == true ? BoxFit.cover : null,
@@ -617,6 +714,27 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _jumpToComment() {
+    if (!isPortrait) return;
+    if (_centerKey == null) {
+      _centerKey = UniqueKey();
+      setState(() {});
+    } else {
+      PrimaryScrollController.of(context).jumpToTop();
+    }
+  }
+
+  @override
+  Widget httpError({String? errMsg, VoidCallback? onReload}) {
+    return ArticleSliverToBoxAdapter(
+      child: HttpError(
+        isSliver: false,
+        errMsg: errMsg,
+        onReload: controller.onReload,
       ),
     );
   }

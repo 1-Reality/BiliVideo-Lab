@@ -42,44 +42,44 @@ class PBadge extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final theme = Theme.of(context).colorScheme;
+    final colorScheme = ColorScheme.of(context);
 
-    Color bgColor;
-    Color color;
+    final Color bgColor;
+    final Color color;
     Color borderColor = Colors.transparent;
 
     switch (type) {
       case PBadgeType.primary:
-        bgColor = theme.primary;
-        color = theme.onPrimary;
+        bgColor = colorScheme.primary;
+        color = colorScheme.onPrimary;
       case PBadgeType.secondary:
-        bgColor = theme.secondaryContainer.withValues(alpha: 0.5);
-        color = theme.onSecondaryContainer;
+        bgColor = colorScheme.secondaryContainer.withValues(alpha: 0.5);
+        color = colorScheme.onSecondaryContainer;
       case PBadgeType.gray:
         bgColor = Colors.black45;
         color = Colors.white;
       case PBadgeType.error:
-        if (theme.isDark) {
-          bgColor = theme.errorContainer;
-          color = theme.onErrorContainer;
+        if (colorScheme.isDark) {
+          bgColor = colorScheme.errorContainer;
+          color = colorScheme.onErrorContainer;
         } else {
-          bgColor = theme.error;
-          color = theme.onError;
+          bgColor = colorScheme.error;
+          color = colorScheme.onError;
         }
       case PBadgeType.line_primary:
-        color = theme.primary;
+        color = colorScheme.primary;
         bgColor = Colors.transparent;
-        borderColor = theme.primary;
+        borderColor = colorScheme.primary;
       case PBadgeType.line_secondary:
-        color = theme.secondary;
+        color = colorScheme.secondary;
         bgColor = Colors.transparent;
-        borderColor = theme.secondary;
+        borderColor = colorScheme.secondary;
       case PBadgeType.free:
-        bgColor = theme.freeColor;
+        bgColor = colorScheme.freeColor;
         color = Colors.white;
       case PBadgeType.shop:
-        bgColor = theme.secondaryContainer.withValues(alpha: 0.5);
-        color = theme.onSurfaceVariant;
+        bgColor = colorScheme.secondaryContainer.withValues(alpha: 0.5);
+        color = colorScheme.onSurfaceVariant;
     }
 
     final BorderRadius br = size == .small

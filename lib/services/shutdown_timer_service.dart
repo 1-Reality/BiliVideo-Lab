@@ -1,11 +1,11 @@
 // 定时关闭服务
 
 import 'dart:async' show Timer;
-import 'dart:io' show exit;
 
 import 'package:PiliBro/models/common/enum_with_label.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
@@ -125,11 +125,11 @@ class ShutdownTimerService {
         isManual: true,
       );
       if (res != null) {
-        res.whenComplete(() => exit(0));
+        res.whenComplete(DeviceUtils.exitApp);
         return;
       }
     }
-    exit(0);
+    DeviceUtils.exitApp();
   }
 
   static (int hour, int minute) _parseMinutes(int minutes) {

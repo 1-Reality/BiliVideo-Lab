@@ -21,6 +21,8 @@ abstract final class SettingBoxKey {
       bufferSizeWeak = 'bufferSizeWeak',
       bufferSecWeak = 'bufferSecWeak',
       bufferWeakSync = 'bufferWeakSync',
+      liveBufferSize = 'liveBufferSize',
+      liveBufferSec = 'liveBufferSec',
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',
       autosync = 'autosync',
@@ -28,8 +30,6 @@ abstract final class SettingBoxKey {
       enableAutoEnter = 'enableAutoEnter',
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
-      superChatType = 'superChatType',
-      fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
       playerConfirmFullscreen = 'playerConfirmFullscreen',
       orientationConfigVersion = 'orientationConfigVersion',
@@ -186,6 +186,7 @@ abstract final class SettingBoxKey {
       showDynActionBar = 'showDynActionBar',
       darkVideoPage = 'darkVideoPage',
       enableSlideVolumeBrightness = 'enableSlideVolumeBrightness',
+      enableScrollVolume = 'enableScrollVolume',
       enableSlideFS = 'enableSlideFS',
       retryCount = 'retryCount',
       retryDelay = 'retryDelay',
@@ -222,7 +223,18 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream',
       enableDocProvider = 'enableDocProvider',
-      enableEmoteTooltip = 'enableEmoteTooltip';
+      enableEmoteTooltip = 'enableEmoteTooltip',
+      mineTabs = 'mineTabs',
+      buvid = 'buvid',
+      blockAtOnlyReply = 'blockAtOnlyReply',
+      blockReplyAtCount = 'blockReplyAtCount',
+      filterIntro = 'filterIntro';
+
+  static const String superChatType = 'superChatType',
+      enableFullScreenSC = 'enableFullScreenSC',
+      fullScreenSCOpacity = 'fullScreenSCOpacity',
+      fullScreenSCScale = 'fullScreenSCScale',
+      fullScreenSCWidth = 'fullScreenSCWidth';
 
   static const String wiredNetworkPolicy = 'wiredNetworkPolicy',
       wiredMinLinkSpeed = 'wiredMinLinkSpeed',
@@ -317,6 +329,7 @@ abstract final class SettingBoxKey {
       upPanelPosition = 'upPanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
       useSideBar = 'useSideBar',
+      hideSideBarLabel = 'hideSideBarLabel',
       enableMYBar = 'enableMYBar',
       hideTopBar = 'hideSearchBar',
       hideBottomBar = 'hideTabBar',
@@ -339,7 +352,6 @@ abstract final class LocalCacheKey {
       danmakuFilterRules = 'danmakuFilterRules',
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp',
-      buvid = 'buvid',
       updateIgnore = 'updateIgnore';
 }
 

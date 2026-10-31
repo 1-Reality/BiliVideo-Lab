@@ -3,33 +3,24 @@ import 'dart:io' show Platform;
 
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/utils/desktop/window_controller.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:flutter/services.dart'
-    show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
+    show SystemChrome, SystemUiOverlay, DeviceOrientation;
 
 bool _isDesktopFullScreen = false;
 
-@pragma('vm:notify-debugger-on-exception')
-Future<void> enterDesktopFullScreen({bool inAppFullScreen = false}) async {
+void enterDesktopFullScreen({bool inAppFullScreen = false}) {
   if (!inAppFullScreen && !_isDesktopFullScreen) {
-    _isDesktopFullScreen = true;
-    try {
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.EnterNativeFullscreen');
-    } catch (_) {}
+    WindowController.instance.window?.isFullScreen = _isDesktopFullScreen =
+        true;
   }
 }
 
-@pragma('vm:notify-debugger-on-exception')
-Future<void> exitDesktopFullScreen() async {
+void exitDesktopFullScreen() {
   if (_isDesktopFullScreen) {
-    _isDesktopFullScreen = false;
-    try {
-      await const MethodChannel(
-        'com.alexmercerind/media_kit_video',
-      ).invokeMethod('Utils.ExitNativeFullscreen');
-    } catch (_) {}
+    WindowController.instance.window?.isFullScreen = _isDesktopFullScreen =
+        false;
   }
 }
 

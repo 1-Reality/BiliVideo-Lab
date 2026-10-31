@@ -379,15 +379,9 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                         ),
                         right: 6.0,
                         bottom: 6.0,
-                        type: PBadgeType.gray,
+                        type: .gray,
                       ),
-                      if (entry.videoQuality case final videoQuality?)
-                        PBadge(
-                          text: VideoQuality.fromCode(videoQuality).shortDesc,
-                          right: 6.0,
-                          top: 6.0,
-                          type: PBadgeType.gray,
-                        ),
+                      entry.qaBadge,
                     ],
                   ),
                   Expanded(

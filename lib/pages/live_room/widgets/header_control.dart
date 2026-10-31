@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/draggable_sheet/dyn.dart';
 import 'package:PiliBro/common/widgets/marquee.dart';
-import 'package:PiliBro/models/common/video/live_quality.dart';
 import 'package:PiliBro/pages/live_room/controller.dart';
 import 'package:PiliBro/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
@@ -13,10 +12,12 @@ import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliBro/services/shutdown_timer_service.dart'
     show shutdownTimerService;
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
+import 'package:PiliBro/utils/ios/pip_helper.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
@@ -163,16 +164,16 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               ),
               onTap: widget.onSendDanmaku,
             ),
-          if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
+          if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
+              (Platform.isIOS && IOSPipHelper.isAvailable) ||
+              (PlatformUtils.isDesktop && !isFullScreen))
             ComBtn(
               height: btnHeight,
               tooltip: '画中画',
               onTap: () {
                 if (PlatformUtils.isDesktop) {
                   plPlayerController.toggleDesktopPip();
-                  return;
-                }
-                if (AndroidHelper.isPipAvailable) {
+                } else {
                   plPlayerController.enterPip();
                 }
               },
@@ -391,7 +392,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                                 iconColor: codecColor,
                                 collapsedIconColor: codecColor,
                                 title: Text(
-                                  '${codec.codecName ?? ci.toString()} (${LiveQuality.fromCode(codec.currentQn)?.desc ?? codec.currentQn})',
+                                  '${codec.codecName ?? ci.toString()} (${codec.currentQn.desc})',
                                   style: isCurrCodec
                                       ? currStyle
                                       : const TextStyle(fontSize: 14),

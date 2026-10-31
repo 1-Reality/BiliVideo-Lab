@@ -1,5 +1,8 @@
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
+import 'package:PiliBro/models/video/play/url.dart'
+    show AudioItem, VideoItem, FormatItem;
 import 'package:PiliBro/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
@@ -37,6 +40,17 @@ abstract final class VideoUtils {
 
     if (defaultCDNService == CDNService.baseUrl) {
       return urls.first;
+    }
+
+    if (defaultCDNService == CDNService.akamai &&
+        !(isAudio && disableAudioCDN)) {
+      // Akamai URLs have their own signature (e.g. hdnts). Replacing another
+      // CDN's host preserves the wrong signature and results in HTTP 403.
+      // Keep the API-provided URL intact, including its encoded query string.
+      return urls.firstWhere(
+        (url) => Uri.tryParse(url)?.host == CDNService.akamai.host,
+        orElse: () => urls.first,
+      );
     }
 
     String? mcdnTf;
@@ -126,5 +140,78 @@ abstract final class VideoUtils {
       }
     }
     return VideoDecodeFormatType.fromString(codecs.first);
+  }
+
+  static int _findAvailableVideoQuality(
+    List<VideoItem> videoList,
+    List<int>? acceptQuality,
+    int preferQuality,
+  ) {
+    final highestVideoQa = videoList.first.id;
+    if (preferQuality >= highestVideoQa) {
+      return highestVideoQa;
+    }
+
+    if (acceptQuality != null && acceptQuality.isNotEmpty) {
+      return acceptQuality.findTargetMedia((e) => e, preferQuality);
+    }
+
+    return videoList.findTargetMedia((e) => e.id, preferQuality).quality.code;
+  }
+
+  static (
+    int targetQuality,
+    FormatItem targetFormat,
+    VideoDecodeFormatType targetDecode,
+    VideoItem targetVideo,
+  )
+  findTargetVideo(
+    List<VideoItem> videoList,
+    int preferQuality,
+    List<int>? acceptQuality,
+    List<FormatItem> supportFormats,
+    List<VideoDecodeFormatType> preferCodecs,
+  ) {
+    assert(videoList.isNotEmpty);
+
+    final targetQuality = _findAvailableVideoQuality(
+      videoList,
+      acceptQuality,
+      preferQuality,
+    );
+
+    final targetFormat = supportFormats.firstWhere(
+      (e) => e.quality == targetQuality,
+      orElse: () => supportFormats.first,
+    );
+
+    final targetDecode = VideoUtils.selectCodec(
+      targetFormat.codecs!,
+      preferCodecs,
+    );
+
+    final targetQaVideoList = videoList
+        .where((e) => e.id == targetQuality)
+        .toList();
+
+    final targetVideo = targetQaVideoList.firstWhere(
+      (e) => targetDecode.codes.any(e.codecs!.startsWith),
+      orElse: () => targetQaVideoList.first,
+    );
+
+    return (targetVideo.id, targetFormat, targetDecode, targetVideo);
+  }
+
+  static AudioItem findTargetAudio(
+    List<AudioItem> audioList,
+    int preferQuality,
+  ) {
+    assert(audioList.isNotEmpty);
+
+    final preferredRank = AudioQuality.fromCode(preferQuality).rank;
+    return audioList.findTargetMedia(
+      (audio) => AudioQuality.fromCode(audio.id).rank,
+      preferredRank,
+    );
   }
 }

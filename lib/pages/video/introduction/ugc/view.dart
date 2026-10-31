@@ -2,6 +2,7 @@ import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/animated_height.dart';
+import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/common/widgets/expandable.dart';
 import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
@@ -16,6 +17,7 @@ import 'package:PiliBro/http/sponsor_block.dart';
 import 'package:PiliBro/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliBro/models_new/video/video_detail/data.dart';
 import 'package:PiliBro/models_new/video/video_detail/desc_v2.dart';
+import 'package:PiliBro/models_new/video/video_detail/episode.dart';
 import 'package:PiliBro/models_new/video/video_detail/staff.dart';
 import 'package:PiliBro/models_new/video/video_detail/stat.dart';
 import 'package:PiliBro/models_new/video/video_tag/data.dart';
@@ -59,7 +61,7 @@ class UgcIntroPanel extends StatefulWidget {
   });
   final String heroTag;
   final Function showAiBottomSheet;
-  final Function showEpisodes;
+  final ShowEpisodes showEpisodes;
   final ValueChanged<int?> onShowMemberPage;
   final bool isPortrait;
   final bool isHorizontal;
@@ -182,35 +184,26 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   ],
                   // 合集
                   if (!isLoading &&
-                      videoDetail.ugcSeason != null &&
                       (isPortrait ||
                           !videoDetailCtr
                               .plPlayerController
-                              .horizontalSeasonPanel))
-                    Obx(
-                      () => SeasonPanel(
-                        key: ValueKey(introController.videoDetail.value),
-                        heroTag: widget.heroTag,
-                        showEpisodes: widget.showEpisodes,
-                        ugcIntroController: introController,
+                              .horizontalSeasonPanel)) ...[
+                    if (videoDetail.hasSeason)
+                      NoTranslucentArea(
+                        child: SeasonPanel(
+                          showEpisodes: widget.showEpisodes,
+                          ugcIntroController: introController,
+                        ),
                       ),
-                    ),
-                  if (!isLoading &&
-                      videoDetail.pages != null &&
-                      videoDetail.pages!.length > 1 &&
-                      (isPortrait ||
-                          !videoDetailCtr
-                              .plPlayerController
-                              .horizontalSeasonPanel))
-                    Obx(
-                      () => PagesPanel(
-                        key: ValueKey(introController.videoDetail.value),
-                        heroTag: widget.heroTag,
-                        ugcIntroController: introController,
-                        bvid: introController.bvid,
-                        showEpisodes: widget.showEpisodes,
+                    if (videoDetail.hasParts)
+                      NoTranslucentArea(
+                        child: PagePanel(
+                          ugcIntroController: introController,
+                          bvid: introController.bvid,
+                          showEpisodes: widget.showEpisodes,
+                        ),
                       ),
-                    ),
+                  ],
                 ],
               ),
             ),
@@ -600,6 +593,12 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               semanticsLabel: '收藏',
               text: !isLoading ? NumUtils.numFormat(stat!.favorite) : null,
             ),
+          ),
+          ActionItem(
+            icon: const Icon(CustomIcons.download),
+            onTap: () => videoDetailCtr.onDownload(context),
+            text: '缓存',
+            semanticsLabel: '缓存',
           ),
           Obx(
             () => ActionItem(

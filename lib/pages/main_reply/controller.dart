@@ -1,12 +1,16 @@
 import 'package:PiliBro/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show MainListReply, ReplyInfo;
+    show MainListReply;
 import 'package:PiliBro/grpc/reply.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/pages/common/reply_controller.dart';
+import 'package:PiliBro/pages/common/reply/fold/reply_fold_mixin.dart';
+import 'package:PiliBro/pages/common/reply/reply_controller.dart';
 import 'package:get/get.dart';
 
-class MainReplyController extends ReplyController<MainListReply> {
+class MainReplyController extends ReplyController<MainListReply>
+    with BaseReplyFoldMixin<MainListReply>, ReplyFoldMixin {
+  @override
   late final int oid;
+  @override
   late final int replyType;
 
   @override
@@ -30,7 +34,4 @@ class MainReplyController extends ReplyController<MainListReply> {
     cursorNext: cursorNext,
     offset: paginationReply?.nextOffset,
   );
-
-  @override
-  List<ReplyInfo>? getDataList(MainListReply response) => response.replies;
 }
