@@ -118,7 +118,7 @@ List<SettingsModel> get replySettings => [
     onTap: _showReplySortDialog,
   ),
   NormalModel(
-    title: '二级评论展示',
+    title: '楼中楼评论展示',
     leading: const Icon(Icons.subdirectory_arrow_right_outlined),
     getSubtitle: () => '当前优先展示「${Pref.reply2SortType.reply2Title}」',
     onTap: _showReply2SortDialog,
@@ -254,7 +254,7 @@ Future<void> _showReply2SortDialog(
   final res = await showDialog<ReplySortType>(
     context: context,
     builder: (context) => SelectDialog<ReplySortType>(
-      title: '二级评论展示',
+      title: '评论楼中楼展示',
       value: Pref.reply2SortType,
       values: ReplySortType.values
           .take(2)

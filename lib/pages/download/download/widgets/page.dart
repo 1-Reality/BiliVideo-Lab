@@ -60,19 +60,21 @@ class PageInfoItem<T extends MultiSelectData> extends StatelessWidget {
                         );
                         downloadService.deletePage(
                           pageDirPath: pageInfo.dirPath,
+                          audioOnly: pageInfo.audioOnly,
                         );
                       },
                     );
                   },
                   child: const Text('删除', style: TextStyle(fontSize: 14)),
                 ),
-                DialogOption(
-                  onPressed: () {
-                    Get.back();
-                    updatePageDm(pageInfo);
-                  },
-                  child: const Text('更新弹幕', style: TextStyle(fontSize: 14)),
-                ),
+                if (!pageInfo.audioOnly)
+                  DialogOption(
+                    onPressed: () {
+                      Get.back();
+                      updatePageDm(pageInfo);
+                    },
+                    child: const Text('更新弹幕', style: TextStyle(fontSize: 14)),
+                  ),
               ],
             ),
           );
@@ -88,6 +90,7 @@ class PageInfoItem<T extends MultiSelectData> extends StatelessWidget {
           Get.to(
             DownloadDetailPage(
               pageId: pageInfo.pageId,
+              audioOnly: pageInfo.audioOnly,
               title: pageInfo.title,
               progress: progress,
             ),
@@ -117,7 +120,7 @@ class PageInfoItem<T extends MultiSelectData> extends StatelessWidget {
                     ),
                   ),
                   PBadge(
-                    text: '${pageInfo.entries.length}个视频',
+                    text: '${pageInfo.entries.length}个${pageInfo.audioOnly ? '音频' : '视频'}',
                     right: 6.0,
                     bottom: 6.0,
                     isBold: false,

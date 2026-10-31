@@ -25,6 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -36,8 +41,7 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
-          cache: true
-
+          cache: ${{ inputs.tag == '' }}
       - name: Set and Extract version
         shell: pwsh
         env:
@@ -68,7 +72,7 @@ jobs:
           printf "复制文件...\n"
           cp -r ../build/linux/x64/release/bundle/* opt/PiliBro
           cp -r ../assets/linux/DEBIAN .
-          cp ../assets/linux/com.example.pilibro.desktop usr/share/applications
+          cp ../assets/linux/org.BroTech.gege.pilibro.desktop usr/share/applications
           cp ../assets/images/logo/logo.png usr/share/icons/hicolor/512x512/apps/pilibro.png
 
           printf "修改控制文件...\n"
@@ -110,7 +114,7 @@ jobs:
           SRC_DIR="$PWD/pilibro-${{ env.version }}"
           mkdir -p "$SRC_DIR/bundle" "$SRC_DIR/assets"
           cp -r build/linux/x64/release/bundle/* "$SRC_DIR/bundle/"
-          cp assets/linux/com.example.pilibro.desktop "$SRC_DIR/assets/com.example.pilibro.desktop"
+          cp assets/linux/org.BroTech.gege.pilibro.desktop "$SRC_DIR/assets/org.BroTech.gege.pilibro.desktop"
           cp assets/images/logo/logo.png "$SRC_DIR/assets/pilibro.png"
           tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilibro-${{ env.version }}.tar.gz" -C "$PWD" "pilibro-${{ env.version }}"
 
@@ -143,7 +147,7 @@ jobs:
 
           # 桌面集成
           mkdir -p %{buildroot}/usr/share/applications
-          install -m 644 assets/com.example.pilibro.desktop %{buildroot}/usr/share/applications/com.example.pilibro.desktop
+          install -m 644 assets/org.BroTech.gege.pilibro.desktop %{buildroot}/usr/share/applications/org.BroTech.gege.pilibro.desktop
 
           mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
           install -m 644 assets/pilibro.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/pilibro.png
@@ -159,7 +163,7 @@ jobs:
           %files
           /opt/PiliBro
           /usr/bin/pilibro
-          /usr/share/applications/com.example.pilibro.desktop
+          /usr/share/applications/org.BroTech.gege.pilibro.desktop
           /usr/share/icons/hicolor/512x512/apps/pilibro.png
 
           %changelog
@@ -195,8 +199,8 @@ jobs:
           cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
 
           printf "复制桌面文件和图标...\n"
-          cp assets/linux/com.example.pilibro.desktop "$APPDIR/com.example.pilibro.desktop"
-          cp assets/linux/com.example.pilibro.desktop "$APPDIR/usr/share/applications/com.example.pilibro.desktop"
+          cp assets/linux/org.BroTech.gege.pilibro.desktop "$APPDIR/org.BroTech.gege.pilibro.desktop"
+          cp assets/linux/org.BroTech.gege.pilibro.desktop "$APPDIR/usr/share/applications/org.BroTech.gege.pilibro.desktop"
           cp assets/images/logo/logo.png "$APPDIR/pilibro.png"
           cp assets/images/logo/logo.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/pilibro.png"
 
@@ -212,8 +216,8 @@ jobs:
           chmod +x "$APPDIR/AppRun"
 
           printf "修改桌面文件中的 Exec 路径...\n"
-          sed -i 's|Exec=pilibro|Exec=pilibro|g' "$APPDIR/com.example.pilibro.desktop"
-          sed -i 's|Icon=pilibro|Icon=pilibro|g' "$APPDIR/com.example.pilibro.desktop"
+          sed -i 's|Exec=pilibro|Exec=pilibro|g' "$APPDIR/org.BroTech.gege.pilibro.desktop"
+          sed -i 's|Icon=pilibro|Icon=pilibro|g' "$APPDIR/org.BroTech.gege.pilibro.desktop"
 
           printf "打包 AppImage...\n"
           ARCH=x86_64 ./appimagetool-x86_64.AppImage "$APPDIR" "PiliBro_linux_${{ env.version }}_amd64.AppImage"

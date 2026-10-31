@@ -4,8 +4,6 @@ import 'dart:io' show File, Platform;
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/connectivity_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hive_ce/hive.dart';
@@ -59,31 +57,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
 
   Future<void> _initialize() async {
     _box = await _openBox();
-    final legacy = GStorage.video.get(VideoBoxKey.trafficStats);
-    final boxData = _box!.toMap();
-    if (boxData.isNotEmpty) {
-      _data.addAll(
-        boxData.map((key, value) => MapEntry(key.toString(), value)),
-      );
-    } else {
-      final raw =
-          GStorage.readJsonMapSync(GStorage.trafficStatsFile) ??
-          (legacy is Map
-              ? legacy.map(
-                  (key, value) => MapEntry(key.toString(), value),
-                )
-              : null);
-      if (raw != null && raw.isNotEmpty) {
-        _data.addAll(raw);
-        await _box!.putAll(raw);
-      }
-    }
-    if (await GStorage.trafficStatsFile.exists()) {
-      await GStorage.trafficStatsFile.delete();
-    }
-    if (GStorage.video.containsKey(VideoBoxKey.trafficStats)) {
-      await GStorage.video.delete(VideoBoxKey.trafficStats);
-    }
+    _reloadBoxData();
     WidgetsBinding.instance.addObserver(this);
     if (Platform.isWindows) {
       await _windowsChannel.invokeMethod<bool>('installMediaHook');
@@ -319,7 +293,7 @@ final class TrafficStatsService with WidgetsBindingObserver {
       throw StateError('流量统计库尚未初始化');
     }
     final target = File(targetPath);
-    final previous = File('$targetPath.webdav-previous');
+    final previous = File('$targetPath.previous');
     await _sample();
     _restoring = true;
     try {

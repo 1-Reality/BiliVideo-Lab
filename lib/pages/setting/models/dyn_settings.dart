@@ -27,6 +27,13 @@ List<SettingsModel> get dynSettings => [
       onTap: _showDynDialog,
     ),
   ),
+  const SwitchModel(
+    title: '每日用银瓜子换硬币',
+    subtitle: '每天首次打开时用 700 银瓜子换 1 枚硬币，不够就跳过',
+    leading: Icon(Icons.monetization_on_outlined),
+    setKey: SettingBoxKey.silver2coin,
+    defaultVal: false,
+  ),
   SwitchModel(
     title: '显示动态警告争议信息',
     leading: const Icon(Icons.warning_amber_rounded),

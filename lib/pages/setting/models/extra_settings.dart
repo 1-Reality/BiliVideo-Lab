@@ -1,4 +1,5 @@
 import 'dart:io' show Platform, Directory;
+import 'dart:math' show max;
 
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
@@ -19,6 +20,7 @@ import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
+import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/desktop/window_controller.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
@@ -100,8 +102,10 @@ List<SettingsModel> get extraSettings => [
     title: 'WebView User-Agent',
     leading: const Icon(Icons.language_outlined),
     getSubtitle: () => switch (Pref.webviewUaType) {
-      1 => 'BiliApp',
+      1 => 'Bili',
       2 => '自定义',
+      3 => 'BiliApp',
+      4 => '哔哩网页版',
       _ => '浏览器',
     },
     onTap: _showWebviewUaDialog,
@@ -626,8 +630,10 @@ Future<void> _showWebviewUaDialog(
       value: Pref.webviewUaType,
       values: const [
         (0, '浏览器'),
-        (1, 'BiliApp'),
+        (1, 'Bili'),
         (2, '自定义'),
+        (3, 'BiliApp'),
+        (4, '哔哩网页版'),
       ],
     ),
   );

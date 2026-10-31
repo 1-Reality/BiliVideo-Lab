@@ -37,6 +37,7 @@ import 'package:PiliBro/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliBro/pages/video/widgets/header_mixin.dart';
 import 'package:PiliBro/pages/video/widgets/playback_cdn_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
@@ -418,6 +419,13 @@ class HeaderControlState extends State<HeaderControl>
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 14),
               children: [
+                if (plPlayerController.videoPlayerController case final player?)
+                  ListTile(
+                    dense: true,
+                    title: const Text('播放信息', style: titleStyle),
+                    leading: const Icon(Icons.info_outline, size: 20),
+                    onTap: () => showPlayerInfo(context, player: player),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -812,13 +820,6 @@ class HeaderControlState extends State<HeaderControl>
                     leading: const Icon(Icons.download_outlined, size: 20),
                     title: const Text('保存字幕', style: titleStyle),
                   ),
-                if (plPlayerController.videoPlayerController case final player?)
-                  ListTile(
-                    dense: true,
-                    title: const Text('播放信息', style: titleStyle),
-                    leading: const Icon(Icons.info_outline, size: 20),
-                    onTap: () => showPlayerInfo(context, player: player),
-                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -829,7 +830,7 @@ class HeaderControlState extends State<HeaderControl>
                     Get.back();
                     PageUtils.reportVideo(videoDetailCtr.aid);
                   },
-                  leading: const Icon(Icons.error_outline, size: 20),
+                  leading: const Icon(Icons.flag_outlined, size: 20),
                   title: const Text('举报', style: titleStyle),
                 ),
               ],
@@ -845,6 +846,7 @@ class HeaderControlState extends State<HeaderControl>
     required NativePlayer player,
   }) {
     final hwdec = player.getProperty('hwdec-current');
+    final vo = player.getProperty('current-vo');
     final volume = player.getProperty('volume');
     showDialog(
       context: context,
@@ -920,6 +922,12 @@ class HeaderControlState extends State<HeaderControl>
                       title: const Text('hwdec'),
                       subtitle: Text(hwdec),
                       onTap: () => Utils.copyText('hwdec\n$hwdec'),
+                    ),
+                    ListTile(
+                      dense: true,
+                      title: const Text('vo'),
+                      subtitle: Text(vo),
+                      onTap: () => Utils.copyText('vo\n$vo'),
                     ),
                   ],
                 ),
@@ -1784,7 +1792,8 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
                 if (!plPlayerController.isDesktopPip &&
-                    (!isFullScreen || !isPortrait))
+                    (!isFullScreen || !isPortrait) &&
+                    Pref.headerBtnHome)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -1834,7 +1843,23 @@ class HeaderControlState extends State<HeaderControl>
                   }),
                 if (!isFileSource) ...[
                   if (!isFSOrPip) ...[
-                    if (videoDetailCtr.isUgc)
+                    if (Pref.headerBtnMiniWindow)
+                      SizedBox(
+                        width: btnWidth,
+                        height: btnHeight,
+                        child: IconButton(
+                          tooltip: '小窗',
+                          style: btnStyle,
+                          onPressed: () =>
+                              PipOverlayService.start(videoDetailCtr),
+                          icon: const Icon(
+                            Icons.picture_in_picture_alt_outlined,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    if (videoDetailCtr.isUgc && Pref.headerBtnListen)
                       SizedBox(
                         width: btnWidth,
                         height: btnHeight,
@@ -1849,7 +1874,8 @@ class HeaderControlState extends State<HeaderControl>
                           ),
                         ),
                       ),
-                    SizedBox(
+                    if (Pref.headerBtnCast)
+                      SizedBox(
                       width: btnWidth,
                       height: btnHeight,
                       child: IconButton(
@@ -1864,7 +1890,8 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ],
-                  if (kDebugMode || plPlayerController.enableSponsorBlock)
+                  if ((kDebugMode || plPlayerController.enableSponsorBlock) &&
+                      Pref.headerBtnSponsor)
                     SizedBox(
                       width: btnWidth,
                       height: btnHeight,
@@ -1880,7 +1907,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                 ],
-                if (plPlayerController.enableBlock)
+                if (plPlayerController.enableBlock && Pref.headerBtnSponsor)
                   Obx(
                     () => videoDetailCtr.segmentProgressList.isNotEmpty
                         ? SizedBox(
@@ -1960,7 +1987,8 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ],
-                SizedBox(
+                if (Pref.headerBtnDmSettings)
+                  SizedBox(
                   width: btnWidth,
                   height: btnHeight,
                   child: IconButton(
@@ -1974,9 +2002,10 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
-                if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
+                if (((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
                     (Platform.isIOS && IOSPipHelper.isAvailable) ||
-                    (PlatformUtils.isDesktop && !isFullScreen))
+                    (PlatformUtils.isDesktop && !isFullScreen)) &&
+                    Pref.headerBtnPip)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -2047,6 +2076,26 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
+                if (introController case final UgcIntroController ugc)
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: Obx(
+                      () => ActionItem(
+                        expand: false,
+                        icon: const Icon(
+                          FontAwesomeIcons.thumbsDown,
+                          color: Colors.white,
+                        ),
+                        selectIcon: const Icon(
+                          FontAwesomeIcons.solidThumbsDown,
+                        ),
+                        onTap: () => ugc.handleAction(ugc.actionDislikeVideo),
+                        selectStatus: ugc.hasDislike.value,
+                        semanticsLabel: '点踩',
+                      ),
+                    ),
+                  ),
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,

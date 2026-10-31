@@ -23,17 +23,17 @@ enum AppInitialOrientation {
 enum AppRotationMode {
   lockInitial('保持初始方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转');
+  alwaysAuto('始终自动旋转（忽略旋转锁定）');
 
   final String desc;
   const AppRotationMode(this.desc);
 }
 
 enum WindowedPlayerRotationMode {
-  inheritApp('继承 APP 运行方向策略'),
+  inheritApp('沿用 APP 普通页面的设置'),
   keepCurrent('保持进入视频页时的方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转');
+  alwaysAuto('始终自动旋转（忽略旋转锁定）');
 
   final String desc;
   const WindowedPlayerRotationMode(this.desc);
@@ -42,8 +42,8 @@ enum WindowedPlayerRotationMode {
 enum FullScreenRotationSource {
   keepCurrent('保持当前方向'),
   followSystem('遵循系统旋转设置'),
-  alwaysAuto('始终自动旋转'),
-  appGravity('APP 重力方向');
+  alwaysAuto('始终自动旋转（忽略旋转锁定）'),
+  appGravity('APP 重力传感器');
 
   final String desc;
   const FullScreenRotationSource(this.desc);
@@ -53,8 +53,8 @@ enum FullScreenAllowedOrientation {
   all('全部'),
   landscape('仅横屏'),
   portrait('仅竖屏'),
-  entryAxis('保持进入时横竖方向'),
-  entryExact('保持进入时具体方向');
+  entryAxis('只允许进入时那一轴（同为横或同为竖）'),
+  entryExact('只允许进入时精确那个方向');
 
   final String desc;
   const FullScreenAllowedOrientation(this.desc);
@@ -71,10 +71,10 @@ enum OrientationFullscreenTrigger {
 }
 
 enum OrientationTriggerSource {
-  system('系统方向'),
-  appGravity('APP 重力方向'),
-  any('任一满足'),
-  both('同时满足');
+  system('系统界面方向'),
+  appGravity('APP 重力传感器'),
+  any('两者任一满足'),
+  both('两者同时满足');
 
   final String desc;
   const OrientationTriggerSource(this.desc);
@@ -94,12 +94,12 @@ enum EntryOrientationPolicy {
   video('按视频方向'),
   portrait('强制竖屏'),
   landscape('强制横屏'),
-  ratio('按视频与屏幕比例判断'),
+  ratio('竖屏视频或屏幕接近方形（长宽比小于 1.2，如折叠屏内屏）时竖屏，否则横屏'),
   portraitUp('正竖屏'),
   portraitDown('倒竖屏'),
   landscapeLeft('左横屏'),
   landscapeRight('右横屏'),
-  triggerDirection('跟随触发方向');
+  triggerDirection('触发时手机所处的方向');
 
   final String desc;
   const EntryOrientationPolicy(this.desc);
@@ -125,9 +125,9 @@ abstract final class FullscreenEntryCauseMask {
 }
 
 enum ExitOrientationMode {
-  restoreApp('恢复当前页面方向策略'),
+  restoreApp('恢复为当前页面原本的旋转设置'),
   keepPlayer('保持播放器方向，之后继续正常旋转'),
-  lockPlayer('锁定播放器方向');
+  lockPlayer('锁定为全屏时的方向');
 
   final String desc;
   const ExitOrientationMode(this.desc);
@@ -154,62 +154,62 @@ enum BrotherOrientationPhase {
 }
 
 enum BrotherDirectionAction {
-  keepCurrent('保持当前，不发送方向请求'),
-  systemCurrent('读取并采用当前界面方向'),
-  startupDirection('采用 APP 启动方向'),
+  keepCurrent('保持当前方向，不主动旋转'),
+  systemCurrent('锁定为当前方向'),
+  startupDirection('恢复 APP 启动时的方向'),
   video('按视频横竖方向'),
-  ratio('按视频与屏幕比例判断'),
+  ratio('竖屏视频或屏幕长宽比不到 16:9 时竖屏，否则横屏'),
   portrait('竖屏'),
   landscape('横屏'),
   portraitUp('正竖屏'),
   portraitDown('倒竖屏'),
   landscapeLeft('左横屏'),
   landscapeRight('右横屏'),
-  triggerDirection('采用触发方向');
+  triggerDirection('触发时手机所处的方向');
 
   final String desc;
   const BrotherDirectionAction(this.desc);
 }
 
 enum BrotherRuntimeMode {
-  inheritRequest('沿用当前方向规则'),
-  unspecified('系统自行决定（UNSPECIFIED）'),
+  inheritRequest('沿用当前生效的方向设置，不重新指定'),
+  unspecified('不指定，按系统默认处理（UNSPECIFIED）'),
   landscape('横屏（LANDSCAPE）'),
   portrait('竖屏（PORTRAIT）'),
-  user('用户方向（USER）'),
-  behind('继承后层（BEHIND）'),
-  sensor('传感器（SENSOR）'),
-  noSensor('禁用传感器（NOSENSOR）'),
-  sensorLandscape('横屏传感器（SENSOR_LANDSCAPE）'),
-  sensorPortrait('竖屏传感器（SENSOR_PORTRAIT）'),
+  user('跟随系统旋转锁定，多数设备不含倒竖屏（USER）'),
+  behind('与下层界面方向相同（BEHIND）'),
+  sensor('按传感器旋转，忽略旋转锁定，多数设备不含倒竖屏（SENSOR）'),
+  noSensor('不使用传感器，保持设备自然方向（NOSENSOR）'),
+  sensorLandscape('横屏，按传感器切换左右横屏（SENSOR_LANDSCAPE）'),
+  sensorPortrait('竖屏，按传感器切换正倒竖屏（SENSOR_PORTRAIT）'),
   reverseLandscape('反向横屏（REVERSE_LANDSCAPE）'),
   reversePortrait('反向竖屏（REVERSE_PORTRAIT）'),
-  fullSensor('全方向传感器（FULL_SENSOR）'),
-  userLandscape('用户横屏（USER_LANDSCAPE）'),
-  userPortrait('用户竖屏（USER_PORTRAIT）'),
-  fullUser('完整遵循用户设置（FULL_USER）'),
-  locked('锁定当前（LOCKED）'),
-  followSystemAllowed('遵循系统旋转并应用方向许可'),
-  alwaysAutoAllowed('忽略系统锁定并应用方向许可'),
-  systemGate('仅读取系统旋转开关（关=LOCKED，开=FULL_SENSOR）'),
-  appGravity('APP 重力传感器');
+  fullSensor('按传感器四向旋转，忽略旋转锁定（FULL_SENSOR）'),
+  userLandscape('横屏，旋转锁定关闭时可切换左右横屏（USER_LANDSCAPE）'),
+  userPortrait('竖屏，旋转锁定关闭时可切换正倒竖屏（USER_PORTRAIT）'),
+  fullUser('跟随系统旋转锁定，四向旋转（FULL_USER）'),
+  locked('锁定当前方向（LOCKED）'),
+  followSystemAllowed('跟随系统旋转锁定，限于最终许可'),
+  alwaysAutoAllowed('忽略系统旋转锁定，限于最终许可'),
+  systemGate('只读系统旋转开关：开启时锁定，关闭时四向旋转'),
+  appGravity('由 APP 重力传感器控制');
 
   final String desc;
   const BrotherRuntimeMode(this.desc);
 }
 
 enum BrotherRuntimeActivation {
-  immediate('立即接管'),
-  afterSourceChange('等待运行方向源首次变化后接管');
+  immediate('立即生效'),
+  afterSourceChange('手机首次转动后生效');
 
   final String desc;
   const BrotherRuntimeActivation(this.desc);
 }
 
 enum BrotherAllowedBasis {
-  fixed('固定许可集合'),
-  entryAxis('进入时横竖轴'),
-  entryExact('进入时具体方向');
+  fixed('固定允许的方向（手工选择）'),
+  entryAxis('与进入时同大方向'),
+  entryExact('仅限进入时具体方向');
 
   final String desc;
   const BrotherAllowedBasis(this.desc);
@@ -217,10 +217,10 @@ enum BrotherAllowedBasis {
 
 enum BrotherRuntimeLatchAxis {
   off('关闭'),
-  portrait('检测到竖屏后（状态命中）'),
-  landscape('检测到横屏后（状态命中）'),
-  portraitEdge('首次由横屏转入竖屏后（边沿检测）'),
-  landscapeEdge('首次由竖屏转入横屏后（边沿检测）');
+  portrait('处于竖屏时（含进入时已为竖屏）'),
+  landscape('处于横屏时（含进入时已为横屏）'),
+  portraitEdge('由横屏转为竖屏时（不含进入时已为竖屏）'),
+  landscapeEdge('由竖屏转为横屏时（不含进入时已为横屏）');
 
   final String desc;
   const BrotherRuntimeLatchAxis(this.desc);
@@ -249,6 +249,48 @@ final class BrotherPhaseConfig {
     this.runtimeLatchAxis = BrotherRuntimeLatchAxis.off,
     this.runtimeLatchMode = BrotherRuntimeMode.locked,
   });
+
+  static const defaultApp = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.systemCurrent,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.unspecified,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    resumePortraitRuntimeMode: BrotherRuntimeMode.locked,
+    resumeLandscapeRuntimeMode: BrotherRuntimeMode.alwaysAutoAllowed,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.portrait,
+    runtimeLatchMode: BrotherRuntimeMode.followSystemAllowed,
+  );
+
+  static const defaultWindowed = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.keepCurrent,
+    resumeAction: BrotherDirectionAction.startupDirection,
+    runtimeMode: BrotherRuntimeMode.alwaysAutoAllowed,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    resumeLandscapeRuntimeMode: BrotherRuntimeMode.followSystemAllowed,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    runtimeLatchMode: BrotherRuntimeMode.locked,
+  );
+
+  static const defaultFullscreen = BrotherPhaseConfig(
+    enterAction: BrotherDirectionAction.video,
+    resumeAction: BrotherDirectionAction.keepCurrent,
+    runtimeMode: BrotherRuntimeMode.locked,
+    runtimeActivation: BrotherRuntimeActivation.immediate,
+    allowedBasis: BrotherAllowedBasis.fixed,
+    allowedMask: OrientationMask.all,
+    gravityFollowSystemLock: true,
+    angleDegrees: 30,
+    runtimeLatchAxis: BrotherRuntimeLatchAxis.off,
+    runtimeLatchMode: BrotherRuntimeMode.locked,
+  );
 
   final BrotherDirectionAction enterAction;
   final BrotherDirectionAction resumeAction;
@@ -325,17 +367,6 @@ final class BrotherPhaseConfig {
     return selected == runtimeMode ? this : copyWith(runtimeMode: selected);
   }
 
-  Iterable<BrotherRuntimeMode> get possibleRuntimeModes sync* {
-    yield runtimeMode;
-    final portrait = resumePortraitRuntimeMode;
-    if (portrait != null && portrait != runtimeMode) yield portrait;
-    final landscape = resumeLandscapeRuntimeMode;
-    if (landscape != null &&
-        landscape != runtimeMode &&
-        landscape != portrait) {
-      yield landscape;
-    }
-  }
 
   List<Object> toStorage() => [
     enterAction.index,
@@ -352,80 +383,26 @@ final class BrotherPhaseConfig {
     runtimeLatchMode.index,
   ];
 
-  static BrotherPhaseConfig fromStorage(
-    Object? raw, {
-    required BrotherPhaseConfig fallback,
-  }) {
-    if (raw is! List || raw.length < 7) return fallback;
-    T value<T extends Enum>(List<T> values, Object? index, T orElse) =>
-        index is int && index >= 0 && index < values.length
-            ? values[index]
-            : orElse;
-    final v2 = raw.length >= 8;
-    final v3 = raw.length >= 12;
-    BrotherRuntimeMode? nullableRuntime(Object? index) =>
-        index is int &&
-            index >= 0 &&
-            index < BrotherRuntimeMode.values.length
-        ? BrotherRuntimeMode.values[index]
-        : null;
+  static BrotherPhaseConfig fromStorage(List raw) {
+    final resumePortrait = raw[8] as int;
+    final resumeLandscape = raw[9] as int;
     return BrotherPhaseConfig(
-      enterAction: value(
-        BrotherDirectionAction.values,
-        raw[0],
-        fallback.enterAction,
-      ),
-      resumeAction: value(
-        BrotherDirectionAction.values,
-        raw[1],
-        fallback.resumeAction,
-      ),
-      runtimeMode: value(
-        BrotherRuntimeMode.values,
-        raw[2],
-        fallback.runtimeMode,
-      ),
-      runtimeActivation: v2
-          ? value(
-              BrotherRuntimeActivation.values,
-              raw[3],
-              fallback.runtimeActivation,
-            )
-          : fallback.runtimeActivation,
-      allowedBasis: value(
-        BrotherAllowedBasis.values,
-        raw[v2 ? 4 : 3],
-        fallback.allowedBasis,
-      ),
-      allowedMask: raw[v2 ? 5 : 4] is int
-          ? raw[v2 ? 5 : 4] as int
-          : fallback.allowedMask,
-      gravityFollowSystemLock: raw[v2 ? 6 : 5] is bool
-          ? raw[v2 ? 6 : 5] as bool
-          : fallback.gravityFollowSystemLock,
-      angleDegrees: raw[v2 ? 7 : 6] is int
-          ? raw[v2 ? 7 : 6] as int
-          : fallback.angleDegrees,
-      resumePortraitRuntimeMode: v3
-          ? nullableRuntime(raw[8])
-          : fallback.resumePortraitRuntimeMode,
-      resumeLandscapeRuntimeMode: v3
-          ? nullableRuntime(raw[9])
-          : fallback.resumeLandscapeRuntimeMode,
-      runtimeLatchAxis: v3
-          ? value(
-              BrotherRuntimeLatchAxis.values,
-              raw[10],
-              fallback.runtimeLatchAxis,
-            )
-          : fallback.runtimeLatchAxis,
-      runtimeLatchMode: v3
-          ? value(
-              BrotherRuntimeMode.values,
-              raw[11],
-              fallback.runtimeLatchMode,
-            )
-          : fallback.runtimeLatchMode,
+      enterAction: BrotherDirectionAction.values[raw[0] as int],
+      resumeAction: BrotherDirectionAction.values[raw[1] as int],
+      runtimeMode: BrotherRuntimeMode.values[raw[2] as int],
+      runtimeActivation: BrotherRuntimeActivation.values[raw[3] as int],
+      allowedBasis: BrotherAllowedBasis.values[raw[4] as int],
+      allowedMask: raw[5] as int,
+      gravityFollowSystemLock: raw[6] as bool,
+      angleDegrees: raw[7] as int,
+      resumePortraitRuntimeMode: resumePortrait == -1
+          ? null
+          : BrotherRuntimeMode.values[resumePortrait],
+      resumeLandscapeRuntimeMode: resumeLandscape == -1
+          ? null
+          : BrotherRuntimeMode.values[resumeLandscape],
+      runtimeLatchAxis: BrotherRuntimeLatchAxis.values[raw[10] as int],
+      runtimeLatchMode: BrotherRuntimeMode.values[raw[11] as int],
     );
   }
 }

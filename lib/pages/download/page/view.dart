@@ -237,6 +237,7 @@ class _DownloadPagePageState extends State<DownloadPagePage>
           );
           await downloadService.deletePage(
             pageDirPath: page.dirPath,
+            audioOnly: page.audioOnly,
             refresh: false,
           );
         }

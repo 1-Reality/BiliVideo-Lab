@@ -12,6 +12,7 @@ import 'package:PiliBro/models/common/badge_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/source_type.dart';
+import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/pages/common/multi_select/base.dart';
 import 'package:PiliBro/pages/download/downloading/view.dart';
@@ -154,6 +155,9 @@ class DetailItem extends StatelessWidget {
             return;
           }
           if (entry.isCompleted) {
+            if (entry.mediaType == 3) {
+              await AudioPage.toOfflinePage(entry);
+            } else {
             await PageUtils.toVideoPage(
               aid: entry.avid,
               cid: cid!,
@@ -166,6 +170,7 @@ class DetailItem extends StatelessWidget {
                 'dirPath': entry.entryDirPath,
               },
             );
+            }
             if (context.mounted) {
               Timer(const Duration(milliseconds: 400), () {
                 if (context.mounted) {
@@ -216,34 +221,41 @@ class DetailItem extends StatelessWidget {
                         } else {
                           cacheHeight = maxHeight.cacheSize(context);
                         }
-                        return cover.existsSync()
-                            ? ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: Image.file(
-                                  cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: cacheWidth,
-                                  cacheHeight: cacheHeight,
-                                  colorBlendMode: NetworkImgLayer.reduce
-                                      ? BlendMode.modulate
-                                      : null,
-                                  color: NetworkImgLayer.reduce
-                                      ? NetworkImgLayer.reduceLuxColor
-                                      : null,
-                                ),
-                              )
-                            : NetworkImgLayer(
-                                src: entry.cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                                cacheWidth: entry.pageData?.cacheWidth,
-                              );
+                        return ClipRRect(
+                          borderRadius: Style.mdRadius,
+                          child: Image.file(
+                            cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                            fit: BoxFit.cover,
+                            cacheWidth: cacheWidth,
+                            cacheHeight: cacheHeight,
+                            colorBlendMode: NetworkImgLayer.reduce
+                                ? BlendMode.modulate
+                                : null,
+                            color: NetworkImgLayer.reduce
+                                ? NetworkImgLayer.reduceLuxColor
+                                : null,
+                            errorBuilder: (_, _, _) => NetworkImgLayer(
+                              src: entry.cover,
+                              width: maxWidth,
+                              height: maxHeight,
+                              cacheWidth: entry.pageData?.cacheWidth,
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
-                  entry.qaBadge,
+                  if (entry.mediaType == 3)
+                    const PBadge(
+                      text: '音频',
+                      right: 6.0,
+                      top: 6.0,
+                      type: .gray,
+                    )
+                  else
+                    entry.qaBadge,
                   if (progress != null)
                     ListenableBuilder(
                       listenable: progress!,

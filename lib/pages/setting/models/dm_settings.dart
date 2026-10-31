@@ -2,6 +2,7 @@ import 'dart:math' show max;
 
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
+import 'package:PiliBro/pages/setting/pages/danmaku_merge_setting.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/filtering_text.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
@@ -45,12 +46,25 @@ List<SettingsModel> get dmSettings => [
     setKey: SettingBoxKey.showVipDanmaku,
     defaultVal: true,
   ),
-  const SwitchModel(
+  NormalModel(
     title: '合并弹幕',
-    subtitle: '合并一段时间内获取到的相同弹幕',
-    leading: Icon(Icons.merge),
-    setKey: SettingBoxKey.mergeDanmaku,
-    defaultVal: true,
+    getSubtitle: () {
+      if (!Pref.mergeDanmaku) return '已关闭';
+      final crossMode = Pref.mergeDanmakuCrossMode ? '跨类型' : '同类型';
+      final enlarge = Pref.danmakuEnlarge
+          ? '放大门槛: ${Pref.danmakuEnlargeThreshold}'
+          : '字号放大: 关';
+      return '时间窗: ${Pref.mergeDanmakuWindowSeconds}s, $crossMode, $enlarge';
+    },
+    leading: const Icon(Icons.merge),
+    onTap: (context, setState) async {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => const DanmakuMergeSettingPage(),
+        ),
+      );
+      setState();
+    },
   ),
 ];
 

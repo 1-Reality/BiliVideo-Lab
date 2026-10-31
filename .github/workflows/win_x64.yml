@@ -14,7 +14,7 @@ on:
         default: "0"
         type: string
       include_portable:
-        description: "Create portable ZIP"
+        description: "Create portable 7z"
         required: false
         default: true
         type: boolean
@@ -30,11 +30,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync BroTech companion files
+        if: ${{ inputs.tag != '' }}
+        shell: bash
+        run: tool/sync_brotech.sh
+
       - name: Setup flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
+          cache: ${{ inputs.tag == '' }}
 
       - name: Use Git OpenSSL TLS backend
         shell: pwsh
@@ -65,6 +71,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch_media_kit_decoder_lab.ps1
 
+      - name: Pin libmpv build with D3D11 zero-copy
+        shell: pwsh
+        run: lib/scripts/patch_media_kit_libmpv.ps1
+
       - name: Build Windows
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
@@ -76,11 +86,17 @@ jobs:
           mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
           mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
-      - name: Compress portable ZIP
+      - name: Portable uses generic x86_64 libmpv
         if: ${{ inputs.include_portable }}
-        run: |
-          Compress-Archive -Path "Release/PiliBro-Win" -DestinationPath "PiliBro_windows_${{env.version}}_x64_portable.zip"
         shell: pwsh
+        run: lib/scripts/portable_generic_libmpv.ps1 Release/PiliBro-Win
+
+      - name: Compress portable 7z
+        if: ${{ inputs.include_portable }}
+        shell: pwsh
+        run: |
+          Copy-Item "windows/packaging/win32/Win7 跑不了？报错：参考方案！.txt" "Release/PiliBro-Win/"
+          7z a -mx9 "PiliBro_windows_${{env.version}}_x64_portable.7z" "Release/PiliBro-Win/*"
 
       - name: Upload windows portable release
         if: ${{ inputs.include_portable }}
@@ -88,7 +104,7 @@ jobs:
         with:
           archive: false
           name: Windows-file-x64-release
-          path: PiliBro_windows_*.zip
+          path: PiliBro_windows_*.7z
 
       - name: Upload windows setup release
         uses: actions/upload-artifact@v7

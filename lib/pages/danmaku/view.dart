@@ -7,6 +7,7 @@ import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliBro/utils/danmaku_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -44,6 +45,14 @@ class _PlDanmakuState extends State<PlDanmaku> {
   int latestAddedPosition = -1;
   int _bucketStartUs = -1;
   int _nextBucketUs = 0;
+
+  // 合并弹幕的计数标记设置，只在 count > 1 的弹幕上用到
+  late final _markThreshold = Pref.mergeDanmakuMarkThreshold;
+  late final _countPosition = switch (Pref.mergeDanmakuMarkPosition) {
+    0 => DanmakuCountPosition.hidden,
+    2 => DanmakuCountPosition.tail,
+    _ => DanmakuCountPosition.head,
+  };
 
   @override
   void initState() {
@@ -149,7 +158,14 @@ class _PlDanmakuState extends State<PlDanmaku> {
               isColorful:
                   showVipDanmaku &&
                   e.colorful == DmColorfulType.VipGradualColor,
-              count: e.count > 1 ? e.count : null,
+              count: e.count > _markThreshold ? e.count : null,
+              countPosition: _countPosition,
+              fontSize: e.count > 1
+                  ? e.fontsize *
+                        (widget.notFullscreen
+                            ? DanmakuOptions.danmakuFontScale
+                            : DanmakuOptions.danmakuFontScaleFS)
+                  : null,
               selfSend: e.isSelf,
               extra: VideoDanmaku(
                 id: e.id.toInt(),

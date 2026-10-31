@@ -1,11 +1,22 @@
+import 'dart:io' show File, Platform;
+
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/pages/setting/pages/watch_calendar.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
+import 'package:PiliBro/utils/share_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:path/path.dart' as path;
+import 'package:share_plus/share_plus.dart';
 
 class PlaybackStatsPage extends StatefulWidget {
   const PlaybackStatsPage({super.key});
@@ -19,6 +30,85 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
   static final _trailingDot = RegExp(r'\.$');
 
   late Map<String, dynamic> stats = PlaybackStatsService.snapshot();
+  // Opening shows only the active period; the archive is read on request.
+  bool _full = false;
+  bool _fullLoading = false;
+  bool _advancedExpanded = false;
+  bool _advancedLoading = false;
+  String? _advancedData;
+
+  // Launch days come from the counter (this year) and its yearly history; a
+  // year also appears once the watch log has segments in it, even with no
+  // launch count, since its calendar is drawn from the log alone.
+  Future<void> _showLaunchYears() async {
+    final stamp =
+        GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0)
+            as int;
+    final launched = {
+      ...?GStorage.localCache.get(LocalCacheKey.launchYears) as Map?,
+      '${stamp ~/ 10000000}': stamp % 1000,
+    };
+    final years = {
+      ...launched.keys,
+      for (final f in await WatchLogService.files())
+        if (path.basename(f.path) case final name
+            when name != 'watchlog.jsonl') ...[
+          name.substring(9, 13),
+          name.substring(18, 22),
+        ],
+    }.toList()..sort((a, b) => b.compareTo(a));
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('历年打开 B 站'),
+        children: [
+          for (final year in years)
+            ListTile(
+              title: Text('$year 年'),
+              subtitle: Text(
+                launched[year] == null ? '没有打开天数记录' : '打开 ${launched[year]} 天',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Get.back();
+                Get.to(() => WatchCalendarPage(year: int.parse(year)));
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadAdvanced() async {
+    if (_advancedData != null || _advancedLoading) return;
+    setState(() => _advancedLoading = true);
+    try {
+      final result = await PlaybackArchiveService.advancedJson();
+      if (mounted) setState(() => _advancedData = result);
+    } catch (e) {
+      if (mounted) SmartDialog.showToast('历史统计读取失败: $e');
+    } finally {
+      if (mounted) setState(() => _advancedLoading = false);
+    }
+  }
+
+  Future<void> _loadFull() async {
+    setState(() => _fullLoading = true);
+    try {
+      final result = await PlaybackStatsService.fullSnapshot();
+      if (mounted) {
+        setState(() {
+          stats = result;
+          _full = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) SmartDialog.showToast('全量统计读取失败: $e');
+    } finally {
+      if (mounted) setState(() => _fullLoading = false);
+    }
+  }
 
   num _value(String key) => stats[key] as num? ?? 0;
   Map<String, dynamic> get _derived => stats['derived'] as Map<String, dynamic>;
@@ -81,7 +171,12 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
     );
     if (confirmed == true) {
       await PlaybackStatsService.reset();
-      if (mounted) setState(() => stats = PlaybackStatsService.snapshot());
+      if (mounted) setState(() {
+        stats = PlaybackStatsService.snapshot();
+        _full = false;
+        _advancedData = null;
+        _advancedExpanded = false;
+      });
     }
   }
 
@@ -105,14 +200,43 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         (a, b) => ((b.value as Map)['activePlaybackUs'] as num? ?? 0)
             .compareTo((a.value as Map)['activePlaybackUs'] as num? ?? 0),
       );
-    final now = DateTime.now();
-    final currentMonth =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
 
     return SimpleScaffold(
       appBar: AppBar(
-        title: const Text('倍速统计详情'),
+        title: Text(_full ? '倍速统计详情 · 全量' : '倍速统计详情'),
         actions: [
+          TextButton(
+            onPressed: _fullLoading ? null : _loadFull,
+            child: Text(_fullLoading ? '读取中…' : '读取全量并计算'),
+          ),
+          IconButton(
+            tooltip: '导出观看日志',
+            onPressed: () async {
+              final files = await WatchLogService.files();
+              if (files.isEmpty) {
+                SmartDialog.showToast('还没有观看日志');
+                return;
+              }
+              // The Windows share sheet is unreliable and Linux has none:
+              // copy the logs into a chosen folder there instead.
+              if (Platform.isWindows || Platform.isLinux) {
+                final dir = await FilePicker.getDirectoryPath();
+                if (dir == null) return;
+                for (final f in files) {
+                  await File(f.path).copy(path.join(dir, path.basename(f.path)));
+                }
+                SmartDialog.showToast('已保存');
+                return;
+              }
+              await SharePlus.instance.share(
+                ShareParams(
+                  files: [for (final f in files) XFile(f.path)],
+                  sharePositionOrigin: await ShareUtils.sharePositionOrigin,
+                ),
+              );
+            },
+            icon: const Icon(Icons.share_outlined),
+          ),
           TextButton(onPressed: _reset, child: const Text('清空')),
           const SizedBox(width: 8),
         ],
@@ -121,6 +245,21 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
         child: ListView(
           padding: .only(bottom: MediaQuery.viewPaddingOf(context).bottom + 48),
           children: [
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: Text(
+                '今年打开 B 站 ${(GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0) as int) % 1000} 天',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showLaunchYears,
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('本地历史'),
+              subtitle: const Text('本机记录的每一次观看'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Get.toNamed('/watchLog'),
+            ),
             Padding(
               padding: const .fromLTRB(16, 12, 16, 4),
               child: Text(
@@ -214,7 +353,6 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                 subtitle: const Text('按 UID 汇总，并保留逐月原语'),
                 children: upEntries!.map((entry) {
                   final item = entry.value as Map;
-                  final month = (item['months'] as Map?)?[currentMonth] as Map?;
                   final active = item['activePlaybackUs'] as num? ?? 0;
                   final media = item['mediaAdvanceUs'] as num? ?? 0;
                   final nominal = item['nominalMediaUs'] as num? ?? 0;
@@ -230,7 +368,7 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   return ListTile(
                     title: Text(item['name']?.toString() ?? 'UID ${entry.key}'),
                     subtitle: Text(
-                      'UID ${entry.key} · 本月 ${_duration(month?['activePlaybackUs'] as num? ?? 0)}'
+                      'UID ${entry.key} · ${_full ? '全量' : '本月'} ${_duration(active)}'
                       ' · 名义 ${_speed(nominal * activeScale)}'
                       ' · 含长按 ${_speed(nominalLong * activeScale)}\n'
                       '推进 ${_speed(media * activeScale)}'
@@ -271,7 +409,11 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             _item('直播累计观看时间', _duration(_value('liveWatchUs'))),
             ExpansionTile(
               title: const Text('高级参数回看'),
-              subtitle: const Text('查看可供重新计算或交给 AI 分析的原始统计量'),
+              subtitle: const Text('主动展开时才读取历史归档'),
+              onExpansionChanged: (expanded) {
+                setState(() => _advancedExpanded = expanded);
+                if (expanded) _loadAdvanced();
+              },
               childrenPadding: const .fromLTRB(16, 0, 16, 20),
               children: [
                 if (speedSelections?.isNotEmpty == true)
@@ -292,32 +434,84 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () {
-                      Clipboard.setData(
-                        ClipboardData(
-                          text: PlaybackStatsService.advancedJson(),
+                if (_advancedExpanded) ...[
+                  if (_advancedLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_advancedData case final data?) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: data));
+                          SmartDialog.showToast('高级参数已复制');
+                        },
+                        icon: const Icon(Icons.copy_outlined),
+                        label: const Text('复制高级参数'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Get.to(
+                          () => _AdvancedDataView(data: data),
                         ),
-                      );
-                      SmartDialog.showToast('高级参数已复制');
-                    },
-                    icon: const Icon(Icons.copy_outlined),
-                    label: const Text('复制高级参数'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: SelectableText(
-                    PlaybackStatsService.advancedJson(),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
+                        icon: const Icon(Icons.data_object),
+                        label: Text(
+                          '查看（${data.length} 字符 · '
+                          '${'\n'.allMatches(data).length + 1} 行）',
+                        ),
+                      ),
+                    ),
+                  ] else
+                    TextButton(onPressed: _loadAdvanced, child: const Text('重试读取历史')),
+                ],
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The advanced JSON, one line per row and built lazily: laying the whole
+/// text out as a single paragraph froze phones for seconds.
+class _AdvancedDataView extends StatelessWidget {
+  _AdvancedDataView({required this.data}) : lines = data.split('\n');
+
+  final String data;
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall!.copyWith(
+      fontFamily: 'monospace',
+    );
+    return SimpleScaffold(
+      appBar: AppBar(
+        title: const Text('高级参数'),
+        actions: [
+          IconButton(
+            tooltip: '复制全部',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: data));
+              SmartDialog.showToast('高级参数已复制');
+            },
+            icon: const Icon(Icons.copy_outlined),
+          ),
+        ],
+      ),
+      body: SelectionArea(
+        child: ListView.builder(
+          padding: EdgeInsets.fromLTRB(
+            12,
+            8,
+            12,
+            MediaQuery.viewPaddingOf(context).bottom + 24,
+          ),
+          itemCount: lines.length,
+          itemBuilder: (context, index) => Text(lines[index], style: style),
         ),
       ),
     );

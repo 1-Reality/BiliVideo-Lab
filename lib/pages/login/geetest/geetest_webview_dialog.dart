@@ -1,10 +1,13 @@
-import 'dart:convert' show jsonDecode;
+import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
 
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/main.dart';
 import 'package:PiliBro/plugin/linux_webview.dart';
+import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -30,27 +33,69 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
   static const _geetestConfigUri = 'https://api.geetest.com/gettype.php';
 
-  static String _buildHtml(String gt, String challenge) {
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final js =
-        'var C,S,T,t;'
-        'T=()=>{if(C&&S&&!t){t=Geetest(C).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}};'
-        'geetest_$ts=(d)=>{'
-        'if(!d||d.status!="success"){R("error",JSON.stringify(d));return};'
-        'C=Object.assign({gt:"$gt",challenge:"$challenge",offline:false,new_captcha:true,product:"bind",width:"100%",https:true,protocol:"https://"},d.data);T()'
-        '};'
-        'G=()=>{S=1;T()};'
-        'E=()=>{document.getElementById("E").textContent="验证码加载失败";R("error","geetest script load failed")}';
+  // The WebView's own reason for the geetest script failing to load; the page
+  // itself only sees that Geetest is undefined.
+  String? _scriptError;
 
-    return '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"></head>'
-        '<style>#E{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:red}</style>'
-        '<body><div id="E"></div>'
-        '<script>'
-        '${Platform.isLinux ? "R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))" : "R=(n,o)=>window.flutter_inappwebview?.callHandler(n,o)"};$js'
-        '</script>'
-        '<script src="$_geetestJsUri" onload="G()" onerror="E()"></script>'
-        '<script src="$_geetestConfigUri?gt=$gt&callback=geetest_$ts" onerror="E()"></script>'
-        '</body></html>';
+  // A captcha that never appears blocks login, so the reason stays on screen
+  // long enough to read or screenshot.
+  static void _toastError(String detail) => SmartDialog.showToast(
+    '验证码加载失败：$detail',
+    displayTime: const Duration(seconds: 10),
+  );
+
+  late final Future<LoadingState<String>> _future;
+
+  static String _showJs(String response) =>
+      'if(typeof Geetest=="undefined"){document.body.textContent="验证码加载失败";R("error","geetest script load failed")}'
+      'else{t=Geetest($response).onSuccess(()=>R("success",t.getValidate())).onError(o=>R("error",o)).onClose(o=>R("close",o));t.onReady(()=>t.verify())}';
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _getConfig(widget.gt, widget.challenge);
+  }
+
+  static Future<LoadingState<String>> _getConfig(
+    String gt,
+    String challenge,
+  ) async {
+    final res = await Request().get<String>(
+      'https://api.geetest.com/gettype.php',
+      queryParameters: {'gt': gt},
+      options: Options(
+        responseType: ResponseType.plain,
+        extra: {'account': const NoAccount()},
+      ),
+    );
+    if (res.data case final String data) {
+      if (data.startsWith('(') && data.endsWith(')')) {
+        final Map<String, dynamic> config;
+        try {
+          config = jsonDecode(data.substring(1, data.length - 1));
+        } catch (e) {
+          return Error(e.toString());
+        }
+        if (config['status'] == 'success') {
+          return Success(
+            jsonEncode(
+              config['data'] as Map<String, dynamic>..addAll({
+                "gt": gt,
+                "challenge": challenge,
+                "offline": false,
+                "new_captcha": true,
+                "product": "bind",
+                "width": "100%",
+                "https": true,
+                "protocol": "https://",
+              }),
+            ),
+          );
+        }
+        return Error(data);
+      }
+    }
+    return Error(res.data['message']);
   }
 
   @override
@@ -63,25 +108,54 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
         content: SizedBox(
           width: 300,
           height: 400,
-          child: LinuxWebview(
-            initialHtml: html,
-            userAgent: BrowserUa.mob,
-            incognito: true,
-            onWebMessageReceived: (msg) {
-              final msgStr = msg.toString();
-              if (msgStr.startsWith("success:")) {
-                final dataStr = msgStr.substring("success:".length);
-                try {
-                  final data = jsonDecode(dataStr);
-                  Get.back(result: data);
-                } catch (e) {
-                  debugPrint('geetest decode error: $e');
-                }
-              } else if (msgStr.startsWith("error:")) {
-                debugPrint('geetest error: $msgStr');
-              } else if (msgStr.startsWith('close:')) {
-                Get.back();
+          child: FutureBuilder(
+            future: _future,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
               }
+              final config = snapshot.data!;
+              if (config case Error()) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _toastError(config.toString());
+                    Get.back();
+                  }
+                });
+                return const SizedBox.shrink();
+              }
+              final response = (config as Success<String>).response;
+              final html =
+                  '''
+<!DOCTYPE html><html><head></head><body>
+<script src="$_geetestJsUri"></script>
+<script>
+  R=(n,o)=>window.webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))
+  ${_showJs(response)}
+</script>
+</body></html>
+''';
+              return LinuxWebview(
+                initialHtml: html,
+                userAgent: BrowserUa.mob,
+                incognito: true,
+                onWebMessageReceived: (msg) {
+                  final msgStr = msg.toString();
+                  if (msgStr.startsWith("success:")) {
+                    final dataStr = msgStr.substring("success:".length);
+                    try {
+                      final data = jsonDecode(dataStr);
+                      Get.back(result: data);
+                    } catch (e) {
+                      debugPrint('geetest decode error: $e');
+                    }
+                  } else if (msgStr.startsWith("error:")) {
+                    _toastError(msgStr.substring(6));
+                  } else if (msgStr.startsWith('close:')) {
+                    Get.back();
+                  }
+                },
+              );
             },
           ),
         ),
@@ -124,10 +198,13 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
 
             pageZoom: Platform.isIOS ? 3 : 1,
           ),
-          initialData: InAppWebViewInitialData(data: html),
+          initialData: InAppWebViewInitialData(
+            data:
+                '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width"></head><body><script src="$_geetestJsUri"></script><script>R=(n,o)=>window.flutter_inappwebview?.callHandler(n,o)</script></body></html>',
+          ),
           onWebViewCreated: (ctr) {
             ctr
-              ..addJavaScriptHandler(
+                            ..addJavaScriptHandler(
                 handlerName: 'success',
                 callback: (args) {
                   if (args.isNotEmpty) {
@@ -142,13 +219,40 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
               ..addJavaScriptHandler(
                 handlerName: 'error',
                 callback: (args) {
-                  debugPrint('geetest error: $args');
+                  final error = args.isEmpty ? null : args.first;
+                  _toastError(
+                    error is Map
+                        ? '${error['error_code'] ?? error['code'] ?? ''} '
+                              '${error['msg'] ?? error['user_error'] ?? error}'
+                        : _scriptError ?? '$error',
+                  );
                 },
               )
               ..addJavaScriptHandler(
                 handlerName: 'close',
                 callback: (args) => Get.back(),
               );
+          },
+          onReceivedError: (_, request, error) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError = error.description;
+            }
+          },
+          onReceivedHttpError: (_, request, response) {
+            if (request.url.toString() == _geetestJsUri) {
+              _scriptError =
+                  'HTTP ${response.statusCode} ${response.reasonPhrase ?? ''}';
+            }
+          },
+          onLoadStop: (ctr, _) async {
+            final config = await _future;
+            if (!mounted) return;
+            if (config case Success(:final response)) {
+              ctr.evaluateJavascript(source: _showJs(response));
+            } else {
+              _toastError(config.toString());
+              Get.back();
+            }
           },
         ),
         Positioned(

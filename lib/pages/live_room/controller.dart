@@ -25,6 +25,7 @@ import 'package:PiliBro/pages/danmaku/danmaku_model.dart';
 import 'package:PiliBro/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliBro/pages/video/widgets/header_control.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/plugin/pl_player/utils/danmaku_options.dart';
@@ -243,7 +244,9 @@ class LiveRoomController extends GetxController {
       liveName: roomInfoH5.value?.anchorInfo?.baseInfo?.uname,
       autoplay: autoplay,
       isVertical: isPortrait.value,
-      autoFullScreenFlag: autoFullScreenFlag,
+      autoFullScreen: autoFullScreenFlag
+          ? Pref.autoFullscreenMode
+          : AutoFullscreenMode.off,
     );
   }
 

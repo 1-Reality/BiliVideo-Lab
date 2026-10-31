@@ -46,10 +46,13 @@ class DownloadController extends GetxController
     final list = <DownloadSeasonInfo>[];
     for (final entry in _downloadService.downloadList) {
       final pageId = entry.pageId;
-      final seasonInfo = entry.seasonInfo;
+      final audioOnly = entry.mediaType == 3;
+      final seasonInfo = audioOnly ? null : entry.seasonInfo;
       final season = seasonInfo != null
           ? list.firstWhereOrNull((e) => e.seasonInfo == seasonInfo)
-          : list.firstWhereOrNull((e) => e.pageId == pageId);
+          : list.firstWhereOrNull(
+              (e) => e.pageId == pageId && e.audioOnly == audioOnly,
+            );
       if (season != null) {
         final page = season.pages.firstWhereOrNull((e) => e.pageId == pageId);
         if (page != null) {
@@ -86,7 +89,7 @@ class DownloadController extends GetxController
   void onRemove() {
     showConfirmDialog(
       context: Get.context!,
-      title: const Text('确定删除选中视频？'),
+      title: const Text('确定删除选中缓存？'),
       onConfirm: () async {
         SmartDialog.showLoading();
         final watchProgress = GStorage.watchProgress;
@@ -97,6 +100,7 @@ class DownloadController extends GetxController
             );
             await _downloadService.deletePage(
               pageDirPath: page.dirPath,
+              audioOnly: page.audioOnly,
               refresh: false,
             );
           }

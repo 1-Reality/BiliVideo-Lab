@@ -283,9 +283,9 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
             onPressed: () {
               Get
                 ..back()
-                ..toNamed('/member?mid=501430041');
+                ..toNamed('/member?mid=388010726');
             },
-            child: const Text('访问主页'),
+            child: const Text('访问支持者'),
           ),
         ],
       ),
@@ -461,7 +461,7 @@ class _NetworkPolicyPageState extends State<NetworkPolicyPage> {
                 title: const Text('Wi-Fi RSSI 阈值'),
                 subtitle: Text(
                   rssi == 0
-                      ? '0：Windows 下只要使用 Wi-Fi 即按蜂窝网络处理；Android 下仅在系统明确报告弱网络或播放持续卡住时处理'
+                      ? '0：Windows 下只要使用 Wi-Fi 即按蜂窝网络处理；Android 下系统信号 0~2 格（满格 4）、系统报告拥塞/门户认证/带宽受限，或播放连续卡顿 5 秒时处理'
                       : '信号低于 $rssi dBm 时按蜂窝网络处理；Android 读不到精准 RSSI 时不参与此项判断',
                 ),
                 trailing: const Icon(Icons.chevron_right),

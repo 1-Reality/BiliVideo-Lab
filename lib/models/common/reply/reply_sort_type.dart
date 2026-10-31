@@ -12,5 +12,5 @@ enum ReplySortType implements EnumWithLabel {
   final String descShort;
   const ReplySortType(this.desc, this.descShort, {this.label = ''});
 
-  String get reply2Title => this == time ? '最早评论' : desc;
+  String get reply2Title => this == time ? '时间顺序' : desc;
 }

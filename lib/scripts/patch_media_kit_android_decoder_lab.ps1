@@ -16,6 +16,11 @@ if (-not $MediaKitDir) {
     throw "media-kit checkout containing $RelativePath not found"
 }
 
+git -C $MediaKitDir.FullName reset --hard HEAD
+if ($LASTEXITCODE -ne 0) {
+    throw "failed to reset media-kit checkout"
+}
+
 $Target = Join-Path $MediaKitDir.FullName $RelativePath
 $Text = [IO.File]::ReadAllText($Target)
 
@@ -90,6 +95,38 @@ if ($LoadCount -ne 1) {
     throw "expected exactly one AndroidVideoController on_load VO block, found $LoadCount"
 }
 $Text = $Text.Replace($OldLoad, $NewLoad)
+
+$OldField = @'
+  String? _current;
+'@
+$NewField = @'
+  String? _current;
+  String? _surfaceVo;
+'@
+$FieldCount = ([regex]::Matches($Text, [regex]::Escape($OldField))).Count
+if ($FieldCount -ne 1) {
+    throw "expected exactly one AndroidVideoController _current field, found $FieldCount"
+}
+$Text = $Text.Replace($OldField, $NewField)
+
+$OldSurface = @'
+        if (_current != current) {
+          _current = current;
+'@
+$NewSurface = @'
+        // A Surface that already served another VO type must not be reused:
+        // native_window_api_connect fails with -22 on the second connection.
+        // Reopening the same path with a different decoder-lab vo hits this.
+        final surfaceVo = vo;
+        if (_current != current || _surfaceVo != surfaceVo) {
+          _current = current;
+          _surfaceVo = surfaceVo;
+'@
+$SurfaceCount = ([regex]::Matches($Text, [regex]::Escape($OldSurface))).Count
+if ($SurfaceCount -ne 1) {
+    throw "expected exactly one AndroidVideoController Surface block, found $SurfaceCount"
+}
+$Text = $Text.Replace($OldSurface, $NewSurface)
 
 [IO.File]::WriteAllText($Target, $Text, [Text.UTF8Encoding]::new($false))
 Write-Host "media-kit Android decoder-lab hwdec/VO hook applied: $Target"

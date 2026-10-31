@@ -2,14 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:PiliBro/common/constants.dart';
+import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/pair.dart';
-import 'package:PiliBro/services/comment_helper_service.dart';
-import 'package:PiliBro/services/playback_stats_service.dart';
-import 'package:PiliBro/services/traffic_stats_service.dart';
+import 'package:PiliBro/services/backup_seal.dart';
+import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/device_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
-import 'package:crypto/crypto.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:path/path.dart' as path;
 import 'package:webdav_client/webdav_client.dart' as webdav;
@@ -20,15 +19,6 @@ typedef _WebDavConfig = ({
   String password,
   String directory,
 });
-
-abstract final class _ComponentName {
-  static const settings = 'settings';
-  static const playbackStats = 'playbackStats';
-  static const replyHistory = 'replyHistory';
-  static const commentHelper = 'commentHelper';
-  static const trafficStats = 'trafficStats';
-  static const cdnLatest = 'cdnLatest';
-}
 
 class WebDav {
   _WebDavConfig? _clientConfig;
@@ -87,44 +77,10 @@ class WebDav {
     }
   }
 
-  String _getFileName() {
-    return 'pilibro_settings_${DeviceUtils.platformName}.json';
-  }
-
-  String _legacyDirectory() {
-    String directory = Pref.webdavDirectory;
-    if (!directory.endsWith('/')) {
-      directory += '/';
-    }
-    return '${directory}PiliPlus';
-  }
-
-  String _legacyFileName() {
-    return 'piliplus_settings_${DeviceUtils.platformName}.json';
-  }
-
   String _snapshotDirectory(_WebDavConfig config) =>
       '${config.directory}/snapshot_${DeviceUtils.platformName}';
 
-  String _legacySnapshotDirectory() =>
-      '${_legacyDirectory()}/snapshot_${DeviceUtils.platformName}';
-
-  Future<String> _resolveSnapshotDirectory(
-    webdav.Client client,
-    _WebDavConfig config,
-  ) async {
-    final current = _snapshotDirectory(config);
-    try {
-      await client.read('$current/manifest.json');
-      return current;
-    } catch (_) {}
-
-    final legacy = _legacySnapshotDirectory();
-    await client.read('$legacy/manifest.json');
-    return legacy;
-  }
-
-  Future<void> backup() async {
+  Future<void> backup(Set<BackupPart> parts, {BackupSeal? seal}) async {
     if (_busy) {
       SmartDialog.showToast('备份或恢复正在进行');
       return;
@@ -132,97 +88,44 @@ class WebDav {
     _busy = true;
     final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
     try {
-      await TrafficStatsService.instance.initialize();
-      await GStorage.initializePlaybackStats();
       final config = _getConfig();
       final client = await _connect(config);
-      final remoteDirectory = _snapshotDirectory(config);
-      await client.mkdirAll(remoteDirectory);
+      final remote = _snapshotDirectory(config);
+      await client.mkdirAll(remote);
 
-      await Future.wait<void>([
-        GStorage.setting.flush(),
-        GStorage.video.flush(),
-        GStorage.playbackStats.flush(),
-        GStorage.commentHelper.flush(),
-        if (GStorage.reply case final reply?) reply.flush(),
-      ]);
-
-      final components = <String, Map<String, dynamic>>{};
-      final settingsFile = File(path.join(temp.path, 'settings.json'));
-      await settingsFile.writeAsString(
-        GStorage.exportAllSettings(
-          includePlaybackStats: false,
-          includeCdnDiagnostics: false,
-        ),
-        flush: true,
-      );
-      components[_ComponentName.settings] = await _snapshotFile(settingsFile);
-
-      final trafficSnapshot = await TrafficStatsService.instance
-          .copyHiveSnapshot(File(path.join(temp.path, 'traffic_stats.hive')));
-      if (trafficSnapshot != null) {
-        components[_ComponentName.trafficStats] = await _snapshotFile(
-          trafficSnapshot,
-        );
-      }
-
-      if (Pref.webdavBackupPlaybackStats) {
-        final playbackSnapshot = await PlaybackStatsService.copyHiveSnapshot(
-          File(path.join(temp.path, 'playback_stats.hive')),
-        );
-        components[_ComponentName.playbackStats] = await _snapshotFile(
-          playbackSnapshot,
-        );
-      }
-
-      if (Pref.webdavBackupCommentHistory) {
-        if (await GStorage.replyHiveFile.exists()) {
-          components[_ComponentName.replyHistory] = await _copySnapshot(
-            GStorage.replyHiveFile,
-            temp,
-            'reply_history.hive',
-          );
+      final files = await BackupService.collect(parts, temp, seal: seal);
+      final manifest = await BackupService.manifest(files);
+      final local = {
+        for (final file in files.values.expand((list) => list))
+          path.basename(file.path): file,
+      };
+      // 文件名带内容哈希：服务器上已有同名文件就是同一份内容，跳过；
+      // 变了就是新名字，只新增不覆盖，旧备份原样留着
+      final held = {
+        for (final file in await client.readDir(remote)) file.name,
+      };
+      for (final List entries in (manifest['parts'] as Map).values) {
+        for (final Map entry in entries) {
+          final name = _remoteName(entry);
+          if (!held.contains(name)) {
+            await client.writeFromFile(
+              local[entry['file']]!.path,
+              '$remote/$name',
+            );
+          }
         }
-        components[_ComponentName.commentHelper] = await _copySnapshot(
-          GStorage.commentHelperHiveFile,
-          temp,
-          'comment_helper.hive',
-        );
       }
-
-      if (Pref.webdavBackupCdnDiagnostics &&
-          await GStorage.cdnDiagnosticsFile.exists()) {
-        components[_ComponentName.cdnLatest] = await _copySnapshot(
-          GStorage.cdnDiagnosticsFile,
-          temp,
-          'cdn_latest.json',
-        );
-      }
-
-      for (final component in components.values) {
-        final fileName = component['file'] as String;
-        await _uploadReplacing(
-          client,
-          File(path.join(temp.path, fileName)),
-          '$remoteDirectory/$fileName',
-        );
-      }
-
-      final manifestFile = File(path.join(temp.path, 'manifest.json'));
-      await manifestFile.writeAsString(
-        const JsonEncoder.withIndent('  ').convert({
-          'schemaVersion': 1,
-          'createdAtMs': DateTime.now().millisecondsSinceEpoch,
-          'app': Constants.appName,
-          'platform': DeviceUtils.platformName,
-          'components': components,
-        }),
-        flush: true,
-      );
-      await _uploadReplacing(
-        client,
-        manifestFile,
-        '$remoteDirectory/manifest.json',
+      // 清单最后上传，也是新文件名；中途失败时之前的各次备份都完整
+      final now = DateTime.now();
+      String two(int v) => v.toString().padLeft(2, '0');
+      final stamp =
+          '${now.year}${two(now.month)}${two(now.day)}-'
+          '${two(now.hour)}${two(now.minute)}${two(now.second)}';
+      await client.writeFromFile(
+        (await File(
+          path.join(temp.path, 'manifest.json'),
+        ).writeAsString(jsonEncode(manifest))).path,
+        '$remote/manifest_$stamp.json',
       );
       SmartDialog.showToast('备份成功');
     } catch (e) {
@@ -235,85 +138,57 @@ class WebDav {
     }
   }
 
-  Future<void> restore() async {
+  Future<void> restore(BuildContext context) async {
     if (_busy) {
       SmartDialog.showToast('备份或恢复正在进行');
       return;
     }
     _busy = true;
     final temp = await Directory.systemTemp.createTemp('pilibro-webdav-');
-    var localMutationStarted = false;
     try {
-      await TrafficStatsService.instance.initialize();
-      await GStorage.initializePlaybackStats();
       final config = _getConfig();
       final client = await _connect(config);
-      final remoteDirectory = await _resolveSnapshotDirectory(client, config);
-      final manifestBytes = await client.read('$remoteDirectory/manifest.json');
-      final manifest = jsonDecode(utf8.decode(manifestBytes));
-      if (manifest is! Map || manifest['schemaVersion'] != 1) {
-        throw const FormatException('备份清单版本不受支持');
-      }
-      final rawComponents = manifest['components'];
-      if (rawComponents is! Map) {
-        throw const FormatException('备份清单缺少文件列表');
-      }
-      final components = rawComponents.map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
-      final selected = <String>{
-        _ComponentName.settings,
-        _ComponentName.trafficStats,
-        if (Pref.webdavBackupPlaybackStats) _ComponentName.playbackStats,
-        if (Pref.webdavBackupCommentHistory) ...[
-          _ComponentName.replyHistory,
-          _ComponentName.commentHelper,
-        ],
-        if (Pref.webdavBackupCdnDiagnostics) _ComponentName.cdnLatest,
+      final remote = _snapshotDirectory(config);
+      // 取时间戳最新的一份清单；没有的话是改版前的备份，读旧的 manifest.json
+      final manifests = [
+        for (final file in await client.readDir(remote))
+          if (file.name case final name?
+              when name.startsWith('manifest_') && name.endsWith('.json'))
+            name,
+      ]..sort();
+      final legacy = manifests.isEmpty;
+      final manifest =
+          jsonDecode(
+                utf8.decode(
+                  await client.read(
+                    '$remote/${legacy ? 'manifest.json' : manifests.last}',
+                  ),
+                ),
+              )
+              as Map;
+      final remoteNames = {
+        for (final List entries in (manifest['parts'] as Map).values)
+          for (final Map entry in entries)
+            entry['file']: legacy ? entry['file'] : _remoteName(entry),
       };
-      final downloaded = <String, File>{};
-      for (final name in selected) {
-        final raw = components[name];
-        if (raw == null) continue;
-        if (raw is! Map) throw FormatException('$name 的清单内容无效');
-        downloaded[name] = await _downloadAndVerify(
-          client,
-          remoteDirectory,
-          temp,
-          raw,
-        );
-      }
-
-      final settingsFile = downloaded[_ComponentName.settings];
-      if (settingsFile == null) {
-        throw const FormatException('备份缺少设置文件');
-      }
-      localMutationStarted = true;
-      await GStorage.importAllSettings(await settingsFile.readAsString());
-
-      if (downloaded[_ComponentName.playbackStats] case final file?) {
-        await PlaybackStatsService.restoreHiveSnapshot(file);
-      }
-      if (downloaded[_ComponentName.replyHistory] case final file?) {
-        await GStorage.restoreReplyHive(file);
-      }
-      if (downloaded[_ComponentName.commentHelper] case final file?) {
-        await GStorage.restoreCommentHelperHive(file);
-        CommentHelperService.revision.value++;
-      }
-      if (downloaded[_ComponentName.trafficStats] case final file?) {
-        await TrafficStatsService.instance.restoreHive(file);
-      }
-      if (downloaded[_ComponentName.cdnLatest] case final file?) {
-        await _replaceLocalFile(file, GStorage.cdnDiagnosticsFile);
-      }
-      SmartDialog.showToast('恢复成功');
+      if (!context.mounted) return;
+      final parts = await selectRestoreParts(context, manifest);
+      if (parts == null) return;
+      toastRestored(
+        await BackupService.restore(
+          await BackupService.receive(
+            manifest,
+            parts,
+            temp,
+            (name, target) =>
+                client.read2File('$remote/${remoteNames[name]}', target.path),
+          ),
+          password: (retry) =>
+              askBackupPassword(context, export: false, retry: retry),
+        ),
+      );
     } catch (e) {
-      if (localMutationStarted) {
-        SmartDialog.showToast('恢复失败: $e');
-      } else {
-        await _restoreLegacyBackup(e);
-      }
+      SmartDialog.showToast('恢复失败: $e');
     } finally {
       _busy = false;
       try {
@@ -322,91 +197,11 @@ class WebDav {
     }
   }
 
-  Future<void> _restoreLegacyBackup(Object snapshotError) async {
-    try {
-      final config = _getConfig();
-      final client = await _connect(config);
-      for (final remotePath in [
-        '${config.directory}/${_getFileName()}',
-        '${_legacyDirectory()}/${_legacyFileName()}',
-      ]) {
-        try {
-          final data = await client.read(remotePath);
-          await GStorage.importAllSettings(utf8.decode(data));
-          SmartDialog.showToast('已恢复旧版设置备份');
-          return;
-        } catch (_) {}
-      }
-      SmartDialog.showToast('恢复失败: $snapshotError');
-    } catch (_) {
-      SmartDialog.showToast('恢复失败: $snapshotError');
-    }
-  }
-
-  Future<Map<String, dynamic>> _copySnapshot(
-    File source,
-    Directory temp,
-    String fileName,
-  ) async {
-    if (!await source.exists()) {
-      throw FileSystemException('找不到待备份文件', source.path);
-    }
-    final snapshot = await source.copy(path.join(temp.path, fileName));
-    return _snapshotFile(snapshot);
-  }
-
-  Future<Map<String, dynamic>> _snapshotFile(File file) async => {
-        'file': path.basename(file.path),
-        'bytes': await file.length(),
-        'sha256': await _sha256(file),
-      };
-
-  Future<String> _sha256(File file) async =>
-      (await sha256.bind(file.openRead()).first).toString();
-
-  Future<void> _uploadReplacing(
-    webdav.Client client,
-    File local,
-    String remote,
-  ) async {
-    final uploading = '$remote.uploading';
-    try {
-      await client.remove(uploading);
-    } catch (_) {}
-    await client.writeFromFile(local.path, uploading);
-    await client.rename(uploading, remote, true);
-  }
-
-  Future<File> _downloadAndVerify(
-    webdav.Client client,
-    String remoteDirectory,
-    Directory temp,
-    Map raw,
-  ) async {
-    final fileName = raw['file'];
-    final expectedBytes = raw['bytes'];
-    final expectedHash = raw['sha256'];
-    if (fileName is! String ||
-        expectedBytes is! num ||
-        expectedHash is! String ||
-        path.basename(fileName) != fileName) {
-      throw const FormatException('备份文件清单无效');
-    }
-    final local = File(path.join(temp.path, fileName));
-    await client.read2File('$remoteDirectory/$fileName', local.path);
-    if (await local.length() != expectedBytes.toInt() ||
-        await _sha256(local) != expectedHash) {
-      throw FormatException('$fileName 校验失败');
-    }
-    return local;
-  }
-
-  Future<void> _replaceLocalFile(File source, File target) async {
-    await target.parent.create(recursive: true);
-    final staged = File('${target.path}.webdav-restore');
-    if (await staged.exists()) await staged.delete();
-    await source.copy(staged.path);
-    if (await target.exists()) await target.delete();
-    await staged.rename(target.path);
+  /// 服务器上的文件名：在扩展名前插入内容哈希的前 16 位
+  static String _remoteName(Map entry) {
+    final String name = entry['file'];
+    final String sha = entry['sha256'];
+    return '${path.basenameWithoutExtension(name)}.${sha.substring(0, 16)}'
+        '${path.extension(name)}';
   }
 }

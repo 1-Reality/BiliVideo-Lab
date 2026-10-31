@@ -56,7 +56,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<double>(
       context: context,
       builder: (context) => SliderDialog(
-        title: const Text('APP 重力倾斜角度阈值'),
+        title: const Text('APP 重力判定横竖的倾斜角度'),
         min: 10,
         max: 90,
         divisions: 80,
@@ -91,7 +91,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('最终方向许可'),
+            title: const Text('最终方向可能集：取值限制'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -140,7 +140,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             },
           );
           return AlertDialog(
-            title: const Text('方向自动退出全屏适用范围'),
+            title: const Text('竖着转自动退出适用于哪些全屏'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -173,13 +173,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('手动全屏退出确认次数'),
+        title: const Text('手动进入的全屏：竖置几次才自动退出'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(
-            helperText: '0 = 关闭；不设上限',
+            helperText: '0 表示和其他全屏一样，竖过来就退出；填 N 表示要「横回去再竖过来」N 次才退出，防止躺着看时误退',
           ),
         ),
         actions: [
@@ -292,13 +292,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   String _brotherRuntimeLabel(BrotherRuntimeMode mode) =>
       _brotherPhase == BrotherOrientationPhase.app &&
           mode == BrotherRuntimeMode.appGravity
-      ? '${mode.desc}（首页无效）'
+      ? '${mode.desc}（APP 普通页面不可用）'
       : mode.desc;
 
   Future<void> _editBrotherEnterAction() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '进入本生命周期时方向',
+      title: '进入本页面状态时的方向',
       value: phase.enterAction,
       values: _brotherActionValues(resume: false),
       label: (e) => e.desc,
@@ -309,7 +309,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherResumeAction() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '从下级周期返回时方向',
+      title: '从下级页面返回时的方向',
       value: phase.resumeAction,
       values: _brotherActionValues(resume: true),
       label: (e) => e.desc,
@@ -320,7 +320,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeMode() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '默认运行期间方向执行方式',
+      title: '运行期间的默认旋转（执行）方式',
       value: phase.runtimeMode,
       values: _brotherRuntimeValues,
       label: _brotherRuntimeLabel,
@@ -336,10 +336,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<int>(
       context: context,
       builder: (context) => SelectDialog<int>(
-        title: landscape ? '横屏返回后的运行方式' : '竖屏返回后的运行方式',
+        title: landscape ? '从下级以横屏返回后的旋转方式' : '从下级以竖屏返回后的旋转方式',
         value: current?.index ?? -1,
         values: [
-          (-1, '沿用默认运行方式'),
+          (-1, '沿用「运行期间的旋转方式」'),
           for (final mode in _brotherRuntimeValues)
             (mode.index, _brotherRuntimeLabel(mode)),
         ],
@@ -357,7 +357,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeLatchAxis() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '运行期间一次性切换条件',
+      title: '一次性切换旋转方式的条件',
       value: phase.runtimeLatchAxis,
       values: BrotherRuntimeLatchAxis.values,
       label: (e) => e.desc,
@@ -370,7 +370,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeLatchMode() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '条件命中后的运行方式',
+      title: '切换后的旋转方式',
       value: phase.runtimeLatchMode,
       values: _brotherRuntimeValues,
       label: _brotherRuntimeLabel,
@@ -383,7 +383,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherRuntimeActivation() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '运行接管时机',
+      title: '运行接管时机(GPT)|旋转方式何时生效（Claude书）',
       value: phase.runtimeActivation,
       values: BrotherRuntimeActivation.values,
       label: (e) => e.desc,
@@ -396,7 +396,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherAllowedBasis() async {
     final phase = _brotherPhaseConfig;
     final res = await _pickEnum(
-      title: '运行旋转允许方向基准',
+      title: '允许方向的确定样子',
       value: phase.allowedBasis,
       values: BrotherAllowedBasis.values,
       label: (e) => e.desc,
@@ -460,7 +460,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   Future<void> _editBrotherAllowedMask() async {
     final phase = _brotherPhaseConfig;
     final res = await _directionMaskDialog(
-      title: '固定运行旋转允许方向',
+      title: '固定允许的旋转方向',
       initial: phase.allowedMask,
     );
     if (res != null) await _writeBrotherPhase(phase.copyWith(allowedMask: res));
@@ -471,7 +471,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await showDialog<double>(
       context: context,
       builder: (context) => SliderDialog(
-        title: const Text('APP 重力倾斜角度阈值'),
+        title: const Text('APP 重力判定横竖的倾斜角度'),
         min: 10,
         max: 90,
         divisions: 80,
@@ -490,7 +490,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       if (mask & BrotherOrientationSignalMask.window != 0) '界面方向变化',
       if (mask & BrotherOrientationSignalMask.proposedSystem != 0)
         '系统建议方向变化',
-      if (mask & BrotherOrientationSignalMask.appGravity != 0) 'APP 重力方向变化',
+      if (mask & BrotherOrientationSignalMask.appGravity != 0) 'APP 重力传感器方向变化',
     ];
     return values.isEmpty ? '无' : values.join(' + ');
   }
@@ -518,15 +518,15 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   item(
-                    '界面方向变化（Flutter Metrics）',
+                    '界面方向变化（窗口尺寸）',
                     BrotherOrientationSignalMask.window,
                   ),
                   item(
-                    '系统建议方向变化（Android 14+ Proposed Rotation）',
+                    '系统建议方向（Android 14 起，旋转锁定时也可用）',
                     BrotherOrientationSignalMask.proposedSystem,
                   ),
                   item(
-                    'APP 重力方向变化',
+                    'APP 重力传感器方向变化',
                     BrotherOrientationSignalMask.appGravity,
                   ),
                 ],
@@ -600,7 +600,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final res = await _nonNegativeIntDialog(
       title: title,
       initial: current,
-      helper: '0 = 条件恒成立；大于已选信号数量 = 永不可达；不自动修正',
+      helper: '0 表示无条件满足；大于已选信号数则永远不会触发，不会自动修正',
     );
     if (res != null) await _writeBrotherValue(key, res);
   }
@@ -624,77 +624,77 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     return [
       _section(_brotherPhase.desc),
       _selectTile(
-        title: '进入本生命周期时方向',
+        title: '进入本页面周期时的方向',
         subtitle: phase.enterAction.desc,
         onTap: _editBrotherEnterAction,
       ),
       if (_brotherPhase != BrotherOrientationPhase.fullscreen)
         _selectTile(
-          title: '从下级周期返回时方向',
+          title: '从下级页面返回时的方向',
           subtitle: phase.resumeAction.desc,
           onTap: _editBrotherResumeAction,
         ),
       _selectTile(
-        title: '默认运行期间方向执行方式',
+        title: '运行期间的旋转方式',
         subtitle: _brotherRuntimeLabel(phase.runtimeMode),
         onTap: _editBrotherRuntimeMode,
       ),
       if (_brotherPhase != BrotherOrientationPhase.fullscreen) ...[
         _selectTile(
-          title: '横屏返回后的运行方式',
+          title: '从下级以横屏返回后的旋转方式',
           subtitle: phase.resumeLandscapeRuntimeMode == null
-              ? '沿用默认运行方式'
+              ? '沿用「运行期间的旋转方式」'
               : _brotherRuntimeLabel(phase.resumeLandscapeRuntimeMode!),
           onTap: () => _editBrotherResumeRuntime(true),
         ),
         _selectTile(
-          title: '竖屏返回后的运行方式',
+          title: '从下级以竖屏返回后的旋转方式',
           subtitle: phase.resumePortraitRuntimeMode == null
-              ? '沿用默认运行方式'
+              ? '沿用「运行期间的旋转方式」'
               : _brotherRuntimeLabel(phase.resumePortraitRuntimeMode!),
           onTap: () => _editBrotherResumeRuntime(false),
         ),
       ],
       if (_brotherPhase == BrotherOrientationPhase.app) ...[
         _selectTile(
-          title: '运行期间一次性切换条件',
+          title: '一次性切换旋转方式的条件',
           subtitle: phase.runtimeLatchAxis.desc,
           onTap: _editBrotherRuntimeLatchAxis,
         ),
         if (phase.runtimeLatchAxis != BrotherRuntimeLatchAxis.off)
           _selectTile(
-            title: '条件命中后的运行方式',
+            title: '切换后的旋转方式',
             subtitle: _brotherRuntimeLabel(phase.runtimeLatchMode),
             onTap: _editBrotherRuntimeLatchMode,
           ),
       ],
       if (_brotherPhase != BrotherOrientationPhase.app)
         _selectTile(
-          title: '运行接管时机',
+          title: '旋转方式何时生效',
           subtitle: phase.runtimeActivation.desc,
           onTap: _editBrotherRuntimeActivation,
         ),
       _selectTile(
-        title: '运行旋转允许方向基准',
+        title: '旋转方向的确定基准',
         subtitle: phase.allowedBasis.desc,
         onTap: _editBrotherAllowedBasis,
       ),
       _selectTile(
-        title: '固定运行旋转允许方向',
-        subtitle: '${_directionMaskLabel(phase.allowedMask)}${phase.allowedBasis == BrotherAllowedBasis.fixed ? '' : '（当前基准不使用）'}',
+        title: '固定允许的方向',
+        subtitle: '${_directionMaskLabel(phase.allowedMask)}${phase.allowedBasis == BrotherAllowedBasis.fixed ? '' : '（未选「固定方向」，此项不生效）'}',
         onTap: _editBrotherAllowedMask,
       ),
       if (_brotherPhase != BrotherOrientationPhase.app) ...[
         SwitchListTile(
-          title: const Text('APP 重力遵循系统方向锁定'),
-          subtitle: const Text('运行或触发使用 APP 重力时生效'),
+          title: const Text('APP 重力传感器遵守系统旋转锁定'),
+          subtitle: const Text('仅在使用 APP 重力传感器时生效：系统旋转锁定开启时不按重力旋转'),
           value: phase.gravityFollowSystemLock,
           onChanged: (value) => _writeBrotherPhase(
             phase.copyWith(gravityFollowSystemLock: value),
           ),
         ),
         _selectTile(
-          title: 'APP 重力倾斜角度阈值',
+          title: 'APP 重力判定横竖的倾斜角度',
           subtitle: '${phase.angleDegrees}°',
           onTap: _editBrotherAngle,
         ),
@@ -749,7 +749,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
   List<Widget> _brotherWindowedSpecial() {
     final overrideMask = Pref.brotherWindowedResumeOverrideMask;
     return [
-      _section('视频非全屏特色链'),
+      _section('视频非全屏：横置进入全屏、从全屏返回的方向'),
       SwitchListTile(
         title: const Text('横置时自动进入全屏'),
         value: Pref.brotherLandscapeEnter,
@@ -757,29 +757,29 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             _writeBrotherValue(SettingBoxKey.brotherLandscapeEnter, value),
       ),
       _selectTile(
-        title: '进入全屏触发信号',
+        title: '判断横转全屏所用的信号',
         subtitle: _signalMaskLabel(Pref.brotherEnterSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherEnterSignalMask,
           Pref.brotherEnterSignalMask,
-          '进入全屏触发信号',
+          '判断横置所用的信号',
         ),
       ),
       _selectTile(
-        title: '进入触发最少满足信号数',
+        title: '进入全屏至少需满足的信号数',
         subtitle: '${Pref.brotherEnterSignalRequired}',
         onTap: () => _editRequiredCount(
           SettingBoxKey.brotherEnterSignalRequired,
           Pref.brotherEnterSignalRequired,
-          '进入触发最少满足信号数',
+          '进入全屏至少需满足的信号数',
         ),
       ),
       _selectTile(
-        title: '进入触发适用视频',
+        title: '横置进入适用的视频',
         subtitle: Pref.brotherEnterTriggerContent.desc,
         onTap: () async {
           final res = await _pickEnum(
-            title: '进入触发适用视频',
+            title: '横置进入适用的视频',
             value: Pref.brotherEnterTriggerContent,
             values: OrientationTriggerContent.values,
             label: (e) => e.desc,
@@ -795,51 +795,51 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       const Divider(),
       const Padding(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-        child: Text('从视频全屏返回时，可按退出原因覆盖本生命周期的“返回时方向”。'),
+        child: Text('从全屏返回时，可按退出原因分别指定方向，覆盖上面的「从下级周期返回时的方向」。'),
       ),
       _brotherBitSwitch(
-        title: '手动退出全屏使用独立返回方向',
+        title: '手动退出：单独指定返回方向',
         key: SettingBoxKey.brotherWindowedResumeOverrideMask,
         current: overrideMask,
         bit: FullscreenExitCauseMask.manual,
       ),
       _selectTile(
-        title: '手动退出全屏返回方向',
-        subtitle: '${Pref.brotherWindowedManualResume.desc}${overrideMask & FullscreenExitCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        title: '手动退出后的方向',
+        subtitle: '${Pref.brotherWindowedManualResume.desc}${overrideMask & FullscreenExitCauseMask.manual == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherResumeOverride(
           FullscreenExitCause.manual,
           Pref.brotherWindowedManualResume,
-          '手动退出全屏返回方向',
+          '手动退出后的方向',
         ),
       ),
       _brotherBitSwitch(
-        title: '播放自动退出使用独立返回方向',
+        title: '播放自动退出：单独指定返回方向',
         key: SettingBoxKey.brotherWindowedResumeOverrideMask,
         current: overrideMask,
         bit: FullscreenExitCauseMask.playbackAuto,
       ),
       _selectTile(
-        title: '播放自动退出返回方向',
-        subtitle: '${Pref.brotherWindowedPlaybackResume.desc}${overrideMask & FullscreenExitCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        title: '播放自动退出后的方向',
+        subtitle: '${Pref.brotherWindowedPlaybackResume.desc}${overrideMask & FullscreenExitCauseMask.playbackAuto == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherResumeOverride(
           FullscreenExitCause.playbackAuto,
           Pref.brotherWindowedPlaybackResume,
-          '播放自动退出返回方向',
+          '播放自动退出后的方向',
         ),
       ),
       _brotherBitSwitch(
-        title: '方向触发退出使用独立返回方向',
+        title: '方向触发退出：单独指定返回方向',
         key: SettingBoxKey.brotherWindowedResumeOverrideMask,
         current: overrideMask,
         bit: FullscreenExitCauseMask.orientation,
       ),
       _selectTile(
-        title: '方向触发退出返回方向',
-        subtitle: '${Pref.brotherWindowedOrientationResume.desc}${overrideMask & FullscreenExitCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        title: '方向触发退出后的方向',
+        subtitle: '${Pref.brotherWindowedOrientationResume.desc}${overrideMask & FullscreenExitCauseMask.orientation == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherResumeOverride(
           FullscreenExitCause.orientation,
           Pref.brotherWindowedOrientationResume,
-          '方向触发退出返回方向',
+          '方向触发退出后的方向',
         ),
       ),
     ];
@@ -849,54 +849,54 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     final enterMask = Pref.brotherFullscreenEnterOverrideMask;
     final exitCauses = Pref.brotherAutoExitCauses;
     return [
-      _section('视频全屏特色链'),
+      _section('视频全屏：进入时的方向、竖置退出全屏'),
       const Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
-        child: Text('进入全屏可按进入原因覆盖本生命周期的“进入时方向”。'),
+        child: Text('进入全屏时，可按进入原因分别指定方向，覆盖上面的「进入本生命周期时的方向」。'),
       ),
       _brotherBitSwitch(
-        title: '手动进入使用独立方向',
+        title: '手动进入：单独指定方向',
         key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
         current: enterMask,
         bit: FullscreenEntryCauseMask.manual,
       ),
       _selectTile(
-        title: '手动进入全屏时方向',
-        subtitle: '${Pref.brotherFullscreenManualEnter.desc}${enterMask & FullscreenEntryCauseMask.manual == 0 ? '（覆盖关闭）' : ''}',
+        title: '手动进入全屏时的方向',
+        subtitle: '${Pref.brotherFullscreenManualEnter.desc}${enterMask & FullscreenEntryCauseMask.manual == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherEntryOverride(
           FullscreenEntryCause.manual,
           Pref.brotherFullscreenManualEnter,
-          '手动进入全屏时方向',
+          '手动进入全屏时的方向',
         ),
       ),
       _brotherBitSwitch(
-        title: '播放自动进入使用独立方向',
+        title: '播放自动进入：单独指定方向',
         key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
         current: enterMask,
         bit: FullscreenEntryCauseMask.playbackAuto,
       ),
       _selectTile(
-        title: '播放自动进入全屏时方向',
-        subtitle: '${Pref.brotherFullscreenPlaybackEnter.desc}${enterMask & FullscreenEntryCauseMask.playbackAuto == 0 ? '（覆盖关闭）' : ''}',
+        title: '播放自动进入全屏时的方向',
+        subtitle: '${Pref.brotherFullscreenPlaybackEnter.desc}${enterMask & FullscreenEntryCauseMask.playbackAuto == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherEntryOverride(
           FullscreenEntryCause.playbackAuto,
           Pref.brotherFullscreenPlaybackEnter,
-          '播放自动进入全屏时方向',
+          '播放自动进入全屏时的方向',
         ),
       ),
       _brotherBitSwitch(
-        title: '方向触发进入使用独立方向',
+        title: '方向触发进入：单独指定方向',
         key: SettingBoxKey.brotherFullscreenEnterOverrideMask,
         current: enterMask,
         bit: FullscreenEntryCauseMask.orientation,
       ),
       _selectTile(
-        title: '方向触发进入全屏时方向',
-        subtitle: '${Pref.brotherFullscreenOrientationEnter.desc}${enterMask & FullscreenEntryCauseMask.orientation == 0 ? '（覆盖关闭）' : ''}',
+        title: '方向触发进入全屏时的方向',
+        subtitle: '${Pref.brotherFullscreenOrientationEnter.desc}${enterMask & FullscreenEntryCauseMask.orientation == 0 ? '（未启用，沿用上面的设置）' : ''}',
         onTap: () => _editBrotherEntryOverride(
           FullscreenEntryCause.orientation,
           Pref.brotherFullscreenOrientationEnter,
-          '方向触发进入全屏时方向',
+          '方向触发进入全屏时的方向',
         ),
       ),
       const Divider(),
@@ -907,29 +907,29 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             _writeBrotherValue(SettingBoxKey.brotherPortraitExit, value),
       ),
       _selectTile(
-        title: '自动退出触发信号',
+        title: '判断竖置（自动退出全屏）所需信号',
         subtitle: _signalMaskLabel(Pref.brotherExitSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherExitSignalMask,
           Pref.brotherExitSignalMask,
-          '自动退出触发信号',
+          '判断竖置所用的信号',
         ),
       ),
       _selectTile(
-        title: '自动退出最少满足信号数',
+        title: '退出全屏至少需满足的信号数',
         subtitle: '${Pref.brotherExitSignalRequired}',
         onTap: () => _editRequiredCount(
           SettingBoxKey.brotherExitSignalRequired,
           Pref.brotherExitSignalRequired,
-          '自动退出最少满足信号数',
+          '退出全屏至少需满足的信号数',
         ),
       ),
       _selectTile(
-        title: '退出触发适用视频',
+        title: '竖置退出适用的视频',
         subtitle: Pref.brotherExitTriggerContent.desc,
         onTap: () async {
           final res = await _pickEnum(
-            title: '退出触发适用视频',
+            title: '竖置退出适用的视频',
             value: Pref.brotherExitTriggerContent,
             values: OrientationTriggerContent.values,
             label: (e) => e.desc,
@@ -944,7 +944,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
       const Padding(
         padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
-        child: Text('方向自动退出适用于哪些“进入全屏来源”：'),
+        child: Text('竖置自动退出仅对以下方式进入的全屏生效：'),
       ),
       _brotherBitSwitch(
         title: '手动进入的全屏',
@@ -965,15 +965,15 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         bit: FullscreenEntryCauseMask.orientation,
       ),
       _selectTile(
-        title: '手动全屏退出确认次数',
+        title: '手动进入的全屏：竖置几次才自动退出',
         subtitle: Pref.brotherManualExitConfirmations == 0
             ? '关闭'
             : '${Pref.brotherManualExitConfirmations} 次',
         onTap: () async {
           final res = await _nonNegativeIntDialog(
-            title: '手动全屏退出确认次数',
+            title: '手动进入的全屏：竖置几次才自动退出',
             initial: Pref.brotherManualExitConfirmations,
-            helper: '0 = 关闭；不设上限',
+            helper: '0 表示和其他全屏一样，竖过来就退出；填 N 表示要「横回去再竖过来」N 次才退出，防止躺着看时误退',
           );
           if (res != null) {
             await _writeBrotherValue(
@@ -984,21 +984,21 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         },
       ),
       _selectTile(
-        title: '手动退出确认信号',
+        title: '手动进入的全屏：判断竖置所用的信号',
         subtitle: _signalMaskLabel(Pref.brotherManualExitSignalMask),
         onTap: () => _editSignalMask(
           SettingBoxKey.brotherManualExitSignalMask,
           Pref.brotherManualExitSignalMask,
-          '手动退出确认信号',
+          '手动进入的全屏：判断竖置所用的信号',
         ),
       ),
       _selectTile(
-        title: '手动退出确认最少满足信号数',
+        title: '手动进入的全屏：判断竖置至少需满足的信号数',
         subtitle: '${Pref.brotherManualExitSignalRequired}',
         onTap: () => _editRequiredCount(
           SettingBoxKey.brotherManualExitSignalRequired,
           Pref.brotherManualExitSignalRequired,
-          '手动退出确认最少满足信号数',
+          '手动进入的全屏：判断竖置至少需满足的信号数',
         ),
       ),
     ];
@@ -1009,7 +1009,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     const Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
-        '三个父子生命周期共用同一模板；转换结果、运行过程、方向许可彼此独立。底层不能原生表达的组合不会自动改写您的选择。',
+        '三个父子周期由上到下依次是：APP 普通页面、视频非全屏、视频全屏，共用同一套选项：'
+        '进入时的方向、从下级返回时的方向、运行期间的旋转方式。'
+        '系统无法原生实现的组合也按您的选择执行，不会被自动改写。'
+        '架构设定：哥哥科技，底层&数学：Chat模式GPT6，文案定版：Opus姐姐。',
       ),
     ),
     _selectTile(
@@ -1030,7 +1033,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ..._brotherWindowedSpecial(),
     if (_brotherPhase == BrotherOrientationPhase.fullscreen)
       ..._brotherFullscreenSpecial(),
-    _section('编译 / 性能诊断'),
+    _section('性能诊断'),
     Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: SelectableText(
@@ -1055,10 +1058,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: 'APP 运行期间方向变化',
+      title: 'APP 运行期间的旋转方式',
       subtitle: Pref.appRotationMode.desc,
       onTap: () => _select(
-        title: 'APP 运行期间方向变化',
+        title: 'APP 运行期间的旋转方式',
         value: Pref.appRotationMode,
         values: AppRotationMode.values,
         key: SettingBoxKey.appRotationMode,
@@ -1079,10 +1082,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '全屏期间方向来源',
+      title: '全屏期间的旋转方式',
       subtitle: Pref.fullScreenRotationSource.desc,
       onTap: () => _select(
-        title: '全屏期间方向来源',
+        title: '全屏期间的旋转方式',
         value: Pref.fullScreenRotationSource,
         values: FullScreenRotationSource.values,
         key: SettingBoxKey.fullScreenRotationSource,
@@ -1101,16 +1104,16 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     SetSwitchItem(
-      title: 'APP 重力遵循系统方向锁定',
+      title: 'APP 重力传感器遵守系统旋转锁定',
       setKey: SettingBoxKey.gravityFollowSystemLock,
       defaultVal: Pref.gravityFollowSystemLock,
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     _selectTile(
-      title: '方向触发全屏',
+      title: '手机横竖时自动进出全屏',
       subtitle: Pref.orientationFullscreenTrigger.desc,
       onTap: () => _select(
-        title: '方向触发全屏',
+        title: '手机横竖时自动进出全屏',
         value: Pref.orientationFullscreenTrigger,
         values: OrientationFullscreenTrigger.values,
         key: SettingBoxKey.orientationFullscreenTrigger,
@@ -1118,10 +1121,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '方向触发依据',
+      title: '判断手机横竖所用的信号',
       subtitle: Pref.orientationTriggerSource.desc,
       onTap: () => _select(
-        title: '方向触发依据',
+        title: '判断手机横竖所用的信号',
         value: Pref.orientationTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.orientationTriggerSource,
@@ -1130,7 +1133,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     ),
     if (Platform.isAndroid)
       _selectTile(
-        title: 'APP 重力倾斜角度阈值',
+        title: 'APP 重力判定横竖的倾斜角度',
         subtitle: '当前：${Pref.angleDegrees}°',
         onTap: () => _showAngleDegreesDialog(
           key: SettingBoxKey.angleDegrees,
@@ -1155,7 +1158,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     const Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Text(
-        '高级配置与简单配置分别保存，不互相翻译。部分设置会在重新进入播放器或下次启动后生效。',
+        '高级配置与简单配置分别保存，不互相翻译。部分设置要重新进入播放器或下次启动后才生效。',
       ),
     ),
     _selectTile(
@@ -1170,10 +1173,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: 'APP 运行期间方向变化',
+      title: 'APP 运行期间的旋转方式',
       subtitle: Pref.advancedAppRotationMode.desc,
       onTap: () => _select(
-        title: 'APP 运行期间方向变化',
+        title: 'APP 运行期间的旋转方式',
         value: Pref.advancedAppRotationMode,
         values: AppRotationMode.values,
         key: SettingBoxKey.advancedAppRotationMode,
@@ -1181,10 +1184,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '视频非全屏时方向变化',
+      title: '视频非全屏时的旋转方式',
       subtitle: Pref.advancedWindowedPlayerRotationMode.desc,
       onTap: () => _select(
-        title: '视频非全屏时方向变化',
+        title: '视频非全屏时的旋转方式',
         value: Pref.advancedWindowedPlayerRotationMode,
         values: WindowedPlayerRotationMode.values,
         key: SettingBoxKey.advancedWindowedPlayerRotationMode,
@@ -1204,10 +1207,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     _selectTile(
-      title: '进入全屏触发依据',
+      title: '横置进入：判断手机横竖所用的信号',
       subtitle: Pref.advancedEnterTriggerSource.desc,
       onTap: () => _select(
-        title: '进入全屏触发依据',
+        title: '横置进入：判断手机横竖所用的信号',
         value: Pref.advancedEnterTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.advancedEnterTriggerSource,
@@ -1215,10 +1218,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '退出全屏触发依据',
+      title: '竖置退出：判断手机横竖所用的信号',
       subtitle: Pref.advancedExitTriggerSource.desc,
       onTap: () => _select(
-        title: '退出全屏触发依据',
+        title: '竖置退出：判断手机横竖所用的信号',
         value: Pref.advancedExitTriggerSource,
         values: OrientationTriggerSource.values,
         key: SettingBoxKey.advancedExitTriggerSource,
@@ -1226,10 +1229,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '方向触发适用视频',
+      title: '自动进出全屏适用的视频',
       subtitle: Pref.advancedTriggerContent.desc,
       onTap: () => _select(
-        title: '方向触发适用视频',
+        title: '自动进出全屏适用的视频',
         value: Pref.advancedTriggerContent,
         values: OrientationTriggerContent.values,
         key: SettingBoxKey.advancedTriggerContent,
@@ -1237,10 +1240,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '手动进入全屏时方向',
+      title: '手动进入全屏时的方向',
       subtitle: Pref.advancedManualEntryOrientation.desc,
       onTap: () => _select(
-        title: '手动进入全屏时方向',
+        title: '手动进入全屏时的方向',
         value: Pref.advancedManualEntryOrientation,
         values: EntryOrientationPolicy.values
             .where((e) => e != EntryOrientationPolicy.triggerDirection)
@@ -1250,10 +1253,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '播放自动进入全屏时方向',
+      title: '播放自动进入全屏时的方向',
       subtitle: Pref.advancedAutoEntryOrientation.desc,
       onTap: () => _select(
-        title: '播放自动进入全屏时方向',
+        title: '播放自动进入全屏时的方向',
         value: Pref.advancedAutoEntryOrientation,
         values: EntryOrientationPolicy.values
             .where((e) => e != EntryOrientationPolicy.triggerDirection)
@@ -1263,10 +1266,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '方向触发进入全屏时方向',
+      title: '方向触发进入全屏时的方向',
       subtitle: Pref.advancedOrientationEntryOrientation.desc,
       onTap: () => _select(
-        title: '方向触发进入全屏时方向',
+        title: '方向触发进入全屏时的方向',
         value: Pref.advancedOrientationEntryOrientation,
         values: EntryOrientationPolicy.values,
         key: SettingBoxKey.advancedOrientationEntryOrientation,
@@ -1274,10 +1277,10 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     _selectTile(
-      title: '全屏期间方向来源',
+      title: '全屏期间的旋转方式',
       subtitle: Pref.advancedFullScreenRotationSource.desc,
       onTap: () => _select(
-        title: '全屏期间方向来源',
+        title: '全屏期间的旋转方式',
         value: Pref.advancedFullScreenRotationSource,
         values: FullScreenRotationSource.values,
         key: SettingBoxKey.advancedFullScreenRotationSource,
@@ -1296,14 +1299,14 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
       ),
     ),
     SetSwitchItem(
-      title: 'APP 重力遵循系统方向锁定',
+      title: 'APP 重力传感器遵守系统旋转锁定',
       setKey: SettingBoxKey.advancedGravityFollowSystemLock,
       defaultVal: Pref.advancedGravityFollowSystemLock,
       onChanged: (_) => OrientationPolicy.compile(),
     ),
     if (Platform.isAndroid)
       _selectTile(
-        title: 'APP 重力倾斜角度阈值',
+        title: 'APP 重力判定横竖的倾斜角度',
         subtitle: '当前：${Pref.advancedAngleDegrees}°',
         onTap: () => _showAngleDegreesDialog(
           key: SettingBoxKey.advancedAngleDegrees,
@@ -1311,12 +1314,12 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
         ),
       ),
     _selectTile(
-      title: '方向自动退出全屏适用范围',
+      title: '竖置自动退出对哪些全屏生效',
       subtitle: _autoExitCausesLabel(Pref.advancedAutoExitCauses),
       onTap: _showAutoExitCausesDialog,
     ),
     _selectTile(
-      title: '手动全屏退出确认次数',
+      title: '手动进入的全屏：竖置几次才自动退出',
       subtitle: Pref.advancedManualExitConfirmations == 0
           ? '关闭'
           : '${Pref.advancedManualExitConfirmations} 次',
@@ -1354,13 +1357,13 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
             ),
             SetSwitchItem(
               title: '竖屏播放页移除安全边距',
-              subtitle: '公共布局设置；仅影响播放页竖屏',
+              subtitle: '与方向模式无关，只影响竖屏时的播放页上沿',
               setKey: SettingBoxKey.removeSafeAreaPortrait,
               defaultVal: Pref.removeSafeAreaPortrait,
             ),
             SetSwitchItem(
               title: '横屏播放页移除安全边距',
-              subtitle: '公共布局设置；仅影响播放页横屏',
+              subtitle: '公共布局设置；仅影响播放页横屏/美化布局',
               setKey: SettingBoxKey.removeSafeAreaLandscape,
               defaultVal: Pref.removeSafeAreaLandscape,
             ),
@@ -1373,7 +1376,7 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 onChanged: (_) => OrientationPolicy.compile(),
               ),
               _selectTile(
-                title: '最终方向许可',
+                title: '最终允许方向集合',
                 subtitle: Pref.finalDirectionMask == 0
                     ? '关闭'
                     : [
@@ -1412,11 +1415,4 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 OrientationPolicyMode.simple => _simpleSettings(),
                 OrientationPolicyMode.advanced => _advancedSettings(),
                 OrientationPolicyMode.brotherTech => _brotherSettings(),
-              },
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+              }, ],], ), ), );}}

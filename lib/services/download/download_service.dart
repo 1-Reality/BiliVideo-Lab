@@ -9,6 +9,7 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/sponsor_block.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart' as pgc;
@@ -121,6 +122,7 @@ class DownloadService extends GetxService {
     required VideoQuality videoQuality,
     AudioQuality? audioQuality,
     SeasonInfo? seasonInfo,
+    bool audioOnly = false,
   }) {
     final cid = page.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
@@ -174,7 +176,7 @@ class DownloadService extends GetxService {
       ownerName: videoDetail?.owner?.name ?? videoArc?.arc?.author?.name,
       pageData: pageData,
       seasonInfo: seasonInfo,
-    );
+    )..audioOnly = audioOnly;
     _createDownload(entry);
   }
 
@@ -184,6 +186,7 @@ class DownloadService extends GetxService {
     required pgc.EpisodeItem episode,
     required VideoQuality quality,
     AudioQuality? audioQuality,
+    bool audioOnly = false,
   }) {
     final cid = episode.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
@@ -245,7 +248,7 @@ class DownloadService extends GetxService {
       ownerId: pgcItem.upInfo?.mid,
       ownerName: pgcItem.upInfo?.uname,
       pageData: null,
-    );
+    )..audioOnly = audioOnly;
     _createDownload(entry);
   }
 
@@ -431,7 +434,7 @@ class DownloadService extends GetxService {
 
   Future<void> _startDownload(BiliDownloadEntryInfo entry) async {
     try {
-      if (!await downloadDanmaku(entry: entry)) {
+      if (!entry.audioOnly && !await downloadDanmaku(entry: entry)) {
         return;
       }
 
@@ -482,6 +485,18 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
+          if (entry.audioOnly) {
+            _downloadManager = DownloadManager(
+              url: mediaFileInfo.audio!.first.baseUrl,
+              path: path.join(videoDir.path, PathUtils.audioNameType2),
+              onReceiveProgress: _onReceive,
+              onDone: ([error]) {
+                if (error == null) entry.mediaType = 3;
+                _onDone(error);
+              },
+            );
+            break;
+          }
           final first = mediaFileInfo.video.first;
           _downloadManager = DownloadManager(
             url: first.baseUrl,
@@ -634,10 +649,19 @@ class DownloadService extends GetxService {
 
   Future<void> deletePage({
     required String pageDirPath,
+    bool? audioOnly,
     bool refresh = true,
   }) async {
-    await Directory(pageDirPath).tryDel(recursive: true);
-    downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
+    final entries = downloadList.where((e) => e.pageDirPath == pageDirPath);
+    if (audioOnly != null && entries.any((e) => (e.mediaType == 3) != audioOnly)) {
+      // 同一目录下还有另一种缓存，只删这一种
+      for (final entry in entries.where((e) => (e.mediaType == 3) == audioOnly).toList()) {
+        await deleteDownload(entry: entry, removeList: true, refresh: false);
+      }
+    } else {
+      await Directory(pageDirPath).tryDel(recursive: true);
+      downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
+    }
     if (refresh) {
       flagNotifier.refresh();
     }

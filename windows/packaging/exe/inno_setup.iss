@@ -17,6 +17,8 @@ SetupIconFile={{SETUP_ICON_FILE}}
 WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
+; 每次安装都默认勾选桌面快捷方式，不沿用上次的选择
+UsePreviousTasks=no
 UninstallDisplayIcon={app}\\{{EXECUTABLE_NAME}}
 PrivilegesRequired={{PRIVILEGES_REQUIRED}}
 ArchitecturesAllowed=x64compatible
@@ -28,7 +30,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "{{SOURCE_DIR}}\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -43,3 +45,25 @@ Root: HKCU; Subkey: "Software\\Classes\\bilibili"; ValueType: string; ValueData:
 Root: HKCU; Subkey: "Software\\Classes\\bilibili"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
 Root: HKCU; Subkey: "Software\\Classes\\bilibili\\DefaultIcon"; ValueType: string; ValueData: "{app}\\{{EXECUTABLE_NAME}},0"
 Root: HKCU; Subkey: "Software\\Classes\\bilibili\\shell\\open\\command"; ValueType: string; ValueData: """{app}\\{{EXECUTABLE_NAME}}"" ""%1"""
+
+[Code]
+// Restart Manager often fails to close the app (it keeps running in the
+// tray), so end it and its WebView children before files are replaced.
+procedure KillApp;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM "{{EXECUTABLE_NAME}}"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  KillApp;
+  Result := '';
+end;
+
+function InitializeUninstall: Boolean;
+begin
+  KillApp;
+  Result := True;
+end;

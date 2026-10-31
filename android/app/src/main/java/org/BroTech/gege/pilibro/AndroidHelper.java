@@ -1,0 +1,628 @@
+package org.BroTech.gege.pilibro;
+
+import static org.BroTech.gege.pilibro.MediaHelper.getRemoteAction;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.PendingIntent;
+import android.app.PictureInPictureParams;
+import android.app.RemoteAction;
+import android.app.SearchManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.content.pm.verify.domain.DomainVerificationManager;
+import android.content.pm.verify.domain.DomainVerificationUserState;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Point;
+import android.graphics.Rect;
+import android.graphics.Typeface;
+import android.graphics.drawable.Icon;
+import android.media.session.PlaybackState;
+import android.net.Uri;
+import android.net.ConnectivityManager;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.RouteInfo;
+import android.net.NetworkCapabilities;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.net.TrafficStats;
+import android.os.Build;
+import android.provider.MediaStore;
+import android.provider.Settings;
+import android.util.Rational;
+import android.view.WindowManager;
+import android.telephony.CellSignalStrength;
+import android.telephony.SignalStrength;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+
+import com.github.dart_lang.jni_flutter.JniFlutterPlugin;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Map;
+
+public final class AndroidHelper {
+    public static final boolean isFoldable;
+
+    public static final boolean isPipAvailable;
+
+    public static volatile boolean isPipMode = false;
+
+    static {
+        PackageManager pm = getContext().getPackageManager();
+        isFoldable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
+        isPipAvailable = pm.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+    }
+
+    private AndroidHelper() {
+    }
+
+    private static Context getContext() {
+        return JniFlutterPlugin.getApplicationContext();
+    }
+
+    public static int sdkInt() {
+        return Build.VERSION.SDK_INT;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static int[] networkInfo() {
+        Context context = getContext();
+        ConnectivityManager connectivityManager = context.getSystemService(ConnectivityManager.class);
+        NetworkCapabilities capabilities = connectivityManager == null
+                ? null
+                : connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+        if (capabilities == null) {
+            return null;
+        }
+
+        int linkSpeed = -1;
+        int rssi = -127;
+        int signalLevel = -1;
+        int cellularDbm = Integer.MAX_VALUE;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            WifiManager wifiManager = context.getSystemService(WifiManager.class);
+            WifiInfo wifiInfo = wifiManager == null ? null : wifiManager.getConnectionInfo();
+            if (wifiInfo != null) {
+                linkSpeed = wifiInfo.getLinkSpeed();
+                rssi = wifiInfo.getRssi();
+                if (rssi > -127 && rssi <= 0) {
+                    signalLevel = WifiManager.calculateSignalLevel(rssi, 5);
+                }
+            }
+        } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        ? SubscriptionManager.getDefaultDataSubscriptionId()
+                        : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        && telephonyManager != null
+                        && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                    telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+                }
+                SignalStrength strength = telephonyManager == null ? null : telephonyManager.getSignalStrength();
+                if (strength != null) {
+                    signalLevel = strength.getLevel();
+                    int bestLevel = -1;
+                    for (CellSignalStrength cell : strength.getCellSignalStrengths()) {
+                        int dbm = cell.getDbm();
+                        int level = cell.getLevel();
+                        if (dbm == Integer.MAX_VALUE || dbm >= 0 || dbm < -200) {
+                            continue;
+                        }
+                        if (level > bestLevel || (level == bestLevel && (cellularDbm == Integer.MAX_VALUE || dbm > cellularDbm))) {
+                            bestLevel = level;
+                            cellularDbm = dbm;
+                        }
+                    }
+                }
+            } catch (SecurityException | UnsupportedOperationException ignored) {
+            }
+        }
+
+        int flags = connectivityManager.isActiveNetworkMetered() ? 1 : 0;
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) {
+            flags |= 2;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)) {
+            flags |= 4;
+        }
+        if (Build.VERSION.SDK_INT >= 36
+                && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_BANDWIDTH_CONSTRAINED)) {
+            flags |= 8;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+            flags |= 16;
+        }
+        if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+            flags |= 32;
+        }
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            flags |= 64;
+        }
+        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)) {
+            flags |= 128;
+        }
+        int networkType = -1;
+        if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            try {
+                TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
+                int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        ? SubscriptionManager.getDefaultDataSubscriptionId()
+                        : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                        && telephonyManager != null
+                        && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                    telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+                }
+                if (telephonyManager != null) {
+                    networkType = telephonyManager.getDataNetworkType();
+                }
+            } catch (SecurityException ignored) {
+            }
+        }
+        return new int[]{
+                linkSpeed,
+                rssi,
+                signalLevel,
+                flags,
+                capabilities.getLinkDownstreamBandwidthKbps(),
+                capabilities.getLinkUpstreamBandwidthKbps(),
+                networkType,
+                cellularDbm
+        };
+    }
+
+    // IPv4 default gateway of the Wi-Fi or Ethernet network, looked up across
+    // all networks so an active VPN does not hide it. Needs only
+    // ACCESS_NETWORK_STATE.
+    public static String defaultGateway() {
+        ConnectivityManager connectivityManager = getContext().getSystemService(ConnectivityManager.class);
+        if (connectivityManager == null) return null;
+        for (Network network : connectivityManager.getAllNetworks()) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            if (capabilities == null
+                    || !(capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                    || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))) {
+                continue;
+            }
+            LinkProperties properties = connectivityManager.getLinkProperties(network);
+            if (properties == null) continue;
+            for (RouteInfo route : properties.getRoutes()) {
+                InetAddress gateway = route.getGateway();
+                if (route.isDefaultRoute() && gateway instanceof Inet4Address && !gateway.isAnyLocalAddress()) {
+                    return gateway.getHostAddress();
+                }
+            }
+        }
+        return null;
+    }
+
+    public static String networkOperator() {
+        try {
+            TelephonyManager telephonyManager = getContext().getSystemService(TelephonyManager.class);
+            int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    ? SubscriptionManager.getDefaultDataSubscriptionId()
+                    : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    && telephonyManager != null
+                    && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                telephonyManager = telephonyManager.createForSubscriptionId(defaultDataSubId);
+            }
+            if (telephonyManager == null) {
+                return null;
+            }
+            String name = telephonyManager.getNetworkOperatorName();
+            return name == null || name.isEmpty() ? null : name;
+        } catch (SecurityException ignored) {
+            return null;
+        }
+    }
+
+    public static String subscriptionInfoJson() {
+        Context context = getContext();
+        JSONObject root = new JSONObject();
+        try {
+            int defaultDataSubId = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    ? SubscriptionManager.getDefaultDataSubscriptionId()
+                    : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+            root.put("defaultDataSubscriptionId", defaultDataSubId);
+
+            TelephonyManager baseTelephony = context.getSystemService(TelephonyManager.class);
+            TelephonyManager dataTelephony = baseTelephony;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                    && baseTelephony != null
+                    && SubscriptionManager.isValidSubscriptionId(defaultDataSubId)) {
+                dataTelephony = baseTelephony.createForSubscriptionId(defaultDataSubId);
+            }
+            if (dataTelephony != null) {
+                root.put("networkOperatorName", dataTelephony.getNetworkOperatorName());
+                root.put("networkOperator", dataTelephony.getNetworkOperator());
+                root.put("simOperatorName", dataTelephony.getSimOperatorName());
+                root.put("simOperator", dataTelephony.getSimOperator());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    root.put("dataNetworkType", dataTelephony.getDataNetworkType());
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    root.put("simCarrierId", dataTelephony.getSimCarrierId());
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    SignalStrength strength = dataTelephony.getSignalStrength();
+                    if (strength != null) {
+                        root.put("signalLevel", strength.getLevel());
+                        JSONArray cells = new JSONArray();
+                        for (CellSignalStrength cell : strength.getCellSignalStrengths()) {
+                            JSONObject item = new JSONObject();
+                            item.put("class", cell.getClass().getSimpleName());
+                            item.put("dbm", cell.getDbm());
+                            item.put("asuLevel", cell.getAsuLevel());
+                            item.put("level", cell.getLevel());
+                            item.put("raw", cell.toString());
+                            cells.put(item);
+                        }
+                        root.put("cellSignalStrengths", cells);
+                    }
+                }
+            }
+
+            SubscriptionManager manager = context.getSystemService(SubscriptionManager.class);
+            JSONArray subscriptions = new JSONArray();
+            if (manager != null) {
+                try {
+                    java.util.List<SubscriptionInfo> list = manager.getActiveSubscriptionInfoList();
+                    if (list != null) {
+                        for (SubscriptionInfo info : list) {
+                            JSONObject item = new JSONObject();
+                            item.put("subscriptionId", info.getSubscriptionId());
+                            item.put("simSlotIndex", info.getSimSlotIndex());
+                            item.put("displayName", String.valueOf(info.getDisplayName()));
+                            item.put("carrierName", String.valueOf(info.getCarrierName()));
+                            item.put("countryIso", info.getCountryIso());
+                            item.put("dataRoaming", info.getDataRoaming());
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                item.put("carrierId", info.getCarrierId());
+                                item.put("cardId", info.getCardId());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                item.put("portIndex", info.getPortIndex());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                item.put("embedded", info.isEmbedded());
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                item.put("opportunistic", info.isOpportunistic());
+                                item.put("mccString", info.getMccString());
+                                item.put("mncString", info.getMncString());
+                            }
+                            boolean defaultData = info.getSubscriptionId() == defaultDataSubId;
+                            item.put("defaultData", defaultData);
+                            if (defaultData) {
+                                root.put("defaultDataSubscription", item);
+                            }
+                            subscriptions.put(item);
+                        }
+                    }
+                    root.put("readPhoneState", true);
+                } catch (SecurityException e) {
+                    root.put("readPhoneState", false);
+                    root.put("subscriptionError", e.getClass().getName());
+                }
+            }
+            root.put("subscriptions", subscriptions);
+            return root.toString();
+        } catch (Exception e) {
+            try {
+                root.put("error", e.getClass().getName() + ": " + e.getMessage());
+                return root.toString();
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
+
+    public static long[] trafficStats() {
+        int uid = android.os.Process.myUid();
+        return new long[]{TrafficStats.getUidRxBytes(uid), TrafficStats.getUidTxBytes(uid)};
+    }
+
+    public static void back() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(intent);
+    }
+
+    public static void biliSendCommAntifraud(
+            int action, long oid, int type, long rpId, long root, long parent, long ctime, @NonNull String commentText,
+            String pictures, @NonNull String sourceId, long uid, @NonNull String cookie
+    ) {
+        Intent intent = new Intent();
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setComponent(new ComponentName(
+                "icu.freedomIntrovert.biliSendCommAntifraud",
+                "icu.freedomIntrovert.biliSendCommAntifraud.ByXposedLaunchedActivity"
+        ));
+        intent.putExtra("action", action);
+        intent.putExtra("oid", oid);
+        intent.putExtra("type", type);
+        intent.putExtra("rpid", rpId);
+        intent.putExtra("root", root);
+        intent.putExtra("parent", parent);
+        intent.putExtra("ctime", ctime);
+        intent.putExtra("comment_text", commentText);
+        if (pictures != null) {
+            intent.putExtra("pictures", pictures);
+        }
+        intent.putExtra("source_id", sourceId);
+        intent.putExtra("uid", uid);
+        ArrayList<String> cookiesList = new ArrayList<>(1);
+        cookiesList.add(cookie);
+        intent.putStringArrayListExtra("cookies", cookiesList);
+        getContext().startActivity(intent);
+    }
+
+    public static void openLinkVerifySettings() {
+        Context context = getContext();
+        Uri uri = Uri.parse("package:" + context.getPackageName());
+        try {
+            Intent intent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                intent = new Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, uri);
+            } else {
+                intent = new Intent(Intent.ACTION_MAIN, uri);
+                intent.setClassName(
+                        "com.android.settings",
+                        "com.android.settings.applications.InstalledAppOpenByDefaultActivity"
+                );
+            }
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Exception ignored) {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        }
+    }
+
+    public static boolean openMusic(@NonNull String title, String artist, String album) {
+        Intent intent = new Intent(MediaStore.INTENT_ACTION_MEDIA_SEARCH);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra(SearchManager.QUERY, title);
+        intent.putExtra(MediaStore.EXTRA_MEDIA_TITLE, title);
+        if (artist != null) {
+            intent.putExtra(MediaStore.EXTRA_MEDIA_ARTIST, artist);
+        }
+        if (album != null) {
+            intent.putExtra(MediaStore.EXTRA_MEDIA_ALBUM, album);
+        }
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+
+        Context context = getContext();
+        PackageManager pm = context.getPackageManager();
+
+        try {
+            if (pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                context.startActivity(intent);
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            intent.setAction(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH);
+            if (pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                context.startActivity(intent);
+                return true;
+            }
+        } catch (Exception ignored) {
+        }
+
+        return false;
+    }
+
+    public static void enterPip(long engineId, int width, int height, boolean autoEnter, boolean isLive, boolean isPlaying) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Activity activity = JniFlutterPlugin.getActivity(engineId);
+            assert activity != null;
+            PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder()
+                    .setAspectRatio(new Rational(width, height));
+            setPipActions(activity, builder, isLive, isPlaying);
+            if (autoEnter) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(true);
+                    activity.setPictureInPictureParams(builder.build());
+                }
+            } else {
+                PictureInPictureParams params = builder.build();
+                activity.enterPictureInPictureMode(params);
+                activity.setPictureInPictureParams(params);
+            }
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static void updatePipActions(long engineId, boolean isLive, boolean isPlaying) {
+        Activity activity = JniFlutterPlugin.getActivity(engineId);
+        assert activity != null;
+        PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder();
+        setPipActions(activity, builder, isLive, isPlaying);
+        activity.setPictureInPictureParams(builder.build());
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private static void setPipActions(Context context, PictureInPictureParams.Builder builder, boolean isLive, boolean isPlaying) {
+        ArrayList<RemoteAction> actionList = new ArrayList<>(3);
+        if (!isLive) {
+            actionList.add(getRemoteAction(context, R.drawable.ic_player_rewind_10s, "ACTION_REWIND", (int) PlaybackState.ACTION_REWIND));
+        }
+        if (isPlaying) {
+            actionList.add(getRemoteAction(context, R.drawable.ic_player_pause, "ACTION_PAUSE", (int) PlaybackState.ACTION_PAUSE));
+        } else {
+            actionList.add(getRemoteAction(context, R.drawable.ic_player_play, "ACTION_PLAY", (int) PlaybackState.ACTION_PLAY));
+        }
+        if (!isLive) {
+            actionList.add(getRemoteAction(context, R.drawable.ic_player_fast_forward_10s, "ACTION_FAST_FORWARD", (int) PlaybackState.ACTION_FAST_FORWARD));
+        }
+        builder.setActions(actionList);
+    }
+
+    public static void disableAutoEnterPip(long engineId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Activity activity = JniFlutterPlugin.getActivity(engineId);
+            if (activity != null) {
+                activity.setPictureInPictureParams(new PictureInPictureParams.Builder().setAutoEnterEnabled(false).build());
+            }
+        }
+    }
+
+    public static int[] maxScreenSize() {
+        Context context = getContext();
+        WindowManager wm = context.getSystemService(WindowManager.class);
+        try {
+            float density = context.getResources().getDisplayMetrics().density;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Rect maxBounds = wm.getMaximumWindowMetrics().getBounds();
+                return new int[]{Math.round(maxBounds.width() / density), Math.round(maxBounds.height() / density)};
+            } else {
+                Point realSize = new Point();
+                wm.getDefaultDisplay().getRealSize(realSize);
+                return new int[]{Math.round(realSize.x / density), Math.round(realSize.y / density)};
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public static void createShortcut(@NonNull String id, @NonNull String uri, @NonNull String label, @NonNull String icon) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Context context = getContext();
+            ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+            if (shortcutManager != null && shortcutManager.isRequestPinShortcutSupported()) {
+                Bitmap bitmap = BitmapFactory.decodeFile(icon);
+                ShortcutInfo shortcut = new ShortcutInfo.Builder(context, id)
+                        .setShortLabel(label)
+                        .setIcon(Icon.createWithAdaptiveBitmap(bitmap))
+                        .setIntent(new Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                        .build();
+                // TODO: WorkerThread
+                Intent pinIntent = shortcutManager.createShortcutResultIntent(shortcut);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                        context, 0, pinIntent, PendingIntent.FLAG_IMMUTABLE
+                );
+                shortcutManager.requestPinShortcut(shortcut, pendingIntent.getIntentSender());
+            }
+        }
+    }
+
+    public static String[] fontFamilies() {
+        Map<String, Typeface> systemFontMap = null;
+        try {
+            @SuppressLint("BlockedPrivateApi") Method method = Typeface.class.getDeclaredMethod("getSystemFontMap");
+            method.setAccessible(true);
+            systemFontMap = (Map<String, Typeface>) method.invoke(null);
+        } catch (Exception ignored) {
+            try {
+                @SuppressLint("DiscouragedPrivateApi") Field field = Typeface.class.getDeclaredField("sSystemFontMap");
+                field.setAccessible(true);
+                systemFontMap = (Map<String, Typeface>) field.get(null);
+            } catch (Exception ignored0) {
+            }
+        }
+        if (null != systemFontMap && !systemFontMap.isEmpty()) {
+            return systemFontMap.keySet().toArray(new String[0]);
+        }
+        return null;
+    }
+
+    public static void updateDocProvider(boolean enabled) {
+        Context context = getContext();
+        final ComponentName componentName = new ComponentName(context, BiliDocumentsProvider.class);
+        final int state = enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+        context.getPackageManager().setComponentEnabledSetting(componentName, state, PackageManager.DONT_KILL_APP);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    public static boolean isDomainVerified(@NonNull String domain) {
+        try {
+            Context context = getContext();
+            DomainVerificationManager manager =
+                    context.getSystemService(DomainVerificationManager.class);
+            DomainVerificationUserState userState =
+                    manager.getDomainVerificationUserState(context.getPackageName());
+            if (userState == null) return false;
+            Map<String, Integer> hostToStateMap = userState.getHostToStateMap();
+            Integer stateValue = hostToStateMap.get(domain);
+            if (stateValue == null) return false;
+            return stateValue == DomainVerificationUserState.DOMAIN_STATE_VERIFIED ||
+                    stateValue == DomainVerificationUserState.DOMAIN_STATE_SELECTED;
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    public static String openUrl(@NonNull String url) {
+        Context context = getContext();
+        String pkg = context.getPackageName();
+        PackageManager pm = context.getPackageManager();
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            ArrayList<Intent> external = new ArrayList<>();
+            for (ResolveInfo info : pm.queryIntentActivities(intent, 0)) {
+                String packageName = info.activityInfo.packageName;
+                if (!packageName.equals(pkg)) {
+                    external.add(new Intent(intent).setComponent(new ComponentName(packageName, info.activityInfo.name)));
+                }
+            }
+            if (external.isEmpty()) {
+                return "package not found";
+            } else if (external.size() == 1) {
+                intent = external.get(0);
+            } else {
+                intent = Intent.createChooser(external.remove(0), null);
+                intent.putExtra(Intent.EXTRA_INITIAL_INTENTS, external.toArray(new Intent[0]));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            context.startActivity(intent);
+            return null;
+        } catch (Exception e) {
+            return e.toString();
+        }
+    }
+
+    public static String manufacturer() {
+        return Build.MANUFACTURER;
+    }
+
+    public static final class ToDart {
+        public static volatile Runnable onUserLeaveHint;
+        public static Runnable onConfigurationChanged;
+
+        private ToDart() {
+        }
+    }
+}

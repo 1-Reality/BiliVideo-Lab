@@ -2,6 +2,7 @@ import 'dart:async' show Timer;
 import 'dart:io' show Platform;
 
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/desktop/tray_controller.dart';
@@ -137,14 +138,25 @@ class WindowController {
     }
   }
 
+  bool _closing = false;
+  static const _closeCleanupTimeout = Duration(seconds: 5);
+
   Future<void> onClose() async {
+    // The window and the tray menu can both ask to close: shut down once.
+    if (_closing) return;
+    _closing = true;
     _moveTimer?.cancel();
     _resizeTimer?.cancel();
     onWindowResized();
-    await PlaybackStatsService.flush();
-    await TrafficStatsService.instance.dispose();
-    await GStorage.close();
-    TrayController.instance.dispose();
+    // A step that hangs or throws (the Linux tray did) must not keep the
+    // process alive: cleanup gets a bounded time, then the process exits.
+    await () async {
+      await PlaybackStatsService.flush();
+      await PlaybackArchiveService.waitForMaintenance();
+      await TrafficStatsService.instance.dispose();
+      await GStorage.close();
+      TrayController.instance.dispose();
+    }().timeout(_closeCleanupTimeout, onTimeout: () {}).catchError((_) {});
     DeviceUtils.exitApp();
   }
 

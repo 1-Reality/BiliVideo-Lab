@@ -12,6 +12,7 @@ import 'package:PiliBro/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliBro/models_new/video/video_tag/data.dart';
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/widgets/triple_mixin.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/id_utils.dart';
@@ -134,6 +135,7 @@ abstract class CommonIntroController extends GetxController
       selectLike: coinWithLike ? 1 : 0,
     );
     if (res.isSuccess) {
+      PlaybackStatsService.markInteraction(coinWithLike ? 3 : 2);
       SmartDialog.showToast('投币成功');
       coinNum.value += coin;
       GlobalData().afterCoin(coin);
@@ -241,6 +243,9 @@ mixin FavMixin on TripleMixin {
                 );
           SmartDialog.dismiss();
           if (result.isSuccess) {
+            if (!hasFav && this is CommonIntroController) {
+              PlaybackStatsService.markInteraction(4);
+            }
             updateFavCount(hasFav ? -1 : 1);
             this.hasFav.toggle();
             SmartDialog.showToast('${hasFav ? '取消' : ''}收藏成功');
@@ -284,6 +289,9 @@ mixin FavMixin on TripleMixin {
       final newVal =
           addMediaIdsNew.isNotEmpty || favIds?.length != delMediaIdsNew.length;
       if (hasFav.value != newVal) {
+        if (newVal && this is CommonIntroController) {
+          PlaybackStatsService.markInteraction(4);
+        }
         updateFavCount(newVal ? 1 : -1);
         hasFav.value = newVal;
       }

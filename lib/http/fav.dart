@@ -1,4 +1,3 @@
-import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
@@ -15,6 +14,7 @@ import 'package:PiliBro/models_new/space/space_fav/data.dart';
 import 'package:PiliBro/models_new/sub/sub_detail/data.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/app_sign.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:dio/dio.dart';
 
 abstract final class FavHttp {
@@ -580,14 +580,14 @@ abstract final class FavHttp {
     required int mid,
   }) async {
     final params = {
-      'build': 8430300,
-      'version': '8.43.0',
-      'c_locale': 'zh_CN',
-      'channel': 'master',
+      'build': phoneBuild,
+      'version': phoneVersion,
+      'c_locale': 'zh-Hans_CN',
+      'channel': BiliDevice.channel,
       'mobi_app': 'android',
       'platform': 'android',
-      's_locale': 'zh_CN',
-      'statistics': Constants.statisticsApp,
+      's_locale': 'zh-Hans_CN',
+      'statistics': BiliApp.phone.statistics,
       'up_mid': mid,
     };
     final res = await Request().get(
@@ -596,7 +596,7 @@ abstract final class FavHttp {
       options: Options(
         headers: {
           'bili-http-engine': 'cronet',
-          'user-agent': Constants.userAgentApp,
+          'user-agent': phoneUserAgent,
         },
       ),
     );

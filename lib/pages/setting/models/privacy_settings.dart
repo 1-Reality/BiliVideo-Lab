@@ -1,27 +1,23 @@
-import 'package:PiliBro/common/widgets/custom_icon.dart';
-import 'package:PiliBro/common/widgets/stateful_builder.dart';
 import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/utils/accounts.dart';
-import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/accounts/api_type.dart';
-import 'package:PiliBro/utils/login_utils.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
+import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get privacySettings => [
   NormalModel(
-    onTap: (context, setState) => Get.toNamed('/blackListPage'),
+    onTap: (context, setState) {
+      if (!Accounts.main.isLogin) {
+        SmartDialog.showToast('登录后查看');
+        return;
+      }
+      Get.toNamed('/blackListPage');
+    },
     title: '黑名单管理',
-    subtitle: '已拉黑用户',
+    subtitle: '个人认为黑名单治标不治本、效率低、查杀率低，不如直接不理，维护黑名单本身就不优雅',
     leading: const Icon(Icons.block),
-  ),
-  const NormalModel(
-    title: 'buvid设置',
-    leading: Icon(CustomIcons.identifier_circle),
-    onTap: _showBuvidDialog,
   ),
   NormalModel(
     onTap: (context, setState) {
@@ -65,85 +61,5 @@ Widget _getAccountDetail(BuildContext context) {
     mainAxisSize: .min,
     crossAxisAlignment: .start,
     children: children,
-  );
-}
-
-void _showBuvidDialog(BuildContext context, VoidCallback setState) {
-  final filter = [
-    FilteringTextInputFormatter.allow(
-      RegExp(r"[a-z\d\-_]+", caseSensitive: false),
-    ),
-  ];
-  final controllers = [
-    (
-      AnonymousAccount(),
-      TextEditingController(text: AnonymousAccount().buvid),
-    ),
-    ...Accounts.account.values.map(
-      (i) => (i, TextEditingController(text: i.buvid)),
-    ),
-  ];
-  showDialog<bool>(
-    context: context,
-    builder: (context) {
-      final theme = Theme.of(context);
-      return StatefulBuilder(
-        onDispose: () {
-          for (var (_, ctr) in controllers) {
-            ctr.dispose();
-          }
-          controllers.clear();
-        },
-        builder: (context, _) => AlertDialog(
-          title: const Text('buvid'),
-          content: SingleChildScrollView(
-            child: Column(
-              spacing: 8,
-              mainAxisSize: .min,
-              children: controllers
-                  .map(
-                    (i) => TextField(
-                      controller: i.$2,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        labelText: 'mid: ${i.$1.mid}',
-                        labelStyle: theme.textTheme.titleMedium,
-                        suffixIcon: IconButton(
-                          onPressed: () =>
-                              i.$2.text = LoginUtils.generateBuvid(),
-                          iconSize: 24,
-                          tooltip: '随机',
-                          icon: const Icon(Icons.casino_outlined),
-                        ),
-                      ),
-                      inputFormatters: filter,
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: Get.back,
-              child: Text(
-                '取消',
-                style: TextStyle(color: theme.colorScheme.outline),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Get.back();
-                for (var (account, ctr) in controllers) {
-                  if (ctr.text case final text when text.isNotEmpty) {
-                    account.buvid = text;
-                  }
-                }
-              },
-              child: const Text('确定'),
-            ),
-          ],
-        ),
-      );
-    },
   );
 }

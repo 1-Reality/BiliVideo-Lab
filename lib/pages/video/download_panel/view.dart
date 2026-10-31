@@ -62,11 +62,15 @@ class DownloadPanel extends StatefulWidget {
 }
 
 class _DownloadPanelState extends State<DownloadPanel> {
+  static VideoQuality _lastQuality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  static bool _lastAudioOnly = false;
+  bool _audioOnly = _lastAudioOnly;
+
   final DownloadService _downloadService = Get.find<DownloadService>();
   final ListController _listController = ListController();
 
   late final cidSet = widget.cidSet;
-  VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  VideoQuality _quality = _lastQuality;
   AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
 
   late ColorScheme colorScheme;
@@ -115,81 +119,98 @@ class _DownloadPanelState extends State<DownloadPanel> {
     final textStyle = TextStyle(color: colorScheme.onSurfaceVariant);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 0, 12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Row(
-              spacing: 12,
-              children: [
-                Text('画质', style: textStyle),
-                Builder(
-                  builder: (context) => PopupMenuButton<VideoQuality>(
-                    initialValue: _quality,
-                    onSelected: (value) {
-                      _quality = value;
-                      (context as Element).markNeedsBuild();
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  spacing: 12,
+                  children: [
+                    Text('最高画质', style: textStyle),
+                    Builder(
+                      builder: (context) => PopupMenuButton<VideoQuality>(
+                        initialValue: _quality,
+                        onSelected: (value) {
+                          _quality = _lastQuality = value;
+                          (context as Element).markNeedsBuild();
+                        },
+                        itemBuilder: (context) => VideoQuality.values
+                            .map(
+                              (e) => PopupMenuItem(
+                                value: e,
+                                child: Text(e.desc),
+                              ),
+                            )
+                            .toList(),
+                        child: _buildPopupMenuChild(_quality.desc),
+                      ),
+                    ),
+                    Text('音质', style: textStyle),
+                    Builder(
+                      builder: (context) => PopupMenuButton<AudioQuality>(
+                        initialValue: _audioQuality,
+                        onSelected: (value) {
+                          _audioQuality = value;
+                          (context as Element).markNeedsBuild();
+                        },
+                        itemBuilder: (context) => AudioQuality.values
+                            .map(
+                              (e) => PopupMenuItem(
+                                value: e,
+                                child: Text(e.desc),
+                              ),
+                            )
+                            .toList(),
+                        child: _buildPopupMenuChild(_audioQuality.desc),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (PlatformUtils.isMobile)
+                Padding(
+                  padding: const .only(right: 16),
+                  child: StreamBuilder(
+                    stream: Connectivity().onConnectivityChanged,
+                    builder: (context, snapshot) {
+                      if (snapshot.data case final data?) {
+                        return Icon(
+                          data.contains(ConnectivityResult.wifi)
+                              ? Icons.wifi
+                              : Icons.signal_cellular_alt,
+                          size: 20,
+                          color: colorScheme.primary,
+                        );
+                      }
+                      return const SizedBox.shrink();
                     },
-                    itemBuilder: (context) => VideoQuality.values
-                        .map(
-                          (e) => PopupMenuItem(
-                            value: e,
-                            child: Text(e.desc),
-                          ),
-                        )
-                        .toList(),
-                    child: _buildPopupMenuChild(_quality.desc),
+                  ),
+                )
+              else if (kDebugMode)
+                Padding(
+                  padding: const .only(right: 16),
+                  child: Icon(
+                    Icons.wifi,
+                    size: 20,
+                    color: colorScheme.primary,
                   ),
                 ),
-                Text('音质', style: textStyle),
-                Builder(
-                  builder: (context) => PopupMenuButton<AudioQuality>(
-                    initialValue: _audioQuality,
-                    onSelected: (value) {
-                      _audioQuality = value;
-                      (context as Element).markNeedsBuild();
-                    },
-                    itemBuilder: (context) => AudioQuality.values
-                        .map(
-                          (e) => PopupMenuItem(
-                            value: e,
-                            child: Text(e.desc),
-                          ),
-                        )
-                        .toList(),
-                    child: _buildPopupMenuChild(_audioQuality.desc),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-          if (PlatformUtils.isMobile)
-            Padding(
-              padding: const .only(right: 16),
-              child: StreamBuilder(
-                stream: Connectivity().onConnectivityChanged,
-                builder: (context, snapshot) {
-                  if (snapshot.data case final data?) {
-                    return Icon(
-                      data.contains(ConnectivityResult.wifi)
-                          ? Icons.wifi
-                          : Icons.signal_cellular_alt,
-                      size: 20,
-                      color: colorScheme.primary,
-                    );
-                  }
-                  return const SizedBox.shrink();
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Checkbox(
+                value: _audioOnly,
+                onChanged: (value) {
+                  setState(() => _audioOnly = _lastAudioOnly = value ?? false);
                 },
               ),
-            )
-          else if (kDebugMode)
-            Padding(
-              padding: const .only(right: 16),
-              child: Icon(
-                Icons.wifi,
-                size: 20,
-                color: colorScheme.primary,
-              ),
-            ),
+              const Text('仅音频'),
+            ],
+          ),
         ],
       ),
     );
@@ -329,6 +350,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             videoQuality: _quality,
             audioQuality: _audioQuality,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
+            audioOnly: _audioOnly,
           );
           break;
         case ugc.EpisodeItem episode:
@@ -340,6 +362,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             videoQuality: _quality,
             audioQuality: _audioQuality,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
+            audioOnly: _audioOnly,
           );
           break;
         case pgc.EpisodeItem episode:
@@ -349,6 +372,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             episode: episode,
             quality: _quality,
             audioQuality: _audioQuality,
+            audioOnly: _audioOnly,
           );
           break;
       }

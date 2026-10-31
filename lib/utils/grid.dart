@@ -20,6 +20,8 @@ mixin GridMixin {
 
 abstract final class Grid {
   static final double smallCardWidth = Pref.smallCardWidth;
+  static final double cardSpace = Pref.cardSpace;
+  static final double safeSpace = Pref.safeSpace;
 
   static SliverGridDelegateWithMaxCrossAxisExtent videoCardHDelegate({
     double mainAxisExtent = 110,

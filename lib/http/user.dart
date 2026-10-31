@@ -518,7 +518,7 @@ abstract final class UserHttp {
       'access_key': Accounts.main.accessKey,
       'up_mid': mid,
     };
-    AppSign.appSign(params);
+    AppSign.appSign(params, Accounts.main.app);
     final res = await Request().get(
       Api.userRealName,
       queryParameters: params,

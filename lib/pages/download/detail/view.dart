@@ -25,11 +25,13 @@ class DownloadDetailPage extends StatefulWidget {
   const DownloadDetailPage({
     super.key,
     required this.pageId,
+    this.audioOnly = false,
     required this.title,
     required this.progress,
   });
 
   final String pageId;
+  final bool audioOnly;
   final String title;
   final ChangeNotifier progress;
 
@@ -84,7 +86,8 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
     List<BiliDownloadEntryInfo>? list;
     for (final season in _controller.seasons) {
       for (final page in season.pages) {
-        if (page.pageId == widget.pageId) {
+        if (page.pageId == widget.pageId &&
+            page.audioOnly == widget.audioOnly) {
           list = page.entries..sort(downloadEntrySort);
         }
       }
@@ -110,7 +113,7 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
         child: SimpleScaffold(
           appBar: MultiSelectAppBarWidget(
             ctr: this,
-            actions: [updateBtn()],
+            actions: [if (!widget.audioOnly) updateBtn()],
             child: AppBar(
               title: Text(widget.title),
               actions: [
@@ -148,6 +151,7 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
                               await _closeSub();
                               await downloadService.deletePage(
                                 pageDirPath: entry.pageDirPath,
+                                audioOnly: widget.audioOnly,
                               );
                               if (mounted) {
                                 Get.back();

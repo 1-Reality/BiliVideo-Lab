@@ -18,6 +18,7 @@ int downloadEntrySort(BiliDownloadEntryInfo a, BiliDownloadEntryInfo b) {
 
 class BiliDownloadEntryInfo with MultiSelectData {
   int mediaType;
+  bool audioOnly = false; // Only applies to this run's pending download.
   bool hasDashAudio;
   bool isCompleted;
   int totalBytes;
@@ -83,6 +84,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
   DownloadPageInfo toDownloadPageInfo(String pageId, {int? sortKey}) =>
       DownloadPageInfo(
         pageId: pageId,
+        audioOnly: mediaType == 3,
         dirPath: pageDirPath,
         title: title,
         cover: cover,

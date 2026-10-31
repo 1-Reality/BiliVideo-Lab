@@ -1,0 +1,33 @@
+name: Mirror third-party deps
+
+# 小众第三方包备份到本仓库 Release（deps-mirror），原地址失效时改用这里。新增一项就加一行再手动运行
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download and verify
+        run: |
+          set -e
+          while read -r url md5; do
+            f=$(basename "$url")
+            curl -fsSL -o "$f" "$url"
+            echo "$md5  $f" | md5sum -c
+          done <<'LIST'
+          https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20250930/mpv-dev-i686-20250930-git-05656cd.7z 909dc64c76b3f5c160774bb0b96bae30
+          https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20260819/mpv-dev-x86_64-20260819-git-e7191f2a65.7z 84f1034c7a1d8cdcd520d359fe99d228
+          https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-v3-20261021-git-e471496c56.7z ba0553957a3fd7de5a3c75dc60fafa06
+          https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-20261021-git-e471496c56.7z 93a7a2a41d2c26def4084c0b289fc94b
+          LIST
+
+      - name: Upload
+        run: |
+          gh release create deps-mirror -R "$GITHUB_REPOSITORY" --prerelease --title deps-mirror --notes "第三方小众依赖的备份，原地址失效时改用这里。来源与 MD5 见 .github/workflows/deps_mirror.yml" 2>/dev/null || true
+          gh release upload deps-mirror -R "$GITHUB_REPOSITORY" *.7z --clobber

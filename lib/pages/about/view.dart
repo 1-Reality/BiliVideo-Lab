@@ -1,29 +1,23 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliBro/build_config.dart';
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/style.dart';
+import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
-import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/common/widgets/flutter/list_tile.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
-import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
-import 'package:PiliBro/utils/accounts.dart';
-import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/date_utils.dart';
-import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
-import 'package:PiliBro/utils/login_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -59,54 +53,6 @@ class _AboutPageState extends State<AboutPage> {
   void dispose() {
     cacheSize.close();
     super.dispose();
-  }
-
-  Future<({bool playbackStats, bool cdnDiagnostics})?>
-  _selectSettingsBackupOptions() {
-    var playbackStats = true;
-    var cdnDiagnostics = true;
-    return showDialog<({bool playbackStats, bool cdnDiagnostics})>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('导出设置包含内容'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('完整播放 / 倍速统计'),
-                subtitle: const Text('包含按倍速、倒带、评论区、UP 主、年份等完整原始统计'),
-                value: playbackStats,
-                onChanged: (value) =>
-                    setState(() => playbackStats = value ?? true),
-              ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('CDN 历史诊断'),
-                subtitle: const Text('包含长期保存的每次手动测速原始记录和派生指标'),
-                value: cdnDiagnostics,
-                onChanged: (value) =>
-                    setState(() => cdnDiagnostics = value ?? true),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop((
-                playbackStats: playbackStats,
-                cdnDiagnostics: cdnDiagnostics,
-              )),
-              child: const Text('继续'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void getCacheSize() {
@@ -236,6 +182,14 @@ Commit Hash: ${BuildConfig.commitHash}''',
               trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
             ),
           ListTile(
+            onTap: () => PageUtils.launchURL(
+              'https://www.goofish.com/personal?userId=2216485229713',
+            ),
+            leading: const Icon(Icons.storefront_outlined),
+            title: const Text('影像 音频 闲鱼小铺（点我交流）'),
+            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
+          ),
+          ListTile(
             onTap: () =>
                 PageUtils.launchURL('${Constants.sourceCodeUrl}/issues'),
             leading: const Icon(Icons.feedback_outlined),
@@ -285,35 +239,9 @@ Commit Hash: ${BuildConfig.commitHash}''',
             ),
           ),
           ListTile(
-            title: const Text('导入/导出登录信息'),
+            title: const Text('备份与恢复'),
             leading: const Icon(Icons.import_export_outlined),
-            onTap: () => showImportExportDialog<Map<String, dynamic>>(
-              context,
-              title: '登录信息',
-              localFileName: () => 'account',
-              onExport: () =>
-                  Utils.jsonEncoder.convert(Accounts.account.toMap()),
-              onImport: Accounts.importJsonAccount,
-            ),
-          ),
-          ListTile(
-            title: const Text('导入/导出设置'),
-            dense: false,
-            leading: const Icon(Icons.import_export_outlined),
-            onTap: () async {
-              final options = await _selectSettingsBackupOptions();
-              if (options == null || !context.mounted) return;
-              await showImportExportDialog<Map<String, dynamic>>(
-                context,
-                title: '设置',
-                localFileName: () => 'setting_${DeviceUtils.platformName}',
-                onExport: () => GStorage.exportAllSettings(
-                  includePlaybackStats: options.playbackStats,
-                  includeCdnDiagnostics: options.cdnDiagnostics,
-                ),
-                onImport: GStorage.importAllJsonSettings,
-              );
-            },
+            onTap: () => showBackupMenu(context),
           ),
           ListTile(
             title: const Text('导入/导出所有数据'),

@@ -41,7 +41,9 @@ import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/gesture_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/slide_action.dart';
 import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliBro/plugin/pl_player/utils/speed_drag.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/backward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/bottom_control.dart';
@@ -49,6 +51,8 @@ import 'package:PiliBro/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/forward_seek.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliBro/plugin/pl_player/widgets/play_pause_btn.dart';
+import 'package:PiliBro/plugin/pl_player/widgets/speed_panel.dart';
+import 'package:PiliBro/services/playback_focus.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
@@ -58,6 +62,7 @@ import 'package:PiliBro/utils/duration_utils.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/extension/theme_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
+import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/ios/pip_helper.dart';
 import 'package:PiliBro/utils/mobile_observer.dart';
@@ -65,6 +70,7 @@ import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:collection/collection.dart';
@@ -123,7 +129,6 @@ class PLVideoPlayer extends StatefulWidget {
 class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
-  late VideoController videoController;
   late final CommonIntroController introController = widget.introController!;
   PgcIntroController get pgcController => introController as PgcIntroController;
   UgcIntroController get ugcController => introController as UgcIntroController;
@@ -147,7 +152,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   StreamSubscription? _brightnessListener;
   void _onBrightnessChanged(double value) {
-    if (mounted && _gestureType != .left) {
+    if (mounted && _gestureType != .brightness) {
       _brightnessValue.value = value;
     }
   }
@@ -261,7 +266,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    videoController = plPlayerController.videoController!;
 
     if (PlatformUtils.isMobile) {
       Future.microtask(() {
@@ -342,16 +346,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       currentPlayer?.state.position ?? Duration.zero,
     );
     if (isBackground) unawaited(PlaybackStatsService.flush());
-    if (!plPlayerController.continuePlayInBackground.value) {
-      if (isBackground) {
-        if (currentPlayer != null && currentPlayer.state.playing) {
+    if (isBackground) {
+      if (currentPlayer != null && currentPlayer.state.playing) {
+        PlaybackFocus.keepInBackground(
+          plPlayerController.continuePlayInBackground.value,
+          Pref.lockPlayVideo,
+        ).then((keep) {
+          if (keep ||
+              !currentPlayer.state.playing ||
+              WidgetsBinding.instance.lifecycleState == .resumed) {
+            return;
+          }
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           currentPlayer.pause();
-        }
-      } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
-        _pauseDueToPauseUponEnteringBackgroundMode = false;
-        currentPlayer?.play();
+        });
       }
+    } else if (_pauseDueToPauseUponEnteringBackgroundMode) {
+      _pauseDueToPauseUponEnteringBackgroundMode = false;
+      currentPlayer?.play();
     }
   }
 
@@ -396,6 +408,173 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       FlutterVolumeController.removeListener();
     }
     super.dispose();
+  }
+
+  void _onProgressDragStart(ThumbDragDetails details) {
+    feedBack();
+    plPlayerController.onSeekStart(details.seconds);
+  }
+
+  void _onProgressDragUpdate(ThumbDragDetails details) {
+    if (!plPlayerController.isFileSource && plPlayerController.showSeekPreview) {
+      plPlayerController.updatePreviewIndex(details.seconds);
+    }
+    plPlayerController.seekPosition.value = details.seconds;
+  }
+
+  void _onProgressSeek(int milliseconds) {
+    plPlayerController
+      ..position.value = milliseconds ~/ 1000
+      ..onSeekEnd()
+      ..seekTo(Duration(milliseconds: milliseconds), isSeek: false);
+  }
+
+  Widget _buildFixedBottomControl(Color primary) {
+    final controller = plPlayerController;
+    final detail = videoDetailController;
+    final thumbGlowColor = primary.withAlpha(80);
+    final bufferedBarColor = primary.withValues(alpha: 0.4);
+
+    return Positioned(
+      bottom: -2.2,
+      left: 0,
+      right: 0,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: controller.progressBarSideSpace,
+        ),
+        child: Obx(() {
+          final locked = controller.controlsLock.value;
+          final expanded = controller.showControls.value && !locked;
+          final showByPolicy = switch (controller.progressType) {
+            .alwaysShow => true,
+            .alwaysHide => false,
+            .onlyShowFullScreen => isFullScreen,
+            .onlyHideFullScreen => !isFullScreen,
+          };
+          if (!expanded && !showByPolicy && !controller.isSeeking.value) {
+            return const SizedBox.shrink();
+          }
+
+          return Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
+              children: [
+                IgnorePointer(
+                  ignoring: !expanded,
+                  child: SizedBox(
+                    height: 20.905,
+                    child: Obx(
+                      () => ProgressBar(
+                        progress: controller.progress,
+                        buffered: controller.buffered.value,
+                        total: controller.duration.value,
+                        progressBarColor: primary,
+                        baseBarColor: const Color(0x33FFFFFF),
+                        bufferedBarColor: bufferedBarColor,
+                        thumbColor: primary,
+                        thumbGlowColor: thumbGlowColor,
+                        barHeight: 3.5,
+                        barBaseline: 2.5,
+                        thumbRadius: expanded ? 7 : 2.5,
+                        thumbGlowRadius: 25,
+                        snapDistance: 12,
+                        onDragStart: _onProgressDragStart,
+                        onDragUpdate: _onProgressDragUpdate,
+                        onSeek: _onProgressSeek,
+                      ),
+                    ),
+                  ),
+                ),
+                if (controller.enableBlock &&
+                    detail.segmentProgressList.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0.75,
+                    child: SegmentProgressBar(
+                      segments: detail.segmentProgressList,
+                    ),
+                  ),
+                if (controller.showViewPoints &&
+                    detail.viewPointList.isNotEmpty &&
+                    detail.showVP.value)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4.25),
+                    child: IgnorePointer(
+                      ignoring:
+                          locked ||
+                          (expanded
+                              ? !PlatformUtils.isDesktop
+                              : !PlatformUtils.isMobile),
+                      child: ViewPointSegmentProgressBar(
+                        segments: detail.viewPointList,
+                        onSeek: (position) =>
+                            controller.seekTo(position, isSeek: false),
+                      ),
+                    ),
+                  ),
+                if ((expanded || controller.showDmChart) &&
+                    detail.showDmTrendChart.value)
+                  if (detail.dmTrend.value?.dataOrNull case final list?)
+                    buildDmChart(primary, list, detail),
+              ],
+          );
+        }),
+      ),
+    );
+  }
+
+  // 倍速面板：矩阵与滑杆都勾、不勾常规时拆成两个面板，共用一个倍速；
+  // 矩阵面板留小窗口滑杆、不带加减号，加减号随大范围滑杆
+  List<PopupMenuEntry<double>> _speedPanels(int mode, bool landscape) {
+    final c = plPlayerController;
+    final cols = landscape ? c.speedGridColsLandscape : c.speedGridCols;
+    final gridWidth = landscape ? c.speedGridWidthLandscape : c.speedGridWidth;
+    final rowHeight = landscape
+        ? c.speedGridRowHeightLandscape
+        : c.speedGridRowHeight;
+    // 加减号那一行跟随较窄的一块
+    final narrow = math.min(gridWidth, c.speedSliderWidth);
+    if (mode & 7 == 6) {
+      final link = ValueNotifier((c.playbackSpeed * 100).round());
+      final grid = SpeedPanel(
+        c,
+        mode: 2,
+        cols: cols,
+        width: gridWidth,
+        controlsWidth: narrow,
+        rowHeight: rowHeight,
+        link: link,
+        controls: false,
+      );
+      final slider = SpeedPanel(
+        c,
+        mode: 4,
+        cols: cols,
+        width: c.speedSliderWidth,
+        controlsWidth: narrow,
+        rowHeight: rowHeight,
+        link: link,
+      );
+      return mode & 8 == 0 ? [grid, slider] : [slider, grid];
+    }
+    return [
+      SpeedPanel(
+        c,
+        mode: mode,
+        cols: cols,
+        width: mode & 2 == 0
+            ? c.speedSliderWidth
+            : math.max(gridWidth, mode & 4 == 0 ? 0.0 : c.speedSliderWidth),
+        controlsWidth: mode & 6 == 6
+            ? narrow
+            : mode & 2 == 0
+            ? c.speedSliderWidth
+            : gridWidth,
+        rowHeight: rowHeight,
+      ),
+    ];
   }
 
   // 动态构建底部控制条
@@ -735,29 +914,49 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       ),
 
       /// 播放速度
-      BottomControlType.speed => Obx(
-        () => PopupMenuButton<double>(
+      BottomControlType.speed => Obx(() {
+        // 打开前就得知道场景：矩阵或滑杆时菜单底板透明，由面板各自画卡片
+        final landscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final mode =
+            plPlayerController.speedPanelLayout >>
+                (isFullScreen
+                    ? 4
+                    : landscape
+                    ? 8
+                    : 0) &
+            15;
+        final panel = mode & 6 != 0;
+        return PopupMenuButton<double>(
           tooltip: '倍速',
           requestFocus: false,
+          popUpAnimationStyle: AnimationStyle.noAnimation,
           initialValue: plPlayerController.playbackSpeed,
-          color: Colors.black.withValues(alpha: 0.8),
-          itemBuilder: (context) {
-            return plPlayerController.speedList
-                .map(
-                  (double speed) => PopupMenuItem<double>(
-                    height: 35,
-                    padding: const EdgeInsets.only(left: 30),
-                    value: speed,
-                    onTap: () => plPlayerController.setPlaybackSpeed(speed),
-                    child: Text(
-                      "${speed}X",
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                      semanticsLabel: "$speed倍速",
+          color: panel
+              ? Colors.transparent
+              : Colors.black.withValues(alpha: 0.8),
+          elevation: panel ? 0 : null,
+          // 只留默认的最小宽度，去掉 5 格的最大宽度，矩阵和滑杆按自身宽度撑开
+          constraints: const BoxConstraints(minWidth: 112),
+          itemBuilder: (context) => panel
+              ? _speedPanels(mode, landscape)
+              : [
+                  for (final speed in plPlayerController.speedList)
+                    PopupMenuItem<double>(
+                      height: 35,
+                      padding: const EdgeInsets.only(left: 30),
+                      value: speed,
+                      onTap: () => plPlayerController.setPlaybackSpeed(speed),
+                      child: Text(
+                        "${speed}X",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                        semanticsLabel: "$speed倍速",
+                      ),
                     ),
-                  ),
-                )
-                .toList();
-          },
+                ],
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
@@ -766,8 +965,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               semanticsLabel: "${plPlayerController.playbackSpeed}倍速",
             ),
           ),
-        ),
-      ),
+        );
+      }),
 
       BottomControlType.qa => Obx(
         () {
@@ -908,8 +1107,31 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   late double maxWidth;
   late double maxHeight;
   late double _inverseMaxWidth;
-  late double _thirdWidth;
-  late double _twoThirdWidth;
+  // 手势表在播放器创建时解一次，分界线随尺寸预先算好，起手时只比大小再查表
+  late final List<VerticalSlide> _verticalSlides = [
+    for (var shift = 2; shift < 11; shift += 3)
+      VerticalSlide.values[plPlayerController.slideVertical >> shift & 7],
+  ];
+  late final List<HorizontalSlide> _horizontalSlides = [
+    for (var shift = 0; shift < 8; shift += 2)
+      HorizontalSlide.values[plPlayerController.slideHorizontal >> shift & 3],
+  ];
+  late double _columnEdge1;
+  late double _columnEdge2;
+  late double _halfWidth;
+  late double _splitHeight;
+  // 倍速手势：横滑拖 1200 逻辑像素走完滑杆范围、落在分度值上，不受滑杆范围限制；
+  // 竖滑每 40 逻辑像素走倍速列表的一项
+  static const _speedRangePx = 1200.0;
+  static const _speedItemPx = 40.0;
+  double _speedOrigin = 1;
+  int _speedCenti = 100;
+  late SpeedDrag _speedDrag;
+  // 横滑：起手倍速折成几个分度值、分度值；竖滑：往上、往下第一档的前一项
+  double _speedBase = 0;
+  int _speedUnit = 1;
+  int _speedListUp = 0;
+  int _speedListDown = 0;
   late double _quarterWidth;
   late double _threeQuarterWidth;
   late double _eighthWidth;
@@ -994,38 +1216,38 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (cumulativeDelta.distanceSquared < 1) return;
       final dx = cumulativeDelta.dx.abs();
       final dy = cumulativeDelta.dy.abs();
+      final start = _initialFocalPoint!;
       if (dx > 3 * dy) {
-        _onHorizontalDragStart();
-        _gestureType = .horizontal;
-      } else if (dy > 3 * dx) {
-        if (!plPlayerController.enableSlideVolumeBrightness &&
-            !plPlayerController.enableSlideFS) {
-          return;
+        switch (_horizontalSlides[(start.dy < _splitHeight ? 0 : 2) |
+            (start.dx < _halfWidth ? 0 : 1)]) {
+          case HorizontalSlide.seek:
+            _onHorizontalDragStart();
+            _gestureType = .horizontal;
+          case HorizontalSlide.speed when !plPlayerController.isLive:
+            _onSpeedSlideStart();
+            _startSpeedHorizontal(start.dx);
+            _gestureType = .speed_horizontal;
+          default:
+            break;
         }
-
-        final double tapPosition = details.localFocalPoint.dx;
-        if (tapPosition < _thirdWidth) {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 左边区域
-          if (PlatformUtils.isDesktop) {
-            _gestureType = .right;
-          } else {
-            _gestureType = .left;
-          }
-        } else if (tapPosition < _twoThirdWidth) {
-          if (!plPlayerController.enableSlideFS) {
-            return;
-          }
-          // 全屏
-          _gestureType = .center;
-        } else {
-          if (!plPlayerController.enableSlideVolumeBrightness) {
-            return;
-          }
-          // 右边区域
-          _gestureType = .right;
+      } else if (dy > 3 * dx) {
+        switch (_verticalSlides[start.dx < _columnEdge1
+            ? 0
+            : start.dx < _columnEdge2
+            ? 1
+            : 2]) {
+          case VerticalSlide.brightness:
+            _gestureType = .brightness;
+          case VerticalSlide.volume:
+            _gestureType = .volume;
+          case VerticalSlide.fullscreen:
+            _gestureType = .fullscreen;
+          case VerticalSlide.speed when !plPlayerController.isLive:
+            _onSpeedSlideStart();
+            _startSpeedVertical(start.dy);
+            _gestureType = .speed_vertical;
+          default:
+            break;
         }
       }
       return;
@@ -1075,8 +1297,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
 
       _onHorizontalDragUpdate(delta.dx);
-    } else if (_gestureType == .left) {
-      // 左边区域 👈
+    } else if (_gestureType == .brightness) {
       final rawBrightness =
           _brightnessValue.value - delta.dy * _inverseBrightnessLevel;
       final brightness = rawBrightness < 0
@@ -1085,29 +1306,27 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           ? 1.0
           : rawBrightness;
       setBrightness(brightness);
-    } else if (_gestureType == .center) {
-      // 全屏
+    } else if (_gestureType == .fullscreen) {
       const double threshold = 2.5; // 滑动阈值
       final cumulativeDy =
           details.localFocalPoint.dy - _initialFocalPoint!.dy;
 
       if (cumulativeDy > threshold) {
-        _gestureType = .center_down;
+        _gestureType = .fullscreen_down;
         if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
           plPlayerController.triggerFullScreen(
             status: plPlayerController.fullScreenGestureReverse,
           );
         }
       } else if (cumulativeDy < -threshold) {
-        _gestureType = .center_up;
+        _gestureType = .fullscreen_up;
         if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
           plPlayerController.triggerFullScreen(
             status: !plPlayerController.fullScreenGestureReverse,
           );
         }
       }
-    } else if (_gestureType == .right) {
-      // 右边区域
+    } else if (_gestureType == .volume) {
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1124,12 +1343,150 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           plPlayerController.setVolume(volume);
         },
       );
+    } else if (_gestureType == .speed_horizontal) {
+      final r = _speedDrag.units(details.localFocalPoint.dx);
+      // 起手倍速不在分度值上时，先走到下一个分度值
+      final centi =
+          _speedDrag.hit ??
+          (r > 0
+              ? math.max(
+                  (_speedBase + r + 1e-9).floor() * _speedUnit,
+                  _speedCenti,
+                )
+              : math.min(
+                  (_speedBase + r - 1e-9).ceil() * _speedUnit,
+                  _speedCenti,
+                ));
+      _applySlideSpeed(centi / 100);
+    } else if (_gestureType == .speed_vertical) {
+      final r = _speedDrag.units(-details.localFocalPoint.dy);
+      final n = (r.abs() + 1e-9).toInt();
+      final i =
+          _speedDrag.hit ??
+          (n == 0
+              ? -1
+              : r > 0
+              ? _speedListUp + n
+              : _speedListDown - n);
+      _applySlideSpeed(
+        i < 0 ? _speedOrigin : plPlayerController.speedList[i],
+      );
     }
+  }
+
+  void _onSpeedSlideStart() {
+    _speedOrigin = plPlayerController.playbackSpeed;
+    _speedCenti = (_speedOrigin * 100).round();
+    plPlayerController.speedIndicator.value = true;
+  }
+
+  // 硬挡在起手那一侧才生效，起手正好在硬挡上则两边都放开；
+  // 两端保底 0.01 ~ 100 倍，即 mpv 的 speed 范围
+  void _startSpeedHorizontal(double x) {
+    final c = plPlayerController;
+    final origin = _speedCenti;
+    final unit = _speedUnit =
+        (c.speedSliderMax - c.speedSliderMin) ~/ c.speedSliderDivisions;
+    _speedBase = origin / unit;
+    final hard = c.speedSlideHardH;
+    SpeedDragSide side(int end, bool up) {
+      final soft = [
+        for (final v in c.speedSlideSoftH)
+          if (up ? v > origin && v < end : v < origin && v > end) v,
+      ]..sort(up ? null : (a, b) => b - a);
+      return (
+        stops: [for (final v in soft) (v - origin).abs() / unit],
+        hits: soft,
+        end: (end - origin).abs() / unit,
+        endHit: end,
+      );
+    }
+
+    final unitsPerPx = c.speedSliderDivisions / _speedRangePx;
+    _speedDrag = SpeedDrag(
+      x,
+      unitsPerPx,
+      c.speedSlideHoldH * unitsPerPx,
+      side(hard > origin ? hard : 10000, true),
+      side(hard > 0 && hard < origin ? hard : 1, false),
+    );
+  }
+
+  // 硬挡不在列表里时，停在它旁边靠起手那一侧的一项
+  void _startSpeedVertical(double y) {
+    final c = plPlayerController;
+    final list = c.speedList;
+    var i = 0;
+    while (i < list.length && list[i] < _speedOrigin) {
+      i++;
+    }
+    // 当前倍速不在列表里时，往上第一档是比它大的那个，往下第一档是比它小的那个
+    final down = _speedListDown = i;
+    final up = _speedListUp = i < list.length && list[i] == _speedOrigin
+        ? i
+        : i - 1;
+    final hard = c.speedSlideHardV / 100;
+    var top = list.length - 1;
+    var bottom = 0;
+    if (hard > _speedOrigin) {
+      while (top > up && list[top] > hard) {
+        top--;
+      }
+    } else if (hard > 0 && hard < _speedOrigin) {
+      while (bottom < down && list[bottom] < hard) {
+        bottom++;
+      }
+    }
+    final soft = c.speedSlideSoftV;
+    bool isSoft(int j) => soft.contains((list[j] * 100).round());
+    final upHits = [
+      for (var j = up + 1; j < top; j++)
+        if (isSoft(j)) j,
+    ];
+    final downHits = [
+      for (var j = down - 1; j > bottom; j--)
+        if (isSoft(j)) j,
+    ];
+    _speedDrag = SpeedDrag(
+      -y,
+      1 / _speedItemPx,
+      c.speedSlideHoldV / _speedItemPx,
+      (
+        stops: [for (final j in upHits) (j - up).toDouble()],
+        hits: upHits,
+        end: (top - up).toDouble(),
+        endHit: top > up ? top : null,
+      ),
+      (
+        stops: [for (final j in downHits) (down - j).toDouble()],
+        hits: downHits,
+        end: (down - bottom).toDouble(),
+        endHit: down > bottom ? bottom : null,
+      ),
+    );
+  }
+
+  // 到了边界档位不变时不调 mpv、也不震
+  void _applySlideSpeed(double speed) {
+    if (speed == plPlayerController.playbackSpeed) return;
+    plPlayerController.setPlaybackSpeed(speed, recordSelection: false);
+    HapticFeedback.selectionClick();
   }
 
   void _onPanEnd(ScaleEndDetails details) {
     if (_gestureType == .horizontal) {
       _onHorizontalDragEnd();
+    } else if (_gestureType == .speed_horizontal ||
+        _gestureType == .speed_vertical) {
+      plPlayerController.speedIndicator.value = false;
+      if (plPlayerController.playbackSpeed != _speedOrigin) {
+        plPlayerController
+          ..toggleSpeedCenti = (_speedOrigin * 100).round()
+          ..setPlaybackSpeed(
+            plPlayerController.playbackSpeed,
+            forceRecordSelection: true,
+          );
+      }
     }
     _initialFocalPoint = null;
     _gestureType = null;
@@ -1315,7 +1672,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         _onHorizontalDragStart();
         _gestureType = .horizontal;
       } else if (dy > 3 * dx) {
-        _gestureType = .right;
+        final x = event.localPosition.dx;
+        if (_verticalSlides[x < _columnEdge1
+                ? 0
+                : x < _columnEdge2
+                ? 1
+                : 2] ==
+            VerticalSlide.volume) {
+          _gestureType = .volume;
+        }
       }
       return;
     }
@@ -1324,11 +1689,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (plPlayerController.isLive) return;
 
       _onHorizontalDragUpdate(event.localPanDelta.dx);
-    } else if (_gestureType == .right) {
-      if (!plPlayerController.enableSlideVolumeBrightness) {
-        return;
-      }
-
+    } else if (_gestureType == .volume) {
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1353,6 +1714,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is PointerScrollEvent) {
+      if (plPlayerController.wheelSpeed && !plPlayerController.isLive) {
+        final dy = event.scrollDelta.dy;
+        if (dy != 0) plPlayerController.stepPlaybackSpeed(dy < 0);
+        return;
+      }
       final offset = -event.scrollDelta.dy * 0.00025;
       final volume = clampDouble(
         plPlayerController.volume.value + offset,
@@ -1370,8 +1736,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (width != _geometryWidth) {
       _geometryWidth = maxWidth = width;
       _inverseMaxWidth = 1 / width;
-      _thirdWidth = width * _oneThird;
-      _twoThirdWidth = _thirdWidth * 2;
+      _halfWidth = width * 0.5;
+      final columns = plPlayerController.slideVertical & 3;
+      _columnEdge1 = columns == 3
+          ? width * _oneThird
+          : columns == 2
+          ? _halfWidth
+          : double.infinity;
+      _columnEdge2 = columns == 3 ? _columnEdge1 * 2 : double.infinity;
       _quarterWidth = width * 0.25;
       _threeQuarterWidth = _quarterWidth * 3;
       _eighthWidth = width * 0.125;
@@ -1380,6 +1752,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (height != _geometryHeight) {
       _geometryHeight = maxHeight = height;
       _eighthHeight = height * 0.125;
+      _splitHeight =
+          height *
+          slideSplitRatios[plPlayerController.slideHorizontal >> 8 & 3];
       final inverseMaxHeight = 1 / height;
       _inverseBrightnessLevel = inverseMaxHeight * _oneThird;
       _inverseVolumeLevel = inverseMaxHeight * 2;
@@ -1395,27 +1770,43 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       fontSize: 12,
     );
     final isLive = plPlayerController.isLive;
+    final fixedProgress =
+        !isLive &&
+        (isFullScreen
+            ? plPlayerController.fixedBottomProgressFs
+            : plPlayerController.fixedBottomProgress);
 
     final child = Stack(
+      clipBehavior: fixedProgress ? Clip.none : Clip.hardEdge,
       fit: StackFit.passthrough,
       key: _playerKey,
       children: <Widget>[
         _videoWidget,
 
         if (widget.danmuWidget case final danmaku?)
-          Positioned.fill(top: 4, child: danmaku),
+          Positioned.fill(
+            top: 4,
+            // 固定底部进度条模式下外层 Stack 是 Clip.none（为了让进度条圆点
+            // 能画出播放器底边），弹幕层原本依赖外层裁剪，这里单独补上，
+            // 否则弹幕会画到播放器范围之外。普通模式外层本来就裁剪，不重复加。
+            child: fixedProgress ? ClipRect(child: danmaku) : danmaku,
+          ),
 
         if (!isLive)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !plPlayerController.enableDragSubtitle,
               child: Obx(
-                () => SubtitleView(
-                  controller: videoController,
-                  configuration: plPlayerController.subtitleConfig.value,
-                  enableDragSubtitle: plPlayerController.enableDragSubtitle,
-                  onUpdatePadding: plPlayerController.onUpdatePadding,
-                ),
+                () {
+                  final controller = plPlayerController.videoController;
+                  if (controller == null) return const SizedBox.shrink();
+                  return SubtitleView(
+                    controller: controller,
+                    configuration: plPlayerController.subtitleConfig.value,
+                    enableDragSubtitle: plPlayerController.enableDragSubtitle,
+                    onUpdatePadding: plPlayerController.onUpdatePadding,
+                  );
+                },
               ),
             ),
           ),
@@ -1447,7 +1838,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 child: Obx(
                   () => AnimatedOpacity(
                     curve: Curves.easeInOut,
-                    opacity: plPlayerController.longPressStatus.value
+                    opacity:
+                        plPlayerController.longPressStatus.value ||
+                            plPlayerController.speedIndicator.value
                         ? 1.0
                         : 0.0,
                     duration: const Duration(milliseconds: 150),
@@ -1655,18 +2048,31 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     controller: _animationController,
                     isFullScreen: isFullScreen,
                     removeSafeArea: plPlayerController.removeSafeArea,
-                    child:
-                        widget.bottomControl ??
-                        BottomControl(
-                          maxWidth: maxWidth,
-                          isFullScreen: isFullScreen,
-                          controller: plPlayerController,
-                          videoDetailController: videoDetailController,
-                          buildBottomControl: () => buildBottomControl(
-                            videoDetailController,
-                            maxWidth > maxHeight,
-                          ),
-                        ),
+                    child: fixedProgress
+                        ? Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal:
+                                  plPlayerController.bottomControlSideSpace,
+                              vertical: 12,
+                            ),
+                            child:
+                                widget.bottomControl ??
+                                buildBottomControl(
+                                  videoDetailController,
+                                  maxWidth > maxHeight,
+                                ),
+                          )
+                        : widget.bottomControl ??
+                              BottomControl(
+                                maxWidth: maxWidth,
+                                isFullScreen: isFullScreen,
+                                controller: plPlayerController,
+                                videoDetailController: videoDetailController,
+                                buildBottomControl: () => buildBottomControl(
+                                  videoDetailController,
+                                  maxWidth > maxHeight,
+                                ),
+                              ),
                   ),
                 ],
               ),
@@ -1739,7 +2145,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ),
 
         /// 进度条 live模式下禁用
-        if (!isLive)
+        if (fixedProgress)
+          _buildFixedBottomControl(primary)
+        else if (!isLive)
           Positioned(
             bottom: -2.2,
             left: 0,
@@ -1765,9 +2173,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         showControls ||
                         (isFullScreen && !plPlayerController.isSeeking.value);
                 }
-                return Offstage(
-                  offstage: offstage,
-                  child: Stack(
+                if (offstage) return const SizedBox.shrink();
+                return Stack(
                     clipBehavior: Clip.none,
                     alignment: Alignment.bottomCenter,
                     children: [
@@ -1822,7 +2229,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                             case final list?)
                           buildDmChart(primary, list, videoDetailController),
                     ],
-                  ),
                 );
               },
             ),
@@ -2097,6 +2503,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: Obx(
               () {
                 final videoFit = plPlayerController.videoFit.value;
+                final controller = plPlayerController.videoController;
+                if (controller == null) return const SizedBox.shrink();
                 return Transform.flip(
                   flipX: plPlayerController.flipX.value,
                   flipY: plPlayerController.flipY.value,
@@ -2104,7 +2512,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     fit: videoFit.boxFit,
                     alignment: widget.alignment,
                     child: SimpleVideo(
-                      controller: plPlayerController.videoController!,
+                      controller: controller,
                       fill: widget.fill,
                       aspectRatio: videoFit.aspectRatio,
                     ),

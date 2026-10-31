@@ -60,7 +60,10 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:protobuf/protobuf.dart';
 
+
 part 'package:PiliBro/common/widgets/context_menu/reply_menu_helper.dart';
+
+final Map<String, String> _locationCache = {};
 
 class ReplyItemGrpc extends StatelessWidget {
   const ReplyItemGrpc({
@@ -260,7 +263,10 @@ class ReplyItemGrpc extends StatelessWidget {
                     children: replyItem.replyControl.hasLocation()
                         ? [
                             TextSpan(
-                              text: ' • ${replyItem.replyControl.location}',
+                              text:
+                                  _locationCache[replyItem
+                                      .replyControl
+                                      .location] ??= ' • ${replyItem.replyControl.location.substring(5)}',
                             ),
                           ]
                         : null,
@@ -970,7 +976,9 @@ class ReplyItemGrpc extends StatelessWidget {
                 text: matchStr,
                 style: primaryStyle,
                 recognizer: NoDeadlineTapGestureRecognizer()
-                  ..onTap = () => PageUtils.handleWebview(matchStr),
+                  ..onTap = () {
+                    PageUtils.handleWebview(matchStr);
+                  },
               ),
             );
           } else {

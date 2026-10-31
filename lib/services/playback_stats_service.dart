@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File;
+import 'dart:isolate' show Isolate;
 import 'dart:math' show max;
 
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:PiliBro/services/playback_archive_service.dart';
+import 'package:PiliBro/services/watch_log_service.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, debugPrint, kDebugMode;
 import 'package:flutter/widgets.dart';
 
 abstract final class PlaybackStatsService {
-  static const schemaVersion = 5;
-  static const metricDefinitionVersion = 3;
-  static const storageLayoutVersion = 2;
   static const _seekThresholdUs = 1000000;
   static const _rewindEligibilityUs = 5000000;
   static const _flushInterval = Duration(minutes: 2);
@@ -29,7 +31,6 @@ abstract final class PlaybackStatsService {
   static final Set<String> _dirtyLiveUids = {};
   static final Set<String> _dirtyDimensions = {};
   static final Set<String> _dirtyCrossDimensions = {};
-  static final Set<String> _legacyCompositeKeys = {};
   static const _monthPrefix = '@month:';
   static const _videoUpPrefix = '@videoUp:';
   static const _livePrefix = '@live:';
@@ -50,8 +51,6 @@ abstract final class PlaybackStatsService {
 
   static final NavigatorObserver pageRouteObserver =
       PlaybackPageRouteObserver();
-  static final _trailingZeros = RegExp(r'0+$');
-  static final _trailingDot = RegExp(r'\.$');
 
   static bool _active = false;
   static bool _live = false;
@@ -105,6 +104,19 @@ abstract final class PlaybackStatsService {
   static bool _sessionCompleted = false;
   static bool _videoSessionOpen = false;
   static final List<({int start, int end})> _coveredIntervals = [];
+  static int _sessionStartMs = 0;
+  static int _sessionFlags = 0;
+  static String _sessionSrc = 'other';
+  static String _entryPage = 'other';
+  static String? _logBvid;
+  static int? _logAid;
+  static int? _logEpid;
+  static int? _logSeasonId;
+  static String? _logTitle;
+  static String? _logEpTitle;
+  static int? _logPubdate;
+  static int _liveSessionStartMs = 0;
+  static int _liveSessionUs = 0;
   static String _orientation = 'unknown';
   static String _contentType = 'ugc';
   static String _partitionId = 'unknown';
@@ -186,23 +198,93 @@ abstract final class PlaybackStatsService {
   static void _ensureInitialized() {
     if (_stats != null) return;
     _stats = _loadStatsFromStorage();
-    _stats!.putIfAbsent(
-      'nominalMediaIncludingLongPressUs',
-      () => _stats!['nominalMediaUs'] as num? ?? 0,
-    );
-    _stats!['schemaVersion'] = schemaVersion;
-    _stats!['metricDefinitionVersion'] = metricDefinitionVersion;
-    _stats!['storageLayoutVersion'] = storageLayoutVersion;
-    _dirtyKeys.addAll(const [
-      'schemaVersion',
-      'metricDefinitionVersion',
-      'storageLayoutVersion',
-    ]);
-    _queueLegacyCompositeMigration();
-    _flushTimer ??= Timer.periodic(
-      _flushInterval,
-      (_) => flush(),
-    );
+    // 只管存盘；归档只在启动时做（main 里首帧前）
+    _flushTimer ??= Timer.periodic(_flushInterval, (_) => unawaited(flush()));
+  }
+
+  // Keep the cutover at 8/18/28 even if the player is still open. This is an
+  // independent ten-day measurement period, not an accounting month.
+  static Future<void> prepareArchiveRollover() async {
+    _snapshotting = true;
+    try {
+      // A media callback may arrive while the asynchronous disk write is in
+      // progress. Drain that last increment before swapping the active map.
+      do {
+        await flush(force: true);
+        await _writeChain;
+      } while (_dirty);
+      beginArchiveRollover();
+    } catch (_) {
+      _snapshotting = false;
+      rethrow;
+    }
+  }
+
+  // Called only after the prior hot file has been flushed, before rotation.
+  // Other playback events may already write into this fresh in-memory period;
+  // their writes are deferred until the new hot Box is ready.
+  static void beginArchiveRollover() {
+    _snapshotting = true;
+    _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
+    _dirty = true;
+    _dirtyKeys
+      ..clear()
+      ..addAll(_stats!.keys);
+    _dirtyMonths.clear();
+    _dirtyVideoUpUids.clear();
+    _dirtyLiveUids.clear();
+    _dirtyDimensions.clear();
+    _dirtyCrossDimensions.clear();
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
+    final now = _clock.elapsedMicroseconds;
+    _appLastWallUs = now;
+    _pageLastWallUs = now;
+    _commentPanelLastWallUs = now;
+    // Continuing playback starts fresh counters in the new active file. The
+    // archived UP and session history is deliberately not consulted here.
+    _rewind = null;
+    _pendingPositionUs = null;
+    _clearTrailingPause();
+    if (_active) {
+      if (_live) {
+        _add('liveOpenCount', 1);
+        final uid = _liveUid ?? 'unknown';
+        _map('liveByUid')[uid] = {'openCount': 1, 'watchUs': 0};
+        _markLiveDirty(uid);
+      } else {
+        _add('videoStarts', 1);
+        _videoUpStartRecorded = false;
+        _recordVideoUpStart();
+        _recordSourceSpeed(_rate, _defaultRate);
+        if (_completedIdle) {
+          _videoSessionOpen = false;
+          _coveredIntervals.clear();
+        } else {
+          _beginVideoSession(
+            _lastPositionUs,
+            _sourceDurationUs,
+            resetContext: false,
+          );
+        }
+      }
+      _lastWallUs = now;
+    }
+  }
+
+  static void endArchiveRollover() {
+    _snapshotting = false;
   }
 
   static Map<String, dynamic> _stringMap(Map raw) => raw.map(
@@ -223,11 +305,13 @@ abstract final class PlaybackStatsService {
       ? _stringMap(value)
       : <String, dynamic>{};
 
-  static Map<String, dynamic> _loadStatsFromStorage() {
-    final raw = GStorage.playbackStats.toMap();
+  static Map<String, dynamic> _loadStatsFromStorage() =>
+      _assemble(GStorage.playbackStats.toMap());
+
+  // Shard keys (hot box or cold archive) -> the nested in-memory layout.
+  static Map<String, dynamic> _assemble(Map raw) {
     if (raw.isEmpty) {
       return <String, dynamic>{
-        'schemaVersion': schemaVersion,
         'createdAtMs': DateTime.now().millisecondsSinceEpoch,
       };
     }
@@ -236,12 +320,18 @@ abstract final class PlaybackStatsService {
       final key = entry.key.toString();
       if (!_isShardKey(key)) data[key] = entry.value;
     }
+    // Normalize each composite exactly once. Rebuilding it for every shard
+    // recursively copies all previous shards and makes startup quadratic.
+    final composites = <String, Map<String, dynamic>>{};
     Map<String, dynamic> composite(String key) {
+      final cached = composites[key];
+      if (cached != null) return cached;
       final current = data[key];
       final value = current is Map
           ? _stringMap(current)
           : <String, dynamic>{};
       data[key] = value;
+      composites[key] = value;
       return value;
     }
 
@@ -255,8 +345,11 @@ abstract final class PlaybackStatsService {
           final month = shard.substring(0, separator);
           final field = shard.substring(separator + 1);
           final months = composite('months');
-          final monthValue = months[month] is Map
-              ? _stringMap(months[month] as Map)
+          final currentMonth = months[month];
+          final monthValue = currentMonth is Map<String, dynamic>
+              ? currentMonth
+              : currentMonth is Map
+              ? _stringMap(currentMonth)
               : <String, dynamic>{};
           monthValue[field] = value is Map ? _stringMap(value) : value;
           months[month] = monthValue;
@@ -302,57 +395,14 @@ abstract final class PlaybackStatsService {
     if (separator <= 0) return;
     final axis = shard.substring(0, separator);
     final axisValue = shard.substring(separator + 1);
-    final values = target[axis] is Map
-        ? _stringMap(target[axis] as Map)
+    final currentAxis = target[axis];
+    final values = currentAxis is Map<String, dynamic>
+        ? currentAxis
+        : currentAxis is Map
+        ? _stringMap(currentAxis)
         : <String, dynamic>{};
     values[axisValue] = _stringMap(value);
     target[axis] = values;
-  }
-
-  static void _queueLegacyCompositeMigration() {
-    for (final key in _compositeKeys) {
-      if (!GStorage.playbackStats.containsKey(key)) continue;
-      _legacyCompositeKeys.add(key);
-      final value = _stats![key];
-      if (value is! Map) continue;
-      switch (key) {
-        case 'months':
-          for (final month in value.entries) {
-            if (month.value is Map) {
-              _dirtyMonths.addAll(
-                (month.value as Map).keys.map(
-                  (field) => '${month.key}:$field',
-                ),
-              );
-            }
-          }
-        case 'videoByUpUid':
-          _dirtyVideoUpUids.addAll(value.keys.map((item) => item.toString()));
-        case 'liveByUid':
-          _dirtyLiveUids.addAll(value.keys.map((item) => item.toString()));
-        case 'dimensions':
-          for (final axis in value.entries) {
-            if (axis.value is Map) {
-              _dirtyDimensions.addAll(
-                (axis.value as Map).keys.map(
-                  (item) => '${axis.key}:$item',
-                ),
-              );
-            }
-          }
-        case 'crossDimensions':
-          for (final axis in value.entries) {
-            if (axis.value is Map) {
-              _dirtyCrossDimensions.addAll(
-                (axis.value as Map).keys.map(
-                  (item) => '${axis.key}:$item',
-                ),
-              );
-            }
-          }
-      }
-    }
-    if (_legacyCompositeKeys.isNotEmpty) _dirty = true;
   }
 
   static void _add(String key, num value) {
@@ -548,7 +598,7 @@ abstract final class PlaybackStatsService {
       '/subscription' ||
       '/subDetail' => 'library',
       '/setting' ||
-      '/cdnSettings' ||
+      '/avSettings' ||
       '/playSpeedSet' ||
       '/networkPolicy' ||
       '/playbackStats' ||
@@ -670,11 +720,14 @@ abstract final class PlaybackStatsService {
     item['aliases'] = aliases;
   }
 
+  // "1.00" → "1", "1.50" → "1.5"：只去掉固定两位小数里多余的 0，不跑正则。
   static String _speedKey(double speed) {
     final text = speed.toStringAsFixed(2);
-    return text
-        .replaceFirst(_trailingZeros, '')
-        .replaceFirst(_trailingDot, '');
+    return text.endsWith('00')
+        ? text.substring(0, text.length - 3)
+        : text.endsWith('0')
+        ? text.substring(0, text.length - 1)
+        : text;
   }
 
   static void _recordSourceSpeed(double speed, double defaultSpeed) {
@@ -1085,6 +1138,10 @@ abstract final class PlaybackStatsService {
     required double speed,
     required double defaultSpeed,
     int? cid,
+    int? aid,
+    String? bvid,
+    int? epid,
+    int? seasonId,
     int? liveUid,
     int? videoUpUid,
     String? videoUpName,
@@ -1123,6 +1180,7 @@ abstract final class PlaybackStatsService {
         _reclassifyTrailingPauseAsComment();
         _finalizeVideoSession();
       }
+      _finalizeLiveSession();
       _finishRewind(now, completed: false);
       _active = false;
       _mediaKey = null;
@@ -1138,6 +1196,7 @@ abstract final class PlaybackStatsService {
         _reclassifyTrailingPauseAsComment();
         _finalizeVideoSession();
       }
+      _finalizeLiveSession();
       _finishRewind(now, completed: false);
       if (isLive) {
         _videoUpUid = null;
@@ -1145,6 +1204,8 @@ abstract final class PlaybackStatsService {
         _videoUpStartRecorded = false;
         _liveUid = liveUid?.toString() ?? 'unknown';
         _liveName = liveName;
+        _liveSessionStartMs = DateTime.now().millisecondsSinceEpoch;
+        _liveSessionUs = 0;
         _add('liveOpenCount', 1);
         final byUid = _map('liveByUid');
         final item = _mutableMap(byUid[_liveUid]);
@@ -1161,6 +1222,13 @@ abstract final class PlaybackStatsService {
         _videoUpUid = videoUpUid?.toString();
         _videoUpName = videoUpName;
         _videoUpStartRecorded = false;
+        _logBvid = bvid;
+        _logAid = aid;
+        _logEpid = epid;
+        _logSeasonId = seasonId;
+        _logTitle = null;
+        _logEpTitle = null;
+        _logPubdate = null;
         _recordVideoUpStart();
         _add('videoStarts', 1);
         _recordSourceSpeed(speed, defaultSpeed);
@@ -1295,6 +1363,9 @@ abstract final class PlaybackStatsService {
     _sessionMaxPositionUs = initialPositionUs;
     _sessionCompleted = false;
     _coveredIntervals.clear();
+    _sessionStartMs = DateTime.now().millisecondsSinceEpoch;
+    _sessionFlags = 0;
+    _sessionSrc = _entryPage;
     _dimensionContextVersion++;
     if (!resetContext) return;
     _orientation = 'unknown';
@@ -1402,6 +1473,10 @@ abstract final class PlaybackStatsService {
     if (!_videoSessionOpen) return;
     _flushPlaybackPending();
     _videoSessionOpen = false;
+    WatchLogService.append(
+      _videoLogRecord(DateTime.now()),
+      Accounts.heartbeat.mid,
+    );
     final played = _sessionActiveUs > 0;
     final sessionPrimitives = <String, num>{
       'sessionOpenedCount': 1,
@@ -1509,6 +1584,103 @@ abstract final class PlaybackStatsService {
       lower = upper;
     }
     _addBucket(key, bucket, 1);
+  }
+
+  static void setVideoMeta({
+    required int cid,
+    String? title,
+    String? episodeTitle,
+    int? pubdate,
+  }) {
+    if (!_active || _live || _mediaKey != 'cid:$cid') return;
+    if (title != null) _logTitle = title;
+    if (episodeTitle != null) _logEpTitle = episodeTitle;
+    if (pubdate != null) _logPubdate = pubdate;
+  }
+
+  static void markInteraction(int bits) {
+    if (_videoSessionOpen) _sessionFlags |= bits;
+  }
+
+  static Map<String, Object> _videoLogRecord(DateTime now) {
+    final iv = [
+      for (final r in _coveredIntervals) [r.start ~/ 1000, r.end ~/ 1000],
+    ];
+    if (iv.length > 32) {
+      // Close the n-32 smallest gaps in one pass (ties may close a few more).
+      final cut = ([
+        for (var i = 1; i < iv.length; i++) iv[i][0] - iv[i - 1][1],
+      ]..sort())[iv.length - 33];
+      var j = 0;
+      for (var i = 1; i < iv.length; i++) {
+        if (iv[i][0] - iv[j][1] <= cut) {
+          iv[j][1] = iv[i][1];
+        } else {
+          iv[++j] = iv[i];
+        }
+      }
+      iv.length = j + 1;
+    }
+    return {
+      'k': 'v',
+      't0': _sessionStartMs,
+      't1': now.millisecondsSinceEpoch,
+      'z': now.timeZoneOffset.inMinutes,
+      'bv': ?_logBvid,
+      'av': ?_logAid,
+      'cid': ?int.tryParse(_mediaKey?.substring(4) ?? ''),
+      'ep': ?_logEpid,
+      'ss': ?_logSeasonId,
+      'ti': ?_logTitle,
+      'et': ?_logEpTitle,
+      'pd': ?_logPubdate,
+      'up': ?int.tryParse(_videoUpUid ?? ''),
+      'un': ?_videoUpName,
+      'tid': ?int.tryParse(_partitionId),
+      'tn': _partitionName,
+      'ct': _contentType,
+      'd': _sourceDurationUs ~/ 1000,
+      'a': _sessionActiveUs ~/ 1000,
+      'm': _sessionMediaAdvanceUs ~/ 1000,
+      'n': (_sessionNominalMediaUs * 0.001).round(),
+      'nl': (_sessionNominalIncludingLongPressUs * 0.001).round(),
+      'ps': _sessionPausedUs ~/ 1000,
+      'uc': _sessionUniqueCoveredUs ~/ 1000,
+      'rc': _sessionRepeatCoveredUs ~/ 1000,
+      'mx': _sessionMaxPositionUs ~/ 1000,
+      if (_sessionCompleted) 'done': 1,
+      if (iv.isNotEmpty) 'iv': iv,
+      'or': _orientation,
+      'cd': _codec,
+      'q': _quality,
+      'nw': _network,
+      'fm': _playbackForm,
+      'sb': _subtitle,
+      'dm': _danmaku,
+      'cr': _copyright,
+      'dec': _decoder,
+      'src': _sessionSrc,
+      if (_sessionFlags != 0) 'fl': _sessionFlags,
+    };
+  }
+
+  static Map<String, Object> _liveLogRecord(DateTime now) => {
+    'k': 'l',
+    't0': _liveSessionStartMs,
+    't1': now.millisecondsSinceEpoch,
+    'z': now.timeZoneOffset.inMinutes,
+    'up': ?int.tryParse(_liveUid ?? ''),
+    'un': ?_liveName,
+    'a': _liveSessionUs ~/ 1000,
+  };
+
+  static void _finalizeLiveSession() {
+    if (_liveSessionStartMs == 0) return;
+    WatchLogService.append(
+      _liveLogRecord(DateTime.now()),
+      Accounts.heartbeat.mid,
+    );
+    _liveSessionStartMs = 0;
   }
 
   static void setVideoUpUid({
@@ -1669,6 +1841,7 @@ abstract final class PlaybackStatsService {
     final now = _clock.elapsedMicroseconds;
     if (_live) {
       _settleLive(now);
+      _finalizeLiveSession();
     } else {
       _settleVideo(position.inMicroseconds, now);
       _reclassifyTrailingPauseAsComment();
@@ -1708,6 +1881,7 @@ abstract final class PlaybackStatsService {
     final delta = now - _lastWallUs;
     final elapsed = delta > 0 ? delta : 0;
     if (elapsed > 0) {
+      _liveSessionUs += elapsed;
       _add('liveWatchUs', elapsed);
       final uid = _liveUid;
       if (uid != null) {
@@ -2041,7 +2215,34 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
-    final raw = Map<String, dynamic>.from(_stats!);
+    return _withDerived(Map<String, dynamic>.from(_stats!));
+  }
+
+  /// Explicit and heavy: the cold archive plus the active period, combined
+  /// with the same per-field rules as the 8/18/28 rollover. Assembly, merge
+  /// and derivation run off the UI isolate.
+  static Future<Map<String, dynamic>> fullSnapshot() async {
+    await PlaybackArchiveService.beginExplicitAccess();
+    final Map<String, dynamic> active;
+    final Map<String, dynamic> archived;
+    try {
+      // Taken while explicit access holds rollover off, so no period is
+      // counted in both.
+      active = snapshot()..remove('derived');
+      archived = await PlaybackArchiveService.loadRawArchive();
+    } finally {
+      PlaybackArchiveService.endExplicitAccess();
+    }
+    return Isolate.run(
+      () => _withDerived(
+        Map<String, dynamic>.from(
+          PlaybackArchiveService.merge(_assemble(archived), active, '') as Map,
+        ),
+      ),
+    );
+  }
+
+  static Map<String, dynamic> _withDerived(Map<String, dynamic> raw) {
     final source = _numericMap(raw['sourceSpeedSelections']);
     final manual = _numericMap(raw['manualSpeedSelections']);
     final selections = <String, num>{...source};
@@ -2156,12 +2357,14 @@ abstract final class PlaybackStatsService {
 
   static num _number(dynamic value) => value is num ? value : 0;
 
-  static String advancedJson() {
+  /// The active period for the advanced view, left as a map so the archive
+  /// service can format it together with the history off the UI isolate.
+  static Map<String, dynamic> advancedData() {
     final data = snapshot();
     final derived = data.remove('derived');
-    return const JsonEncoder.withIndent('  ').convert({
+    return {
       '说明': {
-        'schemaVersion': schemaVersion,
+        'databaseVersion': GStorage.databaseVersion,
         'timeUnit': 'microseconds',
         'savedTime': 'mediaAdvanceUs - activePlaybackUs；不包含快进跳转',
         'normalSavedTime': 'normalMediaAdvanceUs - normalPlaybackUs',
@@ -2187,7 +2390,7 @@ abstract final class PlaybackStatsService {
       },
       '原语': data,
       '当前推导值': derived,
-    });
+    };
   }
 
   static Map<String, dynamic> _storageCopy(Map value) =>
@@ -2221,6 +2424,17 @@ abstract final class PlaybackStatsService {
     } else {
       _flushPlaybackPending();
     }
+    if (_videoSessionOpen) {
+      WatchLogService.checkpoint(
+        _videoLogRecord(DateTime.now()),
+        Accounts.heartbeat.mid,
+      );
+    } else if (_liveSessionStartMs != 0) {
+      WatchLogService.checkpoint(
+        _liveLogRecord(DateTime.now()),
+        Accounts.heartbeat.mid,
+      );
+    }
     if (!_dirty) return;
     _stats!['updatedAtMs'] = DateTime.now().millisecondsSinceEpoch;
     _dirtyKeys.add('updatedAtMs');
@@ -2231,7 +2445,6 @@ abstract final class PlaybackStatsService {
     final liveUids = Set<String>.of(_dirtyLiveUids);
     final dimensions = Set<String>.of(_dirtyDimensions);
     final crossDimensions = Set<String>.of(_dirtyCrossDimensions);
-    final legacyKeys = Set<String>.of(_legacyCompositeKeys);
     final writes = <dynamic, dynamic>{
       for (final key in keys) key: _stats![key],
     };
@@ -2283,12 +2496,8 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.removeAll(liveUids);
     _dirtyDimensions.removeAll(dimensions);
     _dirtyCrossDimensions.removeAll(crossDimensions);
-    _legacyCompositeKeys.removeAll(legacyKeys);
     Future<void> write(dynamic _) async {
       if (writes.isNotEmpty) await GStorage.playbackStats.putAll(writes);
-      if (legacyKeys.isNotEmpty) {
-        await GStorage.playbackStats.deleteAll(legacyKeys);
-      }
     }
     _writeChain = _writeChain.then(write, onError: write);
     try {
@@ -2301,7 +2510,6 @@ abstract final class PlaybackStatsService {
       _dirtyLiveUids.addAll(liveUids);
       _dirtyDimensions.addAll(dimensions);
       _dirtyCrossDimensions.addAll(crossDimensions);
-      _legacyCompositeKeys.addAll(legacyKeys);
       rethrow;
     }
   }
@@ -2318,11 +2526,15 @@ abstract final class PlaybackStatsService {
     }
   }
 
-  static Future<void> restoreHiveSnapshot(File source) async {
+  static Future<void> restoreHiveSnapshot(
+    File source, {File? archiveSource}
+  ) async {
+    await PlaybackArchiveService.waitForMaintenance();
     _snapshotting = true;
     try {
       await flush(force: true);
       await GStorage.restorePlaybackStatsHive(source);
+      await GStorage.restorePlaybackArchiveHive(archiveSource);
       reloadFromStorage();
     } finally {
       _snapshotting = false;
@@ -2331,13 +2543,9 @@ abstract final class PlaybackStatsService {
 
   static Future<void> reset() async {
     _ensureInitialized();
+    await PlaybackArchiveService.resetArchive();
     await GStorage.playbackStats.clear();
-    _stats = {
-      'schemaVersion': schemaVersion,
-      'metricDefinitionVersion': metricDefinitionVersion,
-      'storageLayoutVersion': storageLayoutVersion,
-      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
-    };
+    _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
     _rewind = null;
     _pendingPositionUs = null;
     _clearTrailingPause();
@@ -2350,7 +2558,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.clear();
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
-    _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;
@@ -2404,7 +2611,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.clear();
     _dirtyDimensions.clear();
     _dirtyCrossDimensions.clear();
-    _legacyCompositeKeys.clear();
     _wallTimeCache = null;
     _wallTimeRefreshAtUs = 0;
     _dimensionTargetsCache = null;
@@ -2432,6 +2638,11 @@ final class PlaybackPageRouteObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     PlaybackStatsService._onPageRouteChanged(route.settings.name);
+    if (route.settings.name == '/videoV') {
+      PlaybackStatsService._entryPage = PlaybackStatsService._routeCategory(
+        previousRoute?.settings.name,
+      );
+    }
   }
 
   @override

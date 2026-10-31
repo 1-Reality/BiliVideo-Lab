@@ -158,7 +158,7 @@ class LocalIntroController extends CommonIntroController {
       ..cid.value = entry.cid
       ..args['dirPath'] = entry.entryDirPath
       ..initFileSource(entry)
-      ..initPlayerIfNeeded(false);
+      ..initPlayerIfNeeded(.off);
     videoDetail
       ..value.title = entry.showTitle
       ..refresh();

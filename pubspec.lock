@@ -240,11 +240,9 @@ packages:
   canvas_danmaku:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: "275046d8647a6a26cba1d0dadb9e28688cb3dbf1"
-      url: "https://github.com/bggRGjQaUbCoE/canvas_danmaku.git"
-    source: git
+      path: third_party/canvas_danmaku
+      relative: true
+    source: path
     version: "0.2.6"
   catcher_2:
     dependency: "direct main"
@@ -893,7 +891,7 @@ packages:
     source: hosted
     version: "4.1.2"
   image:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: image
       sha256: "89ed75b2f8231fe676808c5564f9590d728024ded7ac782a7ed8474f1c95b72a"
@@ -1240,8 +1238,8 @@ packages:
     description:
       path: media_kit_video
       ref: native
-      resolved-ref: "85f0a69ea66b100882b27a3375c72e5155375343"
-      url: "https://github.com/bggRGjQaUbCoE/media-kit.git"
+      resolved-ref: "73771ec38176be2d984a3049c28177bce23b54a0"
+      url: "https://github.com/My-Responsitories/media-kit.git"
     source: git
     version: "1.2.5"
   meta:
@@ -1401,10 +1399,9 @@ packages:
   path_provider_windows:
     dependency: transitive
     description:
-      name: path_provider_windows
-      sha256: bd6f00dbd873bfb70d0761682da2b3a2c2fccc2b9e84c495821639601d81afe7
-      url: "https://pub.dev"
-    source: hosted
+      path: third_party/path_provider_windows
+      relative: true
+    source: path
     version: "2.3.0"
   permission_handler_android:
     dependency: "direct main"
@@ -1455,7 +1452,7 @@ packages:
     source: hosted
     version: "2.1.8"
   pointycastle:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: pointycastle
       sha256: "4be0097fcf3fd3e8449e53730c631200ebc7b88016acecab2b0da2f0149222fe"

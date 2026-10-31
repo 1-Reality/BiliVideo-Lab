@@ -1,15 +1,19 @@
 import 'dart:async' show Timer, unawaited;
 
+import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/pages/login/view.dart';
+import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/device_presets.dart';
 import 'package:PiliBro/utils/orientation_policy.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyEvent, LogicalKeyboardKey;
 import 'package:flutter/widgets.dart' show FocusManager, KeyEventResult;
@@ -54,71 +58,108 @@ abstract final class TvRemoteSetup {
       Navigator.of(current).pop(action);
     }
 
+    var isPassthrough =
+        Pref.hardwareDecoding.contains(HwDecType.mediacodecEmbed.hwdec);
+
     final action = await showDialog<_TvRemoteMenuAction>(
       context: context,
       builder: (current) {
         dialogContext = current;
-        return AlertDialog(
-          title: const Text('电视机快速登录与遥控器配置'),
-          content: SizedBox(
-            width: 560,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
-                const SizedBox(height: 18),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
+        return StatefulBuilder(
+          builder: (dialog, setDialogState) {
+            return AlertDialog(
+              title: const Text('电视机快速登录与遥控器配置'),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextButton(
-                      onPressed: () => select(_TvRemoteMenuAction.login),
-                      child: const Text('仅登录'),
+                    const Text('这是一次性配置工具，只修改普通设置，不建立独立的电视运行模式。'),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '播放卡顿？',
+                            style: TextStyle(color: Colors.purple),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setDialogState(() => isPassthrough = !isPassthrough);
+                            isPassthrough
+                                ? GStorage.setting.put(
+                                    SettingBoxKey.hardwareDecoding,
+                                    HwDecType.embedWithFallback,
+                                  )
+                                : GStorage.setting.delete(
+                                    SettingBoxKey.hardwareDecoding,
+                                  );
+                          },
+                          child: Text(
+                            isPassthrough ? '切换为一般渲染' : '点击切换为直通',
+                            style: TextStyle(
+                              color: isPassthrough ? Colors.blue : Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    FilledButton(
-                      onPressed: () => select(_TvRemoteMenuAction.configure),
-                      child: const Text('配置遥控器并登录'),
+                    const SizedBox(height: 18),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () => select(_TvRemoteMenuAction.login),
+                          child: const Text('仅登录'),
+                        ),
+                        FilledButton(
+                          onPressed: () => select(_TvRemoteMenuAction.configure),
+                          child: const Text('配置遥控器并登录'),
+                        ),
+                        TextButton(
+                          onPressed: () => select(_TvRemoteMenuAction.exportSettings),
+                          child: const Text('导出设置'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(dialog).pop(),
+                          child: const Text('取消'),
+                        ),
+                      ],
                     ),
-                    TextButton(
-                      onPressed: () => select(_TvRemoteMenuAction.exportSettings),
-                      child: const Text('导出设置'),
+                    const SizedBox(height: 18),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Text(
+                      '恢复默认预设',
+                      style: Theme.of(dialog).textTheme.titleMedium,
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.of(current).pop(),
-                      child: const Text('取消'),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.phonePreset),
+                      icon: const Icon(Icons.smartphone),
+                      label: const Text('应用手机预设'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.tabletPreset),
+                      icon: const Icon(Icons.tablet),
+                      label: const Text('应用平板预设'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => select(_TvRemoteMenuAction.foldablePreset),
+                      icon: const Icon(Icons.devices),
+                      label: const Text('应用折叠屏预设'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
-                const Divider(),
-                const SizedBox(height: 12),
-                Text(
-                  '恢复默认预设',
-                  style: Theme.of(current).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.phonePreset),
-                  icon: const Icon(Icons.smartphone),
-                  label: const Text('应用手机预设'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.tabletPreset),
-                  icon: const Icon(Icons.tablet),
-                  label: const Text('应用平板预设'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => select(_TvRemoteMenuAction.foldablePreset),
-                  icon: const Icon(Icons.devices),
-                  label: const Text('应用折叠屏预设'),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -281,6 +322,9 @@ abstract final class TvRemoteSetup {
     await Get.to(() => const LoginPage(initialIndex: 2));
   }
 
+  static String _settings() =>
+      BackupService.exportJson(const {BackupPart.settings});
+
   static Future<void> _showExportMenu(BuildContext context) async {
     await showDialog<void>(
       context: context,
@@ -290,29 +334,21 @@ abstract final class TvRemoteSetup {
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              exportToClipBoard(onExport: GStorage.exportPortableSettings);
+              exportToClipBoard(onExport: _settings);
             },
             child: const Text('导出至剪贴板'),
           ),
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              unawaited(
-                exportToQrCode(
-                  context,
-                  onExport: GStorage.exportPortableSettings,
-                ),
-              );
+              unawaited(exportToQrCode(context, onExport: _settings));
             },
             child: const Text('导出为二维码'),
           ),
           DialogOption(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              exportToLocalFile(
-                onExport: GStorage.exportPortableSettings,
-                localFileName: () => 'setting_tv',
-              );
+              exportBackupFile(const {BackupPart.settings}, 'setting_tv');
             },
             child: const Text('导出文件至本地'),
           ),

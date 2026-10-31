@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:math';
 
 import 'package:PiliBro/common/widgets/fractionally_sized_box.dart';
@@ -9,7 +10,11 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/search.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
+import 'package:PiliBro/models/common/video/source_type.dart' as video_source;
 import 'package:PiliBro/models/common/video/video_type.dart';
+import 'package:PiliBro/pages/audio/view.dart';
+import 'package:PiliBro/pages/audio/session.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
@@ -18,7 +23,9 @@ import 'package:PiliBro/pages/common/publish/publish_route.dart';
 import 'package:PiliBro/pages/contact/view.dart';
 import 'package:PiliBro/pages/fav_panel/view.dart';
 import 'package:PiliBro/pages/share/view.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
@@ -231,10 +238,35 @@ abstract final class PageUtils {
     );
   }
 
+  static bool _dynOpening = false;
+
+  // 视频类动态跳转前要先联网查 cid，弱网下要等好几秒；这期间再点就忽略，
+  // 免得以为没点到又点一次，进两次详情页。超过 300ms 才转圈，网快时不闪
   static Future<void> pushDynDetail(
     DynamicItemModel item, {
     bool isPush = false,
     bool viewComment = false,
+  }) async {
+    if (_dynOpening) return;
+    _dynOpening = true;
+    var loading = false;
+    final timer = Timer(const Duration(milliseconds: 300), () {
+      loading = true;
+      SmartDialog.showLoading();
+    });
+    try {
+      await _pushDynDetail(item, isPush: isPush, viewComment: viewComment);
+    } finally {
+      timer.cancel();
+      if (loading) SmartDialog.dismiss(status: SmartStatus.loading);
+      _dynOpening = false;
+    }
+  }
+
+  static Future<void> _pushDynDetail(
+    DynamicItemModel item, {
+    required bool isPush,
+    required bool viewComment,
   }) async {
     feedBack();
 
@@ -519,6 +551,7 @@ abstract final class PageUtils {
     int? roomId, {
     bool off = false,
   }) {
+    PipOverlayService.close();
     if (roomId == null) {
       return;
     }
@@ -547,7 +580,29 @@ abstract final class PageUtils {
     Dimension? dimension,
     int? rootRpId,
     int? secondRpId,
+    bool forceVideo = false,
   }) {
+    PipOverlayService.close();
+    final source =
+        extraArguments?['sourceType'] as video_source.SourceType? ?? video_source.SourceType.normal;
+    if (!forceVideo &&
+        AudioFirstMode.openAudio &&
+        videoType == VideoType.ugc &&
+        source != video_source.SourceType.file) {
+      final videoAid = aid ?? IdUtils.bv2av(bvid!);
+      return AudioPage.toAudioPage(
+        oid: videoAid,
+        subId: [cid],
+        itemType: 1,
+        id: extraArguments?['mediaId'] as int?,
+        from: source.playlistSource ?? PlaylistSource.UP_ARCHIVE,
+        extraId: source.extraId,
+        bvid: bvid ?? IdUtils.av2bv(videoAid),
+        off: off,
+        start: progress == null ? null : Duration(milliseconds: progress),
+      );
+    }
+    AudioPlaybackSession.pauseForVideo();
     final arguments = {
       'aid': aid ?? IdUtils.bv2av(bvid!),
       'bvid': bvid ?? IdUtils.av2bv(aid!),

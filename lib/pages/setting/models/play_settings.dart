@@ -6,24 +6,20 @@ import 'package:PiliBro/models/common/audio_normalization.dart';
 import 'package:PiliBro/models/common/super_chat_type.dart';
 import 'package:PiliBro/models/common/super_resolution_type.dart';
 import 'package:PiliBro/models/common/video/subtitle_pref_type.dart';
-import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc.dart';
+import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
-import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliBro/services/service_locator.dart';
-import 'package:PiliBro/utils/android/android_helper.dart';
-import 'package:PiliBro/utils/desktop/window_controller.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
-import 'package:PiliBro/utils/ios/pip_helper.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -38,35 +34,35 @@ List<SettingsModel> get playSettings => [
     subtitle: '设置视频播放速度，高熵信息生活，节约时间就是延长生命！',
   ),
   NormalModel(
+    onTap: (context, setState) => Get.toNamed('/gestureSettings'),
+    leading: const Icon(Icons.swipe_outlined),
+    title: '手势',
+    subtitle: '上下、左右滑动的分区与动作：亮度、音量、倍速、进度、全屏',
+  ),
+  NormalModel(
     onTap: (context, setState) => Get.toNamed('/orientationSettings'),
     leading: const Icon(Icons.screen_rotation_outlined),
     title: '方向（横竖屏）设置',
     subtitle: '应用方向、全屏方向与方向感应',
   ),
-  if (kDebugMode || Platform.isAndroid)
-    NormalModel(
-      title: '音量均衡',
-      leading: const Icon(Icons.multitrack_audio),
-      getSubtitle: () {
-        final audioNormalization = AudioNormalization.getTitleFromConfig(
-          Pref.audioNormalization,
-        );
-        String fallback = Pref.fallbackNormalization;
-        if (fallback == '0') {
-          fallback = '';
-        } else {
-          fallback =
-              '，无参数时:「${AudioNormalization.getTitleFromConfig(fallback)}」';
-        }
-        return '当前:「$audioNormalization」$fallback';
-      },
-      onTap: audioNormalization,
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: '音视频快捷切换 · 音频与后台',
+      subtitle: '开关：底部播放条；点击：听视频模式、后台播放、画中画、音频服务、音量均衡等',
+      leading: Icon(Icons.headphones_outlined),
     ),
+    switchModel: SwitchModel.split(
+      setKey: SettingBoxKey.showAudioMiniPlayer,
+      defaultVal: true,
+      needReboot: true,
+      onTap: (context) => Get.toNamed('/audioSettings'),
+    ),
+  ),
   NormalModel(
     title: '超分辨率',
     leading: const Icon(Icons.stay_current_landscape_outlined),
     getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
+        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 copy系',
     onTap: _showSuperResolutionDialog,
   ),
   const SwitchModel(
@@ -75,6 +71,21 @@ List<SettingsModel> get playSettings => [
     leading: Icon(Icons.motion_photos_auto_outlined),
     setKey: SettingBoxKey.autoPlayEnable,
     defaultVal: true,
+  ),
+  const SwitchModel(
+    title: '评论区进入不自动播放',
+    subtitle: '从评论区上下文查看视频详情页时，不自动播放：治好完播强迫症',
+    leading: Icon(Icons.comment_outlined),
+    setKey: SettingBoxKey.replyNoAutoPlay,
+    defaultVal: false,
+  ),
+  NormalModel(
+    title: '顶栏按钮',
+    leading: const Icon(Icons.view_week_outlined),
+    getSubtitle: () =>
+        '播放器顶部太挤（窄屏、曲面屏）时，勾掉用不到的。当前显示 '
+        '${_headerButtons.keys.where((k) => GStorage.setting.get(k, defaultValue: true) as bool).length}/${_headerButtons.length} 个',
+    onTap: _showHeaderButtonsDialog,
   ),
   const SwitchModel(
     title: '全屏显示锁定按钮',
@@ -99,13 +110,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '左侧双击快退/右侧双击快进，关闭则双击均为暂停/播放',
     leading: Icon(Icons.touch_app_outlined),
     setKey: SettingBoxKey.enableQuickDouble,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '左右侧滑动调节亮度/音量',
-    leading: Icon(MdiIcons.tuneVerticalVariant),
-    setKey: SettingBoxKey.enableSlideVolumeBrightness,
-    defaultVal: true,
+    defaultVal: false,
   ),
   const SwitchModel(
     title: '滚轮调节音量',
@@ -120,12 +125,6 @@ List<SettingsModel> get playSettings => [
       setKey: SettingBoxKey.setSystemBrightness,
       defaultVal: false,
     ),
-  const SwitchModel(
-    title: '中间滑动进入/退出全屏',
-    leading: Icon(MdiIcons.panVertical),
-    setKey: SettingBoxKey.enableSlideFS,
-    defaultVal: true,
-  ),
   const SwitchModel(
     title: '提前初始化播放器',
     subtitle: '相对减少手动播放加载时间',
@@ -220,20 +219,6 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.reverseFromFirst,
     defaultVal: true,
   ),
-  if (kDebugMode || PlatformUtils.isMobile)
-    NormalModel(
-      title: '播放器音量',
-      leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${Pref.playerVolume.round()}%」',
-      onTap: showPlayerVolumeDialog,
-    )
-  else
-    NormalModel(
-      title: '最高音量',
-      leading: const Icon(Icons.volume_up),
-      getSubtitle: () => '当前:「${(Pref.maxVolume * 100).round()}%」',
-      onTap: _showMaxVolumeDialog,
-    ),
   getVideoFilterSelectModel(
     title: '双击快进/快退时长',
     suffix: 's',
@@ -260,25 +245,17 @@ List<SettingsModel> get playSettings => [
   NormalModel(
     title: '自动启用字幕',
     leading: const Icon(Icons.closed_caption_outlined),
-    getSubtitle: () => '当前选择偏好：${Pref.subtitlePreferenceV2.desc}',
+    getSubtitle: () => '当前选择偏好：${Pref.subtitlePreference.desc}',
     onTap: _showSubtitleDialog,
   ),
   NormalModel(
-    title: 'AI 字幕粉丝数限值',
+    title: 'AI 字幕粉丝数经验限值',
     leading: const Icon(Icons.people_outline),
     getSubtitle: () => Pref.subtitleFollowerThreshold == 0
         ? '当前关闭；仅用于“静音时自动启用”偏好'
         : 'UP 主粉丝少于 ${Pref.subtitleFollowerThreshold} 时，非静音也启用 AI 字幕',
     onTap: _showSubtitleFollowerThresholdDialog,
   ),
-  if (PlatformUtils.isDesktop)
-    SwitchModel(
-      title: '最小化时暂停/还原时播放',
-      leading: const Icon(Icons.pause_circle_outline),
-      setKey: SettingBoxKey.pauseOnMinimize,
-      defaultVal: false,
-      onChanged: (value) => WindowController.instance.pauseOnMinimize = value,
-    ),
   const SwitchModel(
     title: '启用键盘控制',
     leading: Icon(Icons.keyboard_alt_outlined),
@@ -311,12 +288,30 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableVerticalExpand,
     defaultVal: false,
   ),
-  const SwitchModel(
+  PopupModel(
     title: '自动全屏',
-    subtitle: '视频开始播放时进入全屏',
-    leading: Icon(Icons.fullscreen_outlined),
-    setKey: SettingBoxKey.enableAutoEnter,
-    defaultVal: false,
+    leading: const Icon(Icons.fullscreen_outlined),
+    value: () => Pref.autoFullscreenMode,
+    items: AutoFullscreenMode.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.autoFullscreenMode, value.index)
+        .whenComplete(setState),
+  ),
+  PopupModel(
+    title: '推荐视频自动全屏',
+    leading: const Icon(Icons.fullscreen_outlined),
+    value: () => Pref.relatedAutoFullscreenMode,
+    items: AutoFullscreenMode.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.relatedAutoFullscreenMode, value.index)
+        .whenComplete(setState),
+  ),
+  const SwitchModel(
+    title: '退回上一个推荐视频时还原播放状态',
+    subtitle: '离开时在播就接着播、暂停就停着；关闭则按自动播放开关',
+    leading: Icon(Icons.undo_outlined),
+    setKey: SettingBoxKey.relatedBackRestore,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '自动退出全屏',
@@ -330,46 +325,6 @@ List<SettingsModel> get playSettings => [
     subtitle: '开启后延长至30秒，便于屏幕阅读器滑动切换控件焦点',
     leading: Icon(Icons.timer_outlined),
     setKey: SettingBoxKey.enableLongShowControl,
-    defaultVal: false,
-  ),
-  if (PlatformUtils.isMobile)
-    const SwitchModel(
-      title: '后台播放',
-      subtitle: '进入后台时继续播放',
-      leading: Icon(Icons.motion_photos_pause_outlined),
-      setKey: SettingBoxKey.continuePlayInBackground,
-      defaultVal: false,
-    ),
-  if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
-      (Platform.isIOS && IOSPipHelper.isAvailable))
-    SwitchModel(
-      title: '后台画中画',
-      subtitle: '进入后台时以小窗形式（PiP）播放',
-      leading: const Icon(Icons.picture_in_picture_outlined),
-      setKey: SettingBoxKey.autoPiP,
-      defaultVal: false,
-      onChanged: Platform.isAndroid
-          ? (val) {
-              if (val && !videoPlayerServiceHandler!.enableBackgroundPlay) {
-                SmartDialog.showToast('建议开启后台音频服务');
-              }
-            }
-          : null,
-    ),
-  // PiP on iOS only shows the video frames, without danmaku.
-  if (Platform.isAndroid)
-    const SwitchModel(
-      title: '画中画不加载弹幕',
-      subtitle: '当弹幕开关开启时，小窗屏蔽弹幕以获得较好的体验',
-      leading: Icon(CustomIcons.dm_off),
-      setKey: SettingBoxKey.pipNoDanmaku,
-      defaultVal: true,
-    ),
-  const SwitchModel(
-    title: '全屏手势反向',
-    subtitle: '默认播放器中部向上滑动进入全屏，向下退出\n开启后向下全屏，向上退出',
-    leading: Icon(Icons.swap_vert),
-    setKey: SettingBoxKey.fullScreenGestureReverse,
     defaultVal: false,
   ),
   const SwitchModel(
@@ -391,16 +346,29 @@ List<SettingsModel> get playSettings => [
     getSubtitle: () => '当前展示方式：${Pref.btmProgressBehavior.label}',
     onTap: _showProgressBehaviorDialog,
   ),
-  if (PlatformUtils.isMobile)
-    SwitchModel(
-      title: '后台音频服务',
-      subtitle: '避免画中画没有播放暂停功能',
-      leading: const Icon(Icons.volume_up_outlined),
-      setKey: SettingBoxKey.enableBackgroundPlay,
-      defaultVal: true,
-      onChanged: (value) =>
-          videoPlayerServiceHandler!.enableBackgroundPlay = value,
-    ),
+  const SwitchModel(
+    title: '进度条固定在底部（非全屏）',
+    subtitle: '关闭后随控制栏上移',
+    leading: Icon(Icons.vertical_align_bottom),
+    setKey: SettingBoxKey.fixedBottomProgress,
+    defaultVal: true,
+    needReboot: true,
+  ),
+  const SwitchModel(
+    title: '进度条固定在底部（全屏）',
+    subtitle: '关闭后随控制栏上移',
+    leading: Icon(Icons.vertical_align_bottom),
+    setKey: SettingBoxKey.fixedBottomProgressFs,
+    defaultVal: false,
+    needReboot: true,
+  ),
+  NormalModel(
+    title: '播放器左右留白（dp）',
+    leading: const Icon(Icons.space_bar_outlined),
+    getSubtitle: () =>
+        '进度条${Pref.progressBarSideSpace}dp 按钮${Pref.bottomControlSideSpace}dp',
+    onTap: _showPlayerSpaceDialog,
+  ),
   PopupModel(
     title: '播放顺序',
     leading: const Icon(Icons.repeat),
@@ -427,13 +395,13 @@ Future<void> _showSubtitleDialog(
     context: context,
     builder: (context) => SelectDialog<SubtitlePrefType>(
       title: '字幕选择偏好',
-      value: Pref.subtitlePreferenceV2,
+      value: Pref.subtitlePreference,
       values: SubtitlePrefType.values.map((e) => (e, e.desc)).toList(),
     ),
   );
   if (res != null) {
     await GStorage.setting.put(
-      SettingBoxKey.subtitlePreferenceV2,
+      SettingBoxKey.subtitlePreference,
       res.index,
     );
     setState();
@@ -501,6 +469,36 @@ Future<void> _showSuperChatDialog(
   }
 }
 
+Future<void> _showPlayerSpaceDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(double, double)>(
+    context: context,
+    builder: (context) => DualSliderDialog(
+      title: const Text('播放器左右留白'),
+      value1: Pref.progressBarSideSpace,
+      value2: Pref.bottomControlSideSpace,
+      description1: const Text('进度条左右边距（默认20dp）'),
+      description2: const Text('底部按钮左右边距（默认10dp）'),
+      min: 0,
+      max: 24,
+      divisions: 24,
+      suffix: 'dp',
+      precise: 0,
+      enableInput: true,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.putAll({
+      SettingBoxKey.progressBarSideSpace: res.$1,
+      SettingBoxKey.bottomControlSideSpace: res.$2,
+    });
+    SmartDialog.showToast('重启生效');
+    setState();
+  }
+}
+
 Future<void> _showProgressBehaviorDialog(
   BuildContext context,
   VoidCallback setState,
@@ -540,7 +538,7 @@ Future<void> showPlayerVolumeDialog(
   );
 }
 
-Future<void> _showMaxVolumeDialog(
+Future<void> showMaxVolumeDialog(
   BuildContext context,
   VoidCallback setState,
 ) {
@@ -630,7 +628,6 @@ Future<void> audioNormalization(
       };
       return SelectDialog<String>(
         title: fallback ? '服务器无loudnorm配置时使用' : '音量均衡',
-        toggleable: true,
         value: audioNormalization,
         values: values
             .map(
@@ -660,7 +657,7 @@ Future<void> audioNormalization(
             mainAxisSize: MainAxisSize.min,
             spacing: 16,
             children: [
-              const Text('等同于 --lavfi-complex="[aid1] 参数 [ao]"'),
+              const Text('等同于 --af=lavfi=[参数]，接在倍速音调补偿之后'),
               TextField(
                 autofocus: true,
                 onChanged: (value) => param = value,
@@ -698,4 +695,35 @@ Future<void> audioNormalization(
       setState();
     }
   }
+}
+
+const _headerButtons = {
+  SettingBoxKey.headerBtnHome: '返回主页',
+  SettingBoxKey.headerBtnMiniWindow: '应用内小窗',
+  SettingBoxKey.headerBtnListen: '听音频',
+  SettingBoxKey.headerBtnCast: '投屏',
+  SettingBoxKey.headerBtnSponsor: '空降助手',
+  SettingBoxKey.headerBtnDmSettings: '弹幕设置',
+  SettingBoxKey.headerBtnPip: '画中画',
+};
+
+Future<void> _showHeaderButtonsDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<Set<String>>(
+    context: context,
+    builder: (context) => MultiSelectDialog<String>(
+      title: '顶栏显示哪些按钮',
+      initValues: _headerButtons.keys.where(
+        (k) => GStorage.setting.get(k, defaultValue: true) as bool,
+      ),
+      values: _headerButtons,
+    ),
+  );
+  if (res == null) return;
+  await GStorage.setting.putAll({
+    for (final k in _headerButtons.keys) k: res.contains(k),
+  });
+  setState();
 }

@@ -24,6 +24,7 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class WhisperSessionItem extends StatelessWidget {
+  static final _vipInfoCache = Expando<Map>();
   const WhisperSessionItem({
     super.key,
     required this.item,
@@ -68,8 +69,8 @@ class WhisperSessionItem extends StatelessWidget {
         : resource.hasResAnimation()
         ? resource.resAnimation.webpSrc.remote.url
         : resource.resNativeDraw.drawSrc.remote.url;
-    Map? vipInfo = item.sessionInfo.hasVipInfo()
-        ? jsonDecode(item.sessionInfo.vipInfo)
+    final vipInfo = item.sessionInfo.hasVipInfo()
+        ? (_vipInfoCache[item] ??= jsonDecode(item.sessionInfo.vipInfo))
         : null;
 
     final theme = Theme.of(context);

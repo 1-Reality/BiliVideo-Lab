@@ -46,7 +46,7 @@ static void my_application_activate(GApplication *application) {
 
   const gboolean use_header_bar = [window]() -> gboolean {
     if (g_file_test(g_build_filename(g_get_user_data_dir(),
-                                     "com.example.pilibro", "use_ssd", NULL),
+                                     "org.BroTech.gege.pilibro", "use_ssd", NULL),
                     G_FILE_TEST_EXISTS))
       return FALSE;
 

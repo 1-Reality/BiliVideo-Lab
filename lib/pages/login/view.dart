@@ -27,7 +27,7 @@ final _noWhitespaceFormatters = [
 ];
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.initialIndex = 0});
+  const LoginPage({super.key, this.initialIndex = 1});
 
   final int initialIndex;
 

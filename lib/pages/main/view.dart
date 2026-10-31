@@ -9,8 +9,10 @@ import 'package:PiliBro/common/widgets/main_layout.dart';
 import 'package:PiliBro/common/widgets/route_aware_mixin.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/pages/home/view.dart';
+import 'package:PiliBro/pages/audio/mini_player.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/playback_archive_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
@@ -125,6 +127,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Future<void> _flushTelemetryAndCloseStorage() async {
     await PlaybackStatsService.flush();
+    await PlaybackArchiveService.waitForMaintenance();
     await TrafficStatsService.instance.dispose();
     await GStorage.close();
   }
@@ -386,6 +389,11 @@ class _MainAppState extends PopScopeState<MainApp>
         sideBar: sideBar,
         bottomNav: bottomNav,
         body: Padding(padding: padding, child: child),
+        miniPlayer: PlaybackBar.enabled
+            ? PlaybackMiniBar(
+                bottomInset: bottomNav == null ? _padding.bottom : 0,
+              )
+            : null,
       ),
     );
 

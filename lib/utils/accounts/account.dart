@@ -2,10 +2,8 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/grpc_headers.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/id_utils.dart';
-import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
-import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -38,8 +36,11 @@ sealed class Account {
 
   String? get refresh => throw UnimplementedError();
 
-  set buvid(String value) => throw UnimplementedError();
-  String get buvid => throw UnimplementedError();
+  /// 签名与自报身份所用的客户端，跟着 access_key 的来历走
+  BiliApp get app => BiliApp.phone;
+
+  /// App 端 REST 请求的公共请求头
+  Map<String, String> get appHeaders => throw UnimplementedError();
 
   const Account();
 }
@@ -61,17 +62,23 @@ class LoginAccount extends Account {
   @HiveField(3)
   final Set<AccountType> type;
 
-  late String _buvid = AnonymousAccount()._buvid;
-  @override
+  /// 短信、密码登录拿到的是粉版 token；扫码只能走电视接口，拿到的是 HD token
   @HiveField(4)
-  String get buvid => _buvid;
+  final bool phone;
+
+  /// 短信、密码登录的账号另用 cookie 换来的 HD token，勾选平板推荐时才换
+  @HiveField(5)
+  String? hdAccessKey;
+
+  /// 某一端的 token：主 token 归它来历的那一端，HD 另有换来的一份
+  String? tokenOf(BiliApp app) => app == this.app
+      ? accessKey
+      : app == BiliApp.hd
+      ? hdAccessKey
+      : null;
+
   @override
-  set buvid(String value) {
-    if (_buvid == value) return;
-    _buvid = value;
-    grpcHeaders.addAll(GrpcHeaders.newHeaders(this));
-    onChange();
-  }
+  BiliApp get app => phone ? BiliApp.phone : BiliApp.hd;
 
   @override
   bool activated = false;
@@ -82,12 +89,20 @@ class LoginAccount extends Account {
   @override
   late final Map<String, String> headers = {
     ...Constants.baseHeaders,
+    'app-key': app.keyName,
     'x-bili-mid': _midStr,
     'x-bili-aurora-eid': IdUtils.genAuroraEid(mid),
   };
 
   @override
-  late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(this);
+  late final Map<String, String> appHeaders = BiliDevice.appHeaders(app, mid);
+
+  @override
+  late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(
+    app,
+    mid,
+    accessKey,
+  );
 
   @override
   late final String csrf =
@@ -112,8 +127,9 @@ class LoginAccount extends Account {
     'cookies': cookieJar.toJson(),
     'accessKey': accessKey,
     'refresh': refresh,
-    'buvid': buvid,
     'type': type.map((i) => i.index).toList(),
+    'phone': phone,
+    'hdAccessKey': hdAccessKey,
   };
 
   late final String _midStr = cookieJar
@@ -126,11 +142,11 @@ class LoginAccount extends Account {
   LoginAccount(
     this.cookieJar,
     this.accessKey,
-    this.refresh, [
+    this.refresh, {
     Set<AccountType>? type,
-    String? buvid,
-  ]) : type = type ?? {} {
-    if (buvid != null) _buvid = buvid;
+    this.phone = false,
+    this.hdAccessKey,
+  }) : type = type ?? {} {
     cookieJar.setBuvid3();
   }
 
@@ -138,8 +154,11 @@ class LoginAccount extends Account {
     BiliCookieJar.fromJson(json['cookies']),
     json['accessKey'],
     json['refresh'],
-    (json['type'] as Iterable?)?.map((i) => AccountType.values[i]).toSet(),
-    json['buvid'],
+    type: (json['type'] as Iterable?)
+        ?.map((i) => AccountType.values[i])
+        .toSet(),
+    phone: json['phone'] ?? false,
+    hdAccessKey: json['hdAccessKey'],
   );
 
   @override
@@ -169,27 +188,23 @@ class AnonymousAccount extends Account {
   final Map<String, String> headers = Constants.baseHeaders;
 
   @override
-  late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(this);
+  late final Map<String, String> appHeaders = BiliDevice.appHeaders(
+    BiliApp.phone,
+    0,
+  );
+
+  @override
+  late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(
+    BiliApp.phone,
+    0,
+  );
 
   @override
   bool activated = false;
 
-  late String _buvid = Pref.buvid;
   @override
-  String get buvid => _buvid;
-  @override
-  set buvid(String value) {
-    if (_buvid == value) return;
-    _buvid = value;
-    grpcHeaders.addAll(GrpcHeaders.newHeaders(this));
-    GStorage.setting.put(SettingBoxKey.buvid, value);
-  }
-
-  @override
-  Future<void> delete() {
-    grpcHeaders['x-bili-fawkes-req-bin'] = GrpcHeaders.fawkes;
-    return cookieJar.deleteAll().whenComplete(cookieJar.setBuvid3);
-  }
+  Future<void> delete() =>
+      cookieJar.deleteAll().whenComplete(cookieJar.setBuvid3);
 
   static final _instance = AnonymousAccount._();
 

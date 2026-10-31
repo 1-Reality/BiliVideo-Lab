@@ -98,7 +98,11 @@ class VideoDetailData {
         aid: json['aid'] as int?,
         videos: json['videos'] as int?,
         tid: json['tid'] as int?,
-        tname: json['tname'] as String?,
+        // 新投稿的 tname 常为空串，分区名改在 tname_v2
+        tname: switch (json['tname']) {
+          final String name when name.isNotEmpty => name,
+          _ => json['tname_v2'] as String?,
+        },
         copyright: json['copyright'] as int?,
         pic: json['pic'] as String?,
         title: json['title'] as String?,

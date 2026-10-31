@@ -20,6 +20,7 @@ import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
 import 'package:PiliBro/pages/danmaku/danmaku_model.dart';
 import 'package:PiliBro/pages/sponsor_block/block_mixin.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
@@ -33,6 +34,9 @@ import 'package:PiliBro/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliBro/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/plugin/pl_player/utils/orientation_platform.dart';
+import 'package:PiliBro/services/pip_overlay_service.dart';
+import 'package:PiliBro/services/playback_focus.dart';
+import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -447,6 +451,55 @@ class PlPlayerController
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
+  late int speedPanelLayout = Pref.speedPanelLayout;
+  late int speedGridCols = Pref.speedGridCols;
+  late int speedGridColsLandscape = Pref.speedGridColsLandscape;
+  late double speedGridWidth = Pref.speedGridWidth;
+  late double speedGridWidthLandscape = Pref.speedGridWidthLandscape;
+  late double speedGridRowHeight = Pref.speedGridRowHeight;
+  late double speedGridRowHeightLandscape = Pref.speedGridRowHeightLandscape;
+  late int speedSliderMin = Pref.speedSliderMin;
+  late int speedSliderMax = Pref.speedSliderMax;
+  late int speedSliderDivisions = Pref.speedSliderDivisions;
+  late double speedSliderWidth = Pref.speedSliderWidth;
+  late int speedStep = Pref.speedStep;
+  late int speedSlideHardH = Pref.speedSlideHardH;
+  late List<int> speedSlideSoftH = Pref.speedSlideSoftH;
+  late int speedSlideHoldH = Pref.speedSlideHoldH;
+  late int speedSlideHardV = Pref.speedSlideHardV;
+  late List<int> speedSlideSoftV = Pref.speedSlideSoftV;
+  late int speedSlideHoldV = Pref.speedSlideHoldV;
+  late bool wheelSpeed = Pref.wheelSpeed;
+  late bool arrowKeySpeed = Pref.arrowKeySpeed;
+  // 点面板中间数字时切回的倍速
+  int toggleSpeedCenti = 100;
+  final RxBool speedIndicator = false.obs;
+  Timer? _speedIndicatorTimer;
+
+  /// 滚轮、方向键按分度值调倍速；滚轮限制在滑杆范围内，方向键只保底 0.01 ~ 100 倍
+  void stepPlaybackSpeed(
+    bool increase, {
+    bool recordSelection = true,
+    bool bounded = true,
+  }) {
+    setPlaybackSpeed(
+      ((playbackSpeed * 100).round() + (increase ? speedStep : -speedStep))
+              .clamp(
+                bounded ? speedSliderMin : 1,
+                bounded ? speedSliderMax : 10000,
+              ) /
+          100,
+      recordSelection: recordSelection,
+    );
+    speedIndicator.value = true;
+    _speedIndicatorTimer?.cancel();
+    _speedIndicatorTimer = Timer(
+      const Duration(milliseconds: 800),
+      () => speedIndicator.value = false,
+    );
+  }
+
   late final showControlDuration = Pref.enableLongShowControl
       ? const Duration(seconds: 30)
       : const Duration(seconds: 3);
@@ -465,8 +518,8 @@ class PlPlayerController
   late final showFSActionItem = Pref.showFSActionItem;
   late final enableShrinkVideoSize = Pref.enableShrinkVideoSize;
   late final darkVideoPage = Pref.darkVideoPage;
-  late final enableSlideVolumeBrightness = Pref.enableSlideVolumeBrightness;
-  late final enableSlideFS = Pref.enableSlideFS;
+  late final slideVertical = Pref.slideVertical;
+  late final slideHorizontal = Pref.slideHorizontal;
   late final enableScrollVolume = Pref.enableScrollVolume;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
   late final fastForBackwardInSeconds = Pref.fastForBackwardDuration;
@@ -489,7 +542,6 @@ class PlPlayerController
   late final uiScale = Pref.uiScale;
   void Function()? onFullscreenExited;
 
-  late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
   late final bool autoPlayEnable = Pref.autoPlayEnable;
   late final bool enableVerticalExpand = Pref.enableVerticalExpand;
@@ -505,18 +557,32 @@ class PlPlayerController
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
-  bool _hwdecFallbackToastShown = false;
-  String? get _automaticHwdecFallback {
-    final modes = hwdec?.split(',') ?? const <String>[];
-    for (final mode in modes.skip(1)) {
-      if (mode == 'auto' || mode == 'auto-safe' || mode == 'auto-copy') {
-        return mode;
-      }
-    }
-    return null;
-  }
+  // The list is taken literally: mpv tries the entries in order and decodes in
+  // software only where 'no' is listed. Without 'no', a file none of them can
+  // decode fails to play.
+  late final bool _hwdecAllowsSoftware =
+      hwdec == null || hwdec!.split(',').contains('no');
+  // 设置页里直通只能单选；平板、电视预设写的是带回退列表的直通，先比较前者
+  late final bool mediacodecEmbed =
+      hwdec == 'mediacodec_embed' || _embedWithFallback;
+  late final bool _embedWithFallback =
+      hwdec?.startsWith('mediacodec_embed,') ?? false;
+  // While playing, hwdec-current is read every few seconds and matched
+  // against the user's keywords (settings are taken on each open). Only the
+  // decoder actually playing is read: the ones a file switch creates and drops
+  // fail their hwdec setup too, but position events, which drive this, do not
+  // fire while a file loads. An empty list turns the whole thing off.
+  List<String> _hwdecWatchWords = const [];
+  bool _hwdecWatchWhitelist = false;
+  int _hwdecWatchTicks = 0;
+  int _nextHwdecWatchTick = 0;
+  String? _lastHwdecWatched;
 
   late final progressType = Pref.btmProgressBehavior;
+  late final fixedBottomProgress = Pref.fixedBottomProgress;
+  late final fixedBottomProgressFs = Pref.fixedBottomProgressFs;
+  late final progressBarSideSpace = Pref.progressBarSideSpace;
+  late final bottomControlSideSpace = Pref.bottomControlSideSpace;
   late final enableQuickDouble = Pref.enableQuickDouble;
   late final fullScreenGestureReverse = Pref.fullScreenGestureReverse;
 
@@ -629,6 +695,8 @@ class PlPlayerController
     );
   }
 
+  static Player? get playerIfExists => _instance?._videoPlayerController;
+
   static double? getVolumeIfExists() {
     return _instance?.volume.value;
   }
@@ -671,6 +739,12 @@ class PlPlayerController
   BrotherPhaseConfig get _brotherCurrentPhase =>
       _brotherActivePhase ??
       (isFullScreen.value ? _brotherPlan.fullscreen : _brotherPlan.windowed);
+
+  // 各入口读各自的开关传进来，这里只按当前屏幕和视频方向判断
+  bool allowsAutoFullScreen(AutoFullscreenMode mode) => mode.allows(
+    screenLandscape: _currentSystemLandscape,
+    videoVertical: _isVertical,
+  );
 
   bool get _currentSystemLandscape {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -1223,8 +1297,11 @@ class PlPlayerController
       if (!match) return;
       if (_manualExitRemaining > 0) _manualExitRemaining--;
       if (_manualExitRemaining > 0) return;
-    } else if (match != true) {
-      return;
+    } else {
+      // 进入时就已竖着（如竖屏视频自动全屏）要先离开一次，否则一进来就被退出
+      final previous = _manualExitTargetMatched;
+      _manualExitTargetMatched = match;
+      if (match != true || previous == true) return;
     }
 
     triggerFullScreen(
@@ -1362,7 +1439,7 @@ class PlPlayerController
     VideoType? videoType,
     VoidCallback? onInit,
     Volume? volume,
-    bool autoFullScreenFlag = false,
+    AutoFullscreenMode autoFullScreen = AutoFullscreenMode.off,
     int? rotate,
   }) async {
     final previousPosition =
@@ -1374,7 +1451,6 @@ class PlPlayerController
       this.width = width;
       this.height = height;
       this.dataSource = dataSource;
-      _hwdecFallbackToastShown = false;
       _autoPlay = autoplay;
       // 初始化数据加载状态
       dataStatus.value = DataStatus.loading;
@@ -1434,6 +1510,10 @@ class PlPlayerController
         speed: _playbackSpeed.value,
         defaultSpeed: Pref.playSpeedDefault,
         cid: cid,
+        aid: aid,
+        bvid: bvid,
+        epid: epid,
+        seasonId: seasonId,
         liveUid: liveUid,
         liveName: liveName,
         videoUpUid: videoUpUid,
@@ -1462,7 +1542,7 @@ class PlPlayerController
             '${profile.transport.name}:${profile.useCellularPreferences ? 'cellularPreference' : 'broadbandPreference'}',
           null => 'unknown',
         },
-        subtitle: Pref.subtitlePreferenceV2.name,
+        subtitle: Pref.subtitlePreference.name,
         danmakuEnabled: enableShowDanmakuAdaptive.value,
         decoder: hwdec ?? 'software',
       );
@@ -1482,7 +1562,7 @@ class PlPlayerController
 
       dataStatus.value = .loaded;
 
-      if (autoFullScreenFlag && autoEnterFullScreen) {
+      if (allowsAutoFullScreen(autoFullScreen)) {
         triggerFullScreen(
           status: true,
           cause: FullscreenEntryCause.playbackAuto,
@@ -1567,6 +1647,9 @@ class PlPlayerController
     if (autosync != '0') {
       opt['autosync'] = autosync;
     }
+    if (!_hwdecAllowsSoftware) {
+      opt['hwdec-software-fallback'] = 'no';
+    }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
@@ -1592,7 +1675,8 @@ class PlPlayerController
             : null,
         enableHardwareAcceleration: hwdec != null,
         androidAttachSurfaceAfterVideoParameters: false,
-        hwdec: hwdec,
+        vo: mediacodecEmbed ? 'mediacodec_embed' : null,
+        hwdec: mediacodecEmbed ? 'mediacodec' : hwdec,
       ),
     );
 
@@ -1658,8 +1742,10 @@ class PlPlayerController
       else if (isLive)
         ...Pref.initLiveBuffer(bufferProfile)
       else
-        ...Pref.initBuffer(_playbackSpeed.value, bufferProfile),
+        ...Pref.initBuffer(bufferProfile),
       'video-rotate': ?rotate?.toString(),
+      if (!isLive)
+        if (Pref.tempoFilter case final af?) 'af': af,
     };
 
     String video = dataSource.videoSource;
@@ -1677,7 +1763,7 @@ class PlPlayerController
             // '!delay_open,media_type=audio;'
             '%${isFileSource ? utf8.encode(audio).length : audio.length}%$audio');
       }
-      audioFilterExtras(volume, map: extras);
+      if (audioFilter(volume, extras['af']) case final af?) extras['af'] = af;
     }
 
     assert(!isLive || seekTo == null);
@@ -1689,6 +1775,16 @@ class PlPlayerController
       ),
       play: false,
     );
+    _hwdecWatchWords = hwdec == null || hwdec == 'no'
+        ? const []
+        : [
+            for (final w in Pref.hwdecWatchWords.split(RegExp(r'\s+')))
+              if (w.isNotEmpty) w,
+          ];
+    _hwdecWatchWhitelist = Pref.hwdecWatchWhitelist;
+    _hwdecWatchTicks = Pref.hwdecWatchSeconds * _positionClock.frequency;
+    _nextHwdecWatchTick = _positionClock.elapsedTicks + _hwdecWatchTicks;
+    _lastHwdecWatched = null;
   }
 
   Future<void>? refreshPlayer() {
@@ -1723,8 +1819,8 @@ class PlPlayerController
   }
 
   List<StreamSubscription>? _subscriptions;
-  final Set<ValueChanged<Duration>> _positionListeners = {};
-  final Set<ValueChanged<Duration>> _rawPositionListeners = {};
+  final List<ValueChanged<Duration>> _positionListeners = [];
+  ValueChanged<Duration>? _rawPositionListener;
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   Timer? _wakeLockTimer;
@@ -1781,6 +1877,7 @@ class PlPlayerController
       stream.playing.listen((bool playing) {
         PlaybackStatsService.updatePlaying(playing, player.state.position);
         if (playing) {
+          PlaybackFocus.onStart();
           playerStatus = .playing;
           _stopWakeLockTimer();
           _updatePlaybackState();
@@ -1833,9 +1930,7 @@ class PlPlayerController
           PlaybackStatsService.samplePosition(position);
         }
 
-        for (final element in _rawPositionListeners) {
-          element(position);
-        }
+        _rawPositionListener?.call(position);
 
         final positionUs = position.inMicroseconds;
         final lastSecond = _lastPositionEventSecond;
@@ -1845,6 +1940,24 @@ class PlPlayerController
             positionUs >= secondStartUs + Duration.microsecondsPerSecond) {
           final posInSeconds = positionUs ~/ Duration.microsecondsPerSecond;
           _lastPositionEventSecond = posInSeconds;
+          if (_hwdecWatchWords.isNotEmpty && ticks >= _nextHwdecWatchTick) {
+            _nextHwdecWatchTick = ticks + _hwdecWatchTicks;
+            final current = player.getProperty('hwdec-current');
+            if (current != _lastHwdecWatched) {
+              _lastHwdecWatched = current;
+              if (current.isNotEmpty &&
+                  _hwdecWatchWords.any(
+                        (w) => w.startsWith('-')
+                            ? current.endsWith(w)
+                            : current == w,
+                      ) !=
+                      _hwdecWatchWhitelist) {
+                SmartDialog.showToast(
+                  '当前解码 $current，${_hwdecWatchWhitelist ? '不在白名单' : '命中黑名单'}（硬解列表 $hwdec）',
+                );
+              }
+            }
+          }
           if (posInSeconds == 0 && playerStatus.isPlaying) {
             _updatePlaybackState(position: position);
           }
@@ -1954,17 +2067,20 @@ class PlPlayerController
             },
           );
         } else if (event.startsWith('Could not open codec')) {
-          final fallback = _automaticHwdecFallback;
-          if (fallback != null && !_hwdecFallbackToastShown) {
-            _hwdecFallbackToastShown = true;
+          if (mediacodecEmbed && _embedWithFallback) {
+            // 预设写入的直通解不了：改回普通硬解列表，下次进视频生效
+            GStorage.setting.delete(SettingBoxKey.hardwareDecoding);
             SmartDialog.showToast(
-              '首选硬解模式不可用，已交由 $fallback 继续兜底',
-              displayTime: const Duration(seconds: 3),
+              '直通解码失败，已改回常规渲染，退出视频重新进入即可播放',
+              displayTime: const Duration(seconds: 4),
             );
-          } else if (fallback == null) {
-            SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
+          } else {
+            SmartDialog.showToast('解码器打开失败：$event，按硬解列表尝试下一项');
           }
         } else if (!onlyPlayAudio.value) {
+          // A damaged/partial access unit is an FFmpeg decoder diagnostic,
+          // not a Dart crash. Do not send its full signed playlist to Catcher.
+          if (event.contains('missing picture in access unit')) return;
           if (event.startsWith("error running") ||
               event.startsWith("Failed to open .") ||
               event.startsWith("Cannot open") ||
@@ -2061,8 +2177,8 @@ class PlPlayerController
       temporary: temporary,
     );
 
-    if (!unchanged) await player?.setRate(speed);
     if (!isLive) _playbackSpeed.value = speed;
+    if (!unchanged) await player?.setRate(speed);
     _updatePlaybackState();
     final danmaku = danmakuController;
     if (danmaku != null) {
@@ -2089,8 +2205,6 @@ class PlPlayerController
 
     await _videoPlayerController?.play();
 
-    audioSessionHandler?.setActive(true);
-
     playerStatus = .playing;
   }
 
@@ -2100,9 +2214,7 @@ class PlPlayerController
     playerStatus = .paused;
 
     // 主动暂停时让出音频焦点
-    if (!isInterrupt) {
-      audioSessionHandler?.setActive(false);
-    }
+    if (!isInterrupt) PlaybackFocus.onStop();
   }
 
   bool tripling = false;
@@ -2398,7 +2510,11 @@ class PlPlayerController
                 ? _brotherPlan.manualExitConfirmations
                 : _orientationPlan.manualExitConfirmations)
           : 0;
-      _manualExitTargetMatched = null;
+      // 简单、高级模式：记下进入时是否已满足退出条件，作为比较起点
+      _manualExitTargetMatched =
+          _brotherMode || _manualExitConfirmationActive
+          ? null
+          : _triggerSourceMatch(_orientationPlan.exitTriggerSource, false);
     } else {
       _manualExitRemaining = 0;
       _manualExitTargetMatched = null;
@@ -2559,11 +2675,6 @@ class PlPlayerController
       phase,
       entryDirectionBit: entryDirectionBit,
     );
-    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
-      runtimePhase,
-      allowedMask: _brotherAllowedMask,
-      appPhase: false,
-    );
     OrientationPolicy.setBrotherActiveAllowedMask(
       _brotherAllowedMask,
       runtimePhase,
@@ -2574,7 +2685,7 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.usesAppGravity) {
+    if (runtimePhase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (runtimePhase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2589,7 +2700,10 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.waitsForSourceChange) {
+    if (runtimePhase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.appGravity &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        runtimePhase.runtimeMode != BrotherRuntimeMode.locked) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
@@ -2622,13 +2736,8 @@ class PlPlayerController
       return;
     }
 
-    final runtimeInterpretation = OrientationPolicy.interpretBrotherRuntime(
-      phase,
-      allowedMask: _brotherAllowedMask,
-      appPhase: false,
-    );
 
-    if (runtimeInterpretation.usesAppGravity) {
+    if (phase.runtimeMode == BrotherRuntimeMode.appGravity) {
       if (phase.gravityFollowSystemLock && !_brotherPlan.systemAutoRotate) {
         await lockedMode();
         _updateOrientationInputs();
@@ -2643,7 +2752,10 @@ class PlPlayerController
       return;
     }
 
-    if (runtimeInterpretation.waitsForSourceChange) {
+    if (phase.runtimeActivation == BrotherRuntimeActivation.afterSourceChange &&
+        phase.runtimeMode != BrotherRuntimeMode.appGravity &&
+        phase.runtimeMode != BrotherRuntimeMode.inheritRequest &&
+        phase.runtimeMode != BrotherRuntimeMode.locked) {
       if (!_supportsProposedRotation) {
         _updateOrientationInputs();
         return;
@@ -2856,19 +2968,25 @@ class PlPlayerController
 
   void addPositionListener(ValueChanged<Duration> listener) {
     if (_playerCount == 0) return;
-    _positionListeners.add(listener);
+    if (!_positionListeners.contains(listener)) {
+      _positionListeners.add(listener);
+    }
   }
 
-  void removePositionListener(ValueChanged<Duration> listener) =>
-      _positionListeners.remove(listener);
+  void removePositionListener(ValueChanged<Duration> listener) {
+    _positionListeners.remove(listener);
+  }
 
   void addRawPositionListener(ValueChanged<Duration> listener) {
     if (_playerCount == 0) return;
-    _rawPositionListeners.add(listener);
+    _rawPositionListener = listener;
   }
 
-  void removeRawPositionListener(ValueChanged<Duration> listener) =>
-      _rawPositionListeners.remove(listener);
+  void removeRawPositionListener(ValueChanged<Duration> listener) {
+    if (identical(_rawPositionListener, listener)) {
+      _rawPositionListener = null;
+    }
+  }
 
   void addStatusLister(ValueChanged<PlayerStatus> listener) {
     if (_playerCount == 0) return;
@@ -3045,7 +3163,7 @@ class PlPlayerController
 
     _removeListeners();
     _positionListeners.clear();
-    _rawPositionListeners.clear();
+    _rawPositionListener = null;
     _statusListeners.clear();
     _stopWakeLockTimer();
     WakelockPlus.disable();
@@ -3203,7 +3321,7 @@ class PlPlayerController
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      if (playerStatus.isPlaying) {
+      if (playerStatus.isPlaying && !PipOverlayService.active) {
         pause();
       }
 

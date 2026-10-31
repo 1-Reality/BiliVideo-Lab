@@ -1,8 +1,6 @@
 // mpv --hwdec=help
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kDebugMode;
-
 enum HwDecType {
   no('no', '启用软解'),
   auto('auto', '启用任意可用解码器'),
@@ -28,6 +26,11 @@ enum HwDecType {
   vdpauCopy('vdpau-copy', 'VDPAU (Linux) (非直通)'),
   mediacodec('mediacodec', 'MediaCodec (Android)'),
   mediacodecCopy('mediacodec-copy', 'MediaCodec (Android) (非直通)'),
+  // Not an mpv hwdec value: selects vo=mediacodec_embed + hwdec=mediacodec.
+  mediacodecEmbed(
+    'mediacodec_embed',
+    'MediaCodec 直出 (Android) (不经 mpv 渲染，超分/mpv 字幕无效，只能单选)',
+  ),
   cuda('cuda', 'CUDA (NVIDIA独占) (过时)'),
   cudaCopy('cuda-copy', 'CUDA (NVIDIA独占) (过时) (非直通)'),
   crystalhd('crystalhd', 'CrystalHD (全平台) (过时)'),
@@ -42,9 +45,16 @@ enum HwDecType {
   final String desc;
   const HwDecType(this.hwdec, this.desc);
 
-  static final String androidDefault = kDebugMode
-      ? autoSafe.hwdec
-      : [mediacodec.hwdec, autoSafe.hwdec].join(',');
+  /// 平板、电视预设与电视快捷菜单写入的直通：后面带的是解码失败时改回去的
+  /// 普通列表，不带 no，直通期间不退软解，失败才会报出来
+  static const embedWithFallback = 'mediacodec_embed,mediacodec,auto-safe';
+
+  // 显式把 mediacodec 放最前：只写 auto-safe 时安卓会选到 mediacodec-copy
+  static final String androidDefault = [
+    mediacodec.hwdec,
+    autoSafe.hwdec,
+    no.hwdec,
+  ].join(',');
 
   static final String windowsDefault = [
     d3d12va.hwdec,
@@ -58,11 +68,12 @@ enum HwDecType {
     qsvCopy.hwdec,
     d3d12vaCopy.hwdec,
     auto.hwdec,
+    no.hwdec,
   ].join(',');
 
   static final String kHwdec = Platform.isAndroid
       ? androidDefault
       : Platform.isWindows
       ? windowsDefault
-      : auto.hwdec;
+      : [auto.hwdec, no.hwdec].join(',');
 }

@@ -61,6 +61,23 @@ final _signedDecimalFormatters = [
 ];
 
 List<SettingsModel> get styleSettings => [
+  // 单列就是主页列宽取一个远超屏宽、滑杆拉不到的值（备份是 JSON，存不了无穷大），
+  // 不另存开关；推荐页建网格时照常读这个宽度
+  NormalModel(
+    leading: const Icon(Icons.view_agenda_outlined),
+    title: '首页推荐单列',
+    subtitle: '一行只放一个视频，封面更大；重启生效',
+    getTrailing: (theme) => IgnorePointer(
+      child: Switch(value: Pref.recommendCardWidth > 500, onChanged: (_) {}),
+    ),
+    onTap: (context, setState) async {
+      await (Pref.recommendCardWidth > 500
+          ? GStorage.setting.delete(SettingBoxKey.recommendCardWidth)
+          : GStorage.setting.put(SettingBoxKey.recommendCardWidth, 10000.0));
+      SmartDialog.showToast('重启生效');
+      setState();
+    },
+  ),
   if (PlatformUtils.isDesktop) ...[
     const SwitchModel(
       title: '显示窗口标题栏',
@@ -166,8 +183,15 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.calendar_view_week_outlined),
     title: '列表宽度（dp）限制',
     getSubtitle: () =>
-        '当前: 主页${Pref.recommendCardWidth.toInt()}dp 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
+        '当前: 主页${Pref.recommendCardWidth > 500 ? '单列' : '${Pref.recommendCardWidth.toInt()}dp'} 其他${Pref.smallCardWidth.toInt()}dp，屏幕宽度:${MediaQuery.widthOf(Get.context!).toPrecision(2)}dp。宽度越小列数越多。',
     onTap: _showCardWidthDialog,
+  ),
+  NormalModel(
+    leading: const Icon(Icons.grid_view_outlined),
+    title: '卡片间距与页面边距（dp）',
+    getSubtitle: () =>
+        '当前: 卡片间距${Pref.cardSpace}dp 左右边距${Pref.safeSpace}dp。数值越小封面越大，作用于主页推荐和直播页。',
+    onTap: _showSpaceDialog,
   ),
   const SwitchModel(
     title: '视频播放页使用深色主题',
@@ -228,7 +252,7 @@ List<SettingsModel> get styleSettings => [
     title: '消息未读类型',
     leading: const Icon(MdiIcons.bellCogOutline),
     getSubtitle: () =>
-        '当前消息类型：${Pref.msgUnReadTypeV2.map((item) => item.title).join('、')}',
+        '当前消息类型：${Pref.msgUnReadType.map((item) => item.title).join('、')}',
   ),
   PopupModel(
     title: '顶/底栏收起类型',
@@ -342,6 +366,7 @@ List<SettingsModel> get styleSettings => [
   SwitchModel(
     leading: const Icon(Icons.invert_colors),
     title: '纯黑主题',
+    subtitle: '通常对OLED用户才稍有那么点意义',
     setKey: SettingBoxKey.isPureBlackTheme,
     defaultVal: false,
     onChanged: (value) {
@@ -419,6 +444,7 @@ List<SettingsModel> get styleSettings => [
     NormalModel(
       onTap: (context, setState) => Get.toNamed('/displayModeSetting'),
       title: '屏幕帧率',
+      subtitle: '个人认为短边像素/帧率<18时，分辨率更有意义更重要',
       leading: const Icon(Icons.autofps_select_outlined),
     ),
 ];
@@ -702,7 +728,7 @@ Future<void> _showCardWidthDialog(
     context: context,
     builder: (context) => DualSliderDialog(
       title: const Text('列表最大列宽度（默认240dp）'),
-      value1: Pref.recommendCardWidth,
+      value1: math.min(Pref.recommendCardWidth, 500.0),
       value2: Pref.smallCardWidth,
       description1: const Text('主页推荐流'),
       description2: const Text('其他'),
@@ -716,6 +742,36 @@ Future<void> _showCardWidthDialog(
     await GStorage.setting.putAll({
       SettingBoxKey.recommendCardWidth: res.$1,
       SettingBoxKey.smallCardWidth: res.$2,
+    });
+    SmartDialog.showToast('重启生效');
+    setState();
+  }
+}
+
+Future<void> _showSpaceDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<(double, double)>(
+    context: context,
+    builder: (context) => DualSliderDialog(
+      title: const Text('卡片间距与页面边距'),
+      value1: Pref.cardSpace,
+      value2: Pref.safeSpace,
+      description1: const Text('卡片之间的缝隙（默认8dp）'),
+      description2: const Text('页面左右边距（默认12dp）'),
+      min: 0.0,
+      max: 24.0,
+      divisions: 24,
+      suffix: 'dp',
+      precise: 0,
+      enableInput: true,
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.putAll({
+      SettingBoxKey.cardSpace: res.$1,
+      SettingBoxKey.safeSpace: res.$2,
     });
     SmartDialog.showToast('重启生效');
     setState();
@@ -750,7 +806,7 @@ Future<void> _showMsgUnReadDialog(
     context: context,
     builder: (context) => MultiSelectDialog<MsgUnReadType>(
       title: '消息未读类型',
-      initValues: Pref.msgUnReadTypeV2,
+      initValues: Pref.msgUnReadType,
       values: {for (final i in MsgUnReadType.values) i: i.title},
     ),
   );
@@ -760,7 +816,7 @@ Future<void> _showMsgUnReadDialog(
       mainController.queryUnreadMsg();
     }
     await GStorage.setting.put(
-      SettingBoxKey.msgUnReadTypeV2,
+      SettingBoxKey.msgUnReadType,
       res.map((item) => item.index).toList()..sort(),
     );
     SmartDialog.showToast('设置成功');

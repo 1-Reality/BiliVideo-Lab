@@ -1,0 +1,134 @@
+name: Windows x86 engine (jit_release)
+
+# 32 位引擎只取决于 Flutter 版本，编一次传到发布附件，之后每次打 32 位包直接下载
+on:
+  workflow_dispatch:
+
+# 一次构建要几个小时，后续推送不取消正在跑的构建
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  engine:
+    runs-on: windows-2022
+    timeout-minutes: 360
+    env:
+      DEPOT_TOOLS_WIN_TOOLCHAIN: "0"
+      GCLIENT_PY3: "1"
+      SRC: C:\fsrc
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve Flutter version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path pubspec.yaml -Pattern '^\s*flutter:\s*([0-9]+\.[0-9]+\.[0-9]+)' | Select-Object -First 1).Matches.Groups[1].Value
+          "v=$v" | Out-File -Append $env:GITHUB_OUTPUT
+          git config --global core.longpaths true
+          git config --global core.autocrlf false
+          git config --global core.filemode false
+          git config --global depth.default 1
+
+      - name: Fetch depot_tools and engine sources
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://chromium.googlesource.com/chromium/tools/depot_tools.git C:\depot_tools
+          "C:\depot_tools" | Out-File -Append $env:GITHUB_PATH
+          $env:PATH = "C:\depot_tools;$env:PATH"
+          git clone --filter=blob:none --no-checkout https://github.com/flutter/flutter.git $env:SRC
+          Set-Location $env:SRC
+          git fetch --depth 1 origin "refs/tags/${{ steps.ver.outputs.v }}:refs/tags/${{ steps.ver.outputs.v }}"
+          git checkout --force ${{ steps.ver.outputs.v }}
+          Copy-Item engine/scripts/standard.gclient .gclient -Force
+          gclient sync --no-history -D -j8
+          if ($LASTEXITCODE -ne 0) { throw 'gclient sync failed' }
+
+      - name: Configure and build x86 jit_release
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\depot_tools;$env:PATH"
+          $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -property installationPath
+          $env:GYP_MSVS_OVERRIDE_PATH = $vs
+          $env:WINDOWSSDKDIR = "${env:ProgramFiles(x86)}/Windows Kits/10"
+          Set-Location "$env:SRC/engine/src"
+          # 失败时把日志尾部写成注解：注解能经 API 读到，日志下载在某些环境被挡
+          function Fail($log, $what) {
+            $lines = Get-Content $log | Where-Object { $_ -match 'ERROR|FAILED|error[: ]' } | Select-Object -First 30
+            $lines += Get-Content $log -Tail 40
+            Write-Host "::error title=$what::$(($lines | ForEach-Object { $_ -replace '%','%25' -replace "`r",'' }) -join '%0A')"
+            throw "$what failed"
+          }
+          # 与官方 Windows 引擎一样走 host 构建：加 --windows 会让 tools/gn 不给 ANGLE
+          # 传 Flutter 的覆盖参数，ANGLE 退回自带默认值，找不到 test() 与 vulkan-headers
+          # --no-build-engine-artifacts：x86 目标下 build_engine_artifacts 会把 dart_sdk（经 create_sdk 拉入 dtd、
+          # kernel-service）、const_finder 挂进默认图，它们在 x64 宿主工具链里依赖的目标解析不了。只需要 dll 与 icudtl
+          # host_cpu=x86：与 tools/gn 里 32 位 ARM Windows 的做法一致（gn.py 对 android arm 设 host_cpu=x86），
+          # 让 $host_toolchain 落到 clang_x86，宿主侧 Dart 工具（gen_snapshot、bootstrap_*、kernel_platform_files）
+          # 与目标同位宽，不再去找 clang_x64 下并不存在的目标。
+          # 嵌入引号的参数要用 Standard 传递方式，否则 PowerShell 会把 host_cpu="x86" 的引号吃掉
+          $PSNativeCommandArgumentPassing = 'Standard'
+          python flutter/tools/gn --windows-cpu x86 --runtime-mode=jit_release --no-lto --no-rbe --no-goma --no-prebuilt-dart-sdk --no-build-engine-artifacts '--gn-args=host_cpu="x86"' 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/gn.log
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/gn.log" 'gn' }
+          $out = (Get-ChildItem out -Directory | Where-Object Name -like '*jit_release*' | Select-Object -First 1).Name
+          "OUT=$out" | Out-File -Append $env:GITHUB_ENV
+          # 补丁：32 位下 stdcall 约定与回调声明不一致（x64 忽略该约定，不报错）。
+          # vulkan_debug_callback_stdcall：Vulkan 调试回调缺 VKAPI_CALL，对应 PFN_vkDebugReportCallbackEXT
+          # host_window_wndproc_stdcall：HostWindow::WndProc 缺 CALLBACK，赋给 WNDPROC 时类型不一致
+          # 先还原再打，避免缓存里已经打过一次
+          git -C "$env:SRC/engine/src/flutter" reset --hard HEAD
+          foreach ($p in 'vulkan_debug_callback_stdcall.patch','host_window_wndproc_stdcall.patch') {
+            git -C "$env:SRC/engine/src/flutter" apply "$env:GITHUB_WORKSPACE/lib/scripts/$p"
+            if ($LASTEXITCODE -ne 0) { throw "patch failed: $p" }
+          }
+          # 红屏修复：jit_release 运行时默认开断言，而 kernel 按 product 编译，框架的调试辅助函数因此抛 Bad state。
+          # 在 dart_vm.cc 的 enable_asserts 设置之后，jit_release 下强制关闭。锚点必须恰好命中一次。
+          $vm = "$env:SRC/engine/src/flutter/runtime/dart_vm.cc"
+          $text = [IO.File]::ReadAllText($vm)
+          $pattern = '(    enable_asserts = false;\r?\n  \}\r?\n#endif  // !OS_FUCHSIA)'
+          $n = ([regex]::Matches($text, $pattern)).Count
+          if ($n -ne 1) { throw "expected one enable_asserts anchor in dart_vm.cc, found $n" }
+          $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+          $insert = "#if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_JIT_RELEASE$nl  enable_asserts = false;$nl#endif"
+          $text = [regex]::Replace($text, $pattern, "`$1$nl$insert")
+          [IO.File]::WriteAllText($vm, $text, [Text.UTF8Encoding]::new($false))
+          Select-String -Path $vm -Pattern 'enable_asserts|FLUTTER_RUNTIME_MODE' -Context 2,2 | Tee-Object $env:GITHUB_WORKSPACE/dart_vm-patch.txt
+          ninja -C "out/$out" flutter_windows.dll icudtl.dat 2>&1 | Tee-Object $env:GITHUB_WORKSPACE/ninja.log
+          if ($LASTEXITCODE -ne 0) { Fail "$env:GITHUB_WORKSPACE/ninja.log" 'ninja' }
+
+      - name: Pack engine
+        shell: pwsh
+        run: |
+          $d = "$env:SRC/engine/src/out/$env:OUT"
+          New-Item -ItemType Directory pack | Out-Null
+          foreach ($f in 'flutter_windows.dll','flutter_windows.dll.lib','icudtl.dat') { Copy-Item "$d/$f" pack/ }
+          # 排除 .pdb（调试符号约 55 MB，应用侧用不到）
+          Get-ChildItem $d -Filter '*snapshot*' -File | Where-Object Extension -ne '.pdb' | Copy-Item -Destination pack/
+          Get-ChildItem pack | Format-Table Name, Length
+          $pe = [IO.File]::ReadAllBytes("$PWD/pack/flutter_windows.dll")
+          '{0:X4}' -f [BitConverter]::ToUInt16($pe, [BitConverter]::ToInt32($pe, 0x3C) + 4)
+          7z a "engine-win-x86-jit-${{ steps.ver.outputs.v }}.7z" ./pack/*
+
+      - name: Publish release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "engine-win-x86-jit-${{ steps.ver.outputs.v }}"
+          gh release create $tag --title $tag --notes "Flutter ${{ steps.ver.outputs.v }} x86 jit_release engine" --prerelease 2>$null
+          gh release upload $tag "$tag.7z" --clobber
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: engine-logs
+          path: |
+            gn.log
+            ninja.log
+            dart_vm-patch.txt
+          retention-days: 14

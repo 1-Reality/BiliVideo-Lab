@@ -13,6 +13,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:collection/collection.dart';
+import 'package:PiliBro/utils/linux_cookie_manager.dart';
 import 'package:crypto/crypto.dart' show Digest;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -94,12 +95,18 @@ abstract final class LoginUtils {
     ]);
   }
 
+  /// 本次启动是否新生成了 buvid（即新装），新装会向服务端换取正式 buvid
+  static bool freshBuvid = false;
+
+  /// 不读设备标识，按官方「以上都拿不到时」的随机 UUID 规则生成：XW + 大写 md5
   static String generateBuvid() {
     final md5Str = Digest(
       List.generate(16, (_) => Utils.random.nextInt(256)),
     ).toString().toUpperCase();
-    return 'XY${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
+    return 'XW${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
   }
+
+  static final buvid = Pref.buvid;
 
   // static String getUUID() {
   //   return const Uuid().v4().replaceAll('-', '');

@@ -34,6 +34,7 @@ class _DownloadPageState extends State<DownloadPage>
     with GridMixin, BaseDownloadActionMixin<DownloadPage, DownloadSeasonInfo> {
   final _progress = ChangeNotifier();
   final _controller = Get.put(DownloadController());
+  bool _showAudio = false;
 
   @override
   final downloadService = Get.find<DownloadService>();
@@ -131,20 +132,34 @@ class _DownloadPageState extends State<DownloadPage>
     return Obx(() {
       final enableMultiSelect = _controller.enableMultiSelect.value;
       return popScope(
-        canPop: !enableMultiSelect,
+        canPop: !enableMultiSelect && !_showAudio,
         onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
           if (enableMultiSelect) {
             _controller.handleSelect();
+          } else if (_showAudio) {
+            setState(() => _showAudio = false);
           }
         },
         child: SimpleScaffold(
           appBar: MultiSelectAppBarWidget(
             ctr: _controller,
-            actions: [updateBtn()],
+            actions: [if (!_showAudio) updateBtn()],
             child: AppBar(
-              title: const Text('离线缓存'),
+              title: Text(_showAudio ? '下载的音频' : '离线缓存'),
+              leading: _showAudio
+                  ? IconButton(
+                      tooltip: '返回缓存列表',
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        if (enableMultiSelect) _controller.handleSelect();
+                        setState(() => _showAudio = false);
+                      },
+                    )
+                  : null,
               actions: [
-                IconButton(
+                if (!_showAudio)
+                  IconButton(
                   tooltip: '搜索',
                   onPressed: () async {
                     await downloadService.waitForInitialization;
@@ -172,7 +187,60 @@ class _DownloadPageState extends State<DownloadPage>
             padding: EdgeInsets.only(left: padding.left, right: padding.right),
             child: CustomScrollView(
               slivers: [
-                Obx(() {
+                if (!_showAudio)
+                  Obx(() {
+                    final audioCount = _controller.seasons
+                        .where((e) => e.audioOnly)
+                        .fold<int>(
+                          0,
+                          (count, season) =>
+                              count + season.pages.first.entries.length,
+                        );
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        child: Material(
+                          color: colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => setState(() => _showAudio = true),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 15,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.folder_outlined, size: 30),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('下载的音频'),
+                                        Text(
+                                          '$audioCount 个音频',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: colorScheme.outline,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                if (!_showAudio)
+                  Obx(() {
                   final entry =
                       downloadService.waitDownloadQueue.firstWhereOrNull(
                         (e) => e.cid == downloadService.curCid,
@@ -208,7 +276,10 @@ class _DownloadPageState extends State<DownloadPage>
                   return const SliverToBoxAdapter();
                 }),
                 Obx(() {
-                  if (_controller.seasons.isNotEmpty) {
+                  final seasons = _controller.seasons
+                      .where((e) => e.audioOnly == _showAudio)
+                      .toList(growable: false);
+                  if (seasons.isNotEmpty) {
                     return SliverMainAxisGroup(
                       slivers: [
                         SliverPadding(
@@ -219,14 +290,14 @@ class _DownloadPageState extends State<DownloadPage>
                                 ? 0
                                 : 7,
                           ),
-                          sliver: const SliverToBoxAdapter(
-                            child: Text('已缓存视频'),
+                          sliver: SliverToBoxAdapter(
+                            child: Text(_showAudio ? '已缓存音频' : '已缓存视频'),
                           ),
                         ),
                         SliverGrid.builder(
                           gridDelegate: gridDelegate,
                           itemBuilder: (context, index) {
-                            final season = _controller.seasons[index];
+                            final season = seasons[index];
                             final seasonInfo = season.seasonInfo;
                             final pages = season.pages;
 
@@ -275,15 +346,20 @@ class _DownloadPageState extends State<DownloadPage>
                               updatePageDm: updatePageDm,
                             );
                           },
-                          itemCount: _controller.seasons.length,
+                          itemCount: seasons.length,
                         ),
                       ],
                     );
                   }
-                  if (downloadService.waitDownloadQueue.isNotEmpty) {
+                  if (!_showAudio &&
+                      downloadService.waitDownloadQueue.isNotEmpty) {
                     return const SliverToBoxAdapter();
                   }
-                  return const HttpError();
+                  return _showAudio
+                      ? const SliverToBoxAdapter(
+                          child: Center(child: Text('还没有下载的音频')),
+                        )
+                      : const HttpError();
                 }),
                 SliverToBoxAdapter(
                   child: SizedBox(height: padding.bottom + 100),

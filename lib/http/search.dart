@@ -10,6 +10,7 @@ import 'package:PiliBro/models_new/pagelist/page_item.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliBro/models_new/search/search_rcmd/data.dart';
 import 'package:PiliBro/models_new/search/search_trending/data.dart';
+import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/wbi_sign.dart';
@@ -224,13 +225,13 @@ abstract final class SearchHttp {
     final res = await Request().get(
       Api.searchRecommend,
       queryParameters: {
-        'build': 8430300,
-        'channel': 'master',
-        'version': '8.43.0',
-        'c_locale': 'zh_CN',
+        'build': phoneBuild,
+        'channel': BiliDevice.channel,
+        'version': phoneVersion,
+        'c_locale': 'zh-Hans_CN',
         'mobi_app': 'android',
         'platform': 'android',
-        's_locale': 'zh_CN',
+        's_locale': 'zh-Hans_CN',
         'from': 2,
       },
     );

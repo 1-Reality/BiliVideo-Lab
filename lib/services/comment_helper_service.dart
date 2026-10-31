@@ -45,7 +45,6 @@ abstract final class CommentHelperService {
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await GStorage.commentHelper.put(rpid.toString(), {
-      'schemaVersion': 1,
       'assistantUid': uid,
       'assistantName': name,
       'status': 'hidden',

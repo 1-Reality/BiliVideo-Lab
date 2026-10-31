@@ -8,6 +8,7 @@ import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
+import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/pages/setting/widgets/checkbox_num_list_tile.dart';
@@ -29,7 +30,6 @@ class SelectDialog<T> extends StatelessWidget {
   final String title;
   final List<(T, String)> values;
   final Widget Function(BuildContext, int)? subtitleBuilder;
-  final bool toggleable;
 
   const SelectDialog({
     super.key,
@@ -37,7 +37,6 @@ class SelectDialog<T> extends StatelessWidget {
     required this.values,
     required this.title,
     this.subtitleBuilder,
-    this.toggleable = false,
   });
 
   @override
@@ -63,7 +62,7 @@ class SelectDialog<T> extends StatelessWidget {
                 (index) {
                   final item = values[index];
                   return RadioListTile<T>(
-                    toggleable: toggleable,
+                    toggleable: true,
                     dense: true,
                     value: item.$1,
                     title: Text(
@@ -876,7 +875,6 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final profile = ConnectivityUtils.current;
     final metrics = sample.hasError ? null : sample.metrics;
     return {
-      'schemaVersion': 3,
       'recordedAtUs': DateTime.now().microsecondsSinceEpoch,
       'testRunStartedAtUs': _testRunStartedAtUs,
       'cdn': {
@@ -1205,10 +1203,11 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     );
   }
 
-  void _showDiagnosticHistory(BuildContext context) {
+  Future<void> _showDiagnosticHistory(BuildContext context) async {
     final encoder = const JsonEncoder.withIndent('  ');
     var latestGroups = CdnDiagnosticsService.groupedLatestSnapshot();
-    var historyGroups = CdnDiagnosticsService.groupedHistorySnapshot();
+    var historyGroups = await CdnDiagnosticsService.groupedHistorySnapshot();
+    if (!context.mounted) return;
     var editing = false;
     final selected = <int>{};
 
@@ -1284,8 +1283,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                         await CdnDiagnosticsService.deleteHistoryRuns(
                           Set.of(selected),
                         );
-                        historyGroups =
-                            CdnDiagnosticsService.groupedHistorySnapshot();
+                        historyGroups = await CdnDiagnosticsService
+                            .groupedHistorySnapshot();
                         selected.clear();
                         if (dialogContext.mounted) {
                           setDialogState(() {
@@ -1305,8 +1304,8 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
                             text: encoder.convert({
                               'latest':
                                   CdnDiagnosticsService.latestSnapshot(),
-                              'history':
-                                  CdnDiagnosticsService.historySnapshot(),
+                              'history': await CdnDiagnosticsService
+                                  .historySnapshot(),
                             }),
                           ),
                         );

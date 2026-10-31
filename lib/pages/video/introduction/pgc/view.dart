@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:math';
 
 import 'package:PiliBro/common/style.dart';
@@ -7,6 +8,7 @@ import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/image_viewer/hero.dart';
 import 'package:PiliBro/common/widgets/stat/stat.dart';
+import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
@@ -23,6 +25,7 @@ import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -72,6 +75,27 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
             },
             child: Text(action.$1),
           ),
+        if (PlatformUtils.isMobile)
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              introController.shareEpisode(
+                '${HttpString.baseUrl}/bangumi/play/ep${introController.epId}',
+              );
+            },
+            child: const Text('分享视频'),
+          ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            showQrDialog(
+              this.context,
+              data: 'https://www.bilibili.com/video/$bvid',
+              title: bvid,
+            );
+          },
+          child: const Text('二维码分享'),
+        ),
       ],
     ),
   );
@@ -344,15 +368,16 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         ),
         _videoIds(colorScheme),
         Obx(() {
-          final metrics = videoDetailCtr.streamSizeAndBitrate;
-          final alternatives = videoDetailCtr.otherStreamSizeAndBitrates;
+          final info = videoDetailCtr.streamInfo.value;
+          final metrics = info?.current;
+          final alternatives = info?.others ?? const <String>[];
           return metrics == null
               ? const SizedBox.shrink()
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '当前视频流：$metrics${alternatives.length < 2 ? ' · ${videoDetailCtr.currentStreamCodec}' : ''}',
+                      '当前视频流：$metrics',
                       style: TextStyle(fontSize: 12, color: colorScheme.outline),
                     ),
                     for (final row in alternatives)

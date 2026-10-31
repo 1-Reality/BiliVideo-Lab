@@ -23,6 +23,7 @@ import 'package:PiliBro/pages/login_devices/view.dart';
 import 'package:PiliBro/pages/login_log/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/member_video_web/archive/view.dart';
+import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/pages/mine/widgets/fav_item.dart';
 import 'package:PiliBro/pages/mine/widgets/history_item.dart';
@@ -107,6 +108,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
                     _buildQuickActions(secondary),
+                    _buildMoreActions(secondary),
                     for (final tab in controller.mineTabs)
                       switch (tab) {
                         .favorite => Obx(_buildFav),
@@ -165,13 +167,39 @@ class _MediaPageState extends CommonPageState<MinePage>
         .toList(),
   );
 
+  Widget _buildMoreActions(Color primary) => Row(
+    mainAxisAlignment: .spaceEvenly,
+    children: [
+      _actionButton(
+        icon: Icon(CustomIcons.folderDownloadOutline, color: primary),
+        title: '离线缓存',
+        onTap: () => Get.toNamed('/download'),
+      ),
+      _actionButton(
+        icon: Icon(MdiIcons.routerNetwork, color: primary),
+        title: '网关管理',
+        onTap: () => Get.to(() => const BroTechPage()),
+      ),
+      _actionButton(
+        icon: Icon(MdiIcons.headphonesSettings, color: primary),
+        title: '特色播放',
+        onTap: () => Get.toNamed('/audioSettings'),
+      ),
+      _actionButton(
+        icon: Icon(Icons.insights_outlined, color: primary),
+        title: '播放统计',
+        onTap: () => Get.toNamed('/playbackStats'),
+      ),
+    ],
+  );
+
   Widget _buildQuickActions(Color primary) => Row(
     mainAxisAlignment: .spaceEvenly,
     children: [
       _actionButton(
-        icon: Icon(MdiIcons.cloudOutline, color: primary),
-        title: 'CDN设置',
-        onTap: () => Get.toNamed('/cdnSettings'),
+        icon: Icon(Icons.tune, color: primary),
+        title: '音画设置',
+        onTap: () => Get.toNamed('/avSettings'),
       ),
       _actionButton(
         icon: Icon(Icons.lan_outlined, color: primary),
@@ -685,7 +713,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           autofocus: true,
           keyboardType: TextInputType.url,
           decoration: const InputDecoration(
-            hintText: 'example.com 或 https://example.com',
+            hintText: 'https://space.bilibili.com/501430041',
           ),
           onSubmitted: (value) => Get.back(result: value.trim()),
         ),

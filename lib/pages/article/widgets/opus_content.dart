@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/widgets/badge.dart';
+import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/common/widgets/emote_tooltip.dart';
 import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliBro/common/widgets/image/cached_network_svg_image.dart';

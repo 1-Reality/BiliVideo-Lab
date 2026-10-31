@@ -18,6 +18,7 @@ import 'package:PiliBro/pages/video/reply_reply/controller.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/extension/widget_ext.dart';
 import 'package:PiliBro/utils/num_utils.dart';
+import 'package:PiliBro/utils/reply_scheme_helper.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
@@ -73,7 +74,16 @@ class VideoReplyReplyPanel extends CommonSlidePage {
               tooltip: '前往',
               onPressed: uri == null
                   ? null
-                  : () => PiliScheme.routePush(uri, businessId: type),
+                  : () => PiliScheme.routePush(
+                      uri.replace(
+                        queryParameters: {
+                          ...uri.queryParameters,
+                          rootRpIdKey: '$rootId',
+                          if (rpId != null) secondRpIdKey: '$rpId',
+                        },
+                      ),
+                      businessId: type,
+                    ),
               icon: const Icon(Icons.open_in_browser),
             ),
           ],

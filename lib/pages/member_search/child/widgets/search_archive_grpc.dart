@@ -15,6 +15,7 @@ import 'package:PiliBro/utils/extension/dimension_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -137,6 +138,22 @@ class SearchArchiveGrpc extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (PlatformUtils.isMobile)
+                  PopupMenuItem(
+                    height: 45,
+                    onTap: () => ShareUtils.shareVideo(
+                      titleStr,
+                      arc.author.name,
+                      ShareUtils.videoUrl(bvid),
+                    ),
+                    child: const Row(
+                      spacing: 6,
+                      children: [
+                        Icon(CustomIcons.share_node, size: 16),
+                        Text('分享视频', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
                 PopupMenuItem(
                   height: 45,
                   onTap: () => UserHttp.toViewLater(bvid: bvid),

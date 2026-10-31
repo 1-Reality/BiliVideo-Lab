@@ -54,7 +54,7 @@ class _LivePageState extends State<LivePage>
     super.build(context);
     return Container(
       clipBehavior: Clip.hardEdge,
-      margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
+      margin: .symmetric(horizontal: Grid.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
         onRefresh: controller.onRefresh,
@@ -183,8 +183,8 @@ class _LivePageState extends State<LivePage>
   }
 
   late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
-    mainAxisSpacing: Style.cardSpace,
-    crossAxisSpacing: Style.cardSpace,
+    mainAxisSpacing: Grid.cardSpace,
+    crossAxisSpacing: Grid.cardSpace,
     maxCrossAxisExtent: Grid.smallCardWidth,
     childAspectRatio: Style.aspectRatio,
     mainAxisExtent: textScaler.scale(90),
@@ -193,7 +193,7 @@ class _LivePageState extends State<LivePage>
   Widget _buildBody(LoadingState<List?> loadingState) {
     return switch (loadingState) {
       Loading() => SliverPadding(
-        padding: const .only(top: Style.cardSpace),
+        padding: .only(top: Grid.cardSpace),
         sliver: SliverGrid(
           gridDelegate: gridDelegate,
           delegate: const SliverSingleChildDelegate(

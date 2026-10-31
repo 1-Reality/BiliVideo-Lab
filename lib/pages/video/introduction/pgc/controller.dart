@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -20,6 +21,7 @@ import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/dynamics_repost/view.dart';
 import 'package:PiliBro/pages/video/reply/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/bili_utils.dart';
@@ -137,6 +139,7 @@ class PgcIntroController extends CommonIntroController {
       SmartDialog.showToast(newVal ? response : '取消赞');
       pgcItem.stat?.like += newVal ? 1 : -1;
       hasLike.value = newVal;
+      if (newVal) PlaybackStatsService.markInteraction(1);
     } else {
       result.toast();
     }
@@ -144,6 +147,12 @@ class PgcIntroController extends CommonIntroController {
 
   @override
   int get copyright => 1;
+
+  void shareEpisode(String url) {
+    ShareUtils.shareText(
+      '${pgcItem.title} ${findEpisode(cid.value).showTitle} - $url',
+    );
+  }
 
   // 分享视频
   @override
@@ -174,14 +183,17 @@ class PgcIntroController extends CommonIntroController {
             DialogOption(
               child: const Text('分享视频', style: TextStyle(fontSize: 14)),
               onPressed: () {
-                final item = findEpisode(cid.value);
                 Get.back();
-                ShareUtils.shareText(
-                  '${pgcItem.title} ${item.showTitle}'
-                  ' - $videoUrl',
-                );
+                shareEpisode(videoUrl);
               },
             ),
+          DialogOption(
+            child: const Text('二维码分享', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              showQrDialog(context, data: videoUrl, title: pgcItem.title);
+            },
+          ),
           if (isLogin)
             DialogOption(
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
@@ -426,6 +438,12 @@ class PgcIntroController extends CommonIntroController {
     }
     final result = await VideoHttp.pgcTriple(epId: epId, seasonId: seasonId);
     if (result case Success(:final response)) {
+      PlaybackStatsService.markInteraction(
+        8 |
+            (response.like == 1 ? 1 : 0) |
+            (response.coin == 1 ? 2 : 0) |
+            (response.favorite == 1 ? 4 : 0),
+      );
       late final stat = pgcItem.stat;
       if (response.like == 1 && !hasLike.value) {
         stat?.like++;

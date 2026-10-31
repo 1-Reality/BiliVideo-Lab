@@ -55,9 +55,7 @@ dependencies:
       path: cached_network_image
       ref: develop
   canvas_danmaku:
-    git:
-      url: https://github.com/bggRGjQaUbCoE/canvas_danmaku.git
-      ref: main
+    path: third_party/canvas_danmaku
   catcher_2:
     git:
       url: https://github.com/My-Responsitories/catcher_2.git
@@ -94,6 +92,16 @@ dependencies:
     git:
       url: https://github.com/bggRGjQaUbCoE/flutter_html.git
       ref: dev
+  flutter_html_svg:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      path: packages/flutter_html_svg
+      ref: dev
+  flutter_html_table:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      path: packages/flutter_html_table
+      ref: dev
   flutter_inappwebview: ^6.1.5
   flutter_smart_dialog:
     git:
@@ -116,6 +124,7 @@ dependencies:
       ref: dev
   hive_ce: ^2.19.3
   html: ^0.15.4
+  image: ^4.10.1
   http2: ^2.3.1
   image_cropper: ^12.0.0
   image_picker: ^1.1.2
@@ -124,6 +133,7 @@ dependencies:
   json_annotation: ^4.11.0
   live_photo_maker: ^0.0.6
   logger: ^2.5.0
+  markdown: ^7.3.0
   material_color_utilities: ^0.13.0
   material_design_icons_flutter:
     git:
@@ -148,6 +158,7 @@ dependencies:
   permission_handler_android: ^14.0.0
   permission_handler_apple: ^9.4.7
   permission_handler_platform_interface: ^4.4.0
+  pointycastle: ^3.9.1
   pretty_qr_code: ^3.3.0
   protobuf: ^6.0.0
   re_highlight: ^0.0.3
@@ -178,6 +189,11 @@ dependencies:
       ref: main
 
 dependency_overrides:
+  # flutter_html_svg / flutter_html_table ask for flutter_html from pub.
+  flutter_html:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flutter_html.git
+      ref: dev
   flutter_inappwebview_android:
     git:
       url: https://github.com/bggRGjQaUbCoE/flutter_inappwebview.git
@@ -220,9 +236,11 @@ dependency_overrides:
       ref: native
   media_kit_video:
     git:
-      url: https://github.com/bggRGjQaUbCoE/media-kit.git
+      url: https://github.com/My-Responsitories/media-kit.git
       path: media_kit_video
       ref: native
+  path_provider_windows:
+    path: third_party/path_provider_windows
 
 dev_dependencies:
   flutter_test:
@@ -269,7 +287,15 @@ flutter:
     - path: assets/images/live/
     - path: assets/images/paycoins/
     - path: assets/shaders/
-
+    - path: assets/danmaku_merge/
+    - path: assets/BroTech/
+    - path: assets/BroTech/ZTE/LICENSE/
+    - path: assets/BroTech/ZTE/
+    - path: assets/BroTech/Mi/
+    - path: assets/BroTech/general/
+    - path: assets/BroTech/general/COPYING/
+    - path: assets/BroTech/general/COPYING/License/
+    - path: assets/web/
   fonts:
     - family: digital_id_num
       fonts:

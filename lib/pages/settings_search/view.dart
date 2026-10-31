@@ -3,6 +3,7 @@ import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliBro/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliBro/pages/search/controller.dart' show DebounceStreamState;
+import 'package:PiliBro/pages/setting/models/audio_settings.dart';
 import 'package:PiliBro/pages/setting/models/dm_settings.dart';
 import 'package:PiliBro/pages/setting/models/dyn_settings.dart';
 import 'package:PiliBro/pages/setting/models/extra_settings.dart';
@@ -39,6 +40,7 @@ class _SettingsSearchPageState
     ...recommendSettings,
     ...videoSettings,
     ...playSettings,
+    ...audioSettings,
     NormalModel(
       title: '极高码率 H.264 自动切换 H.265',
       subtitle: 'PC 网络联动状态：画质门限、码率门限',

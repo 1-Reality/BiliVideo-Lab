@@ -1,2 +1,2 @@
--keep class com.example.pilibro.AndroidHelper { public *; }
--keep class com.example.pilibro.AndroidHelper$ToDart { public *; }
+-keep class org.BroTech.gege.pilibro.AndroidHelper { public *; }
+-keep class org.BroTech.gege.pilibro.AndroidHelper$ToDart { public *; }

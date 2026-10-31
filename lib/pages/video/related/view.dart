@@ -9,8 +9,9 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class RelatedVideoPanel extends StatefulWidget {
-  const RelatedVideoPanel({super.key, required this.heroTag});
+  const RelatedVideoPanel({super.key, required this.heroTag, this.onSelect});
   final String heroTag;
+  final ValueChanged<HotVideoItemModel>? onSelect;
   @override
   State<RelatedVideoPanel> createState() => _RelatedVideoPanelState();
 }
@@ -45,6 +46,9 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel> with GridMixin {
                 itemBuilder: (context, index) {
                   return VideoCardH(
                     videoItem: response[index],
+                    onTap: widget.onSelect == null
+                        ? null
+                        : () => widget.onSelect!(response[index]),
                     onRemove: () => _relatedController.loadingState
                       ..value.data!.removeAt(index)
                       ..refresh(),

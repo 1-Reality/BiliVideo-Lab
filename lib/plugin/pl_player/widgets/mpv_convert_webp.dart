@@ -48,14 +48,16 @@ class MpvConvertWebp {
       options: {
         'idle': 'once',
         'o': outFile,
-        'start': start.toStringAsFixed(3),
-        'end': (start + duration).toStringAsFixed(3),
+        'start': '$start',
+        'end': '${start + duration}',
         'of': 'webp',
         'ovc': 'libwebp_anim',
         'ofopts': 'loop=0',
         'ovcopts': 'preset=${preset.flag}',
         if (enableHA) 'vo': 'gpu',
-        if (enableHA) 'hwdec': '${Pref.hardwareDecoding},auto-copy', // transcode only support copy
+        if (enableHA)
+          'hwdec':
+              '${Pref.hardwareDecoding.replaceAll('mediacodec_embed', 'mediacodec-copy')},auto-copy', // transcode only support copy
       },
     );
     _mpv.mpv_request_event(

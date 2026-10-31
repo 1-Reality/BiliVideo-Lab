@@ -60,6 +60,7 @@ class SeasonInfoItem extends StatelessWidget {
                           );
                           downloadService.deletePage(
                             pageDirPath: pageInfo.dirPath,
+                            audioOnly: pageInfo.audioOnly,
                           );
                         }
                       },

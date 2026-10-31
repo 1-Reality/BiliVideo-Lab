@@ -1,3 +1,4 @@
+import 'package:PiliBro/common/widgets/dialog/qr_dialog.dart';
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/style.dart';
@@ -41,6 +42,7 @@ import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/num_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -300,6 +302,30 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           },
           child: const Text('复制 b23.tv 链接'),
         ),
+        if (PlatformUtils.isMobile)
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.of(context).pop();
+              final d = introController.videoDetail.value;
+              ShareUtils.shareVideo(
+                d.title,
+                d.owner?.name,
+                ShareUtils.videoUrl('av$aid'),
+              );
+            },
+            child: const Text('分享视频'),
+          ),
+        SimpleDialogOption(
+          onPressed: () {
+            Navigator.of(context).pop();
+            showQrDialog(
+              this.context,
+              data: 'https://www.bilibili.com/video/$bvid',
+              title: bvid,
+            );
+          },
+          child: const Text('二维码分享'),
+        ),
       ],
     ),
   );
@@ -334,8 +360,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     const SizedBox(height: 8, width: .infinity),
     _videoIds(videoDetail),
     Obx(() {
-      final metrics = videoDetailCtr.streamSizeAndBitrate;
-      final alternatives = videoDetailCtr.otherStreamSizeAndBitrates;
+      final info = videoDetailCtr.streamInfo.value;
+      final metrics = info?.current;
+      final alternatives = info?.others ?? const <String>[];
       return metrics == null
           ? const SizedBox.shrink()
           : Padding(
@@ -344,7 +371,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '当前视频流：$metrics${alternatives.length < 2 ? ' · ${videoDetailCtr.currentStreamCodec}' : ''}',
+                    '当前视频流：$metrics',
                     style: TextStyle(fontSize: 13, color: colorScheme.outline),
                   ),
                   for (final row in alternatives)

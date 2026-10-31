@@ -1,3 +1,4 @@
+import 'dart:ffi' show Abi;
 import 'dart:io' show Platform;
 
 import 'package:PiliBro/build_config.dart';
@@ -5,10 +6,15 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/pages/setting/pc_check.dart';
+import 'package:PiliBro/services/brotech_scripts.dart';
+import 'package:PiliBro/services/daily_checkin.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -16,6 +22,46 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class Update {
+  static void onLaunch() {
+    final cache = GStorage.localCache;
+    final n = BroTechScripts.list.length + 1;
+    var slot = cache.get(LocalCacheKey.launchSlot, defaultValue: 1) as int;
+    final now = DateTime.now().subtract(const Duration(hours: 4));
+    final today = now.year * 10000 + now.month * 100 + now.day;
+    final stamp = cache.get(LocalCacheKey.launchDay, defaultValue: 0) as int;
+    if (today > stamp ~/ 1000) {
+      slot %= n;
+      final year = stamp ~/ 10000000;
+      if (now.year != year && stamp != 0) {
+        cache.put(LocalCacheKey.launchYears, {
+          ...?cache.get(LocalCacheKey.launchYears) as Map?,
+          '$year': stamp % 1000,
+        });
+      }
+      final day = now.year == year ? stamp % 1000 + 1 : 1;
+      cache.put(LocalCacheKey.launchDay, today * 1000 + day);
+      DailyCheckin.onNewDay(day);
+    }
+    cache.put(LocalCacheKey.launchSlot, slot + 1);
+    if (Platform.isWindows && cache.get(LocalCacheKey.pcChecked) == null) {
+      cache.put(LocalCacheKey.pcChecked, true);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => PcCheck.onFirstLaunch(),
+      );
+    }
+    final bucket = slot % n;
+    final ignore = cache.get(LocalCacheKey.updateIgnore);
+    if (Pref.autoUpdate &&
+        (bucket == 0 || (ignore is Map && ignore['temporary'] == false))) {
+      checkUpdate();
+    }
+    if (bucket != 0 && (slot ~/ n) & 4 == 0) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => BroTechScripts.refresh(bucket - 1),
+      );
+    }
+  }
+
   // 检查更新
   static Future<void> checkUpdate([bool isAuto = true]) async {
     if (kDebugMode) return;
@@ -34,7 +80,14 @@ abstract final class Update {
         }
         return;
       }
-      final data = res.data[0];
+      // 跳过预发布版：只在拿到列表后挑第一个正式版
+      final data = (res.data as List).firstWhereOrNull(
+        (e) => e['prerelease'] != true,
+      );
+      if (data == null) {
+        if (!isAuto) SmartDialog.showToast('已是最新版本');
+        return;
+      }
       final int latest =
           DateTime.parse(data['created_at']).millisecondsSinceEpoch ~/ 1000;
       final version = data['tag_name']?.toString() ?? data['created_at'].toString();
@@ -44,6 +97,7 @@ abstract final class Update {
         if (updateIgnore['temporary'] == true || ignoredVersion == version) {
           return;
         }
+        GStorage.localCache.delete(LocalCacheKey.updateIgnore);
       }
       if (BuildConfig.buildTime >= latest) {
         if (!isAuto) {
@@ -51,10 +105,12 @@ abstract final class Update {
         }
       } else {
         SmartDialog.show(
+          useSystem: true,
           animationType: SmartAnimationType.centerFade_otherSlide,
           builder: (context) {
             final colorScheme = ColorScheme.of(context);
             Widget downloadBtn(String text, {String? ext}) => TextButton(
+              autofocus: ext == null,
               onPressed: () => onDownload(data, ext: ext),
               child: Text(text),
             );
@@ -71,7 +127,13 @@ abstract final class Update {
                         style: const TextStyle(fontSize: 20),
                       ),
                       const SizedBox(height: 8),
-                      Text('${data['body']}'),
+                      // 发布正文从设备徽标那块 HTML 起是给网页看的，只留前面的说明
+                      Text(
+                        '${data['body']}'
+                            .split('<div align="center">')
+                            .first
+                            .trim(),
+                      ),
                       TextButton(
                         onPressed: () => PageUtils.launchURL(
                           '${Constants.sourceCodeUrl}/commits/${Constants.sourceBranch}',
@@ -120,9 +182,14 @@ abstract final class Update {
                     ),
                   ),
                 ],
+                // 发行仓：64 位便携包是 rar，32 位是 7z，32 位没有安装包
                 if (Platform.isWindows) ...[
-                  downloadBtn('zip', ext: 'zip'),
-                  downloadBtn('exe', ext: 'exe'),
+                  if (Abi.current() == Abi.windowsIA32)
+                    downloadBtn('7z', ext: '7z')
+                  else ...[
+                    downloadBtn('rar', ext: 'rar'),
+                    downloadBtn('exe', ext: 'exe'),
+                  ],
                 ] else if (Platform.isLinux) ...[
                   downloadBtn('rpm', ext: 'rpm'),
                   downloadBtn('deb', ext: 'deb'),

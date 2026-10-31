@@ -1,0 +1,31 @@
+--- a/shell/platform/windows/host_window.h
++++ b/shell/platform/windows/host_window.h
+@@ -245,7 +245,10 @@
+   // is passed when the non-client area is being created and enables automatic
+   // non-client DPI scaling so that the non-client area automatically
+   // responds to changes in DPI. Delegates other messages to the controller.
+-  static LRESULT WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
++  static LRESULT CALLBACK WndProc(HWND hwnd,
++                                  UINT message,
++                                  WPARAM wparam,
++                                  LPARAM lparam);
+ 
+   // Controller for this window.
+   WindowManager* const window_manager_ = nullptr;
+--- a/shell/platform/windows/host_window.cc
++++ b/shell/platform/windows/host_window.cc
+@@ -377,10 +377,10 @@
+   FocusRootViewOf(this);
+ }
+ 
+-LRESULT HostWindow::WndProc(HWND hwnd,
+-                            UINT message,
+-                            WPARAM wparam,
+-                            LPARAM lparam) {
++LRESULT CALLBACK HostWindow::WndProc(HWND hwnd,
++                                     UINT message,
++                                     WPARAM wparam,
++                                     LPARAM lparam) {
+   if (message == WM_NCCREATE) {
+     auto* const create_struct = reinterpret_cast<CREATESTRUCT*>(lparam);
+     auto* const windows_proc_table =
