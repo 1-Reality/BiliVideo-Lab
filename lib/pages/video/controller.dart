@@ -492,8 +492,8 @@ class VideoDetailController extends GetxController
   void onInit() {
     super.onInit();
     args = Get.arguments;
-    if (PageUtils.noAutoPlay) {
-      PageUtils.noAutoPlay = false;
+    // 从评论详情的「前往」进来时按设置不自动播放
+    if (args['replyRootId'] != null && Pref.replyNoAutoPlay) {
       _autoPlay.value = false;
     }
     videoType = args['videoType'];
