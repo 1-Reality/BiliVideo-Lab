@@ -271,12 +271,17 @@ List<SettingsModel> get styleSettings => [
   PopupModel(
     title: '时间显示',
     leading: const Icon(Icons.schedule),
-    value: () => Pref.timeDisplayMode,
+    value: () => DateFormatUtils.timeMode,
     items: TimeDisplayMode.values,
     onSelected: (value, setState) {
-      DateFormatUtils.timeMode = value;
+      final display = DateFormatUtils.display;
       GStorage.setting
-          .put(SettingBoxKey.timeDisplayMode, value.index)
+          .put(
+            SettingBoxKey.timeDisplayMode,
+            DateFormatUtils.display = value == TimeDisplayMode.hankou
+                ? display ^ 4
+                : display & 4 | value.index,
+          )
           .whenComplete(setState);
     },
   ),

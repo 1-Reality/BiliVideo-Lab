@@ -1256,11 +1256,11 @@ abstract final class Pref {
         defaultValue: BarHideType.sync.index,
       )];
 
-  static TimeDisplayMode get timeDisplayMode =>
-      TimeDisplayMode.values[_setting.get(
-        SettingBoxKey.timeDisplayMode,
-        defaultValue: TimeDisplayMode.readable.index,
-      )];
+  /// 低两位为 [TimeDisplayMode] 的显示方式，第三位为漢口特別市时间
+  static int get timeDisplay => _setting.get(
+    SettingBoxKey.timeDisplayMode,
+    defaultValue: TimeDisplayMode.readable.index,
+  );
 
   static bool get enableSearchWord =>
       _setting.get(SettingBoxKey.enableSearchWord, defaultValue: true);
