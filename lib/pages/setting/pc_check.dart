@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/utils/page_utils.dart';
@@ -21,15 +21,20 @@ abstract final class PcCheck {
   static bool get _os64 =>
       !_app32 || Platform.environment.containsKey('PROCESSOR_ARCHITEW6432');
 
+  // 安装版目录里有 Inno Setup 的卸载程序；便携包没有，它自带的是通用版内核，不需要 AVX2
+  static bool get _installed => File(
+    '${File(Platform.resolvedExecutable).parent.path}\\unins000.exe',
+  ).existsSync();
+
   static bool get _v3 =>
       _exe.lookupFunction<Int32 Function(), int Function()>('PcCheckV3')() != 0;
 
   static void onFirstLaunch() {
-    if (_app32 ? _os64 : !_v3) show();
+    if (_app32 ? _os64 : !_v3 && _installed) show();
   }
 
   static void show() {
-    final app32 = _app32, os64 = _os64, v3 = _v3;
+    final app32 = _app32, os64 = _os64, v3 = _v3, installed = _installed;
     final gpu = _exe
         .lookupFunction<Pointer<Utf16> Function(), Pointer<Utf16> Function()>(
           'PcCheckGpu',
@@ -83,19 +88,21 @@ abstract final class PcCheck {
                   else if (app32)
                     verdict(
                       Colors.orange,
-                      '换成 64 位版以后，自带的播放内核用不了，要按下面的步骤换成通用版。',
+                      '64 位版请下 rar 便携包，它自带通用版内核，可以直接用；exe 安装包的内核需要 AVX2，装了要按下面的步骤换。',
                     )
+                  else if (!installed)
+                    verdict(Colors.green, '你用的是便携包，自带通用版内核，不需要 AVX2，可以直接用。')
                   else
                     verdict(
                       colorScheme.error,
-                      '64 位版自带的播放内核需要 AVX2，这台电脑播放视频会闪退。按下面的步骤换成通用版就好；已经换过的，忽略这条即可。',
+                      '安装版自带的播放内核需要 AVX2，这台电脑播放视频会闪退。最省事的是改用 rar 便携包，它自带通用版内核；想继续用安装版，按下面的步骤换内核。已经换过的，忽略这条即可。',
                     ),
-                  Text('通用版播放内核（给不支持 AVX2 的电脑用）', style: head),
+                  Text('安装版换成通用版内核（给不支持 AVX2 的电脑用）', style: head),
                   const Text(
-                    '1. 点下面的按钮，下载通用版内核的压缩包（约 30 MB）。\n'
+                    '1. 点下面的按钮，下载通用版内核的压缩包（约 30 MB）。已经下过 rar 便携包的，它里面的 libmpv-2.dll 就是通用版，直接跳到第 3 步。\n'
                     '2. 用 7-Zip、Bandizip 或 WinRAR 解压（较新的 Windows 11 也可以直接右键「全部解压缩」），解压出来的文件里有一个 libmpv-2.dll。\n'
                     '3. 完全退出 PiliBro：关掉窗口后，右下角托盘里如果还有它的图标，右键选「退出 PiliBro」。\n'
-                    '4. 在桌面上右键 PiliBro 的快捷方式，选「打开文件所在的位置」。桌面上没有快捷方式的，在开始菜单里右键 PiliBro，选「更多」→「打开文件位置」，再对打开的快捷方式做一次同样的操作。用便携包的，直接打开你解压的那个文件夹。\n'
+                    '4. 在桌面上右键 PiliBro 的快捷方式，选「打开文件所在的位置」。桌面上没有快捷方式的，在开始菜单里右键 PiliBro，选「更多」→「打开文件位置」，再对打开的快捷方式做一次同样的操作。\n'
                     '5. 打开的文件夹里能看到 pilibro.exe 和 libmpv-2.dll。把第 2 步解压出来的 libmpv-2.dll 拖进这个文件夹，选「替换目标中的文件」；提示需要管理员权限，点「继续」。\n'
                     '6. 重新打开 PiliBro。以后每次更新都会装回自带的内核，再做一遍第 3 到 5 步就行，第 2 步解压出来的文件留着别删。',
                   ),

@@ -82,6 +82,11 @@ jobs:
           mv build/windows/x64/runner/Release/* Release/PiliBro-Win/
           mv dist/**/*.exe PiliBro-Win-Setup/PiliBro_windows_${{env.version}}_x64_setup.exe
 
+      - name: Portable uses generic x86_64 libmpv
+        if: ${{ inputs.include_portable }}
+        shell: pwsh
+        run: lib/scripts/portable_generic_libmpv.ps1 Release/PiliBro-Win
+
       - name: Compress portable 7z
         if: ${{ inputs.include_portable }}
         shell: pwsh
