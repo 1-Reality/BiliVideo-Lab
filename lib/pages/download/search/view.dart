@@ -1,8 +1,10 @@
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliBro/pages/common/multi_select/base.dart';
 import 'package:PiliBro/pages/common/search/common_search_page.dart';
 import 'package:PiliBro/pages/download/detail/widgets/item.dart';
+import 'package:PiliBro/pages/download/download_action_mixin.dart';
 import 'package:PiliBro/pages/download/search/controller.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/grid.dart';
@@ -30,10 +32,18 @@ class _DownloadSearchPageState
           List<BiliDownloadEntryInfo>,
           BiliDownloadEntryInfo
         >
-    with GridMixin {
+    with
+        GridMixin,
+        BaseDownloadActionMixin<DownloadSearchPage, BiliDownloadEntryInfo>,
+        CommonDownloadActionMixin<DownloadSearchPage> {
   @override
   DownloadSearchController controller = Get.put(DownloadSearchController());
-  final _downloadService = Get.find<DownloadService>();
+
+  @override
+  final downloadService = Get.find<DownloadService>();
+
+  @override
+  BaseMultiSelectMixin<BiliDownloadEntryInfo> get multiSelectCtr => controller;
 
   @override
   List<Widget>? get extraActions => [
@@ -54,32 +64,7 @@ class _DownloadSearchPageState
   ];
 
   @override
-  List<Widget>? get multiSelectActions => [
-    TextButton(
-      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-      onPressed: () async {
-        final future = controller.allChecked
-            .map(
-              (e) => _downloadService.downloadDanmaku(
-                entry: e,
-                isUpdate: true,
-              ),
-            )
-            .toList();
-        controller.handleSelect();
-        final res = await Future.wait(future);
-        if (res.every((e) => e)) {
-          SmartDialog.showToast('更新成功');
-        } else {
-          SmartDialog.showToast('更新失败');
-        }
-      },
-      child: Text(
-        '更新',
-        style: TextStyle(color: ColorScheme.of(context).onSurface),
-      ),
-    ),
-  ];
+  List<Widget>? get multiSelectActions => [updateBtn()];
 
   @override
   Widget buildList(List<BiliDownloadEntryInfo> list) {
@@ -91,7 +76,7 @@ class _DownloadSearchPageState
           return DetailItem(
             entry: entry,
             progress: widget.progress,
-            downloadService: _downloadService,
+            downloadService: downloadService,
             showTitle: true,
             onDelete: () => controller.onRemoveSingle(index, entry),
             controller: controller,

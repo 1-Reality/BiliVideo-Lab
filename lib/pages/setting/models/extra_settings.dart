@@ -3,41 +3,28 @@ import 'dart:math' show max;
 
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliBro/common/widgets/emote_tooltip.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart'
     show RefreshIndicator, displacement, refreshDragExtent;
 import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop, touchSlopH;
 import 'package:PiliBro/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
-import 'package:PiliBro/common/widgets/pendant_avatar.dart';
-import 'package:PiliBro/grpc/reply.dart';
 import 'package:PiliBro/http/fav.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/models/common/audio_normalization.dart';
-import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
-import 'package:PiliBro/models/common/member/tab_type.dart';
-import 'package:PiliBro/models/common/reply/reply_sort_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/skip_type.dart';
-import 'package:PiliBro/models/common/super_resolution_type.dart';
-import 'package:PiliBro/models/dynamics/result.dart'
-    show DynamicsDataModel, ItemModulesModel;
 import 'package:PiliBro/pages/common/slide/common_slide_page.dart';
 import 'package:PiliBro/pages/home/controller.dart';
-import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
-import 'package:PiliBro/pages/setting/pages/danmaku_merge_setting.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
+import 'package:PiliBro/utils/desktop/window_controller.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/feed_back.dart';
 import 'package:PiliBro/utils/filtering_text.dart';
-import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
@@ -49,7 +36,6 @@ import 'package:PiliBro/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
@@ -61,11 +47,7 @@ List<SettingsModel> get extraSettings => [
       leading: const Icon(Icons.exit_to_app),
       setKey: SettingBoxKey.minimizeOnExit,
       defaultVal: true,
-      onChanged: (value) {
-        try {
-          Get.find<MainController>().minimizeOnExit = value;
-        } catch (_) {}
-      },
+      onChanged: (value) => WindowController.instance.minimizeOnExit = value,
     ),
     NormalModel(
       title: '缓存路径',
@@ -103,149 +85,12 @@ List<SettingsModel> get extraSettings => [
         .put(SettingBoxKey.pgcSkipType, value.index)
         .whenComplete(setState),
   ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: '检查未读动态',
-      subtitle: '点击设置检查周期（秒）',
-      leading: Icon(Icons.notifications_none),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: true,
-      setKey: SettingBoxKey.checkDynamic,
-      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-      onTap: _showDynDialog,
-    ),
-  ),
-  const SwitchModel(
-    title: '每日用银瓜子换硬币',
-    subtitle: '每天首次打开时用 700 银瓜子换 1 枚硬币，不够就跳过',
-    leading: Icon(Icons.monetization_on_outlined),
-    setKey: SettingBoxKey.silver2coin,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '显示视频分段信息',
-    leading: Icon(CustomIcons.view_headline_rotate_90),
-    setKey: SettingBoxKey.showViewPoints,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '视频页显示相关视频',
-    leading: Icon(MdiIcons.motionPlayOutline),
-    setKey: SettingBoxKey.showRelatedVideo,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示视频评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showVideoReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示番剧评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showBangumiReply,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '默认展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.alwaysExpandIntroPanel,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '横屏自动展开视频简介',
-    leading: Icon(Icons.expand_more),
-    setKey: SettingBoxKey.expandIntroPanelH,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: '横屏分P|合集列表显示在Tab栏',
-    leading: const Icon(Icons.format_list_numbered_rtl_sharp),
-    setKey: SettingBoxKey.horizontalSeasonPanel,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏播放页在侧栏打开UP主页',
-    leading: const Icon(Icons.account_circle_outlined),
-    setKey: SettingBoxKey.horizontalMemberPage,
-    defaultVal: Pref.horizontalScreen,
-  ),
-  SwitchModel(
-    title: '横屏在侧栏打开图片预览',
-    leading: const Icon(Icons.photo_outlined),
-    setKey: SettingBoxKey.horizontalPreview,
-    defaultVal: false,
-    onChanged: (value) => ImageGridView.horizontalPreview = value,
-  ),
-  NormalModel(
-    title: '评论折叠行数',
-    subtitle: '0行为不折叠',
-    leading: const Icon(Icons.compress),
-    getTrailing: (theme) => Text(
-      '${ReplyItemGrpc.replyLengthLimit}行',
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showReplyLengthDialog,
-  ),
-  NormalModel(
-    title: '弹幕行高',
-    subtitle: '默认1.6',
-    leading: const Icon(CustomIcons.dm_settings),
-    getTrailing: (theme) => Text(
-      Pref.danmakuLineHeight.toString(),
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showDmHeightDialog,
-  ),
-  const SwitchModel(
-    title: '显示视频警告争议信息',
-    leading: Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showArgueMsg,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: '显示动态警告争议信息',
-    leading: const Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showDynDispute,
-    defaultVal: true,
-    onChanged: (val) => ItemModulesModel.showDynDispute = val,
-  ),
-  const SwitchModel(
-    title: '分P/合集：倒序播放从首集开始播放',
-    subtitle: '开启则自动切换为倒序首集，否则保持当前集',
-    leading: Icon(MdiIcons.sort),
-    setKey: SettingBoxKey.reverseFromFirst,
-    defaultVal: true,
-  ),
   const SwitchModel(
     title: '禁用 SSL 证书验证',
     subtitle: '谨慎开启，禁用可能会受到 MitM 攻击',
     leading: Icon(Icons.security),
     needReboot: true,
     setKey: SettingBoxKey.badCertificateCallback,
-  ),
-  const SwitchModel(
-    title: '显示继续播放分P提示',
-    leading: Icon(Icons.local_parking),
-    setKey: SettingBoxKey.continuePlayingPart,
-    defaultVal: true,
-  ),
-  getBanWordModel(
-    title: '评论关键词过滤',
-    key: SettingBoxKey.banWordForReply,
-    onChanged: (value) {
-      ReplyGrpc.replyRegExp = value;
-      ReplyGrpc.enableFilter = value.pattern.isNotEmpty;
-    },
-  ),
-  getBanWordModel(
-    title: '动态关键词过滤',
-    key: SettingBoxKey.banWordForDyn,
-    onChanged: (value) {
-      DynamicsDataModel.banWordForDyn = value;
-      DynamicsDataModel.enableFilter = value.pattern.isNotEmpty;
-    },
   ),
   const SwitchModel(
     title: '使用外部浏览器打开链接',
@@ -279,57 +124,10 @@ List<SettingsModel> get extraSettings => [
     onTap: _showRefreshDialog,
   ),
   const SwitchModel(
-    title: '显示会员彩色弹幕',
-    leading: Icon(MdiIcons.gradientHorizontal),
-    setKey: SettingBoxKey.showVipDanmaku,
-    defaultVal: true,
-  ),
-  NormalModel(
-    title: '合并弹幕',
-    getSubtitle: () {
-      if (!Pref.mergeDanmaku) return '已关闭';
-      final crossMode = Pref.mergeDanmakuCrossMode ? '跨类型' : '同类型';
-      final enlarge = Pref.danmakuEnlarge
-          ? '放大门槛: ${Pref.danmakuEnlargeThreshold}'
-          : '字号放大: 关';
-      return '时间窗: ${Pref.mergeDanmakuWindowSeconds}s, $crossMode, $enlarge';
-    },
-    leading: const Icon(Icons.merge),
-    onTap: (context, setState) async {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => const DanmakuMergeSettingPage(),
-        ),
-      );
-      setState();
-    },
-  ),
-  const SwitchModel(
     title: '显示热门推荐',
     subtitle: '热门页面显示每周必看等推荐内容入口',
     leading: Icon(Icons.local_fire_department_outlined),
     setKey: SettingBoxKey.showHotRcmd,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  NormalModel(
-    title: '超分辨率',
-    leading: const Icon(Icons.stay_current_landscape_outlined),
-    getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 copy系',
-    onTap: _showSuperResolutionDialog,
-  ),
-  const SwitchModel(
-    title: '提前初始化播放器',
-    subtitle: '相对减少手动播放加载时间',
-    leading: Icon(Icons.play_circle_outlined),
-    setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '首页切换页面动画',
-    leading: Icon(Icons.home_outlined),
-    setKey: SettingBoxKey.mainTabBarView,
     defaultVal: true,
     needReboot: true,
   ),
@@ -346,27 +144,6 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
   ),
   SwitchModel(
-    title: '展示头像、评论、动态装饰',
-    leading: const Icon(MdiIcons.stickerCircleOutline),
-    setKey: SettingBoxKey.showDecorate,
-    defaultVal: true,
-    onChanged: (value) => PendantAvatar.showDecorate = value,
-  ),
-  SwitchModel(
-    title: '点击表情显示 Tooltip',
-    leading: const Icon(Icons.emoji_emotions_outlined),
-    setKey: SettingBoxKey.enableEmoteTooltip,
-    defaultVal: false,
-    onChanged: (value) => enableEmoteTooltip = value,
-  ),
-  SwitchModel(
-    title: '显示粉丝勋章',
-    leading: const Icon(MdiIcons.medalOutline),
-    setKey: SettingBoxKey.showMedal,
-    defaultVal: true,
-    onChanged: (value) => GlobalData().showMedal = value,
-  ),
-  SwitchModel(
     title: '预览 Live Photo',
     subtitle: '开启则以视频形式预览 Live Photo，否则预览静态图片',
     leading: const Icon(Icons.image_outlined),
@@ -374,89 +151,12 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
     onChanged: (value) => ImageModel.enableLivePhoto = value,
   ),
-  const SwitchModel(
-    title: '滑动跳转预览视频缩略图',
-    leading: Icon(Icons.preview_outlined),
-    setKey: SettingBoxKey.showSeekPreview,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '显示高能进度条',
-    subtitle: '高能进度条反应了在时域上，单位时间内弹幕发送量的变化趋势',
-    leading: Icon(Icons.show_chart),
-    setKey: SettingBoxKey.showDmChart,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '记录评论',
-    leading: Icon(Icons.message_outlined),
-    setKey: SettingBoxKey.saveReply,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '发评反诈',
-    subtitle: '发送评论后检查评论是否可见',
-    leading: Icon(CustomIcons.shield_reply),
-    setKey: SettingBoxKey.enableCommAntifraud,
-    defaultVal: true,
-  ),
-  if (Platform.isAndroid)
-    const SwitchModel(
-      title: '使用「哔哩发评反诈」检查评论',
-      subtitle: '若未安装该应用，可能会导致上一开关失效；但哥哥科技版已经缓解该问题！',
-      leading: Icon(
-        FontAwesomeIcons.b,
-        size: 22,
-      ),
-      setKey: SettingBoxKey.biliSendCommAntifraud,
-      defaultVal: false,
-    ),
-  const SwitchModel(
-    title: '发布/转发动态反诈',
-    subtitle: '发布/转发动态后检查动态是否可见',
-    leading: Icon(CustomIcons.shield_published),
-    setKey: SettingBoxKey.enableCreateDynAntifraud,
-    defaultVal: true,
-  ),
-  SwitchModel(
-    title: '屏蔽带货动态',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsDyn,
-    defaultVal: false,
-    onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
-  ),
-  SwitchModel(
-    title: '屏蔽带货评论',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsReply,
-    defaultVal: false,
-    onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
-  ),
   SwitchModel(
     title: '侧滑关闭二级页面',
     leading: const Icon(CustomIcons.touch_app_rotate_270),
     setKey: SettingBoxKey.slideDismissReplyPage,
     defaultVal: Platform.isIOS,
     onChanged: (value) => CommonSlideMixin.slideDismissReplyPage = value,
-  ),
-  const SwitchModel(
-    title: '启用双指缩小视频',
-    leading: Icon(Icons.pinch),
-    setKey: SettingBoxKey.enableShrinkVideoSize,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '动态/专栏详情页展示底部操作栏',
-    leading: Icon(Icons.more_horiz),
-    setKey: SettingBoxKey.showDynActionBar,
-    defaultVal: true,
-  ),
-  const SwitchModel(
-    title: '启用拖拽字幕调整底部边距',
-    leading: Icon(MdiIcons.dragVariant),
-    setKey: SettingBoxKey.enableDragSubtitle,
-    defaultVal: false,
   ),
   const SwitchModel(
     title: '展示追番时间表',
@@ -529,14 +229,6 @@ List<SettingsModel> get extraSettings => [
     onTap: _showFavDialog,
     defaultVal: false,
   ),
-  SwitchModel(
-    title: '评论区搜索关键词',
-    subtitle: '展示评论区搜索关键词',
-    leading: const Icon(Icons.search_outlined),
-    setKey: SettingBoxKey.enableWordRe,
-    defaultVal: true,
-    onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
-  ),
   const SwitchModel(
     title: '启用AI总结',
     subtitle: '视频详情页开启AI总结',
@@ -549,13 +241,6 @@ List<SettingsModel> get extraSettings => [
     subtitle: '禁止打开入口，减少低熵通知提醒打扰',
     leading: Icon(Icons.beach_access_outlined),
     setKey: SettingBoxKey.disableLikeMsg,
-    defaultVal: false,
-  ),
-  const SwitchModel(
-    title: '默认展示评论区',
-    subtitle: '在视频详情页默认切换至评论区页（仅Tab型布局）',
-    leading: Icon(Icons.mode_comment_outlined),
-    setKey: SettingBoxKey.defaultShowComment,
     defaultVal: false,
   ),
   const SwitchModel(
@@ -577,45 +262,6 @@ List<SettingsModel> get extraSettings => [
     leading: Icon(Icons.more_time_outlined),
     onTap: _showReplyDelayDialog,
   ),
-  NormalModel(
-    title: '评论展示',
-    leading: const Icon(Icons.whatshot_outlined),
-    getSubtitle: () => '当前优先展示「${Pref.replySortType.desc}」',
-    onTap: _showReplySortDialog,
-  ),
-  NormalModel(
-    title: '楼中楼评论展示',
-    leading: const Icon(Icons.subdirectory_arrow_right_outlined),
-    getSubtitle: () => '当前优先展示「${Pref.reply2SortType.reply2Title}」',
-    onTap: _showReply2SortDialog,
-  ),
-  NormalModel(
-    title: '动态展示',
-    leading: const Icon(Icons.dynamic_feed_rounded),
-    getSubtitle: () => '当前优先展示「${Pref.defaultDynamicType.label}」',
-    onTap: _showDefDynDialog,
-  ),
-  SwitchModel(
-    title: '显示动态互动内容',
-    subtitle: '开启后则在动态卡片底部显示互动内容（如关注的人点赞、热评等）',
-    leading: const Icon(Icons.quickreply_outlined),
-    setKey: SettingBoxKey.showDynInteraction,
-    defaultVal: true,
-    onChanged: (val) => ItemModulesModel.showDynInteraction = val,
-  ),
-  NormalModel(
-    title: '用户页默认展示TAB',
-    leading: const Icon(Icons.tab),
-    getSubtitle: () => '当前优先展示「${Pref.memberTab.title}」',
-    onTap: _showMemberTabDialog,
-  ),
-  SwitchModel(
-    title: '显示UP主页小店TAB',
-    leading: const Icon(Icons.shop_outlined),
-    setKey: SettingBoxKey.showMemberShop,
-    defaultVal: true,
-    onChanged: (value) => MemberTabType.showMemberShop = value,
-  ),
   const SplitModel(
     normalModel: NormalModel.split(
       title: '设置代理',
@@ -630,8 +276,7 @@ List<SettingsModel> get extraSettings => [
   ),
   NormalModel(
     title: '最大缓存大小',
-    getSubtitle: () =>
-        '当前最大缓存大小: 「${CacheManager.formatSize(Pref.maxCacheSize)}」',
+    getSubtitle: () => '当前最大缓存大小: 「${Pref.maxCacheSize.formatSize}」',
     leading: const Icon(Icons.delete_outlined),
     onTap: _showCacheDialog,
   ),
@@ -648,98 +293,6 @@ List<SettingsModel> get extraSettings => [
     },
   ),
 ];
-
-Future<void> audioNormalization(
-  BuildContext context,
-  VoidCallback setState, {
-  bool fallback = false,
-}) async {
-  final key = fallback
-      ? SettingBoxKey.fallbackNormalization
-      : SettingBoxKey.audioNormalization;
-  final res = await showDialog<String>(
-    context: context,
-    builder: (context) {
-      String audioNormalization = fallback
-          ? Pref.fallbackNormalization
-          : Pref.audioNormalization;
-      Set<String> values = {
-        '0',
-        '1',
-        if (!fallback) '2',
-        audioNormalization,
-        '3',
-      };
-      return SelectDialog<String>(
-        title: fallback ? '服务器无loudnorm配置时使用' : '音量均衡',
-        value: audioNormalization,
-        values: values
-            .map(
-              (e) => (
-                e,
-                switch (e) {
-                  '0' => AudioNormalization.disable.title,
-                  '1' => AudioNormalization.dynaudnorm.title,
-                  '2' => AudioNormalization.loudnorm.title,
-                  '3' => AudioNormalization.custom.title,
-                  _ => e,
-                },
-              ),
-            )
-            .toList(),
-      );
-    },
-  );
-  if (res != null && context.mounted) {
-    if (res == '3') {
-      String param = '';
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('自定义参数'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 16,
-            children: [
-              const Text('等同于 --af=lavfi=[参数]，接在倍速音调补偿之后'),
-              TextField(
-                autofocus: true,
-                onChanged: (value) => param = value,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: Get.back,
-              child: Text(
-                '取消',
-                style: TextStyle(color: ColorScheme.of(context).outline),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Get.back();
-                GStorage.setting.put(key, param);
-                if (!fallback &&
-                    AudioNormalization.loudnormRegExp.hasMatch(param)) {
-                  audioNormalization(context, setState, fallback: true);
-                }
-                setState();
-              },
-              child: const Text('确定'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      GStorage.setting.put(key, res);
-      if (res == '2') {
-        audioNormalization(context, setState, fallback: true);
-      }
-      setState();
-    }
-  }
-}
 
 void _showDownPathDialog(BuildContext context, VoidCallback setState) {
   showDialog(
@@ -789,129 +342,6 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
             GStorage.setting.put(SettingBoxKey.downloadPath, path);
           },
           child: const Text('设置新路径', style: TextStyle(fontSize: 14)),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = (Pref.dynamicPeriod ~/ 1000).toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('检查周期'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: dynamicPeriod,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => dynamicPeriod = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 's'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            try {
-              final val = int.parse(dynamicPeriod) * 1000;
-              Get.back();
-              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().setDynamicPeriod(val);
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
-  String replyLengthLimit = ReplyItemGrpc.replyLengthLimit.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('评论折叠行数'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: replyLengthLimit,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => replyLengthLimit = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: '行'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = int.parse(replyLengthLimit);
-              Get.back();
-              ReplyItemGrpc.replyLengthLimit = val == 0 ? null : val;
-              await GStorage.setting.put(SettingBoxKey.replyLengthLimit, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
-  String danmakuLineHeight = Pref.danmakuLineHeight.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('弹幕行高'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: danmakuLineHeight,
-        keyboardType: const .numberWithOptions(decimal: true),
-        onChanged: (value) => danmakuLineHeight = value,
-        inputFormatters: FilteringText.decimal,
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = max(
-                1.0,
-                double.parse(danmakuLineHeight).toPrecision(1),
-              );
-              Get.back();
-              await GStorage.setting.put(SettingBoxKey.danmakuLineHeight, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
         ),
       ],
     ),
@@ -988,27 +418,6 @@ void _visitor(Element context) {
     context.markNeedsBuild();
   } else {
     context.visitChildren(_visitor);
-  }
-}
-
-Future<void> _showSuperResolutionDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<SuperResolutionType>(
-    context: context,
-    builder: (context) => SelectDialog<SuperResolutionType>(
-      title: '超分辨率',
-      value: Pref.superResolutionType,
-      values: SuperResolutionType.values.map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.superResolutionType,
-      res.index,
-    );
-    setState();
   }
 }
 
@@ -1103,146 +512,6 @@ Future<void> _showReplyDelayDialog(
   }
 }
 
-Future<void> _showReplySortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: '评论展示',
-      value: Pref.replySortType,
-      values: ReplySortType.values.take(2).map((e) => (e, e.desc)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
-    setState();
-  }
-}
-
-Future<void> _showReply2SortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: '评论楼中楼展示',
-      value: Pref.reply2SortType,
-      values: ReplySortType.values
-          .take(2)
-          .map((e) => (e, e.reply2Title))
-          .toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.reply2SortType, res.index);
-    setState();
-  }
-}
-
-Future<void> _showDefDynDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<DynamicsTabType>(
-    context: context,
-    builder: (context) => SelectDialog<DynamicsTabType>(
-      title: '动态展示',
-      value: Pref.defaultDynamicType,
-      values: DynamicsTabType.values.take(4).map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.defaultDynamicType,
-      res.index,
-    );
-    setState();
-  }
-}
-
-Future<void> _showWebviewUaDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final type = await showDialog<int>(
-    context: context,
-    builder: (context) => SelectDialog<int>(
-      title: 'WebView User-Agent',
-      value: Pref.webviewUaType,
-      values: const [
-        (0, '浏览器'),
-        (1, 'Bili'),
-        (2, '自定义'),
-        (3, 'BiliApp'),
-        (4, '哔哩网页版'),
-      ],
-    ),
-  );
-  if (type == null) return;
-
-  if (type != 2) {
-    await GStorage.setting.put(SettingBoxKey.webviewUaType, type);
-    setState();
-    return;
-  }
-
-  var custom = Pref.webviewUaCustom;
-  final value = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('自定义 User-Agent'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: custom,
-        minLines: 1,
-        maxLines: 4,
-        onChanged: (value) => custom = value,
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(custom.trim()),
-          child: const Text('保存'),
-        ),
-      ],
-    ),
-  );
-  if (value == null || value.isEmpty) return;
-
-  await Future.wait([
-    GStorage.setting.put(SettingBoxKey.webviewUaCustom, value),
-    GStorage.setting.put(SettingBoxKey.webviewUaType, type),
-  ]);
-  setState();
-}
-
-Future<void> _showMemberTabDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<MemberTabType>(
-    context: context,
-    builder: (context) => SelectDialog<MemberTabType>(
-      title: '用户页默认展示TAB',
-      value: Pref.memberTab,
-      values: MemberTabType.values.map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.memberTab, res.index);
-    setState();
-  }
-}
-
 void _showProxyDialog(BuildContext context) {
   String systemProxyHost = Pref.systemProxyHost;
   String systemProxyPort = Pref.systemProxyPort;
@@ -1314,6 +583,7 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
     builder: (context) => AlertDialog(
       title: const Text('最大缓存大小'),
       content: TextField(
+        maxLength: 6,
         autofocus: true,
         onChanged: (value) => valueStr = value,
         keyboardType: TextInputType.number,
@@ -1347,4 +617,66 @@ void _showCacheDialog(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
+}
+
+Future<void> _showWebviewUaDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final type = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: 'WebView User-Agent',
+      value: Pref.webviewUaType,
+      values: const [
+        (0, '浏览器'),
+        (1, 'Bili'),
+        (2, '自定义'),
+        (3, 'BiliApp'),
+        (4, '哔哩网页版'),
+      ],
+    ),
+  );
+  if (type == null) return;
+
+  if (type != 2) {
+    await GStorage.setting.put(SettingBoxKey.webviewUaType, type);
+    setState();
+    return;
+  }
+
+  var custom = Pref.webviewUaCustom;
+  final value = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('自定义 User-Agent'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: custom,
+        minLines: 1,
+        maxLines: 4,
+        onChanged: (value) => custom = value,
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(custom.trim()),
+          child: const Text('保存'),
+        ),
+      ],
+    ),
+  );
+  if (value == null || value.isEmpty) return;
+
+  await Future.wait([
+    GStorage.setting.put(SettingBoxKey.webviewUaCustom, value),
+    GStorage.setting.put(SettingBoxKey.webviewUaType, type),
+  ]);
+  setState();
 }

@@ -1,10 +1,10 @@
 import 'dart:convert';
-
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/login_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -15,7 +15,8 @@ abstract final class Accounts {
     AnonymousAccount(),
   );
   static bool x = false;
-  static bool get mainEqVideo => main == video;
+  static bool get isMainVip => Pref.userInfoCache?.vipStatus == 1;
+  static bool get isVideoVip => main == video ? isMainVip : true;
   static Account get main => accountMode[AccountType.main.index];
   static Account get video => accountMode[AccountType.video.index];
   static Account get heartbeat => accountMode[AccountType.heartbeat.index];
@@ -118,5 +119,17 @@ abstract final class Accounts {
   @pragma("vm:prefer-inline")
   static Account get(AccountType key) {
     return accountMode[key.index];
+  }
+
+  static Future<void> importJsonAccount(Map<String, dynamic> json) async {
+    final res = json.map(
+      (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
+    );
+    await Accounts.account.putAll(res);
+    await Accounts.refresh();
+    MineController.anonymity.value = !Accounts.heartbeat.isLogin;
+    if (Accounts.main.isLogin) {
+      await LoginUtils.onLoginMain();
+    }
   }
 }

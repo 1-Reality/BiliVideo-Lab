@@ -47,13 +47,19 @@ abstract final class RecommendFilter {
                 like * 100 < minLikeRatioForRecommend * view));
   }
 
+  /// hot/rank/[filterAll]
   static bool filterTitle(String title) {
     return enableFilter && rcmdRegExp.hasMatch(title);
   }
 
+  /// [filterAll]
+  static bool filterDuration(int duration) {
+    return duration > 0 && duration < minDurationForRcmd;
+  }
+
+  /// related/[filter]
   static bool filterAll(BaseVideoItemModel videoItem) {
-    return (videoItem.duration > 0 &&
-            videoItem.duration < minDurationForRcmd) ||
+    return filterDuration(videoItem.duration) ||
         filterLikeRatio(videoItem.stat.like, videoItem.stat.view) ||
         filterTitle(videoItem.title);
   }

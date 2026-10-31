@@ -10,6 +10,7 @@ import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/player_bar.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/user.dart';
+import 'package:PiliBro/models/common/mine_tab_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
 import 'package:PiliBro/pages/coin_log/controller.dart';
@@ -24,7 +25,10 @@ import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/member_video_web/archive/view.dart';
 import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
-import 'package:PiliBro/pages/mine/widgets/item.dart';
+import 'package:PiliBro/pages/mine/widgets/fav_item.dart';
+import 'package:PiliBro/pages/mine/widgets/history_item.dart';
+import 'package:PiliBro/pages/mine/widgets/later_item.dart';
+import 'package:PiliBro/pages/mine/widgets/sub_item.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/bili_utils.dart';
@@ -58,6 +62,7 @@ class _MediaPageState extends CommonPageState<MinePage>
     with AutomaticKeepAliveClientMixin {
   final MineController controller = Get.putOrFind(MineController.new);
   late final MainController _mainController = Get.find<MainController>();
+  late ThemeData theme;
 
   @override
   bool get wantKeepAlive => true;
@@ -75,9 +80,14 @@ class _MediaPageState extends CommonPageState<MinePage>
       !checkPage && super.onNotificationType2(notification);
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    theme = Theme.of(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
-    final theme = Theme.of(context);
     final secondary = theme.colorScheme.secondary;
     return Column(
       children: [
@@ -92,18 +102,20 @@ class _MediaPageState extends CommonPageState<MinePage>
               onRefresh: controller.onRefresh,
               child: onBuild(
                 ListView(
-                  padding: const .only(bottom: 100),
+                  padding: const .only(bottom: 150),
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
                     _buildQuickActions(secondary),
                     _buildMoreActions(secondary),
-                    Obx(
-                      () => controller.loadingState.value is Loading
-                          ? const SizedBox.shrink()
-                          : _buildFav(theme, secondary),
-                    ),
+                    for (final tab in controller.mineTabs)
+                      switch (tab) {
+                        .favorite => Obx(_buildFav),
+                        .history => Obx(_buildHistory),
+                        .later => Obx(_buildLater),
+                        .sub => Obx(_buildSub),
+                      },
                   ],
                 ),
               ),
@@ -322,84 +334,80 @@ class _MediaPageState extends CommonPageState<MinePage>
     const padding = EdgeInsets.all(8);
     const style = ButtonStyle(tapTargetSize: .shrinkWrap);
     return PlayerBar(
-      children: [
-        if (widget.showBackBtn)
-          const Padding(
-            padding: EdgeInsets.only(left: 8),
-            child: BackButton(),
-          )
-        else
-          const SizedBox.shrink(),
-        Row(
-          spacing: 5,
-          mainAxisSize: .min,
-          children: [
-            if (!_mainController.hasHome) ...[
-              IconButton(
-                iconSize: iconSize,
-                padding: padding,
-                style: style,
-                tooltip: '搜索',
-                onPressed: () => Get.toNamed('/search'),
-                icon: const Icon(Icons.search),
-              ),
-              msgBadge(_mainController),
-            ],
-            if (GStorage.reply != null)
-              IconButton(
-                iconSize: iconSize,
-                padding: padding,
-                style: style,
-                tooltip: '评论记录',
-                onPressed: () => Get.toNamed('/myReply'),
-                icon: const Icon(Icons.message_outlined),
-              ),
-            Obx(
-              () {
-                final anonymity = MineController.anonymity.value;
-                return IconButton(
-                  iconSize: iconSize,
-                  padding: padding,
-                  style: style,
-                  tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
-                  onPressed: MineController.onChangeAnonymity,
-                  icon: anonymity
-                      ? const Icon(MdiIcons.incognito)
-                      : const Icon(MdiIcons.incognitoOff),
-                );
-              },
-            ),
+      left: widget.showBackBtn
+          ? const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: BackButton(),
+            )
+          : const SizedBox.shrink(),
+      right: Row(
+        spacing: 5,
+        mainAxisSize: .min,
+        children: [
+          if (!_mainController.hasHome) ...[
             IconButton(
               iconSize: iconSize,
               padding: padding,
               style: style,
-              tooltip: '切换账号',
-              onPressed: () => LoginPageController.switchAccountDialog(context),
-              icon: const Icon(Icons.switch_account_outlined),
+              tooltip: '搜索',
+              onPressed: () => Get.toNamed('/search'),
+              icon: const Icon(Icons.search),
             ),
-            Obx(
-              () => IconButton(
-                iconSize: iconSize,
-                padding: padding,
-                style: style,
-                tooltip: '切换至${controller.nextThemeType.label}主题',
-                onPressed: controller.onChangeTheme,
-                icon: controller.themeType.value.icon,
-              ),
-            ),
-            IconButton(
-              iconSize: iconSize,
-              padding: padding,
-              style: style,
-              tooltip: '设置',
-              onPressed: () =>
-                  Get.toNamed('/setting', preventDuplicates: false),
-              icon: const Icon(Icons.settings_outlined),
-            ),
-            const SizedBox(width: 16),
+            msgBadge(_mainController),
           ],
-        ),
-      ],
+          if (GStorage.reply != null)
+            IconButton(
+              iconSize: iconSize,
+              padding: padding,
+              style: style,
+              tooltip: '评论记录',
+              onPressed: () => Get.toNamed('/myReply'),
+              icon: const Icon(Icons.message_outlined),
+            ),
+          Obx(
+            () {
+              final anonymity = MineController.anonymity.value;
+              return IconButton(
+                iconSize: iconSize,
+                padding: padding,
+                style: style,
+                tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
+                onPressed: MineController.onChangeAnonymity,
+                icon: anonymity
+                    ? const Icon(MdiIcons.incognito)
+                    : const Icon(MdiIcons.incognitoOff),
+              );
+            },
+          ),
+          IconButton(
+            iconSize: iconSize,
+            padding: padding,
+            style: style,
+            tooltip: '切换账号',
+            onPressed: () => LoginPageController.switchAccountDialog(context),
+            icon: const Icon(Icons.switch_account_outlined),
+          ),
+          Obx(
+            () => IconButton(
+              iconSize: iconSize,
+              padding: padding,
+              style: style,
+              tooltip: '切换至${controller.nextThemeType.label}主题',
+              onPressed: controller.onChangeTheme,
+              icon: controller.themeType.value.icon,
+            ),
+          ),
+          IconButton(
+            iconSize: iconSize,
+            padding: padding,
+            style: style,
+            tooltip: '设置',
+            onPressed: () => Get.toNamed('/setting', preventDuplicates: false),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
     );
   }
 
@@ -729,40 +737,128 @@ class _MediaPageState extends CommonPageState<MinePage>
     _openInternalWeb(url);
   }
 
-  void _autoRefresh() => Timer(
+  void _autoRefresh(MineRefreshMixin tabCtr) => Timer(
     const Duration(milliseconds: 150),
-    () => controller.onRefresh(isManual: false),
+    () => tabCtr.onRefresh(isManual: false),
   );
 
-  Widget _buildFav(ThemeData theme, Color secondary) {
+  Widget _buildFav() {
+    return _buildTab(
+      .favorite,
+      controller.favCtr!,
+      itemBuilder: (element) => FavFolderItem(
+        item: element,
+        onPop: () => _autoRefresh(controller.favCtr!),
+      ),
+      onPushDetail: () => Get.toNamed(
+        '/fav',
+      )?.whenComplete(() => _autoRefresh(controller.favCtr!)),
+    );
+  }
+
+  Widget _buildHistory() {
+    return _buildTab(
+      .history,
+      controller.historyCtr!,
+      itemBuilder: (element) => MineHistoryItem(
+        item: element,
+        onPop: () => _autoRefresh(controller.historyCtr!),
+      ),
+      onPushDetail: () => Get.toNamed(
+        '/history',
+      )?.whenComplete(() => _autoRefresh(controller.historyCtr!)),
+    );
+  }
+
+  Widget _buildLater() {
+    return _buildTab(
+      .later,
+      controller.laterCtr!,
+      itemBuilder: (element) => MineLaterItem(
+        item: element,
+        onPop: () => _autoRefresh(controller.laterCtr!),
+      ),
+      onPushDetail: () => Get.toNamed(
+        '/later',
+      )?.whenComplete(() => _autoRefresh(controller.laterCtr!)),
+    );
+  }
+
+  Widget _buildSub() {
+    return _buildTab(
+      .sub,
+      controller.subCtr!,
+      itemBuilder: (element) => MineSubItem(
+        item: element,
+        onPop: () => _autoRefresh(controller.subCtr!),
+      ),
+      onPushDetail: () => Get.toNamed(
+        '/subscription',
+      )?.whenComplete(() => _autoRefresh(controller.subCtr!)),
+    );
+  }
+
+  Widget _buildTab<R, T>(
+    MineTabType tab,
+    MineRefreshMixin<R, T> tabCtr, {
+    required Widget Function(T element) itemBuilder,
+    required VoidCallback onPushDetail,
+  }) {
+    final Widget child;
+    switch (tabCtr.loadingState.value) {
+      case Loading():
+        return const SizedBox.shrink();
+      case Success(:final response):
+        if (response == null || response.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        child = SizedBox(
+          height: 180,
+          child: ListView.separated(
+            itemCount: response.length,
+            controller: tabCtr.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const .only(left: 20, top: 10, right: 20),
+            itemBuilder: (context, index) {
+              if (index == response.length - 1) {
+                tabCtr.onLoadMore();
+              }
+              return SizedBox(width: 180, child: itemBuilder(response[index]));
+            },
+            scrollDirection: .horizontal,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+          ),
+        );
+      case Error(:final errMsg):
+        if (errMsg == null) return const SizedBox.shrink();
+        child = SizedBox(
+          height: 160,
+          child: Center(child: Text(errMsg, textAlign: .center)),
+        );
+    }
+    final secondary = theme.colorScheme.secondary;
     return Column(
       children: [
         Divider(
           height: 20,
-          color: theme.dividerColor.withValues(alpha: 0.1),
+          color: theme.colorScheme.outline.withValues(alpha: 0.1),
         ),
         ListTile(
-          onTap: () => Get.toNamed('/fav')?.whenComplete(_autoRefresh),
           dense: true,
+          onTap: onPushDetail,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
             child: Text.rich(
               TextSpan(
                 children: [
                   TextSpan(
-                    text: '我的收藏  ',
-                    style: TextStyle(
-                      fontSize: theme.textTheme.titleMedium!.fontSize,
-                      fontWeight: .bold,
-                    ),
+                    text: '${tab.label}  ',
+                    style: const TextStyle(fontSize: 16, fontWeight: .bold),
                   ),
-                  if (controller.favFolderCount != null)
+                  if (tabCtr.count != null)
                     TextSpan(
-                      text: "${controller.favFolderCount}  ",
-                      style: TextStyle(
-                        fontSize: theme.textTheme.titleSmall!.fontSize,
-                        color: secondary,
-                      ),
+                      text: '${tabCtr.count}  ',
+                      style: TextStyle(color: secondary),
                     ),
                   WidgetSpan(
                     child: Icon(
@@ -777,83 +873,12 @@ class _MediaPageState extends CommonPageState<MinePage>
           ),
           trailing: IconButton(
             tooltip: '刷新',
-            onPressed: controller.onRefresh,
+            onPressed: tabCtr.onRefresh,
             icon: const Icon(Icons.refresh, size: 20),
           ),
         ),
-        _buildFavBody(theme, secondary, controller.loadingState.value),
+        child,
       ],
     );
-  }
-
-  Widget _buildFavBody(
-    ThemeData theme,
-    Color secondary,
-    LoadingState loadingState,
-  ) {
-    return switch (loadingState) {
-      Loading() => const SizedBox.shrink(),
-      Success(:final response) => Builder(
-        builder: (context) {
-          List<FavFolderInfo>? favFolderList = response.list;
-          if (favFolderList == null || favFolderList.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          bool flag = (controller.favFolderCount ?? 0) > favFolderList.length;
-          return SizedBox(
-            height: 200,
-            child: ListView.separated(
-              controller: controller.scrollController,
-              padding: const .only(left: 20, top: 10, right: 20),
-              itemCount: response.list.length + (flag ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (flag && index == favFolderList.length) {
-                  return Padding(
-                    padding: const .only(bottom: 35),
-                    child: Center(
-                      child: IconButton(
-                        tooltip: '查看更多',
-                        style: ButtonStyle(
-                          padding: const WidgetStatePropertyAll(.zero),
-                          backgroundColor: WidgetStatePropertyAll(
-                            theme.colorScheme.secondaryContainer.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                        ),
-                        onPressed: () =>
-                            Get.toNamed('/fav')?.whenComplete(_autoRefresh),
-                        icon: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 18,
-                          color: secondary,
-                        ),
-                      ),
-                    ),
-                  );
-                } else {
-                  return FavFolderItem(
-                    heroTag: Utils.generateRandomString(8),
-                    item: response.list[index],
-                    onPop: _autoRefresh,
-                  );
-                }
-              },
-              scrollDirection: .horizontal,
-              separatorBuilder: (_, _) => const SizedBox(width: 14),
-            ),
-          );
-        },
-      ),
-      Error(:final errMsg) => SizedBox(
-        height: 160,
-        child: Center(
-          child: Text(
-            errMsg ?? '',
-            textAlign: .center,
-          ),
-        ),
-      ),
-    };
   }
 }

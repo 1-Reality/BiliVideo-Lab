@@ -5,10 +5,12 @@ import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/new_ep.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/publish.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/rating.dart';
+import 'package:PiliBro/models_new/pgc/pgc_info_model/season.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/section.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/stat.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/up_info.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/user_status.dart';
+import 'package:collection/collection.dart';
 
 class PgcInfoModel {
   String? actors;
@@ -22,7 +24,7 @@ class PgcInfoModel {
   Rating? rating;
   int? seasonId;
   String? seasonTitle;
-  List<Section>? section;
+  List<Section>? sections;
   PgcStat? stat;
   String? subtitle;
   String? title;
@@ -31,6 +33,47 @@ class PgcInfoModel {
   UserStatus? userStatus;
   List<Cooperator>? cooperators;
   Brief? brief;
+  List<Season>? seasons;
+
+  bool get hasSeasons => seasons != null && seasons!.length > 1;
+
+  bool get hasEpisodes => episodes?.isNotEmpty ?? false;
+
+  bool get hasEpisodesOrSeasons => hasEpisodes || hasSeasons;
+
+  bool get hasSections => sections?.isNotEmpty ?? false;
+
+  (EpisodeItem? episode, int? sectionIndex) findEpisode([int? epId]) {
+    epId ??= userStatus?.progress?.lastEpId;
+
+    if (epId == null) {
+      var episode = episodes?.firstOrNull;
+      if (episode != null) return (episode, null);
+      episode = sections?.firstOrNull?.episodes?.firstOrNull;
+      return (episode, 0);
+    }
+
+    if (episodes != null && episodes!.isNotEmpty) {
+      final episode = episodes!.firstWhereOrNull((e) => e.epId == epId);
+      if (episode != null) return (episode, null);
+    }
+
+    if (sections != null && sections!.isNotEmpty) {
+      for (final (index, section) in sections!.indexed) {
+        for (final episode in section.episodes!) {
+          if (episode.epId == epId) {
+            return (episode, index);
+          }
+        }
+      }
+    }
+
+    var episode = episodes?.firstOrNull;
+    if (episode != null) return (episode, null);
+    episode = sections?.firstOrNull?.episodes?.firstOrNull;
+    if (episode != null) return (episode, 0);
+    return const (null, null);
+  }
 
   PgcInfoModel({
     this.actors,
@@ -44,7 +87,7 @@ class PgcInfoModel {
     this.rating,
     this.seasonId,
     this.seasonTitle,
-    this.section,
+    this.sections,
     this.stat,
     this.subtitle,
     this.title,
@@ -53,6 +96,7 @@ class PgcInfoModel {
     this.userStatus,
     this.cooperators,
     this.brief,
+    this.seasons,
   });
 
   factory PgcInfoModel.fromJson(Map<String, dynamic> json) => PgcInfoModel(
@@ -77,7 +121,7 @@ class PgcInfoModel {
         : Rating.fromJson(json['rating'] as Map<String, dynamic>),
     seasonId: json['season_id'] as int?,
     seasonTitle: json['season_title'] as String?,
-    section: (json['section'] as List<dynamic>?)
+    sections: (json['section'] as List<dynamic>?)
         ?.map((e) => Section.fromJson(e as Map<String, dynamic>))
         .toList(),
     stat: json['stat'] == null
@@ -98,5 +142,8 @@ class PgcInfoModel {
     brief: json['brief'] == null
         ? null
         : Brief.fromJson(json['brief'] as Map<String, dynamic>),
+    seasons: (json['seasons'] as List<dynamic>?)
+        ?.map((e) => Season.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 }

@@ -1,9 +1,9 @@
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
 
-import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/main.dart';
 import 'package:PiliBro/plugin/linux_webview.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
@@ -33,6 +33,7 @@ class GeetestWebviewDialog extends StatefulWidget {
 class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
   static const _geetestJsUri =
       'https://static.geetest.com/static/js/fullpage.0.0.0.js';
+  static const _geetestConfigUri = 'https://api.geetest.com/gettype.php';
 
   // The WebView's own reason for the geetest script failing to load; the page
   // itself only sees that Geetest is undefined.
@@ -101,6 +102,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
 
   @override
   Widget build(BuildContext context) {
+
     if (Platform.isLinux) {
       return AlertDialog(
         title: const Text('验证码'),
@@ -169,7 +171,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
             clearCache: true,
             javaScriptEnabled: true,
             forceDark: ForceDark.AUTO,
-            useHybridComposition: false,
+            useHybridComposition: true,
             algorithmicDarkeningAllowed: true,
             useShouldOverrideUrlLoading: true,
             userAgent: BrowserUa.mob,

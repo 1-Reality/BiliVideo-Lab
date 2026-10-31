@@ -31,7 +31,8 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchVideoItemModel>((e) => SearchVideoItemModel.fromJson(e))
+        ?.whereNotBlocked((e) => e['mid'])
+        .map((e) => SearchVideoItemModel.fromJson(e))
         .toList();
   }
 
@@ -47,7 +48,8 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
         switch (item['result_type']) {
           case 'video':
             list = (item['data'] as List?)
-                ?.map((e) => SearchVideoItemModel.fromJson(e))
+                ?.whereNotBlocked((e) => e['mid'])
+                .map((e) => SearchVideoItemModel.fromJson(e))
                 .toList();
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
@@ -199,7 +201,7 @@ class SearchVideoItemModel extends HorizontalVideoModel {
     titleList = Em.regTitle(json['title']);
     title = titleList!.map((i) => i.text).join();
     desc = json['description'];
-    cover = (json['pic'] as String?)?.http2https;
+    cover = json['pic'];
     pubdate = json['pubdate'];
     ctime = json['senddate'];
     duration = DurationUtils.parseDuration(json['duration']);
@@ -253,7 +255,8 @@ class SearchUserData extends SearchNumData<SearchUserItemModel> {
   SearchUserData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchUserItemModel>((e) => SearchUserItemModel.fromJson(e))
+        ?.whereNotBlocked((e) => e['mid'])
+        .map<SearchUserItemModel>((e) => SearchUserItemModel.fromJson(e))
         .toList();
   }
 }
@@ -304,7 +307,7 @@ class SearchUserItemModel {
     usign = json['usign'];
     fans = json['fans'];
     videos = json['videos'];
-    upic = (json['upic'] as String?)?.http2https;
+    upic = json['upic'];
     faceNft = json['face_nft'];
     faceNftType = json['face_nft_type'];
     verifyInfo = json['verify_info'];
@@ -328,8 +331,9 @@ class SearchLiveData extends SearchNumData<SearchLiveItemModel> {
 
   SearchLiveData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
-    list = json['result']
-        ?.map<SearchLiveItemModel>((e) => SearchLiveItemModel.fromJson(e))
+    list = (json['result'] as List?)
+        ?.whereNotBlocked((e) => e['uid'])
+        .map((e) => SearchLiveItemModel.fromJson(e))
         .toList();
   }
 }
@@ -505,7 +509,8 @@ class SearchArticleData extends SearchNumData<SearchArticleItemModel> {
   SearchArticleData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchArticleItemModel>((e) => SearchArticleItemModel.fromJson(e))
+        ?.whereNotBlocked((e) => e['mid'])
+        .map((e) => SearchArticleItemModel.fromJson(e))
         .toList();
   }
 }

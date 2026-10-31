@@ -13,6 +13,7 @@ import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/traffic_stats_service.dart';
 import 'package:PiliBro/utils/android/android_helper.dart';
+import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/cache_manager.dart';
 import 'package:PiliBro/utils/date_utils.dart';
@@ -57,7 +58,7 @@ class _AboutPageState extends State<AboutPage> {
   void getCacheSize() {
     CacheManager.loadApplicationCache().then((res) {
       if (mounted) {
-        cacheSize.value = CacheManager.formatSize(res);
+        cacheSize.value = res.formatSize;
       }
     });
   }
@@ -175,7 +176,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
           ),
           if (Platform.isAndroid)
             ListTile(
-              onTap: PiliAndroidHelper.openLinkVerifySettings,
+              onTap: AndroidHelper.openLinkVerifySettings,
               leading: const Icon(MdiIcons.linkBoxOutline),
               title: const Text('打开受支持的链接'),
               trailing: Icon(Icons.arrow_forward, size: 16, color: outline),

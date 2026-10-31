@@ -4,7 +4,10 @@ import 'dart:math' as math;
 import 'package:PiliBro/common/widgets/color_palette.dart';
 import 'package:PiliBro/common/widgets/custom_toast.dart';
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
+import 'package:PiliBro/common/widgets/emote_tooltip.dart'
+    show enableEmoteTooltip;
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
+import 'package:PiliBro/common/widgets/pendant_avatar.dart';
 import 'package:PiliBro/common/widgets/scale_app.dart';
 import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show kSpringDescription;
@@ -13,6 +16,8 @@ import 'package:PiliBro/models/common/bar_hide_type.dart';
 import 'package:PiliBro/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliBro/models/common/home_tab_type.dart';
+import 'package:PiliBro/models/common/member/tab_type.dart';
+import 'package:PiliBro/models/common/mine_tab_type.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/models/common/theme/theme_color_type.dart';
@@ -23,6 +28,7 @@ import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/slide_color_picker.dart';
 import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/utils/extension/file_ext.dart';
@@ -97,6 +103,14 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
+  const SwitchModel(
+    title: '隐藏侧边栏文字',
+    subtitle: '仅显示图标，减少侧边栏占用宽度',
+    leading: Icon(Icons.label_off_outlined),
+    setKey: SettingBoxKey.hideSideBarLabel,
+    defaultVal: false,
+    needReboot: true,
+  ),
   NormalModel(
     title: 'App字体设置',
     subtitle: '点击设置',
@@ -108,6 +122,13 @@ List<SettingsModel> get styleSettings => [
     getSubtitle: () => '当前缩放比例：${Pref.uiScale.toStringAsFixed(2)}',
     leading: const Icon(Icons.zoom_in_outlined),
     onTap: _showUiScaleDialog,
+  ),
+  const SwitchModel(
+    title: '首页切换页面动画',
+    leading: Icon(Icons.home_outlined),
+    setKey: SettingBoxKey.mainTabBarView,
+    defaultVal: true,
+    needReboot: true,
   ),
   NormalModel(
     title: '页面过渡动画',
@@ -136,6 +157,27 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.floatingNavBar,
     defaultVal: false,
     needReboot: true,
+  ),
+  SwitchModel(
+    title: '显示粉丝勋章',
+    leading: const Icon(MdiIcons.medalOutline),
+    setKey: SettingBoxKey.showMedal,
+    defaultVal: true,
+    onChanged: (value) => GlobalData().showMedal = value,
+  ),
+  SwitchModel(
+    title: '展示头像、评论、动态装饰',
+    leading: const Icon(MdiIcons.stickerCircleOutline),
+    setKey: SettingBoxKey.showDecorate,
+    defaultVal: true,
+    onChanged: (value) => PendantAvatar.showDecorate = value,
+  ),
+  SwitchModel(
+    title: '点击表情显示 Tooltip',
+    leading: const Icon(Icons.emoji_emotions_outlined),
+    setKey: SettingBoxKey.enableEmoteTooltip,
+    defaultVal: false,
+    onChanged: (value) => enableEmoteTooltip = value,
   ),
   NormalModel(
     leading: const Icon(Icons.calendar_view_week_outlined),
@@ -223,6 +265,19 @@ List<SettingsModel> get styleSettings => [
           .whenComplete(setState);
       SmartDialog.showToast('重启生效');
     },
+  ),
+  NormalModel(
+    title: '用户页默认展示TAB',
+    leading: const Icon(Icons.tab),
+    getSubtitle: () => '当前优先展示「${Pref.memberTab.title}」',
+    onTap: _showMemberTabDialog,
+  ),
+  SwitchModel(
+    title: '显示UP主页小店TAB',
+    leading: const Icon(Icons.shop_outlined),
+    setKey: SettingBoxKey.showMemberShop,
+    defaultVal: true,
+    onChanged: (value) => MemberTabType.showMemberShop = value,
   ),
   SwitchModel(
     title: '首页顶栏收起',
@@ -325,26 +380,14 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.color_lens_outlined),
     title: '应用主题',
     getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
-    getTrailing: (theme) {
-      if (Pref.dynamicColor) {
-        return Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary);
-      }
-      final customColor = Pref.customColor;
-      final color =
-          colorThemeTypes.elementAtOrNull(customColor)?.color ??
-          Color(customColor);
-      return SizedBox.square(
-        dimension: 20,
-        child: ColorPalette(
-          colorScheme: color.asColorSchemeSeed(
-            Pref.schemeVariant,
-            theme.brightness,
-          ),
-          selected: false,
-          showBgColor: false,
-        ),
-      );
-    },
+    getTrailing: _themeTrailing,
+  ),
+  NormalModel(
+    onTap: _showMineTabsDialog,
+    title: '我的页卡片',
+    leading: const Icon(Icons.person_outline),
+    getSubtitle: () =>
+        '当前显示：${Pref.mineTabs.map((item) => item.label).join('、')}',
   ),
   PopupModel(
     leading: const Icon(Icons.home_outlined),
@@ -743,7 +786,7 @@ void _setDynBadge(DynamicBadgeMode value, VoidCallback setState) {
       .whenComplete(setState);
 }
 
-Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {
+void _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) {
   final mainController = Get.find<MainController>()..msgBadgeMode = value;
   if (value != DynamicBadgeMode.hidden) {
     mainController.queryUnreadMsg(true);
@@ -885,4 +928,64 @@ NormalModel _useSSDModel() {
       ),
     ),
   );
+}
+
+Widget _themeTrailing(ThemeData theme) {
+  if (Pref.dynamicColor) {
+    return Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary);
+  }
+  final customColor = Pref.customColor;
+  final color =
+      colorThemeTypes.elementAtOrNull(customColor)?.color ?? Color(customColor);
+  return SizedBox.square(
+    dimension: 20,
+    child: ColorPalette(
+      colorScheme: color.asColorSchemeSeed(
+        Pref.schemeVariant,
+        theme.brightness,
+      ),
+      selected: false,
+      showBgColor: false,
+    ),
+  );
+}
+
+Future<void> _showMineTabsDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<List<MineTabType>>(
+    context: context,
+    builder: (context) => OrderedMultiSelectDialog<MineTabType>(
+      title: const Text('我的页卡片'),
+      initValues: Pref.mineTabs,
+      values: {for (final i in MineTabType.values) i: i.label},
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(
+      SettingBoxKey.mineTabs,
+      res.map((item) => item.index).toList(),
+    );
+    SmartDialog.showToast('重启生效');
+    setState();
+  }
+}
+
+Future<void> _showMemberTabDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<MemberTabType>(
+    context: context,
+    builder: (context) => SelectDialog<MemberTabType>(
+      title: '用户页默认展示TAB',
+      value: Pref.memberTab,
+      values: MemberTabType.values.map((e) => (e, e.title)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.memberTab, res.index);
+    setState();
+  }
 }

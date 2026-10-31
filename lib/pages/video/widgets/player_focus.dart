@@ -9,6 +9,7 @@ import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey, HardwareKeyboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -113,6 +114,18 @@ class PlayerFocus extends StatelessWidget {
     plPlayerController.setVolume(volume);
   }
 
+  void _stepPlaybackSpeed({required bool isIncrease}) {
+    final speed = plPlayerController.playbackSpeed;
+    final speedList = plPlayerController.speedList;
+    final newSpeed = isIncrease
+        ? speedList.where((e) => e > speed).minOrNull
+        : speedList.where((e) => e < speed).maxOrNull;
+    if (newSpeed != null) {
+      plPlayerController.setPlaybackSpeed(newSpeed);
+    }
+    SmartDialog.showToast('${newSpeed ?? speed}x播放');
+  }
+
   void _updateVolume(KeyEvent event, {required bool isIncrease}) {
     if (event is KeyDownEvent) {
       if (hasPlayer) {
@@ -203,6 +216,27 @@ class PlayerFocus extends StatelessWidget {
         _updateSpeed(event, isIncrease: isArrowUp);
       } else {
         _updateVolume(event, isIncrease: isArrowUp);
+      }
+      return true;
+    }
+
+    if (key == .arrowLeft) {
+      if (!plPlayerController.isLive) {
+        if (event is KeyDownEvent) {
+          if (hasPlayer) {
+            plPlayerController
+              ..longPressTimer?.cancel()
+              ..longPressTimer = Timer.periodic(
+                const Duration(milliseconds: 200),
+                plPlayerController.multiBackwardStart,
+              );
+          }
+        } else if (event is KeyUpEvent) {
+          plPlayerController.cancelLongPressTimer();
+          if (hasPlayer) {
+            plPlayerController.multiBackwardEnd();
+          }
+        }
       }
       return true;
     }
@@ -333,14 +367,6 @@ class PlayerFocus extends StatelessWidget {
         }
 
         switch (key) {
-          case LogicalKeyboardKey.arrowLeft:
-            if (hasPlayer) {
-              plPlayerController.onBackward(
-                plPlayerController.fastForBackwardDuration,
-              );
-            }
-            return true;
-
           case LogicalKeyboardKey.keyW:
             if (HardwareKeyboard.instance.isMetaPressed) {
               return true;
@@ -375,6 +401,12 @@ class PlayerFocus extends StatelessWidget {
               if (!introController.nextPlay()) {
                 SmartDialog.showToast('已经是最后一集了');
               }
+            }
+            return true;
+
+          case LogicalKeyboardKey.comma || LogicalKeyboardKey.period:
+            if (hasPlayer && !plPlayerController.longPressStatus.value) {
+              _stepPlaybackSpeed(isIncrease: key == LogicalKeyboardKey.period);
             }
             return true;
         }

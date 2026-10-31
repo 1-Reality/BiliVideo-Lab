@@ -18,4 +18,10 @@ mixin ReplyVoteMixin on CommonListController<MainListReply, ReplyInfo> {
     }
     return super.customHandleResponse(isRefresh, response);
   }
+
+  @override
+  Future<void> onRefresh() {
+    voteCard = null;
+    return super.onRefresh();
+  }
 }

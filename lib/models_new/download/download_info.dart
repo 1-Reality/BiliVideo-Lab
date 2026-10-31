@@ -23,3 +23,17 @@ class DownloadPageInfo with MultiSelectData {
     required this.entries,
   });
 }
+
+class DownloadSeasonInfo with MultiSelectData {
+  SeasonInfo? seasonInfo;
+  final String pageId;
+  final List<DownloadPageInfo> pages;
+
+  bool get audioOnly => pages.first.audioOnly;
+
+  DownloadSeasonInfo({
+    required this.seasonInfo,
+    required this.pageId,
+    required this.pages,
+  });
+}

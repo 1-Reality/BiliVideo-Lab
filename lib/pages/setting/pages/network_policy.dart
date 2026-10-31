@@ -5,8 +5,8 @@ import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/time_picker.dart' as pili;
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
@@ -690,7 +690,7 @@ class _NetworkPeakDialogState extends State<_NetworkPeakDialog> {
     final value = await showDialog<List<VideoDecodeFormatType>>(
       context: context,
       builder: (context) => OrderedMultiSelectDialog<VideoDecodeFormatType>(
-        title: '网络高峰期编码偏好',
+        title: const Text('网络高峰期编码偏好'),
         initValues: Pref.networkPeakCodecs,
         values: {
           for (final codec in VideoDecodeFormatType.values) codec: codec.name,

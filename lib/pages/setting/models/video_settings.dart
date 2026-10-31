@@ -1,11 +1,10 @@
-import 'package:PiliBro/models/common/video/audio_quality.dart';
+import 'dart:io';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/cdn_type.dart';
-import 'package:PiliBro/models/common/video/live_quality.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
-import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/cdn_speed_setup_dialog.dart';
+import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
@@ -122,14 +121,14 @@ List<SettingsModel> get videoSettings => [
   NormalModel(
     title: '直播默认画质',
     leading: const Icon(Icons.video_settings_outlined),
-    getSubtitle: () => '当前画质：${LiveQuality.fromCode(Pref.liveQuality)?.desc}',
+    getSubtitle: () => '当前画质：${LiveQuality.fromCode(Pref.liveQuality).desc}',
     onTap: _showLiveQaDialog,
   ),
   NormalModel(
     title: '蜂窝网络直播默认画质',
     leading: const Icon(Icons.video_settings_outlined),
     getSubtitle: () =>
-        '当前画质：${LiveQuality.fromCode(Pref.liveQualityCellular)?.desc}',
+        '当前画质：${LiveQuality.fromCode(Pref.liveQualityCellular).desc}',
     onTap: _showLiveCellularQaDialog,
   ),
   NormalModel(
@@ -156,14 +155,14 @@ List<SettingsModel> get videoSettings => [
     title: '缓冲大小',
     leading: const Icon(Icons.storage_outlined),
     getSubtitle: () =>
-        '当前：${Pref.bufferSize}MiB。同时为前向和后向缓冲区大小。对于直播流，无后向缓冲大小，全部转给前向（此选项即mpv的--demuxer-max-bytes，--demuxer-max-back-bytes）',
+        '当前：${Pref.bufferSize}MiB。点播视频的前向和后向缓冲区大小（此选项即mpv的--demuxer-max-bytes，--demuxer-max-back-bytes）。直播流请设置下方的直播缓冲大小',
     onTap: _showBufferSizeDialog,
   ),
   NormalModel(
     title: '缓冲时长',
     leading: const Icon(Icons.av_timer),
     getSubtitle: () =>
-        '当前：${Pref.bufferSec}s。实际缓冲为二者最小值。对于直播流，该选项无效（此选项即mpv的--cache-secs）',
+        '当前：${Pref.bufferSec}s。点播视频的实际缓冲为大小与时长二者的最小值（此选项即mpv的--cache-secs）。直播流该选项无效，请设置下方的直播缓冲时长',
     onTap: _showBufferSecDialog,
   ),
   NormalModel(
@@ -202,6 +201,20 @@ List<SettingsModel> get videoSettings => [
         ? '已与宽带同步：${Pref.bufferSecWeak}s'
         : '当前：${Pref.bufferSecWeak}s。仅非蜂窝网络被判断为弱网/等效移网时使用',
     onTap: _showWeakBufferSecDialog,
+  ),
+  NormalModel(
+    title: '直播缓冲大小',
+    leading: const Icon(Icons.storage_outlined),
+    getSubtitle: () =>
+        '当前：${Pref.liveBufferSize > 0 ? '${Pref.liveBufferSize}MiB' : '跟随缓冲大小（${(Pref.bufferSize * 2).toStringAsFixed(0)}MiB）'}。仅对直播流生效，小于等于0时使用缓冲大小的2倍（此选项即mpv的--demuxer-max-bytes）',
+    onTap: _showLiveBufferSizeDialog,
+  ),
+  NormalModel(
+    title: '直播缓冲时长',
+    leading: const Icon(Icons.av_timer),
+    getSubtitle: () =>
+        '当前：${Pref.liveBufferSec > 0 ? '${Pref.liveBufferSec}s' : '不限制'}。仅对直播流生效，大于0时可限制直播缓冲时长以降低延迟（此选项即mpv的--cache-secs）',
+    onTap: _showLiveBufferSecDialog,
   ),
   NormalModel(
     title: '自动同步',
@@ -439,7 +452,7 @@ Future<void> _showCodecsDialog(
   final res = await showDialog<List<VideoDecodeFormatType>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<VideoDecodeFormatType>(
-      title: '首选解码格式',
+      title: const Text('首选解码格式'),
       initValues: Pref.preferCodecs,
       values: {for (final e in VideoDecodeFormatType.values) e: e.name},
     ),
@@ -460,7 +473,7 @@ Future<void> _showCellularCodecsDialog(
   final res = await showDialog<List<VideoDecodeFormatType>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<VideoDecodeFormatType>(
-      title: '蜂窝网络首选解码格式',
+      title: const Text('蜂窝网络首选解码格式'),
       initValues: Pref.preferCodecsCellular,
       values: {for (final e in VideoDecodeFormatType.values) e: e.name},
     ),
@@ -481,7 +494,7 @@ Future<void> showAudioOutputDialog(
   final res = await showDialog<List<String>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<String>(
-      title: '音频输出设备',
+      title: const Text('音频输出设备'),
       initValues: Pref.audioOutput.split(','),
       values: {
         for (final e in AudioOutput.values) e.name: e.label,
@@ -532,7 +545,7 @@ Future<void> _showHwDecDialog(
   final res = await showDialog<List<String>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<String>(
-      title: '硬解模式',
+      title: const Text('硬解模式'),
       initValues: Pref.hardwareDecoding.split(','),
       values: {
         for (final e in HwDecType.values) e.hwdec: '${e.hwdec}\n${e.desc}',
@@ -723,6 +736,26 @@ void _showWeakBufferSecDialog(
     suffix: 's',
   );
 }
+
+void _showLiveBufferSizeDialog(BuildContext context, VoidCallback setState) =>
+    _showDecimalDialog(
+      context,
+      setState,
+      key: SettingBoxKey.liveBufferSize,
+      defVal: Pref.liveBufferSize,
+      title: '直播缓冲大小',
+      suffix: 'MiB',
+    );
+
+void _showLiveBufferSecDialog(BuildContext context, VoidCallback setState) =>
+    _showDecimalDialog(
+      context,
+      setState,
+      key: SettingBoxKey.liveBufferSec,
+      defVal: Pref.liveBufferSec,
+      title: '直播缓冲时长',
+      suffix: 's',
+    );
 
 String _speedText(double speed) {
   final text = speed.toString();

@@ -5,7 +5,10 @@ import 'dart:io' show Directory, File;
 import 'package:PiliBro/grpc/dm.dart';
 import 'package:PiliBro/http/download.dart';
 import 'package:PiliBro/http/init.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
+import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/sponsor_block.dart';
+import 'package:PiliBro/http/video.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart' as pgc;
@@ -20,7 +23,9 @@ import 'package:PiliBro/utils/extension/file_ext.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
-import 'package:flutter/foundation.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:flutter/foundation.dart'
+    show kDebugMode, debugPrint, VoidCallback;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
@@ -108,11 +113,14 @@ class DownloadService extends GetxService {
     return result;
   }
 
-  void downloadVideo(
-    Part page,
+  void downloadVideo({
+    required int index,
+    required Part page,
     VideoDetailData? videoDetail,
     ugc.EpisodeItem? videoArc,
-    VideoQuality videoQuality, {
+    required VideoQuality videoQuality,
+    AudioQuality? audioQuality,
+    SeasonInfo? seasonInfo,
     bool audioOnly = false,
   }) {
     final cid = page.cid!;
@@ -147,6 +155,7 @@ class DownloadService extends GetxService {
       typeTag: videoQuality.code.toString(),
       cover: (videoDetail?.pic ?? videoArc!.cover!).http2https,
       preferedVideoQuality: videoQuality.code,
+      preferedAudioQuality: audioQuality?.code,
       qualityPithyDescription: videoQuality.desc,
       guessedTotalBytes: 0,
       totalTimeMilli: (page.duration ?? 0) * 1000,
@@ -165,15 +174,17 @@ class DownloadService extends GetxService {
       ownerId: videoDetail?.owner?.mid ?? videoArc?.arc?.author?.mid,
       ownerName: videoDetail?.owner?.name ?? videoArc?.arc?.author?.name,
       pageData: pageData,
+      seasonInfo: seasonInfo,
     )..audioOnly = audioOnly;
     _createDownload(entry);
   }
 
-  void downloadBangumi(
-    int index,
-    PgcInfoModel pgcItem,
-    pgc.EpisodeItem episode,
-    VideoQuality quality, {
+  void downloadBangumi({
+    required int index,
+    required PgcInfoModel pgcItem,
+    required pgc.EpisodeItem episode,
+    required VideoQuality quality,
+    AudioQuality? audioQuality,
     bool audioOnly = false,
   }) {
     final cid = episode.cid!;
@@ -216,6 +227,7 @@ class DownloadService extends GetxService {
       typeTag: quality.code.toString(),
       cover: episode.cover!,
       preferedVideoQuality: quality.code,
+      preferedAudioQuality: audioQuality?.code,
       qualityPithyDescription: quality.desc,
       guessedTotalBytes: 0,
       totalTimeMilli:
@@ -304,9 +316,7 @@ class DownloadService extends GetxService {
     bool isUpdate = false,
   }) async {
     final cid = entry.pageData?.cid ?? entry.source?.cid;
-    if (cid == null) {
-      return false;
-    }
+    if (cid == null) return false;
     final danmakuFile = File(
       path.join(entry.entryDirPath, PathUtils.danmakuName),
     );
@@ -371,13 +381,70 @@ class DownloadService extends GetxService {
     }
   }
 
+  Future<bool> updateSegments(BiliDownloadEntryInfo entry) {
+    if (entry.pageData != null) {
+      return _updateBlockSegments(entry);
+    } else {
+      return _updatePgcSegments(entry);
+    }
+  }
+
+  Future<bool> _updateBlockSegments(BiliDownloadEntryInfo entry) async {
+    final res = await SponsorBlock.getSkipSegments(
+      bvid: entry.bvid,
+      cid: entry.pageData!.cid,
+    );
+    if (res case Success(:final response)) {
+      if (response.isNotEmpty) {
+        entry.segments = response;
+        await _updateBiliDownloadEntryJson(entry);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool> _updatePgcSegments(BiliDownloadEntryInfo entry) async {
+    final ep = entry.ep;
+    if (ep == null) return false;
+    final res = await VideoHttp.videoUrl(
+      avid: entry.avid,
+      bvid: entry.bvid,
+      cid: entry.cid,
+      seasonId: entry.seasonId,
+      epid: ep.episodeId,
+      qn: entry.preferedVideoQuality,
+      tryLook: false,
+      videoType: switch (ep.from) {
+        'pugv' => .pugv,
+        _ => .pgc,
+      },
+    );
+    if (res case Success(:final response)) {
+      final clipInfoList = response.clipInfoList;
+      if (clipInfoList != null && clipInfoList.isNotEmpty) {
+        entry.segments = clipInfoList;
+        await _updateBiliDownloadEntryJson(entry);
+      }
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _startDownload(BiliDownloadEntryInfo entry) async {
     try {
       if (!entry.audioOnly && !await downloadDanmaku(entry: entry)) {
         return;
       }
 
+      // ugc segments
+      if (entry.pageData != null && Pref.enableSponsorBlock) {
+        await _updateBlockSegments(entry);
+      }
+
       _updateCurStatus(DownloadStatus.getPlayUrl);
+
+      final noSegmentBefore = entry.segments == null;
 
       final mediaFileInfo = await DownloadHttp.getVideoUrl(
         entry: entry,
@@ -385,6 +452,11 @@ class DownloadService extends GetxService {
         source: entry.source,
         pageData: entry.pageData,
       );
+
+      // pgc segments
+      if (noSegmentBefore && entry.segments != null) {
+        await _updateBiliDownloadEntryJson(entry);
+      }
 
       final videoDir = Directory(path.join(entry.entryDirPath, entry.typeTag));
       if (!videoDir.existsSync()) {
@@ -576,10 +648,19 @@ class DownloadService extends GetxService {
 
   Future<void> deletePage({
     required String pageDirPath,
+    bool? audioOnly,
     bool refresh = true,
   }) async {
-    await Directory(pageDirPath).tryDel(recursive: true);
-    downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
+    final entries = downloadList.where((e) => e.pageDirPath == pageDirPath);
+    if (audioOnly != null && entries.any((e) => (e.mediaType == 3) != audioOnly)) {
+      // 同一目录下还有另一种缓存，只删这一种
+      for (final entry in entries.where((e) => (e.mediaType == 3) == audioOnly).toList()) {
+        await deleteDownload(entry: entry, removeList: true, refresh: false);
+      }
+    } else {
+      await Directory(pageDirPath).tryDel(recursive: true);
+      downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
+    }
     if (refresh) {
       flagNotifier.refresh();
     }

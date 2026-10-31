@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
@@ -6,23 +8,32 @@ import 'package:PiliBro/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliBro/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:PiliBro/pages/video/reply_reply/view.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
+import 'package:PiliBro/utils/bili_utils.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
+import 'package:PiliBro/utils/reply_scheme_helper.dart';
 import 'package:PiliBro/utils/reply_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:PiliBro/utils/waterfall.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:waterfall_flow/waterfall_flow.dart';
 
 class MyReply extends StatefulWidget {
   const MyReply({super.key});
 
   @override
   State<MyReply> createState() => _MyReplyState();
+
+  static Map<String, Uint8List> json2ReplyProto(List<dynamic> list) => {
+    for (var e in list)
+      e['id'].toString(): (ReplyInfo.create()..mergeFromProto3Json(e))
+          .writeToBuffer(),
+  };
 }
 
 class _MyReplyState extends State<MyReply> with DynMixin {
@@ -46,7 +57,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
       appBar: AppBar(
         title: const Text('我的评论'),
         actions: [
-          if (kDebugMode)
+          if (kDebugMode) ...[
             IconButton(
               tooltip: 'Clear',
               onPressed: () => showConfirmDialog(
@@ -60,6 +71,12 @@ class _MyReplyState extends State<MyReply> with DynMixin {
               ),
               icon: const Icon(Icons.clear_all),
             ),
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: () => setState(_initReply),
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
           IconButton(
             tooltip: '导出',
             onPressed: _showExportDialog,
@@ -78,7 +95,8 @@ class _MyReplyState extends State<MyReply> with DynMixin {
         slivers: [
           _replies.isNotEmpty
               ? ViewSliverSafeArea(
-                  sliver: SliverWaterfallFlow(
+                  sliver: SliverMasonryGrid(
+                    crossAxisSpacing: 4,
                     gridDelegate: dynGridDelegate,
                     delegate: SliverChildBuilderDelegate(
                       childCount: _replies.length,
@@ -100,11 +118,22 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   }
 
   void _replyReply(ReplyInfo replyInfo, int? rpid) {
-    switch (replyInfo.type.toInt()) {
+    int? rootRpId, secondRpId;
+    final id = replyInfo.id.toInt();
+    if (replyInfo.hasRoot()) {
+      rootRpId = replyInfo.root.toInt();
+      secondRpId = id;
+    } else {
+      rootRpId = id;
+    }
+    final type = replyInfo.type.toInt();
+    switch (type) {
       case 1:
         PiliScheme.videoPush(
           replyInfo.oid.toInt(),
           null,
+          rootRpId: rootRpId,
+          secondRpId: secondRpId,
         );
       case 12:
         PageUtils.toDupNamed(
@@ -113,12 +142,28 @@ class _MyReplyState extends State<MyReply> with DynMixin {
             'id': replyInfo.oid.toString(),
             'type': 'read',
           },
+          arguments: {
+            rootRpIdKey: rootRpId,
+            secondRpIdKey: ?secondRpId,
+          },
         );
       case _:
-        PageUtils.pushDynFromId(
-          rid: replyInfo.oid.toString(),
-          type: replyInfo.type,
-        );
+        if (BiliUtils.isDynOrArticle(type)) {
+          PageUtils.pushDynFromId(
+            rid: replyInfo.oid.toString(),
+            type: type,
+            rootRpId: rootRpId,
+            secondRpId: secondRpId,
+          );
+        } else {
+          // TODO:
+          VideoReplyReplyPanel.toReply(
+            oid: replyInfo.oid.toInt(),
+            rootId: rootRpId,
+            rpId: secondRpId,
+            type: type,
+          );
+        }
     }
   }
 
@@ -179,11 +224,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   }
 
   Future<void> _onImport(List<dynamic> list) async {
-    await GStorage.reply!.putAll({
-      for (var e in list)
-        e['id'].toString(): (ReplyInfo.create()..mergeFromProto3Json(e))
-            .writeToBuffer(),
-    });
+    await GStorage.reply!.putAll(MyReply.json2ReplyProto(list));
     if (mounted) {
       _initReply();
       setState(() {});

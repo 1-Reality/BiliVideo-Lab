@@ -1,3 +1,2 @@
--dontwarn javax.annotation.Nullable
--dontwarn org.conscrypt.Conscrypt
--dontwarn org.conscrypt.OpenSSLProvider
+-keep class org.BroTech.gege.pilibro.AndroidHelper { public *; }
+-keep class org.BroTech.gege.pilibro.AndroidHelper$ToDart { public *; }

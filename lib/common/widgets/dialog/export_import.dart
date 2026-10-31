@@ -41,7 +41,6 @@ Future<void> exportToLocalFile({
         'pilibro_${localFileName()}_'
         '${DateFormatUtils.only0_9.format(DateTime.now())}.json',
     bytes: res,
-    allowedExtensions: const ['json'],
   );
 }
 

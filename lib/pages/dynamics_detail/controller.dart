@@ -5,12 +5,20 @@ import 'package:PiliBro/http/dynamics.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/reply.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
+import 'package:PiliBro/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliBro/pages/common/dyn/common_dyn_controller.dart';
+import 'package:PiliBro/pages/common/reply/reply_controller.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-class DynamicDetailController extends CommonDynController with ReloadMixin {
+class DynamicDetailController extends CommonDynController
+    with
+        ReloadMixin,
+        GetSingleTickerProviderStateMixin,
+        ReplyLocateMixin,
+        MainReplyLocateMixin,
+        DynReplyLocateMixin {
   DynamicDetailController({super.count});
 
   @override
@@ -18,6 +26,8 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   late int replyType;
   late DynamicItemModel dynItem;
+  @override
+  MentionItem? get mentionItem => dynItem.modules.moduleAuthor?.mentionItem;
 
   @override
   dynamic get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
@@ -25,7 +35,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   void onInit() {
     super.onInit();
-    dynItem = Get.arguments['item'];
+    dynItem = args['item'];
     final commentType = dynItem.basic?.commentType;
     final commentIdStr = dynItem.basic?.commentIdStr;
     if (commentType != null &&

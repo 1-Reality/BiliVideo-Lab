@@ -320,7 +320,7 @@ abstract final class BiliSession {
     if (res.data['code'] == 0) {
       final String? remote = res.data['data']?['buvid'];
       if (remote != null && remote.isNotEmpty) {
-        GStorage.localCache.put(LocalCacheKey.buvid, remote);
+        GStorage.setting.put(SettingBoxKey.buvid, remote);
       }
     }
   }

@@ -20,7 +20,7 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models/video/play/url.dart' as http_model show Volume;
 import 'package:PiliBro/pages/common/common_intro_controller.dart'
@@ -209,7 +209,9 @@ class AudioController extends GetxController
     videoPlayerServiceHandler
       ?..onPlay = onPlay
       ..onPause = onPause
-      ..onSeek = onSeek;
+      ..onSeek = onSeek
+      ..onSkipToNext = playNext
+      ..onSkipToPrevious = playPrev;
     if (shutdownTimerService.isActive) {
       shutdownTimerService
         ..onPause = onPause
@@ -303,10 +305,10 @@ class AudioController extends GetxController
           return;
         }
         service.downloadVideo(
-          page,
-          response,
-          null,
-          VideoQuality.fromCode(Pref.defaultVideoQa),
+          index: 0,
+          page: page,
+          videoDetail: response,
+          videoQuality: VideoQuality.fromCode(Pref.defaultVideoQa),
           audioOnly: true,
         );
         SmartDialog.showToast('已加入纯音频缓存队列');
@@ -459,10 +461,7 @@ class AudioController extends GetxController
           return;
         }
         if (_start == null) position.value = 0;
-        final audio = audios.findClosestTarget(
-          (e) => e.id <= cacheAudioQa,
-          (a, b) => a.id > b.id ? a : b,
-        );
+        final audio = audios.findTargetMedia((e) => e.id, cacheAudioQa);
         await _onOpenMedia(
           VideoUtils.getCdnUrl(audio.playUrls),
           volume: volume,
@@ -1025,7 +1024,10 @@ class AudioController extends GetxController
       ?..onPlay = null
       ..onPause = null
       ..onSeek = null
-      ..onVideoDetailDispose(hashCode.toString());
+      ..onSkipToNext = null
+      ..onSkipToPrevious = null
+      ..onVideoDetailDispose(hashCode.toString())
+      ..clearIfNeeded();
     _subscriptions?.forEach((e) => e.cancel());
     _subscriptions?.clear();
     _subscriptions = null;

@@ -7,6 +7,7 @@ import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/services/account_service.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/linux_cookie_manager.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_pref.dart';

@@ -3,16 +3,16 @@ import 'dart:io' show Platform;
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
-import 'package:PiliBro/pages/main/controller.dart';
-import 'package:PiliBro/pages/setting/models/extra_settings.dart'
-    show audioNormalization;
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/models/play_settings.dart'
-    show showMaxVolumeDialog, showPlayerVolumeDialog;
+    show audioNormalization, showMaxVolumeDialog, showPlayerVolumeDialog;
 import 'package:PiliBro/pages/setting/models/video_settings.dart'
     show showAudioOutputDialog;
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/android/android_helper.dart';
 import 'package:PiliBro/utils/audio_first_mode.dart';
+import 'package:PiliBro/utils/desktop/window_controller.dart';
+import 'package:PiliBro/utils/ios/pip_helper.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -62,19 +62,24 @@ List<SettingsModel> get audioSettings => [
       leading: const Icon(Icons.motion_photos_pause_outlined),
       onTap: (context, setState) => Get.toNamed('/backgroundSettings'),
     ),
-  if (Platform.isAndroid) ...[
+  if ((Platform.isAndroid && PiliAndroidHelper.isPipAvailable) ||
+      (Platform.isIOS && IOSPipHelper.isAvailable))
     SwitchModel(
       title: '后台画中画',
       subtitle: '进入后台时以小窗形式（PiP）播放',
       leading: const Icon(Icons.picture_in_picture_outlined),
       setKey: SettingBoxKey.autoPiP,
       defaultVal: false,
-      onChanged: (val) {
-        if (val && !videoPlayerServiceHandler!.enableBackgroundPlay) {
-          SmartDialog.showToast('建议开启后台音频服务');
-        }
-      },
+      onChanged: Platform.isAndroid
+          ? (val) {
+              if (val && !videoPlayerServiceHandler!.enableBackgroundPlay) {
+                SmartDialog.showToast('建议开启后台音频服务');
+              }
+            }
+          : null,
     ),
+  // PiP on iOS only shows the video frames, without danmaku.
+  if (Platform.isAndroid)
     const SwitchModel(
       title: '画中画不加载弹幕',
       subtitle: '当弹幕开关开启时，小窗屏蔽弹幕以获得较好的体验',
@@ -82,18 +87,13 @@ List<SettingsModel> get audioSettings => [
       setKey: SettingBoxKey.pipNoDanmaku,
       defaultVal: true,
     ),
-  ],
   if (PlatformUtils.isDesktop)
     SwitchModel(
       title: '最小化时暂停/还原时播放',
       leading: const Icon(Icons.pause_circle_outline),
       setKey: SettingBoxKey.pauseOnMinimize,
       defaultVal: false,
-      onChanged: (value) {
-        try {
-          Get.find<MainController>().pauseOnMinimize = value;
-        } catch (_) {}
-      },
+      onChanged: (value) => WindowController.instance.pauseOnMinimize = value,
     ),
   if (PlatformUtils.isMobile)
     NormalModel(

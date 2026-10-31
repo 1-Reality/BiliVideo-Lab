@@ -13,9 +13,13 @@ import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/stat.dart';
+import 'package:PiliBro/models_new/video/video_detail/episode.dart';
+import 'package:PiliBro/models_new/video/video_tag/data.dart';
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/pages/video/introduction/pgc/controller.dart';
-import 'package:PiliBro/pages/video/introduction/pgc/widgets/pgc_panel.dart';
+import 'package:PiliBro/pages/video/introduction/pgc/widgets/episode.dart';
+import 'package:PiliBro/pages/video/introduction/pgc/widgets/season.dart';
+import 'package:PiliBro/pages/video/introduction/pgc/widgets/section.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
@@ -28,21 +32,20 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 class PgcIntroPage extends StatefulWidget {
-  final int? cid;
   final String heroTag;
-  final Function showEpisodes;
-  final Function showIntroDetail;
+  final ShowEpisodes showEpisodes;
+  final Function(PgcInfoModel videoDetail, List<VideoTagItem>? videoTags)
+  showIntroDetail;
   final double maxWidth;
-  final bool isLandscape;
+  final bool isPortrait;
 
   const PgcIntroPage({
     super.key,
-    this.cid,
     required this.heroTag,
     required this.showEpisodes,
     required this.showIntroDetail,
     required this.maxWidth,
-    required this.isLandscape,
+    required this.isPortrait,
   });
 
   @override
@@ -52,6 +55,7 @@ class PgcIntroPage extends StatefulWidget {
 class _PgcIntroPageState extends State<PgcIntroPage> {
   late final PgcIntroController introController;
   late final VideoDetailController videoDetailCtr;
+  late ColorScheme colorScheme;
 
   Future<void> _showBvActions(String bvid, int aid) => showDialog<void>(
     context: context,
@@ -130,14 +134,19 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
       PgcIntroController.new,
       tag: widget.heroTag,
     );
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
+    videoDetailCtr = introController.videoDetailCtr;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.of(context);
     final item = introController.pgcItem;
-    final isLandscape = widget.isLandscape;
+    final isPortrait = widget.isPortrait;
     Widget sliver = SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,22 +155,39 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 10,
             children: [
-              _buildCover(colorScheme, isLandscape, item),
-              Expanded(child: _buildInfoPanel(isLandscape, colorScheme, item)),
+              _buildCover(item),
+              Expanded(child: _buildInfoPanel(isPortrait, item)),
             ],
           ),
           const SizedBox(height: 6),
           // 点赞收藏转发 布局样式2
           if (introController.isPgc) actionGrid(item.stat!, introController),
-          // 番剧分集
-          if (item.episodes?.isNotEmpty == true)
-            PgcPanel(
-              heroTag: widget.heroTag,
-              pages: item.episodes!,
-              cid: videoDetailCtr.cid.value,
-              onChangeEpisode: introController.onChangeEpisode,
+          if (isPortrait ||
+              !videoDetailCtr.plPlayerController.horizontalSeasonPanel) ...[
+            // seasons
+            if (item.hasSeasons)
+              Padding(
+                padding: const .only(top: 5),
+                child: SeasonPanel(
+                  pgcController: introController,
+                  onSeasonChanged: () {
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+            // 番剧分集
+            if (item.hasEpisodes)
+              EpisodePanel(
+                pgcController: introController,
+                showEpisodes: widget.showEpisodes,
+                onChangeEpisode: introController.onChangeEpisode,
+              ),
+          ],
+          if (item.hasSections)
+            SectionPanel(
+              pgcController: introController,
               showEpisodes: widget.showEpisodes,
-              newEp: item.newEp,
+              onChangeEpisode: introController.onChangeEpisode,
             ),
         ],
       ),
@@ -209,11 +235,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
     return null;
   }
 
-  Widget _buildCover(
-    ColorScheme colorScheme,
-    bool isLandscape,
-    PgcInfoModel item,
-  ) {
+  Widget _buildCover(PgcInfoModel item) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -265,11 +287,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
     );
   }
 
-  Widget _buildInfoPanel(
-    bool isLandscape,
-    ColorScheme colorScheme,
-    PgcInfoModel item,
-  ) {
+  Widget _buildInfoPanel(bool isPortrait, PgcInfoModel item) {
     if (introController.isPgc) {
       Widget subBtn() => Obx(
         () {
@@ -377,7 +395,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         children: [
           StatWidget(type: .play, value: item.stat!.view),
           StatWidget(type: .danmaku, value: item.stat!.danmaku),
-          if (isLandscape) ...desc(),
+          if (!isPortrait) ...desc(),
         ],
       );
       return GestureDetector(
@@ -394,7 +412,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
               title(),
               stat(),
               const SizedBox(height: 5),
-              if (!isLandscape) ...desc(),
+              if (isPortrait) ...desc(),
               const SizedBox(height: 5),
               Expanded(
                 child: Text(

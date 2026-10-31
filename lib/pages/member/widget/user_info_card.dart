@@ -7,6 +7,8 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show tabBarScrollPhysics;
 import 'package:PiliBro/common/widgets/selection_text.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
+import 'package:PiliBro/http/live.dart';
+import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/member/user_info_type.dart';
 import 'package:PiliBro/models/model_owner.dart';
@@ -61,6 +63,7 @@ class UserInfoCard extends StatelessWidget {
     required this.chargeCount,
     required this.guards,
     required this.guardCount,
+    required this.hasMedal,
   });
 
   final bool isOwner;
@@ -76,6 +79,7 @@ class UserInfoCard extends StatelessWidget {
   final Object? chargeCount;
   final List<Owner>? guards;
   final Object? guardCount;
+  final bool hasMedal;
 
   @override
   Widget build(BuildContext context) {
@@ -322,8 +326,14 @@ class UserInfoCard extends StatelessWidget {
   }
 
   Widget _buildExtraInfo(ColorScheme colorScheme) {
+    final style = TextStyle(
+      fontSize: 12,
+      height: 1,
+      color: colorScheme.outline,
+    );
+    const strutStyle = StrutStyle(leading: 0, height: 1, fontSize: 12);
     return Padding(
-      padding: const .only(left: 20, top: 6, right: 20),
+      padding: const .only(left: 20, top: 8, right: 20),
       child: Wrap(
         spacing: 10,
         runSpacing: 8,
@@ -333,7 +343,8 @@ class UserInfoCard extends StatelessWidget {
             onTap: () => Utils.copyText(card.mid.toString()),
             child: Text(
               'UID: ${card.mid}',
-              style: TextStyle(fontSize: 12, color: colorScheme.outline),
+              style: style,
+              strutStyle: strutStyle,
             ),
           ),
           ...?card.spaceTag?.map(
@@ -341,10 +352,10 @@ class UserInfoCard extends StatelessWidget {
               final hasUri = item.uri?.isNotEmpty ?? false;
               final child = Text(
                 item.title ?? '',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: hasUri ? colorScheme.secondary : colorScheme.outline,
-                ),
+                style: hasUri
+                    ? TextStyle(fontSize: 12, color: colorScheme.secondary)
+                    : style,
+                strutStyle: strutStyle,
               );
               if (hasUri) {
                 return GestureDetector(
@@ -355,6 +366,35 @@ class UserInfoCard extends StatelessWidget {
               return child;
             },
           ),
+          if (hasMedal)
+            Builder(
+              builder: (context) {
+                final medalName = card.medalName;
+                final hasMedalName = medalName != null;
+                return GestureDetector(
+                  onTap: hasMedalName
+                      ? () => Utils.copyText(medalName)
+                      : () async {
+                          final res = await LiveHttp.liveMedalName(card.mid!);
+                          if (res case Success(:final response)) {
+                            if (response != null) {
+                              card.medalName = response;
+                              if (context.mounted) {
+                                (context as Element).markNeedsBuild();
+                              }
+                            }
+                          } else {
+                            res.toast();
+                          }
+                        },
+                  child: Text(
+                    '粉丝勋章${hasMedalName ? ': $medalName' : ''}',
+                    style: style,
+                    strutStyle: strutStyle,
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -644,6 +684,7 @@ class UserInfoCard extends StatelessWidget {
                   tag: img.fullCover,
                   child: CachedNetworkImage(
                     fit: .cover,
+                    gaplessPlayback: true,
                     alignment: Alignment(0.0, img.dy),
                     height: kHeaderHeight,
                     width: width,
@@ -701,6 +742,7 @@ class UserInfoCard extends StatelessWidget {
           fit: .cover,
           alignment: alignment,
           height: kHeaderHeight,
+          gaplessPlayback: true,
           width: width,
           memCacheWidth: width.cacheSize(context),
           imageUrl: ImageUtils.thumbnailUrl(imgUrl),

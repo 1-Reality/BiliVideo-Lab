@@ -1,4 +1,5 @@
 import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models/common/search/search_type.dart';
@@ -87,6 +88,7 @@ abstract final class SearchHttp {
           'origin': 'https://search.bilibili.com',
           'referer':
               'https://search.bilibili.com/${searchType.name}?keyword=${Uri.encodeFull(keyword)}',
+          'user-agent': BrowserUa.pc,
         },
       ),
     );
@@ -96,7 +98,7 @@ abstract final class SearchHttp {
         final Map<String, dynamic> dataData = resData['data'];
         final vVoucher = dataData['v_voucher'];
         if (vVoucher != null) {
-          RequestUtils.validate(vVoucher, onSuccess);
+          // RequestUtils.validate(vVoucher, onSuccess);
           return const Error('触发风控');
         }
         try {

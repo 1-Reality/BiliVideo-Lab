@@ -17,7 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 
 List<SettingsModel> get recommendSettings => [
   for (final source in RcmdSource.values) _sourceModel(source),
@@ -160,6 +160,7 @@ List<SettingsModel> get recommendSettings => [
       RecommendFilter.minLikeRatioForRecommend = value;
       RecommendFilter.compile();
     },
+    filterScope: 'Web推荐、热门、分区',
   ),
   getBanWordModel(
     title: '标题关键词过滤',
@@ -169,14 +170,16 @@ List<SettingsModel> get recommendSettings => [
       RecommendFilter.enableFilter = value.pattern.isNotEmpty;
       RecommendFilter.compile();
     },
+    banScope: '推荐、热门、分区、相关视频',
   ),
   getBanWordModel(
-    title: 'App推荐/热门/排行榜: 视频分区关键词过滤',
+    title: '分区关键词过滤',
     key: SettingBoxKey.banWordForZone,
     onChanged: (value) {
       VideoHttp.zoneRegExp = value;
       VideoHttp.enableFilter = value.pattern.isNotEmpty;
     },
+    banScope: 'App推荐、热门、分区',
   ),
   getVideoFilterSelectModel(
     title: '视频时长',
@@ -187,6 +190,7 @@ List<SettingsModel> get recommendSettings => [
       RecommendFilter.minDurationForRcmd = value;
       RecommendFilter.compile();
     },
+    filterScope: '推荐、相关视频',
   ),
   getVideoFilterSelectModel(
     title: '播放量',
@@ -196,6 +200,7 @@ List<SettingsModel> get recommendSettings => [
       RecommendFilter.minPlayForRcmd = value;
       RecommendFilter.compile();
     },
+    filterScope: '推荐、热门、分区、相关视频',
   ),
   SwitchModel(
     title: '已关注UP豁免推荐过滤',

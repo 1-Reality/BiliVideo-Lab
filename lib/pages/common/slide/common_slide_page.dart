@@ -22,7 +22,6 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
   late final bool enableSlide;
   late final AnimationController _animController;
   SlideDragGestureRecognizer? _slideDragGestureRecognizer;
-
   static bool slideDismissReplyPage = Pref.slideDismissReplyPage;
 
   bool isDxAllowed(double dx) {
@@ -34,6 +33,14 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
 
   TabBarDragGestureRecognizer horizontalDragGestureRecognizer() {
     return TabBarDragGestureRecognizer(isDxAllowed: isDxAllowed);
+  }
+
+  late ThemeData theme;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    theme = Theme.of(context);
   }
 
   @override
@@ -76,7 +83,6 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (enableSlide) {
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -91,17 +97,17 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
                 child: child,
               );
             },
-            child: buildPage(theme),
+            child: buildPage(),
           );
         },
       );
     }
-    return buildPage(theme);
+    return buildPage();
   }
 
-  Widget buildPage(ThemeData theme);
+  Widget buildPage();
 
-  Widget buildList(ThemeData theme) => throw UnimplementedError();
+  Widget buildList() => throw UnimplementedError();
 
   void _onDragEnd([_]) {
     if (_downDx == null) return;
@@ -126,9 +132,9 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
         max(0, _isRTL ? from - to : to - from) * _inverseMaxWidth;
   }
 
-  Widget slideList(ThemeData theme) => Listener(
+  Widget slideList() => Listener(
     onPointerDown: (event) => _slideDragGestureRecognizer?.addPointer(event),
-    child: buildList(theme),
+    child: buildList(),
   );
 }
 

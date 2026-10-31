@@ -4,6 +4,7 @@ import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliBro/common/widgets/self_sized_horizontal_list.dart';
+import 'package:PiliBro/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models_new/live/live_feed_index/card_data_list_item.dart';
 import 'package:PiliBro/pages/live/widgets/live_item_app.dart';
@@ -33,6 +34,14 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
     with AutomaticKeepAliveClientMixin {
   late final LiveAreaChildController _controller;
 
+  late ColorScheme colorScheme;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +54,6 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final ThemeData theme = Theme.of(context);
     return refreshIndicator(
       onRefresh: _controller.onRefresh,
       child: CustomScrollView(
@@ -56,12 +64,9 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
             padding: EdgeInsets.only(
               left: Style.safeSpace,
               right: Style.safeSpace,
-              top: Style.safeSpace,
               bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
             ),
-            sliver: Obx(
-              () => _buildBody(theme, _controller.loadingState.value),
-            ),
+            sliver: Obx(() => _buildBody(_controller.loadingState.value)),
           ),
         ],
       ),
@@ -76,70 +81,88 @@ class _LiveAreaChildPageState extends State<LiveAreaChildPage>
     mainAxisExtent: MediaQuery.textScalerOf(context).scale(90),
   );
 
-  Widget _buildBody(
-    ThemeData theme,
-    LoadingState<List<CardLiveItem>?> loadingState,
-  ) {
-    return switch (loadingState) {
-      Loading() => SliverGrid(
-        gridDelegate: gridDelegate,
-        delegate: const SliverSingleChildDelegate(
-          count: 10,
-          child: VideoCardVSkeleton(),
-        ),
-      ),
-      Success(:final response) => SliverMainAxisGroup(
-        slivers: [
-          if (_controller.newTags?.isNotEmpty == true)
-            SliverToBoxAdapter(
-              child: Obx(() {
-                final tagIndex = _controller.tagIndex.value;
-                return SelfSizedHorizontalList(
-                  padding: const .only(bottom: 12),
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final item = _controller.newTags![index];
-                    final isCurr = index == tagIndex;
-                    return SearchText(
-                      fontSize: 14,
-                      padding: const .symmetric(horizontal: 8, vertical: 3),
-                      text: item.name!,
-                      bgColor: isCurr
-                          ? theme.colorScheme.secondaryContainer
-                          : Colors.transparent,
-                      textColor: isCurr
-                          ? theme.colorScheme.onSecondaryContainer
-                          : null,
-                      onTap: (value) =>
-                          _controller.onSelectTag(index, item.sortType),
-                    );
-                  },
-                  itemCount: _controller.newTags!.length,
-                );
-              }),
+  Widget _buildBody(LoadingState<List<CardLiveItem>?> loadingState) {
+    switch (loadingState) {
+      case Loading():
+        return SliverPadding(
+          padding: const .only(top: Style.safeSpace),
+          sliver: SliverGrid(
+            gridDelegate: gridDelegate,
+            delegate: const SliverSingleChildDelegate(
+              count: 10,
+              child: VideoCardVSkeleton(),
             ),
-          response != null && response.isNotEmpty
-              ? SliverGrid.builder(
-                  gridDelegate: gridDelegate,
-                  itemBuilder: (context, index) {
-                    if (index == response.length - 1) {
-                      _controller.onLoadMore();
-                    }
-                    return LiveCardVApp(
-                      item: response[index],
-                      showFirstFrame: widget.showFirstFrame,
+          ),
+        );
+      case Success(:final response):
+        final Widget child;
+        if (response != null && response.isNotEmpty) {
+          child = SliverGrid.builder(
+            gridDelegate: gridDelegate,
+            itemBuilder: (context, index) {
+              if (index == response.length - 1) {
+                _controller.onLoadMore();
+              }
+              return LiveCardVApp(
+                item: response[index],
+                showFirstFrame: widget.showFirstFrame,
+              );
+            },
+            itemCount: response.length,
+          );
+        } else {
+          child = HttpError(onReload: _controller.onReload);
+        }
+        if (_controller.newTags case final newTags? when newTags.isNotEmpty) {
+          return SliverMainAxisGroup(
+            slivers: [
+              SliverPinnedHeader(
+                backgroundColor: colorScheme.surface,
+                child: SizedBox(
+                  height: 48,
+                  child: Obx(() {
+                    final tagIndex = _controller.tagIndex.value;
+                    return ListView.separated(
+                      scrollDirection: .horizontal,
+                      padding: const .symmetric(vertical: Style.safeSpace),
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final item = newTags[index];
+                        final isCurr = index == tagIndex;
+                        return SearchText(
+                          height: 1,
+                          fontSize: 14,
+                          padding: const .symmetric(horizontal: 8, vertical: 5),
+                          text: item.name!,
+                          bgColor: isCurr
+                              ? colorScheme.secondaryContainer
+                              : Colors.transparent,
+                          textColor: isCurr
+                              ? colorScheme.onSecondaryContainer
+                              : null,
+                          onTap: (value) =>
+                              _controller.onSelectTag(index, item.sortType),
+                        );
+                      },
+                      itemCount: newTags.length,
                     );
-                  },
-                  itemCount: response.length,
-                )
-              : HttpError(onReload: _controller.onReload),
-        ],
-      ),
-      Error(:final errMsg) => HttpError(
-        errMsg: errMsg,
-        onReload: _controller.onReload,
-      ),
-    };
+                  }),
+                ),
+              ),
+              child,
+            ],
+          );
+        }
+        return SliverPadding(
+          padding: const .only(top: Style.safeSpace),
+          sliver: child,
+        );
+      case Error(:final errMsg):
+        return HttpError(
+          errMsg: errMsg,
+          onReload: _controller.onReload,
+        );
+    }
   }
 
   @override

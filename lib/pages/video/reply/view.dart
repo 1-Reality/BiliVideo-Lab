@@ -3,19 +3,17 @@ import 'package:PiliBro/common/sliver_single_child_delegate.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliBro/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliBro/common/widgets/scaffold/mini_scaffold.dart';
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliBro/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
+    show ReplyInfo, MainListReply;
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/pages/common/fab_mixin.dart';
+import 'package:PiliBro/pages/common/reply/reply_footer_mixin.dart';
+import 'package:PiliBro/pages/common/reply/vote/reply_vote_item.dart';
 import 'package:PiliBro/pages/video/reply/controller.dart';
-import 'package:PiliBro/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:PiliBro/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:PiliBro/pages/video/reply_reply/view.dart';
 import 'package:PiliBro/utils/feed_back.dart';
-import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyRepeatEvent, LogicalKeyboardKey;
 import 'package:get/get.dart';
@@ -46,12 +44,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         AutomaticKeepAliveClientMixin,
         SingleTickerProviderStateMixin,
         BaseFabMixin,
-        FabMixin {
+        FabMixin,
+        ReplyFooterMixin<VideoReplyPanel, MainListReply> {
+  @override
   late ColorScheme colorScheme;
-  late VideoReplyController _videoReplyController;
-  final _targetReplyKey = GlobalKey();
-  bool _targetJumpQueued = false;
-  bool _targetJumpDone = false;
+  @override
+  late VideoReplyController controller;
 
   String get heroTag => widget.heroTag;
 
@@ -61,29 +59,25 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   void initState() {
     super.initState();
-    _videoReplyController = Get.find<VideoReplyController>(tag: heroTag);
-    if (_videoReplyController.loadingState.value is Loading) {
-      _videoReplyController.queryData();
+    controller = Get.find<VideoReplyController>(tag: heroTag);
+    if (controller.loadingState.value is Loading) {
+      controller.queryData();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    controller.didChangeDependencies(context);
     colorScheme = ColorScheme.of(context);
-    bottom = MediaQuery.viewPaddingOf(context).bottom;
   }
-
-  late double bottom;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final child = ScaffoldLayout(
       body: CustomScrollView(
-        controller: widget.isNested
-            ? null
-            : _videoReplyController.scrollController,
+        controller: widget.isNested ? null : controller.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         key: const PageStorageKey(_VideoReplyPanelState),
         slivers: [
@@ -94,7 +88,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
             child: Padding(
               padding: const .fromLTRB(12, 2.5, 6, 2.5),
               child: Obx(() {
-                final sortType = _videoReplyController.sortType.value;
+                final sortType = controller.sortType.value;
                 return Row(
                   mainAxisAlignment: .spaceBetween,
                   children: [
@@ -104,7 +98,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                     ),
                     TextButton.icon(
                       style: Style.buttonStyle,
-                      onPressed: _videoReplyController.queryBySort,
+                      onPressed: controller.queryBySort,
                       icon: Icon(
                         Icons.sort,
                         size: 16,
@@ -123,7 +117,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
               }),
             ),
           ),
-          Obx(() => _buildBody(_videoReplyController.loadingState.value)),
+          Obx(() => _buildBody(controller.loadingState.value)),
         ],
       ),
       fab: SlideTransition(
@@ -131,16 +125,17 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         child: Padding(
           padding: .only(
             right: kFloatingActionButtonMargin,
-            bottom: kFloatingActionButtonMargin + bottom,
+            bottom: kFloatingActionButtonMargin + padding.bottom,
           ),
           child: FloatingActionButton(
             heroTag: null,
             onPressed: () {
               feedBack();
-              _videoReplyController.onReply(
+              controller.onReply(
                 null,
-                oid: _videoReplyController.aid,
-                replyType: _videoReplyController.videoType.replyType,
+                oid: controller.videoCtr.aid,
+                replyType: controller.replyType,
+                mentionItem: controller.mentionItem,
               );
             },
             tooltip: '发表评论',
@@ -151,7 +146,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     );
     return fabAnimWrapper(
       child: refreshIndicator(
-        onRefresh: _videoReplyController.onRefresh,
+        onRefresh: controller.onRefresh,
         isClampingScrollPhysics: widget.isNested,
         child: widget.directionalFocus
             ? Focus(
@@ -164,13 +159,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                       _ => 0.0,
                     };
                     if (delta != 0) {
-                      final controller =
-                          _videoReplyController.scrollController;
-                      controller.jumpTo(
-                        (controller.offset + delta)
+                      final scrollController = controller.scrollController;
+                      scrollController.jumpTo(
+                        (scrollController.offset + delta)
                             .clamp(
                               0.0,
-                              controller.position.maxScrollExtent,
+                              scrollController.position.maxScrollExtent,
                             )
                             .toDouble(),
                       );
@@ -199,7 +193,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       case Success(:final response):
         if (response != null && response.isNotEmpty) {
           var count = response.length + 1;
-          final voteCard = _videoReplyController.voteCard;
+          final voteCard = controller.voteCard;
           final hasVote = voteCard != null;
           if (hasVote) {
             count++;
@@ -214,50 +208,35 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                 }
               }
               if (index == response.length) {
-                _videoReplyController.onLoadMore();
-                return Container(
-                  height: 125,
-                  alignment: .center,
-                  margin: .only(bottom: bottom),
-                  child: Text(
-                    _videoReplyController.isEnd ? '没有更多了' : '加载中...',
-                    textAlign: .center,
-                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
-                  ),
-                );
+                return buildFooter();
               } else {
+                final item = response[index];
                 final child = ReplyItemGrpc(
-                  replyItem: response[index],
+                  replyItem: item,
                   replyLevel: widget.replyLevel,
-                  replyReply: replyReply,
-                  onReply: _videoReplyController.onReply,
+                  replyReply: controller.replyReply,
+                  onReply: controller.onReply,
                   onDelete: (item, subIndex) =>
-                      _videoReplyController.onRemove(index, item, subIndex),
-                  upMid: _videoReplyController.upMid,
+                      controller.onRemove(index, item, subIndex),
+                  upMid: controller.upMid,
                   getTag: () => heroTag,
-                  onCheckReply: (item, strong) => _videoReplyController
-                      .onCheckReply(item, isManual: true, strong: strong),
-                  onToggleTop: (item) => _videoReplyController.onToggleTop(
+                  onCheckReply: (item, strong) => controller.onCheckReply(
+                    item,
+                    isManual: true,
+                    strong: strong,
+                  ),
+                  onToggleTop: (item) => controller.onToggleTop(
                     item,
                     index,
-                    _videoReplyController.aid,
-                    _videoReplyController.videoType.replyType,
+                    controller.videoCtr.aid,
+                    controller.replyType,
                   ),
                 );
-                if (_videoReplyController.targetReplyId ==
-                    response[index].id.toInt()) {
-                  if (!_targetJumpQueued && !_targetJumpDone) {
-                    _targetJumpQueued = true;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _targetJumpQueued = false;
-                      final context = _targetReplyKey.currentContext;
-                      if (context != null && mounted) {
-                        _targetJumpDone = true;
-                        Scrollable.ensureVisible(context, alignment: 0.25);
-                      }
-                    });
-                  }
-                  return KeyedSubtree(key: _targetReplyKey, child: child);
+                if (item.id == controller.targetRootRpId) {
+                  return controller.colorAnimWrapper(
+                    colorScheme,
+                    child,
+                  );
                 }
                 return child;
               }
@@ -266,11 +245,8 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
           );
         }
 
-        final child = HttpError(
-          errMsg: '还没有评论',
-          onReload: _videoReplyController.onReload,
-        );
-        if (_videoReplyController.voteCard case final voteCard?) {
+        final child = emptyWidget();
+        if (controller.voteCard case final voteCard?) {
           return SliverMainAxisGroup(
             slivers: [
               SliverToBoxAdapter(
@@ -284,29 +260,8 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
       case Error(:final errMsg):
         return HttpError(
           errMsg: errMsg,
-          onReload: _videoReplyController.onReload,
+          onReload: controller.onReload,
         );
     }
-  }
-
-  // 展示二级回复
-  void replyReply(ReplyInfo replyItem, int? id) {
-    EasyThrottle.throttle('replyReply', const Duration(milliseconds: 500), () {
-      int oid = replyItem.oid.toInt();
-      int rpid = replyItem.id.toInt();
-      MiniScaffold.of(context).showBottomSheet(
-        constraints: const BoxConstraints(),
-        (context) => VideoReplyReplyPanel(
-          id: id,
-          oid: oid,
-          rpid: rpid,
-          firstFloor: replyItem.replyControl.isNote ? null : replyItem,
-          replyType: _videoReplyController.videoType.replyType,
-          isVideoDetail: true,
-          isNested: widget.isNested,
-          upMid: _videoReplyController.upMid,
-        ),
-      );
-    });
   }
 }
