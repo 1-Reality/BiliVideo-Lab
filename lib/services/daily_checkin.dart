@@ -31,9 +31,6 @@ abstract final class DailyCheckin {
     (28390, 481060),
   ];
 
-  // 每日分享用的固定视频
-  static const _shareBvid = 'BV1PtR7B8ECC';
-
   static void onNewDay(int day) {
     if (!Accounts.main.isLogin) return;
     WidgetsBinding.instance.addPostFrameCallback(
@@ -127,7 +124,7 @@ abstract final class DailyCheckin {
     '分享视频',
     await Request().post(
       '/x/web-interface/share/add',
-      data: {'bvid': _shareBvid, 'csrf': Accounts.main.csrf, 'source': 'web_normal'},
+      data: {'bvid': 'BV1PtR7B8ECC', 'csrf': Accounts.main.csrf, 'source': 'web_normal'},
       options: _form(),
     ),
   );
