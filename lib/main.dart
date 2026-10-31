@@ -128,12 +128,6 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       // Large telemetry/history is deliberately kept off the cold-start path.
       await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
-      // 首帧后再归档：失败只记一笔，2 分钟一次的统计定时器会再试，不连累启动
-      unawaited(
-        PlaybackArchiveService.archiveIfDue().catchError((Object e) {
-          if (kDebugMode) debugPrint('Playback archive: $e');
-        }),
-      );
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
       await RequestUtils.syncHistoryStatus();
@@ -153,6 +147,11 @@ void main() async {
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
   }
+  // 归档仍在首帧前做完（进 App 前那段等待就是归档用时）；失败不退出，
+  // 到期标记没推进，下次启动或 2 分钟的统计定时器会接着做
+  await PlaybackArchiveService.archiveIfDue().catchError((Object e) {
+    if (kDebugMode) debugPrint('Playback archive: $e');
+  });
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   if (PlatformUtils.isMobile) await OrientationPolicy.initialize();
 
