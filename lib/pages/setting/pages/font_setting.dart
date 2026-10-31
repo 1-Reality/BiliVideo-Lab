@@ -82,7 +82,7 @@ class _FontSettingPageState extends State<FontSettingPage> {
 
     await GStorage.setting.putAllNE({
       SettingBoxKey.appFont: _selectedFont,
-      SettingBoxKey.appFontWeightV2: _selectedWeight,
+      SettingBoxKey.appFontWeight: _selectedWeight,
       SettingBoxKey.defaultTextScale: _selectedScale,
     });
 

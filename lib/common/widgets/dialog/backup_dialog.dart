@@ -200,6 +200,7 @@ Future<void> exportBackupFile(
 Future<void> _importFile(BuildContext context) async {
   final result = await FilePicker.pickFile(
     type: .custom,
+    allowedExtensions: const ['zip'],
   );
   if (result == null || !context.mounted) return;
   try {

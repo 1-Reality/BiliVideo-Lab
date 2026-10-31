@@ -3,9 +3,9 @@ param(
 )
 
 $env:GIT_AUTHOR_NAME = "ci"
-$env:GIT_AUTHOR_EMAIL = "example@example.com"
+$env:GIT_AUTHOR_EMAIL = "175325443+ucxn@users.noreply.github.com"
 $env:GIT_COMMITTER_NAME = "ci"
-$env:GIT_COMMITTER_EMAIL = "example@example.com"
+$env:GIT_COMMITTER_EMAIL = "175325443+ucxn@users.noreply.github.com"
 
 # TODO: remove
 # https://github.com/flutter/flutter/issues/182281

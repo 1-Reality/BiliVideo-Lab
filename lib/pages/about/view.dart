@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:PiliBro/common/widgets/dialog/export_import.dart';
 import 'package:PiliBro/build_config.dart';
 import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
@@ -243,12 +242,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
             title: const Text('备份与恢复'),
             leading: const Icon(Icons.import_export_outlined),
             onTap: () => showBackupMenu(context),
-          ),
-          ListTile(
-            title: const Text('导入/导出所有数据'),
-            dense: false,
-            leading: const Icon(Icons.archive_outlined),
-            onTap: () => showDataImportExportDialog(context),
           ),
           ListTile(
             title: const Text('重置所有设置'),

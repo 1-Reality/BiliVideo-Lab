@@ -25,6 +25,7 @@ import 'package:PiliBro/models/common/episode_panel_type.dart';
 import 'package:PiliBro/models/common/pgc_episode_type.dart';
 import 'package:PiliBro/models/model_hot_video_item.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
+import 'package:PiliBro/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliBro/models_new/video/video_tag/data.dart';
 import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/danmaku/view.dart';
