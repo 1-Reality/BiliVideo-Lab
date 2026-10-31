@@ -98,6 +98,13 @@ List<SettingsModel> get recommendSettings => [
     setKey: SettingBoxKey.rcmdAnonymous,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '向 B 站反馈推荐点击',
+    subtitle: '从 App 推荐点开的视频，在打开和离开时按官方 App 的方式各报一次，附上它来自哪张推荐卡，让推荐更懂你的口味',
+    leading: Icon(Icons.ads_click_outlined),
+    setKey: SettingBoxKey.rcmdReportClick,
+    defaultVal: false,
+  ),
   getVideoFilterSelectModel(
     title: 'Web 推荐每批条数',
     key: SettingBoxKey.webRcmdPs,

@@ -750,6 +750,31 @@ abstract final class VideoHttp {
     );
   }
 
+  /// App 端播放上报（官方 App 的心跳），推荐来源只能走这个接口带上，见 RcmdReport
+  static Future<Response> heartBeatMobile(
+    BiliApp app,
+    LoginAccount account,
+    String token,
+    Map<String, dynamic> params,
+  ) {
+    params
+      ..addAll(app.commonParams)
+      ..['access_key'] = token;
+    AppSign.appSign(params, app);
+    return Request().post(
+      'https://api.bilibili.com/x/report/heartbeat/mobile',
+      data: params,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        headers: {
+          ...BiliDevice.appHeaders(app, account.mid),
+          ...BiliSession.dynamicHeaders,
+        },
+        extra: {'account': const NoAccount()},
+      ),
+    );
+  }
+
   // 视频播放进度
   static Future<void> heartBeat({
     Object? aid,

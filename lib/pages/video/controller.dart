@@ -57,6 +57,7 @@ import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/cdn_last_video_service.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
+import 'package:PiliBro/services/rcmd_report.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/extension/context_ext.dart';
@@ -507,6 +508,7 @@ class VideoDetailController extends GetxController
 
     bvid = args['bvid'];
     aid = args['aid'];
+    _rcmdReport = args['rcmdReport']?..start(args['cid']);
     cid = RxInt(args['cid']);
     epId = args['epId'];
     seasonId = args['seasonId'];
@@ -1723,7 +1725,14 @@ class VideoDetailController extends GetxController
     }
   }
 
+  // 从 App 推荐点进来时带的推荐来源上报，离开时报完就丢掉
+  RcmdReport? _rcmdReport;
+
   void makeHeartBeat() {
+    if (_rcmdReport case final report?) {
+      _rcmdReport = null;
+      report.end(playedTime?.inSeconds ?? 0);
+    }
     if (plPlayerController.enableHeart &&
         !plPlayerController.playerStatus.isCompleted &&
         playedTime != null) {

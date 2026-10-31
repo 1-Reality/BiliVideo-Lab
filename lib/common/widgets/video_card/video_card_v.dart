@@ -8,6 +8,7 @@ import 'package:PiliBro/http/search.dart';
 import 'package:PiliBro/models/home/rcmd/result.dart';
 import 'package:PiliBro/models/model_rec_video_item.dart';
 import 'package:PiliBro/models_new/video/video_detail/dimension.dart';
+import 'package:PiliBro/services/rcmd_report.dart';
 import 'package:PiliBro/utils/app_scheme.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/duration_utils.dart';
@@ -15,6 +16,7 @@ import 'package:PiliBro/utils/extension/dimension_ext.dart';
 import 'package:PiliBro/utils/id_utils.dart';
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
@@ -61,6 +63,11 @@ class VideoCardV extends StatelessWidget {
             title: videoItem.title,
             isVertical: isVertical,
             dimension: dimension,
+            extraArguments: {
+              if (videoItem case final RcmdVideoItemAppModel item
+                  when Pref.rcmdReportClick)
+                'rcmdReport': RcmdReport.of(item),
+            },
           );
         }
         break;

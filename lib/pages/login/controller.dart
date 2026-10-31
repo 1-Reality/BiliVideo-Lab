@@ -16,6 +16,8 @@ import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
+import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/theme_utils.dart';
 import 'package:dio/dio.dart';
@@ -690,6 +692,8 @@ class LoginPageController extends GetxController
       ),
     );
     if (app != true) return;
+    // 选了 App 推荐，顺带打开推荐点击反馈
+    GStorage.setting.put(SettingBoxKey.rcmdReportClick, true);
     final source = account.tokenOf(BiliApp.phone) != null
         ? RcmdSource.phone
         : RcmdSource.hd;

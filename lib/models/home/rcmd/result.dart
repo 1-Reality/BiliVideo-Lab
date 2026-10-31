@@ -17,6 +17,9 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
   String? reportData;
   int? tid;
 
+  /// 播放上报带的推荐来源数据，见 RcmdReport
+  String? reportFlowData;
+
   /// 取到这张卡的那一端推荐流，不感兴趣时按它的身份回传
   late final RcmdAppCursor cursor;
 
@@ -61,6 +64,7 @@ class RcmdVideoItemAppModel extends BaseRcmdVideoItemModel {
     desc = json['desc'];
     trackId = json['track_id'];
     reportData = json['report_data'] ?? json['report_flow_data'];
+    reportFlowData = json['report_flow_data'];
     tid = json['args']?['tid'];
   }
 }
