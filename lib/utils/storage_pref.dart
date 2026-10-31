@@ -32,6 +32,7 @@ import 'package:PiliBro/models/user/info.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc_size.dart'
     show kFullScreenSCWidth;
 import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
@@ -1435,8 +1436,21 @@ abstract final class Pref {
   static bool get enableOnlineTotal =>
       _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
 
-  static bool get autoEnterFullScreen =>
-      _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
+  // 旧版只有开关（enableAutoEnter），没设过新键时按它推出来
+  static AutoFullscreenMode get autoFullscreenMode =>
+      AutoFullscreenMode.values[_setting.get(
+        SettingBoxKey.autoFullscreenMode,
+        defaultValue:
+            _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false)
+            ? AutoFullscreenMode.always.index
+            : AutoFullscreenMode.off.index,
+      )];
+
+  static AutoFullscreenMode get relatedAutoFullscreenMode =>
+      AutoFullscreenMode.values[_setting.get(
+        SettingBoxKey.relatedAutoFullscreenMode,
+        defaultValue: AutoFullscreenMode.off.index,
+      )];
 
   static bool get enableAutoLongPressSpeed =>
       _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: true);

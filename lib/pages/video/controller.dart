@@ -51,6 +51,7 @@ import 'package:PiliBro/pages/video/post_panel/view.dart';
 import 'package:PiliBro/pages/video/send_danmaku/view.dart';
 import 'package:PiliBro/pages/video/widgets/header_control.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
@@ -953,12 +954,12 @@ class VideoDetailController extends GetxController
     }
   }
 
-  Future<void>? _initPlayerIfNeeded(bool autoFullScreenFlag) {
+  Future<void>? _initPlayerIfNeeded(AutoFullscreenMode autoFullScreen) {
     if (_autoPlay.value ||
         (plPlayerController.preInitPlayer && !plPlayerController.processing) &&
             (isFileSource || videoPlayerKey.currentState?.mounted == true)) {
       return playerInit(
-        autoFullScreenFlag: autoFullScreenFlag && _autoPlay.value,
+        autoFullScreen: _autoPlay.value ? autoFullScreen : .off,
       );
     }
     return null;
@@ -966,7 +967,7 @@ class VideoDetailController extends GetxController
 
   Future<void> playerInit({
     bool? autoplay,
-    bool autoFullScreenFlag = false,
+    AutoFullscreenMode autoFullScreen = .off,
   }) async {
     plPlayerController.onNetworkPolicyChanged = _onNetworkPolicyChanged;
     plPlayerController.onCdnFallback = _fallbackCdn;
@@ -1058,7 +1059,7 @@ class VideoDetailController extends GetxController
       width: firstVideo.width,
       height: firstVideo.height,
       volume: volume,
-      autoFullScreenFlag: autoFullScreenFlag,
+      autoFullScreen: autoFullScreen,
     );
 
     if (isClosed) return;
@@ -1329,10 +1330,10 @@ class VideoDetailController extends GetxController
   /// TODO: merge [DownloadHttp.getVideoUrl].
   Future<void> queryVideoUrl({
     bool fromReset = false,
-    bool autoFullScreenFlag = false,
+    AutoFullscreenMode autoFullScreen = .off,
   }) async {
     if (isFileSource) {
-      return _initPlayerIfNeeded(autoFullScreenFlag);
+      return _initPlayerIfNeeded(autoFullScreen);
     }
     if (isQuerying) {
       return;
@@ -1409,7 +1410,7 @@ class VideoDetailController extends GetxController
             _setVideoHeight();
             currentDecodeFormats = VideoDecodeFormatType.AVC;
             currentVideoQa.value = videoQuality;
-            await _initPlayerIfNeeded(autoFullScreenFlag);
+            await _initPlayerIfNeeded(autoFullScreen);
             return;
           }
 
@@ -1439,7 +1440,7 @@ class VideoDetailController extends GetxController
             seasonId: seasonId,
           ),
         );
-        await _initPlayerIfNeeded(autoFullScreenFlag);
+        await _initPlayerIfNeeded(autoFullScreen);
       } else {
         _autoPlay.value = false;
         videoState.value = false;

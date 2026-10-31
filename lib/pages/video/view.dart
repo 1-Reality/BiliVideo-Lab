@@ -55,6 +55,7 @@ import 'package:PiliBro/pages/video/widgets/header_control.dart';
 import 'package:PiliBro/pages/video/widgets/intro_layout.dart';
 import 'package:PiliBro/pages/video/widgets/player_focus.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
@@ -276,6 +277,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         cover: item.cover,
         title: item.title,
       ),
+      autoFullScreen: Pref.relatedAutoFullscreenMode,
     );
     if (!ok || !mounted) return;
     route.addLocalHistoryEntry(
@@ -312,7 +314,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   // 获取视频资源，初始化播放器
   void videoSourceInit() {
-    videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
+    videoDetailController.queryVideoUrl(autoFullScreen: Pref.autoFullscreenMode);
     if (videoDetailController.autoPlay) {
       plPlayerController = videoDetailController.plPlayerController;
       plPlayerController!
@@ -456,14 +458,14 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ..addStatusLister(playerListener)
       ..addPositionListener(positionListener);
     if (plPlayerController.preInitPlayer) {
-      if (plPlayerController.autoEnterFullScreen) {
+      if (plPlayerController.allowsAutoFullScreen(Pref.autoFullscreenMode)) {
         plPlayerController.triggerFullScreen();
       }
       return plPlayerController.play();
     } else {
       return videoDetailController.playerInit(
         autoplay: true,
-        autoFullScreenFlag: true,
+        autoFullScreen: Pref.autoFullscreenMode,
       );
     }
   }

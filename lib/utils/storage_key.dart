@@ -37,6 +37,8 @@ abstract final class SettingBoxKey {
       hwdecWatchSeconds = 'hwdecWatchSeconds',
       p1080 = 'p1080',
       enableAutoEnter = 'enableAutoEnter',
+      autoFullscreenMode = 'autoFullscreenMode',
+      relatedAutoFullscreenMode = 'relatedAutoFullscreenMode',
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       superChatType = 'superChatType',

@@ -20,6 +20,7 @@ import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/video/video_shot/data.dart';
 import 'package:PiliBro/pages/danmaku/danmaku_model.dart';
 import 'package:PiliBro/pages/sponsor_block/block_mixin.dart';
+import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_source.dart';
 import 'package:PiliBro/plugin/pl_player/models/data_status.dart';
 import 'package:PiliBro/plugin/pl_player/models/double_tap_type.dart';
@@ -430,7 +431,6 @@ class PlPlayerController
   late final uiScale = Pref.uiScale;
   void Function()? onFullscreenExited;
 
-  late final bool autoEnterFullScreen = Pref.autoEnterFullScreen;
   late final bool autoExitFullscreen = Pref.autoExitFullscreen;
   late final bool autoPlayEnable = Pref.autoPlayEnable;
   late final bool enableVerticalExpand = Pref.enableVerticalExpand;
@@ -620,6 +620,12 @@ class PlPlayerController
   BrotherPhaseConfig get _brotherCurrentPhase =>
       _brotherActivePhase ??
       (isFullScreen.value ? _brotherPlan.fullscreen : _brotherPlan.windowed);
+
+  // 各入口读各自的开关传进来，这里只按当前屏幕和视频方向判断
+  bool allowsAutoFullScreen(AutoFullscreenMode mode) => mode.allows(
+    screenLandscape: _currentSystemLandscape,
+    videoVertical: _isVertical,
+  );
 
   bool get _currentSystemLandscape {
     final views = WidgetsBinding.instance.platformDispatcher.views;
@@ -1312,7 +1318,7 @@ class PlPlayerController
     VideoType? videoType,
     VoidCallback? onInit,
     Volume? volume,
-    bool autoFullScreenFlag = false,
+    AutoFullscreenMode autoFullScreen = AutoFullscreenMode.off,
   }) async {
     final previousPosition =
         _videoPlayerController?.state.position ?? Duration.zero;
@@ -1434,7 +1440,7 @@ class PlPlayerController
 
       dataStatus.value = .loaded;
 
-      if (autoFullScreenFlag && autoEnterFullScreen) {
+      if (allowsAutoFullScreen(autoFullScreen)) {
         triggerFullScreen(
           status: true,
           cause: FullscreenEntryCause.playbackAuto,
