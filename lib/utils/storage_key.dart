@@ -421,7 +421,8 @@ abstract final class LocalCacheKey {
       updateIgnore = 'updateIgnore',
       launchSlot = 'launchSlot',
       launchDay = 'launchDay',
-      launchYears = 'launchYears';
+      launchYears = 'launchYears',
+      pcChecked = 'pcChecked';
 }
 
 abstract final class VideoBoxKey {
