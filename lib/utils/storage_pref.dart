@@ -1259,7 +1259,7 @@ abstract final class Pref {
   static TimeDisplayMode get timeDisplayMode =>
       TimeDisplayMode.values[_setting.get(
         SettingBoxKey.timeDisplayMode,
-        defaultValue: TimeDisplayMode.relative.index,
+        defaultValue: TimeDisplayMode.readable.index,
       )];
 
   static bool get enableSearchWord =>
