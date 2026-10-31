@@ -1795,7 +1795,8 @@ class HeaderControlState extends State<HeaderControl>
                 ),
               ),
               if (!plPlayerController.isDesktopPip &&
-                  (!isFullScreen || !isPortrait))
+                  (!isFullScreen || !isPortrait) &&
+                  Pref.headerBtnHome)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,
@@ -1840,6 +1841,7 @@ class HeaderControlState extends State<HeaderControl>
                 }),
               if (!isFileSource) ...[
                 if (!isFSOrPip) ...[
+                  if (Pref.headerBtnMiniWindow)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -1854,7 +1856,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ),
-                  if (videoDetailCtr.isUgc)
+                  if (videoDetailCtr.isUgc && Pref.headerBtnListen)
                     SizedBox(
                       width: btnWidth,
                       height: btnHeight,
@@ -1869,6 +1871,7 @@ class HeaderControlState extends State<HeaderControl>
                         ),
                       ),
                     ),
+                  if (Pref.headerBtnCast)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -1884,7 +1887,8 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ],
-                if (kDebugMode || plPlayerController.enableSponsorBlock)
+                if ((kDebugMode || plPlayerController.enableSponsorBlock) &&
+                    Pref.headerBtnSponsor)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -1899,6 +1903,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ),
+                if (Pref.headerBtnSponsor)
                 Obx(
                   () => videoDetailCtr.segmentProgressList.isNotEmpty
                       ? SizedBox(
@@ -1979,6 +1984,7 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               ],
+              if (Pref.headerBtnDmSettings)
               SizedBox(
                 width: btnWidth,
                 height: btnHeight,
@@ -1993,8 +1999,9 @@ class HeaderControlState extends State<HeaderControl>
                   ),
                 ),
               ),
-              if (Platform.isAndroid ||
-                  (PlatformUtils.isDesktop && !isFullScreen))
+              if ((Platform.isAndroid ||
+                      (PlatformUtils.isDesktop && !isFullScreen)) &&
+                  Pref.headerBtnPip)
                 SizedBox(
                   width: btnWidth,
                   height: btnHeight,

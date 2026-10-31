@@ -1625,6 +1625,22 @@ abstract final class Pref {
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);
 
+  // 播放器顶栏按钮，屏幕窄时用户自己关掉不用的
+  static bool get headerBtnHome =>
+      _setting.get(SettingBoxKey.headerBtnHome, defaultValue: true);
+  static bool get headerBtnMiniWindow =>
+      _setting.get(SettingBoxKey.headerBtnMiniWindow, defaultValue: true);
+  static bool get headerBtnListen =>
+      _setting.get(SettingBoxKey.headerBtnListen, defaultValue: true);
+  static bool get headerBtnCast =>
+      _setting.get(SettingBoxKey.headerBtnCast, defaultValue: true);
+  static bool get headerBtnSponsor =>
+      _setting.get(SettingBoxKey.headerBtnSponsor, defaultValue: true);
+  static bool get headerBtnDmSettings =>
+      _setting.get(SettingBoxKey.headerBtnDmSettings, defaultValue: true);
+  static bool get headerBtnPip =>
+      _setting.get(SettingBoxKey.headerBtnPip, defaultValue: true);
+
   static bool get silentDownImg =>
       _setting.get(SettingBoxKey.silentDownImg, defaultValue: false);
 
