@@ -302,6 +302,3 @@ flutter:
     - family: custom_icon
       fonts:
         - asset: assets/fonts/custom_icon.ttf
-    - family: dev_font
-      fonts:
-        - asset: assets/fonts/dev_font.ttf
