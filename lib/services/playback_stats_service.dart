@@ -198,21 +198,8 @@ abstract final class PlaybackStatsService {
   static void _ensureInitialized() {
     if (_stats != null) return;
     _stats = _loadStatsFromStorage();
-    _flushTimer ??= Timer.periodic(
-      _flushInterval,
-      (_) {
-        unawaited(_periodicFlushAndArchive());
-      },
-    );
-  }
-
-  static Future<void> _periodicFlushAndArchive() async {
-    try {
-      await flush();
-      await PlaybackArchiveService.archiveIfDue();
-    } catch (error) {
-      if (kDebugMode) debugPrint('Playback maintenance: $error');
-    }
+    // 只管存盘；归档只在启动时做（main 里首帧前）
+    _flushTimer ??= Timer.periodic(_flushInterval, (_) => unawaited(flush()));
   }
 
   // Keep the cutover at 8/18/28 even if the player is still open. This is an
