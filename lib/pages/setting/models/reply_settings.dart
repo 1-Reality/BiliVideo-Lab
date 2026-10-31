@@ -56,6 +56,7 @@ List<SettingsModel> get replySettings => [
   if (Platform.isAndroid)
     const SwitchModel(
       title: '使用「哔哩发评反诈」检查评论',
+      subtitle: '若未安装该应用，可能会导致上一开关失效；但哥哥科技版已经缓解该问题！',
       leading: Icon(
         FontAwesomeIcons.b,
         size: 22,
