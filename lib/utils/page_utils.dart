@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:math';
 
 import 'package:PiliBro/common/widgets/fractionally_sized_box.dart';
@@ -231,20 +232,24 @@ abstract final class PageUtils {
   static bool _dynOpening = false;
 
   // 视频类动态跳转前要先联网查 cid，弱网下要等好几秒；这期间再点就忽略，
-  // 免得以为没点到又点一次，进两次详情页
+  // 免得以为没点到又点一次，进两次详情页。超过 300ms 才转圈，网快时不闪
   static Future<void> pushDynDetail(
     DynamicItemModel item, {
     bool isPush = false,
     bool viewComment = false,
   }) async {
-    if (_dynOpening) {
-      SmartDialog.showToast('正在打开');
-      return;
-    }
+    if (_dynOpening) return;
     _dynOpening = true;
+    var loading = false;
+    final timer = Timer(const Duration(milliseconds: 300), () {
+      loading = true;
+      SmartDialog.showLoading();
+    });
     try {
       await _pushDynDetail(item, isPush: isPush, viewComment: viewComment);
     } finally {
+      timer.cancel();
+      if (loading) SmartDialog.dismiss(status: SmartStatus.loading);
       _dynOpening = false;
     }
   }
