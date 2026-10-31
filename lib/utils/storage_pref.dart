@@ -6,6 +6,7 @@ import 'package:PiliBro/common/widgets/gesture/horizontal_drag_gesture_recognize
 import 'package:PiliBro/common/widgets/pair.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/models/common/bar_hide_type.dart';
+import 'package:PiliBro/models/common/time_display_mode.dart';
 import 'package:PiliBro/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
@@ -1253,6 +1254,12 @@ abstract final class Pref {
       BarHideType.values[_setting.get(
         SettingBoxKey.barHideType,
         defaultValue: BarHideType.sync.index,
+      )];
+
+  static TimeDisplayMode get timeDisplayMode =>
+      TimeDisplayMode.values[_setting.get(
+        SettingBoxKey.timeDisplayMode,
+        defaultValue: TimeDisplayMode.relative.index,
       )];
 
   static bool get enableSearchWord =>

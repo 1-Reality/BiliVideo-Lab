@@ -408,6 +408,7 @@ abstract final class SettingBoxKey {
       hideTopBar = 'hideTopBar',
       hideBottomBar = 'hideBottomBar',
       barHideType = 'barHideType',
+      timeDisplayMode = 'timeDisplayMode',
       tabBarSort = 'tabBarSort',
       dynamicBadgeMode = 'dynamicBadgeMode',
       msgBadgeMode = 'msgBadgeMode',

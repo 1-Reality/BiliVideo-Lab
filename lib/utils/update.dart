@@ -88,8 +88,6 @@ abstract final class Update {
         if (!isAuto) SmartDialog.showToast('已是最新版本');
         return;
       }
-      final int latest =
-          DateTime.parse(data['created_at']).millisecondsSinceEpoch ~/ 1000;
       final version = data['tag_name']?.toString() ?? data['created_at'].toString();
       final updateIgnore = GStorage.localCache.get(LocalCacheKey.updateIgnore);
       if (isAuto && updateIgnore is Map) {
@@ -99,7 +97,8 @@ abstract final class Update {
         }
         GStorage.localCache.delete(LocalCacheKey.updateIgnore);
       }
-      if (BuildConfig.buildTime >= latest) {
+      if (BuildConfig.buildTime * 1000 >=
+          DateTime.parse(data['created_at']).millisecondsSinceEpoch) {
         if (!isAuto) {
           SmartDialog.showToast('已是最新版本');
         }

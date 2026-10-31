@@ -13,6 +13,7 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show kSpringDescription;
 import 'package:PiliBro/common/widgets/stateful_builder.dart';
 import 'package:PiliBro/models/common/bar_hide_type.dart';
+import 'package:PiliBro/models/common/time_display_mode.dart';
 import 'package:PiliBro/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliBro/models/common/home_tab_type.dart';
@@ -31,6 +32,7 @@ import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/extension/file_ext.dart';
 import 'package:PiliBro/utils/extension/get_ext.dart';
 import 'package:PiliBro/utils/extension/num_ext.dart';
@@ -264,6 +266,18 @@ List<SettingsModel> get styleSettings => [
           .put(SettingBoxKey.barHideType, value.index)
           .whenComplete(setState);
       SmartDialog.showToast('重启生效');
+    },
+  ),
+  PopupModel(
+    title: '时间显示',
+    leading: const Icon(Icons.schedule),
+    value: () => Pref.timeDisplayMode,
+    items: TimeDisplayMode.values,
+    onSelected: (value, setState) {
+      DateFormatUtils.timeMode = value;
+      GStorage.setting
+          .put(SettingBoxKey.timeDisplayMode, value.index)
+          .whenComplete(setState);
     },
   ),
   NormalModel(

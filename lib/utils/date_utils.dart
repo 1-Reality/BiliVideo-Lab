@@ -1,3 +1,5 @@
+import 'package:PiliBro/models/common/time_display_mode.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 abstract final class DateFormatUtils {
@@ -8,6 +10,9 @@ abstract final class DateFormatUtils {
   static final longFormatDs = DateFormat('yyyy-MM-dd HH:mm:ss');
   static final only0_9 = DateFormat('yyyyMMddHHmmss');
 
+  static TimeDisplayMode timeMode = Pref.timeDisplayMode;
+  static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+
   static String dateFormat(
     int? time, {
     DateFormat? short,
@@ -17,8 +22,21 @@ abstract final class DateFormatUtils {
       return '';
     }
 
-    final now = DateTime.now();
     final date = DateTime.fromMillisecondsSinceEpoch(time * 1000);
+    if (timeMode == TimeDisplayMode.absolute) return longFormatDs.format(date);
+    final now = DateTime.now();
+    if (timeMode == TimeDisplayMode.readable) {
+      final dayDiff = DateTime(now.year, now.month, now.day)
+          .difference(DateTime(date.year, date.month, date.day))
+          .inDays;
+      final hm = '${_twoDigits(date.hour)}:${_twoDigits(date.minute)}';
+      if (dayDiff < 1) return hm;
+      if (dayDiff == 1) return '昨天 $hm';
+      if (dayDiff < 7) return '周${_weekdays[date.weekday - 1]} $hm';
+      return now.year == date.year
+          ? _shortFormatD.format(date)
+          : longFormat.format(date);
+    }
     final diff = now.difference(date);
 
     final diffInMins = diff.inMinutes;
