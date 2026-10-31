@@ -123,25 +123,51 @@ abstract final class DevicePresets {
 
   static Future<void> applyFoldable({bool applyNow = true}) => _apply(
     {
-      SettingBoxKey.orientationPolicyMode: OrientationPolicyMode.simple.index,
+      SettingBoxKey.orientationPolicyMode:
+          OrientationPolicyMode.brotherTech.index,
       SettingBoxKey.horizontalScreen: true,
       SettingBoxKey.keyboardControl: true,
       SettingBoxKey.autoFullscreenMode: AutoFullscreenMode.off.index,
-      SettingBoxKey.appInitialOrientation: AppInitialOrientation.system.index,
-      SettingBoxKey.appRotationMode: AppRotationMode.followSystem.index,
-      SettingBoxKey.fullScreenMode: FullScreenMode.ratio.index,
-      SettingBoxKey.fullScreenRotationSource:
-          FullScreenRotationSource.followSystem.index,
-      SettingBoxKey.fullScreenAllowedOrientation:
-          FullScreenAllowedOrientation.all.index,
-      SettingBoxKey.gravityFollowSystemLock: false,
-      SettingBoxKey.orientationFullscreenTrigger:
-          OrientationFullscreenTrigger.both.index,
-      SettingBoxKey.orientationTriggerSource:
-          OrientationTriggerSource.appGravity.index,
-      SettingBoxKey.angleDegrees: 55,
-      SettingBoxKey.exitOrientationMode: ExitOrientationMode.keepPlayer.index,
       SettingBoxKey.finalDirectionMask: 0,
+      SettingBoxKey.brotherAppPhase: const BrotherPhaseConfig(
+        enterAction: BrotherDirectionAction.keepCurrent,
+        resumeAction: BrotherDirectionAction.keepCurrent,
+        runtimeMode: BrotherRuntimeMode.followSystemAllowed,
+        runtimeActivation: BrotherRuntimeActivation.immediate,
+        allowedBasis: BrotherAllowedBasis.fixed,
+        allowedMask: OrientationMask.all,
+        gravityFollowSystemLock: false,
+        angleDegrees: 55,
+      ).toStorage(),
+      SettingBoxKey.brotherWindowedPhase: const BrotherPhaseConfig(
+        enterAction: BrotherDirectionAction.keepCurrent,
+        resumeAction: BrotherDirectionAction.keepCurrent,
+        runtimeMode: BrotherRuntimeMode.followSystemAllowed,
+        runtimeActivation: BrotherRuntimeActivation.immediate,
+        allowedBasis: BrotherAllowedBasis.fixed,
+        allowedMask: OrientationMask.all,
+        gravityFollowSystemLock: false,
+        angleDegrees: 55,
+      ).toStorage(),
+      SettingBoxKey.brotherFullscreenPhase: const BrotherPhaseConfig(
+        enterAction: BrotherDirectionAction.ratio,
+        resumeAction: BrotherDirectionAction.keepCurrent,
+        runtimeMode: BrotherRuntimeMode.followSystemAllowed,
+        runtimeActivation: BrotherRuntimeActivation.immediate,
+        allowedBasis: BrotherAllowedBasis.fixed,
+        allowedMask: OrientationMask.all,
+        gravityFollowSystemLock: false,
+        angleDegrees: 55,
+      ).toStorage(),
+      SettingBoxKey.brotherEnterSignalMask:
+          BrotherOrientationSignalMask.appGravity,
+      SettingBoxKey.brotherExitSignalMask:
+          BrotherOrientationSignalMask.appGravity,
+      SettingBoxKey.brotherManualExitSignalMask:
+          BrotherOrientationSignalMask.appGravity,
+      SettingBoxKey.brotherManualExitSignalRequired: 1,
+      SettingBoxKey.brotherManualExitConfirmations: 1,
+      SettingBoxKey.brotherAutoExitCauses: FullscreenEntryCauseMask.all,
     },
     applyNow: applyNow,
   );
