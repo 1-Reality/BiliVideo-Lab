@@ -8,12 +8,9 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 /// 每日任务里要专门去做的几项，正常使用就有的登录、观看经验不另外做。
-/// 当天首次打开：漫画签到与阅读、大会员积分签到、银瓜子换硬币（开关）；当天第一次上报观看进度成功后：
-/// 分享正在看的视频、领大会员每日经验。今天已做过的算成功，只在失败时提示
+/// 当天首次打开时一起发：漫画签到与阅读、分享视频、大会员积分签到与每日经验（大会员）、
+/// 银瓜子换硬币（开关）。今天已做过的算成功；全部成功提示一次，有失败就列出失败项
 abstract final class DailyCheckin {
-  /// 当天还没分享、没领大会员经验，等第一次观看上报
-  static bool watchPending = false;
-
   static bool get _vip => Pref.userInfoCache?.vipStatus == 1;
 
   static Options _form([Map<String, String>? headers]) => Options(
@@ -34,27 +31,27 @@ abstract final class DailyCheckin {
     (28390, 481060),
   ];
 
+  // 每日分享用的固定视频
+  static const _shareBvid = 'BV1PtR7B8ECC';
+
   static void onNewDay(int day) {
     if (!Accounts.main.isLogin) return;
-    watchPending = true;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _report([
         _manga(),
         _mangaRead(_comics[day & 7]),
-        if (_vip) _vipPoints(),
+        _share(),
+        if (_vip) ...[_vipPoints(), _vipExp()],
         if (Pref.silver2coin) _silver2coin(),
       ]),
     );
   }
 
-  static void onWatched(Object bvid) {
-    watchPending = false;
-    _report([_share(bvid), if (_vip) _vipExp()]);
-  }
-
   static Future<void> _report(List<Future<String?>> tasks) async {
     final failed = (await Future.wait(tasks)).nonNulls;
-    if (failed.isNotEmpty) SmartDialog.showToast(failed.join('\n'));
+    SmartDialog.showToast(
+      failed.isEmpty ? '今日签到全部完成，经验已到账' : failed.join('\n'),
+    );
   }
 
   static final _done = RegExp(
@@ -126,11 +123,11 @@ abstract final class DailyCheckin {
     );
   }
 
-  static Future<String?> _share(Object bvid) async => _check(
+  static Future<String?> _share() async => _check(
     '分享视频',
     await Request().post(
       '/x/web-interface/share/add',
-      data: {'bvid': bvid, 'csrf': Accounts.main.csrf, 'source': 'web_normal'},
+      data: {'bvid': _shareBvid, 'csrf': Accounts.main.csrf, 'source': 'web_normal'},
       options: _form(),
     ),
   );
