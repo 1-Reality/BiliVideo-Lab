@@ -262,6 +262,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       cover: videoDetailController.cover.value,
       title: ugcIntroController.videoDetail.value.title,
     );
+    // 退回时还原离开那一刻：在播就播，暂停（含播完）就停；播完的从头停着
+    final pl = videoDetailController.plPlayerController;
+    final status = pl.playerStatus;
+    final position = status.isCompleted ? 0 : pl.positionInMilliseconds;
+    // 点相关视频等同于开一个新视频，按自动播放开关来
+    videoDetailController.autoPlay = Pref.autoPlayEnable;
     final ok = await ugcIntroController.onChangeEpisode(
       ugc.BaseEpisodeItem(
         aid: item.aid,
@@ -279,6 +285,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         // 否则是整页离开（关闭全部、进小窗等 popUntil）顺带清栈，不切视频
         onRemove: () => scheduleMicrotask(() {
           if (!route.isCurrent) return;
+          videoDetailController
+            ..autoPlay = status.isPlaying
+            ..args['progress'] = position;
           ugcIntroController.onChangeEpisode(prev);
           videoDetailController.introScrollCtr?.jumpToTop();
         }),
