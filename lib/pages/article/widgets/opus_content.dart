@@ -35,6 +35,11 @@ import 'package:re_highlight/styles/github-dark.dart';
 import 'package:re_highlight/styles/github.dart';
 
 class OpusContent extends StatelessWidget {
+  static final _highlight = Highlight()
+    ..registerLanguages(builtinAllLanguages);
+  static final _codeSpan = Expando<TextSpan>();
+  static final _codeSpanDark = Expando<TextSpan>();
+
   final List<ArticleContentModel> opus;
   final ValueGetter<List<SourceModel>> images;
   final double maxWidth;
@@ -231,8 +236,6 @@ class OpusContent extends StatelessWidget {
     double? surfaceLuminance;
     double getSurfaceLuminance() =>
         surfaceLuminance ??= colorScheme.surface.computeLuminance();
-
-    late final highlight = Highlight()..registerLanguages(builtinAllLanguages);
 
     return SliverListExt.separated(
       reverse: reverse,
@@ -1105,22 +1108,26 @@ class OpusContent extends StatelessWidget {
                 child: child,
               );
             case 7 when (element.code != null):
-              final renderer = TextSpanRenderer(
-                null,
-                isDarkMode ? githubDarkTheme : githubTheme,
-              );
-              highlight
-                  .highlightAuto(
-                    element.code!.content!,
-                    element.code!.lang == 'language-clike'
-                        ? const ['c', 'java']
-                        : [
-                            element.code!.lang!
-                                .replaceAll('language-', '')
-                                .replaceAll('like', ''),
-                          ],
-                  )
-                  .render(renderer);
+              final span = (isDarkMode ? _codeSpanDark : _codeSpan)[element
+                  .code!] ??= () {
+                final renderer = TextSpanRenderer(
+                  null,
+                  isDarkMode ? githubDarkTheme : githubTheme,
+                );
+                _highlight
+                    .highlightAuto(
+                      element.code!.content!,
+                      element.code!.lang == 'language-clike'
+                          ? const ['c', 'java']
+                          : [
+                              element.code!.lang!
+                                  .replaceAll('language-', '')
+                                  .replaceAll('like', ''),
+                            ],
+                    )
+                    .render(renderer);
+                return renderer.span!;
+              }();
               return Container(
                 padding: const .all(12),
                 decoration: BoxDecoration(
@@ -1128,7 +1135,7 @@ class OpusContent extends StatelessWidget {
                   color: colorScheme.onInverseSurface,
                 ),
                 width: .infinity,
-                child: Text.rich(renderer.span!),
+                child: Text.rich(span),
               );
             case 8 when (element.heading?.nodes?.isNotEmpty == true):
               return Text.rich(

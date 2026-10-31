@@ -33,8 +33,11 @@ class _RenderLiveItem extends RenderBox
   set color(Color value) {
     if (_color == value) return;
     _color = value;
+    _paint.color = value;
     markNeedsPaint();
   }
+
+  late final _paint = Paint()..color = _color;
 
   Offset _offset = .zero;
 
@@ -60,7 +63,6 @@ class _RenderLiveItem extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final paint = Paint()..color = _color;
     if (_offset != .zero) {
       offset += _offset;
       context.canvas.drawRRect(
@@ -68,10 +70,10 @@ class _RenderLiveItem extends RenderBox
           offset & Size(_maxWith, size.height),
           Style.imgRadius,
         ),
-        paint,
+        _paint,
       );
     } else {
-      context.canvas.drawRect(offset & size, paint);
+      context.canvas.drawRect(offset & size, _paint);
     }
     context.paintChild(child!, offset);
   }

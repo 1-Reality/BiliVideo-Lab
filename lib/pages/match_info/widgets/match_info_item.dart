@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MatchInfoItem extends StatelessWidget {
+  static final _stimeFormat = DateFormat('yy-MM-dd HH:mm');
+
   const MatchInfoItem({super.key, required this.contest});
 
   final MatchContest contest;
@@ -144,7 +146,7 @@ Widget buildContestItem(ColorScheme colorScheme, MatchContest contest) {
                   text:
                       '    ${DateFormatUtils.format(
                         contest.stime,
-                        format: DateFormat('yy-MM-dd HH:mm'),
+                        format: _stimeFormat,
                       )}',
                 ),
             ],
