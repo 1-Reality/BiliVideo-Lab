@@ -12,7 +12,6 @@ import 'package:PiliBro/pages/common/common_list_controller.dart';
 import 'package:PiliBro/pages/common/multi_select/base.dart';
 import 'package:PiliBro/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliBro/pages/common/page_order/page_order_mixin.dart';
-import 'package:PiliBro/pages/common/page_order_mixin.dart';
 import 'package:PiliBro/pages/fav_sort/view.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';

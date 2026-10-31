@@ -1,6 +1,8 @@
 import 'dart:convert' show jsonDecode, jsonEncode;
 import 'dart:io' show Platform;
 
+import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/main.dart';
 import 'package:PiliBro/plugin/linux_webview.dart';
@@ -100,7 +102,6 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final html = _buildHtml(widget.gt, widget.challenge);
 
     if (Platform.isLinux) {
       return AlertDialog(

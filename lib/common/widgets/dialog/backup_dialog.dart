@@ -191,7 +191,6 @@ Future<void> exportBackupFile(
       name:
           'pilibro_${name}_${DateFormatUtils.only0_9.format(DateTime.now())}.zip',
       bytes: await BackupService.zip(parts, seal: seal),
-      allowedExtensions: const ['zip'],
     );
   } catch (e) {
     SmartDialog.showToast('导出失败：$e');
@@ -201,7 +200,6 @@ Future<void> exportBackupFile(
 Future<void> _importFile(BuildContext context) async {
   final result = await FilePicker.pickFile(
     type: .custom,
-    allowedExtensions: const ['zip'],
   );
   if (result == null || !context.mounted) return;
   try {

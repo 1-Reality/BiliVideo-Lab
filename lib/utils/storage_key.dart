@@ -2,6 +2,7 @@
 
 abstract final class SettingBoxKey {
   static const String btmProgressBehavior = 'btmProgressBehavior',
+      appFontWeightV2 = 'appFontWeightV2',
       fixedBottomProgress = 'fixedBottomProgress',
       fixedBottomProgressFs = 'fixedBottomProgressFs',
       progressBarSideSpace = 'progressBarSideSpace',

@@ -5,7 +5,6 @@ import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage_utils.dart';
-import 'package:file_picker/file_picker.dart' show FileType;
 import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_html_svg/flutter_html_svg.dart';
@@ -246,8 +245,6 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
       return StorageUtils.saveBytes2File(
         name: _name,
         bytes: bytes,
-        allowedExtensions: const [],
-        type: FileType.any,
       );
     }
     await SharePlus.instance.share(
