@@ -10,8 +10,8 @@ import 'package:PiliBro/common/widgets/progress_bar/video_progress_indicator.dar
 import 'package:PiliBro/common/widgets/select_mask.dart';
 import 'package:PiliBro/models/common/badge_type.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/source_type.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/pages/common/multi_select/base.dart';
 import 'package:PiliBro/pages/download/downloading/view.dart';

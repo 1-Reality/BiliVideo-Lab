@@ -7,7 +7,6 @@ import 'package:PiliBro/common/widgets/stat/stat.dart';
 import 'package:PiliBro/models/common/badge_type.dart';
 import 'package:PiliBro/models/common/stat_type.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliBro/models_new/video/video_detail/data.dart';

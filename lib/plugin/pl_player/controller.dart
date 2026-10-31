@@ -1,7 +1,7 @@
 import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
-import 'dart:math' show min;
+import 'dart:math' show max, min;
 import 'dart:ui' as ui;
 
 import 'package:PiliBro/common/assets.dart';

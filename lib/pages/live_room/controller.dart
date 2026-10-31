@@ -11,7 +11,6 @@ import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/models/common/super_chat_type.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
-import 'package:PiliBro/models/common/video/live_quality.dart';
 import 'package:PiliBro/models/model_owner.dart';
 import 'package:PiliBro/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliBro/models_new/live/live_danmaku/live_emote.dart';

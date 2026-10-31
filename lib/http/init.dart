@@ -16,7 +16,6 @@ import 'package:PiliBro/utils/global_data.dart';
 import 'package:PiliBro/utils/login_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
-import 'package:archive/archive.dart';
 import 'package:brotli/brotli.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';

@@ -14,18 +14,12 @@ import 'package:PiliBro/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show tabBarView, platformAlwaysClampingPhysics, platformClampingPhysics;
-    introController = _initIntroCtr();
-
-    _setPlayCallBack();
-
 import 'package:PiliBro/common/widgets/simple_app_bar.dart';
 import 'package:PiliBro/common/widgets/sliver/video_header.dart';
 import 'package:PiliBro/common/widgets/svg/play_icon.dart';
 import 'package:PiliBro/models/common/episode_panel_type.dart';
+import 'package:PiliBro/models/common/pgc_episode_type.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/result.dart';
-import 'package:PiliBro/models_new/video/video_detail/episode.dart' as ugc;
-import 'package:PiliBro/models_new/video/video_detail/page.dart';
-import 'package:PiliBro/models_new/video/video_detail/ugc_season.dart';
 import 'package:PiliBro/models_new/video/video_tag/data.dart';
 import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/danmaku/view.dart';
@@ -37,10 +31,13 @@ import 'package:PiliBro/pages/video/introduction/local/view.dart';
 import 'package:PiliBro/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliBro/pages/video/introduction/pgc/view.dart';
 import 'package:PiliBro/pages/video/introduction/pgc/widgets/intro_detail.dart';
+import 'package:PiliBro/pages/video/introduction/pgc/widgets/season.dart'
+    as pgc;
 import 'package:PiliBro/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/view.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:PiliBro/pages/video/introduction/ugc/widgets/season.dart';
+import 'package:PiliBro/pages/video/introduction/ugc/widgets/season.dart'
+    as ugc;
 import 'package:PiliBro/pages/video/member/controller.dart';
 import 'package:PiliBro/pages/video/member/view.dart';
 import 'package:PiliBro/pages/video/related/view.dart';
@@ -191,13 +188,19 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
     videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
 
+    final playerController = videoDetailController.plPlayerController;
+    if (Platform.isAndroid && !playerController.keyboardControl) {
+      _relatedExitFocusNode = FocusNode(
+        debugLabel: 'PiliBroRelatedAfterFullscreen',
+      );
+      final callback = _focusRelatedAfterFullscreen;
+      _fullscreenExitFocusCallback = callback;
+      playerController.onFullscreenExited = callback;
+    }
+
     introController = _initIntroCtr();
 
     _setPlayCallBack();
-
-    if (videoDetailController.removeSafeArea) {
-      hideSystemBar();
-    }
 
     if (videoDetailController.showReply) {
       _videoReplyController = Get.put(

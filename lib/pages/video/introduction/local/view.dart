@@ -4,7 +4,7 @@ import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/badge.dart';
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/models/common/badge_type.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
+import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/pages/video/introduction/local/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';

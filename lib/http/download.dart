@@ -1,10 +1,8 @@
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/account_type.dart';
-import 'package:PiliBro/models/common/video/audio_quality.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
 import 'package:PiliBro/models/common/video/video_decode_type.dart';
-import 'package:PiliBro/models/common/video/video_quality.dart';
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
