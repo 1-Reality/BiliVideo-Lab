@@ -48,7 +48,7 @@ class _DLNAPageState extends State<DLNAPage> {
       setState(() {});
     }
     try {
-      // PiliPlus targets API 37; older systems do not require this permission.
+      // PiliBro targets API 37; older systems do not require this permission.
       if (Platform.isAndroid && DeviceUtils.sdkInt >= 37) {
         final status = await Permission.accessLocalNetwork.request();
         if (!mounted) return;

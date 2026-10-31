@@ -1,2 +1,2 @@
--keep class com.example.piliplus.AndroidHelper { public *; }
--keep class com.example.piliplus.AndroidHelper$ToDart { public *; }
+-keep class com.example.pilibro.AndroidHelper { public *; }
+-keep class com.example.pilibro.AndroidHelper$ToDart { public *; }

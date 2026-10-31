@@ -30,7 +30,7 @@ import 'package:path/path.dart' as path;
 Future<VideoPlayerServiceHandler> initAudioService() {
   if (Platform.isLinux) {
     AudioServiceMpris.init(
-      dBusName: 'com.example.piliplus.audio',
+      dBusName: 'com.example.pilibro.audio',
       identity: 'Audio Service ${Constants.appName}',
       canGoNext: true,
       canGoPrevious: true,

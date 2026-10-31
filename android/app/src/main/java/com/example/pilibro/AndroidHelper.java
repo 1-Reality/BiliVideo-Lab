@@ -1,6 +1,6 @@
 package com.example.pilibro;
 
-import static com.example.piliplus.MediaHelper.getRemoteAction;
+import static com.example.pilibro.MediaHelper.getRemoteAction;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
