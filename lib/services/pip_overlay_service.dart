@@ -212,13 +212,11 @@ class _PipWindowState extends State<_PipWindow> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Obx(() {
-                    final revision = _player.videoOutputRevision.value;
+                  Builder(builder: (_) {
                     final controller = _player.videoController;
                     if (controller == null) return const SizedBox.shrink();
                     return FittedBox(
                       child: SimpleVideo(
-                        key: ValueKey(revision),
                         controller: controller,
                         fill: Colors.black,
                       ),
