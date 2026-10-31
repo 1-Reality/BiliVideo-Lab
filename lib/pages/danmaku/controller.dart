@@ -136,8 +136,10 @@ class PlDanmakuController {
     final current = _rawSeg[segmentIndex];
     if (current == null || _mergeStarted.contains(segmentIndex)) return;
     final next = _rawSeg[segmentIndex + 1];
+    // 后继段已合并完、原始数据已释放时不再等它，否则往回拖进没加载过的段会一直等
     if (!force &&
         next == null &&
+        !_mergeStarted.contains(segmentIndex + 1) &&
         !_isFileSource &&
         segmentIndex != _lastSegment) {
       return;
