@@ -115,7 +115,7 @@ abstract final class PcCheck {
                   const Divider(),
                   Text('显卡：$gpu', style: head),
                   Text(
-                    '有核显和独显两张卡的电脑，可以在 Windows 设置里搜索「图形设置」，给 PiliBro 指定用哪张。老一些的 Intel 核显解码视频不一定比独显差，播放卡顿时两张都试试。',
+                    '有核显和独显两张卡的电脑，可以在 Windows 设置里搜索「图形设置」，给 PiliBro 指定用哪张。独显解码不一定更强：不支持 HEVC（H.265）、AV1 硬解的老亮机卡，看视频反而不如新一点的核显。播放卡顿时两张都试试。',
                     style: note,
                   ),
                 ],
