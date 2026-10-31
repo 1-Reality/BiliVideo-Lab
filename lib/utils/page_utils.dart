@@ -228,10 +228,31 @@ abstract final class PageUtils {
     );
   }
 
+  static bool _dynOpening = false;
+
+  // 视频类动态跳转前要先联网查 cid，弱网下要等好几秒；这期间再点就忽略，
+  // 免得以为没点到又点一次，进两次详情页
   static Future<void> pushDynDetail(
     DynamicItemModel item, {
     bool isPush = false,
     bool viewComment = false,
+  }) async {
+    if (_dynOpening) {
+      SmartDialog.showToast('正在打开');
+      return;
+    }
+    _dynOpening = true;
+    try {
+      await _pushDynDetail(item, isPush: isPush, viewComment: viewComment);
+    } finally {
+      _dynOpening = false;
+    }
+  }
+
+  static Future<void> _pushDynDetail(
+    DynamicItemModel item, {
+    required bool isPush,
+    required bool viewComment,
   }) async {
     feedBack();
 

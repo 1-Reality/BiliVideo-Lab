@@ -1927,7 +1927,7 @@ class VideoDetailController extends GetxController
     return false;
   }
 
-  void toAudioPage() {
+  Future<void> toAudioPage() async {
     int? id;
     int? extraId;
     PlaylistSource from = PlaylistSource.UP_ARCHIVE;
@@ -1938,6 +1938,15 @@ class VideoDetailController extends GetxController
     } else if (isUgc) {
       try {
         final ctr = Get.find<UgcIntroController>(tag: heroTag);
+        // 简介还没回来就不知道有没有合集，弱网下先等它，否则播放列表只有这一个
+        if (ctr.videoDetail.value.bvid != bvid) {
+          SmartDialog.showLoading(msg: '等合集信息');
+          try {
+            await ctr.introLoading;
+          } finally {
+            SmartDialog.dismiss();
+          }
+        }
         id = ctr.videoDetail.value.ugcSeason?.id;
         if (id != null) {
           extraId = 8;
