@@ -128,6 +128,12 @@ void _deferNonCriticalServicesUntilAfterFirstFrame() {
       // Large telemetry/history is deliberately kept off the cold-start path.
       await GStorage.initializePlaybackStats();
       PlaybackStatsService.initializeAppLifecycle();
+      // 首帧后再归档：失败只记一笔，2 分钟一次的统计定时器会再试，不连累启动
+      unawaited(
+        PlaybackArchiveService.archiveIfDue().catchError((Object e) {
+          if (kDebugMode) debugPrint('Playback archive: $e');
+        }),
+      );
       await ConnectivityUtils.initialize();
       await TrafficStatsService.instance.initialize();
       await RequestUtils.syncHistoryStatus();
@@ -142,7 +148,6 @@ void main() async {
   late final num? due;
   try {
     due = await GStorage.init();
-    await PlaybackArchiveService.archiveIfDue();
   } catch (e) {
     await Utils.copyText(e.toString(), needToast: false);
     if (kDebugMode) debugPrint('GStorage init error: $e');
