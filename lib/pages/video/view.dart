@@ -2249,6 +2249,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         isNested: isNested,
         heroTag: heroTag,
         header: header,
+        directionalFocus:
+            !isNested &&
+            !videoDetailController.plPlayerController.keyboardControl,
       );
 
   // ai总结
