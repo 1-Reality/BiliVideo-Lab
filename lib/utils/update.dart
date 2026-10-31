@@ -112,7 +112,13 @@ abstract final class Update {
                         style: const TextStyle(fontSize: 20),
                       ),
                       const SizedBox(height: 8),
-                      Text('${data['body']}'),
+                      // 发布正文从设备徽标那块 HTML 起是给网页看的，只留前面的说明
+                      Text(
+                        '${data['body']}'
+                            .split('<div align="center">')
+                            .first
+                            .trim(),
+                      ),
                       TextButton(
                         onPressed: () => PageUtils.launchURL(
                           '${Constants.sourceCodeUrl}/commits/${Constants.sourceBranch}',
