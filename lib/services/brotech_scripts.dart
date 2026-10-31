@@ -348,8 +348,8 @@ class BroTechPreset {
 }
 
 /// Saved entries, in a box of their own opened the first time the router
-/// page is shown. Passwords stay in the app sandbox and never travel with
-/// settings exports.
+/// page is shown. They leave the app sandbox only in a backup, sealed with the
+/// export password (see BackupSeal).
 abstract final class BroTechPresets {
   static Future<Box<String>>? _box;
 

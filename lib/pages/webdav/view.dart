@@ -108,7 +108,13 @@ class _WebDavSettingPageState extends State<WebDavSettingPage> {
                         title: '备份到 WebDAV',
                         offered: BackupPart.values,
                       );
-                      if (parts != null) await WebDav().backup(parts);
+                      if (parts != null && context.mounted) {
+                        await sealedExport(
+                          context,
+                          parts,
+                          (seal) => WebDav().backup(parts, seal: seal),
+                        );
+                      }
                     },
                     child: const Text('备份'),
                   ),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/widgets/dialog/backup_dialog.dart';
 import 'package:PiliBro/common/widgets/pair.dart';
+import 'package:PiliBro/services/backup_seal.dart';
 import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -79,7 +80,7 @@ class WebDav {
   String _snapshotDirectory(_WebDavConfig config) =>
       '${config.directory}/snapshot_${DeviceUtils.platformName}';
 
-  Future<void> backup(Set<BackupPart> parts) async {
+  Future<void> backup(Set<BackupPart> parts, {BackupSeal? seal}) async {
     if (_busy) {
       SmartDialog.showToast('备份或恢复正在进行');
       return;
@@ -92,7 +93,7 @@ class WebDav {
       final remote = _snapshotDirectory(config);
       await client.mkdirAll(remote);
 
-      final files = await BackupService.collect(parts, temp);
+      final files = await BackupService.collect(parts, temp, seal: seal);
       final manifest = await BackupService.manifest(files);
       final local = {
         for (final file in files.values.expand((list) => list))
@@ -173,16 +174,19 @@ class WebDav {
       if (!context.mounted) return;
       final parts = await selectRestoreParts(context, manifest);
       if (parts == null) return;
-      await BackupService.restore(
-        await BackupService.receive(
-          manifest,
-          parts,
-          temp,
-          (name, target) =>
-              client.read2File('$remote/${remoteNames[name]}', target.path),
+      toastRestored(
+        await BackupService.restore(
+          await BackupService.receive(
+            manifest,
+            parts,
+            temp,
+            (name, target) =>
+                client.read2File('$remote/${remoteNames[name]}', target.path),
+          ),
+          password: (retry) =>
+              askBackupPassword(context, export: false, retry: retry),
         ),
       );
-      SmartDialog.showToast('恢复成功');
     } catch (e) {
       SmartDialog.showToast('恢复失败: $e');
     } finally {

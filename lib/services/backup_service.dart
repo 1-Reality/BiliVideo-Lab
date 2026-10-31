@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliBro/pages/mine/controller.dart';
+import 'package:PiliBro/services/backup_seal.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/services/comment_helper_service.dart';
 import 'package:PiliBro/services/playback_archive_service.dart';
@@ -17,6 +18,7 @@ import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
 
 /// What a backup can hold. The names go into manifests and the remembered
@@ -32,7 +34,8 @@ enum BackupPart {
   commentHelper('评论助手'),
   trafficStats('流量统计'),
   cdnDiagnostics('CDN 诊断'),
-  scriptValues('脚本存储');
+  scriptValues('脚本存储'),
+  broTech('路由器后台', text: true);
 
   const BackupPart(this.label, {this.text = false});
 
@@ -45,6 +48,9 @@ enum BackupPart {
       this != trafficStats || Platform.isAndroid || Platform.isWindows;
 
   static final byName = BackupPart.values.asNameMap();
+
+  /// Carry credentials, so they travel sealed with the export password.
+  static const sealed = {accounts, broTech};
 }
 
 /// One snapshot format behind every way out: a set of part files plus a
@@ -62,6 +68,7 @@ abstract final class BackupService {
     BackupPart.searchHistory =>
       GStorage.historyWord.get('cacheList') ?? const <String>[],
     BackupPart.accounts => Accounts.account.toMap(),
+    BackupPart.broTech => _broTech,
     BackupPart.launchYears => {
       ...?GStorage.localCache.get(LocalCacheKey.launchYears) as Map?,
       if (GStorage.localCache.get(LocalCacheKey.launchDay, defaultValue: 0)
@@ -71,18 +78,37 @@ abstract final class BackupService {
     _ => throw StateError('${part.name} is not text'),
   };
 
-  static String exportJson(Set<BackupPart> parts) => jsonEncode({
-    'databaseVersion': GStorage.databaseVersion,
-    'parts': {for (final part in parts) part.name: _json(part)},
-  });
+  // The box opens lazily; [prepare] opens it so the sync export can read it.
+  static Object? get _broTech =>
+      jsonDecode(Hive.box<String>('broTech').get('presets') ?? '[]');
+
+  /// Call before exporting [parts].
+  static Future<void> prepare(Set<BackupPart> parts) async {
+    if (parts.contains(BackupPart.broTech)) await BroTechPresets.box;
+  }
+
+  static Object? _sealedJson(BackupPart part, BackupSeal? seal) =>
+      seal != null && BackupPart.sealed.contains(part)
+      ? seal.seal(part.name, _json(part))
+      : _json(part);
+
+  /// [seal] is required when [parts] holds a [BackupPart.sealed] part.
+  static String exportJson(Set<BackupPart> parts, {BackupSeal? seal}) =>
+      jsonEncode({
+        'databaseVersion': GStorage.databaseVersion,
+        'parts': {
+          for (final part in parts) part.name: _sealedJson(part, seal),
+        },
+      });
 
   /// Writes [parts] into [dir]. Live stores are copied so the snapshot is
   /// consistent; finished watch-log segments never change and are taken
   /// where they lie.
   static Future<Map<BackupPart, List<File>>> collect(
     Set<BackupPart> parts,
-    Directory dir,
-  ) async {
+    Directory dir, {
+    BackupSeal? seal,
+  }) async {
     final locked =
         parts.contains(BackupPart.playbackStats) ||
         parts.contains(BackupPart.watchLog);
@@ -90,7 +116,7 @@ abstract final class BackupService {
     try {
       return {
         for (final part in parts)
-          if (await _collect(part, dir) case final files
+          if (await _collect(part, dir, seal) case final files
               when files.isNotEmpty)
             part: files,
       };
@@ -99,7 +125,11 @@ abstract final class BackupService {
     }
   }
 
-  static Future<List<File>> _collect(BackupPart part, Directory dir) async {
+  static Future<List<File>> _collect(
+    BackupPart part,
+    Directory dir,
+    BackupSeal? seal,
+  ) async {
     File to(String name) => File(path.join(dir.path, name));
     switch (part) {
       case BackupPart.playbackStats:
@@ -152,7 +182,9 @@ abstract final class BackupService {
         return [?values];
       default:
         return [
-          await to('${part.name}.json').writeAsString(jsonEncode(_json(part))),
+          await to(
+            '${part.name}.json',
+          ).writeAsString(jsonEncode(_sealedJson(part, seal))),
         ];
     }
   }
@@ -207,7 +239,42 @@ abstract final class BackupService {
   }
 
   /// Settings go last: they flip switches the other parts are read under.
-  static Future<void> restore(Map<BackupPart, List<File>> parts) async {
+  /// Sealed parts ask [password] (true when the last one was wrong) until
+  /// they open or it returns null; those left closed are skipped and
+  /// returned, everything else is restored all the same.
+  static Future<List<BackupPart>> restore(
+    Map<BackupPart, List<File>> parts, {
+    Future<String?> Function(bool retry)? password,
+  }) async {
+    final skipped = <BackupPart>[];
+    String? known;
+    var retry = false;
+    for (final part in BackupPart.sealed) {
+      final file = parts[part]?.single;
+      if (file == null) continue;
+      final json = jsonDecode(await file.readAsString());
+      if (!BackupSeal.isSealed(json)) continue;
+      Object? opened;
+      while (true) {
+        final pw = known ?? await password?.call(retry);
+        if (pw == null) break;
+        try {
+          opened = await BackupSeal.open(part.name, json as Map, pw);
+          known = pw;
+          retry = false;
+          break;
+        } catch (_) {
+          known = null;
+          retry = true;
+        }
+      }
+      if (known == null) {
+        parts.remove(part);
+        skipped.add(part);
+      } else {
+        await file.writeAsString(jsonEncode(opened));
+      }
+    }
     final locked =
         parts.containsKey(BackupPart.playbackStats) ||
         parts.containsKey(BackupPart.watchLog);
@@ -227,6 +294,7 @@ abstract final class BackupService {
         unawaited(PlaybackArchiveService.archiveIfDue());
       }
     }
+    return skipped;
   }
 
   static Future<void> _restore(BackupPart part, List<File> files) async {
@@ -310,13 +378,21 @@ abstract final class BackupService {
         }
       case BackupPart.scriptValues:
         await BroTechGmStore.restore(files.single);
+      case BackupPart.broTech:
+        await (await BroTechPresets.box).put(
+          'presets',
+          jsonEncode(await decoded()),
+        );
     }
   }
 
-  static Future<Uint8List> zip(Set<BackupPart> parts) async {
+  static Future<Uint8List> zip(
+    Set<BackupPart> parts, {
+    BackupSeal? seal,
+  }) async {
     final dir = await Directory.systemTemp.createTemp('pilibro-backup-');
     try {
-      final files = await collect(parts, dir);
+      final files = await collect(parts, dir, seal: seal);
       final out = path.join(dir.path, 'backup.zip');
       final encoder = ZipFileEncoder()..create(out);
       await encoder.addFile(
@@ -339,10 +415,11 @@ abstract final class BackupService {
     }
   }
 
-  /// False when [choose] declined.
-  static Future<bool> restoreZip(
+  /// Null when [choose] declined, else the sealed parts left closed.
+  static Future<List<BackupPart>?> restoreZip(
     String zipPath,
     Future<Set<BackupPart>?> Function(Map manifest) choose,
+    Future<String?> Function(bool retry) password,
   ) async {
     final input = InputFileStream(zipPath);
     try {
@@ -356,44 +433,44 @@ abstract final class BackupService {
               )
               as Map;
       final chosen = await choose(manifest);
-      if (chosen == null) return false;
+      if (chosen == null) return null;
       final dir = await Directory.systemTemp.createTemp('pilibro-backup-');
       try {
-        await restore(
+        return await restore(
           await receive(manifest, chosen, dir, (name, target) async {
             final output = OutputFileStream(target.path);
             archive.find(name)!.writeContent(output);
             await output.close();
           }),
+          password: password,
         );
       } finally {
         await dir.delete(recursive: true);
       }
-      return true;
     } finally {
       await input.close();
     }
   }
 
-  /// False when [choose] declined.
-  static Future<bool> restoreJson(
+  /// Null when [choose] declined, else the sealed parts left closed.
+  static Future<List<BackupPart>?> restoreJson(
     Map json,
     Future<Set<BackupPart>?> Function(Map manifest) choose,
+    Future<String?> Function(bool retry) password,
   ) async {
     final chosen = await choose(json);
-    if (chosen == null) return false;
+    if (chosen == null) return null;
     final dir = await Directory.systemTemp.createTemp('pilibro-backup-');
     try {
       final parts = json['parts'] as Map;
-      await restore({
+      return await restore({
         for (final part in chosen)
           part: [
             await File(
               path.join(dir.path, '${part.name}.json'),
             ).writeAsString(jsonEncode(parts[part.name])),
           ],
-      });
-      return true;
+      }, password: password);
     } finally {
       await dir.delete(recursive: true);
     }

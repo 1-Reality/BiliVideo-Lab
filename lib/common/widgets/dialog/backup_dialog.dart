@@ -1,6 +1,7 @@
 import 'dart:convert' show jsonDecode;
 
 import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliBro/services/backup_seal.dart';
 import 'package:PiliBro/services/backup_service.dart';
 import 'package:PiliBro/utils/date_utils.dart';
 import 'package:PiliBro/utils/device_utils.dart';
@@ -35,7 +36,7 @@ Future<Set<BackupPart>?> selectBackupParts(
   final last = stored == null
       ? {
           for (final part in BackupPart.values)
-            if (part != BackupPart.accounts &&
+            if (!BackupPart.sealed.contains(part) &&
                 part != BackupPart.launchYears &&
                 part != BackupPart.cdnDiagnostics)
               part,
@@ -116,12 +117,80 @@ Future<Set<BackupPart>?> selectRestoreParts(
   );
 }
 
-Future<void> exportBackupFile(Set<BackupPart> parts, String name) async {
+/// Null when cancelled. Empty is a valid password.
+Future<String?> askBackupPassword(
+  BuildContext context, {
+  required bool export,
+  bool retry = false,
+}) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(export ? '设置备份密码' : '输入备份密码'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        obscureText: true,
+        decoration: InputDecoration(
+          helperText: export ? '登录信息和路由器后台用它加密，导入时要输入' : null,
+          errorText: retry ? '密码不对，或者这一项被改动过' : null,
+        ),
+        onSubmitted: (value) => Get.back(result: value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(export ? '取消' : '跳过这两项'),
+        ),
+        FilledButton(
+          onPressed: () => Get.back(result: controller.text),
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  ).whenComplete(controller.dispose);
+}
+
+/// Asks for the password when [parts] holds a sealed part, then runs [export]
+/// with the derived key; does nothing when the password is cancelled.
+Future<void> sealedExport(
+  BuildContext context,
+  Set<BackupPart> parts,
+  Future<void> Function(BackupSeal? seal) export,
+) async {
+  await BackupService.prepare(parts);
+  BackupSeal? seal;
+  if (parts.any(BackupPart.sealed.contains)) {
+    if (!context.mounted) return;
+    final password = await askBackupPassword(context, export: true);
+    if (password == null) return;
+    SmartDialog.showLoading(msg: '生成密钥');
+    try {
+      seal = await BackupSeal.create(password);
+    } finally {
+      SmartDialog.dismiss();
+    }
+  }
+  await export(seal);
+}
+
+void toastRestored(List<BackupPart> skipped) => SmartDialog.showToast(
+  skipped.isEmpty
+      ? '恢复成功'
+      : '恢复成功，${skipped.map((e) => e.label).join('、')}未恢复',
+);
+
+Future<void> exportBackupFile(
+  Set<BackupPart> parts,
+  String name, {
+  BackupSeal? seal,
+}) async {
   try {
     await StorageUtils.saveBytes2File(
       name:
           'pilibro_${name}_${DateFormatUtils.only0_9.format(DateTime.now())}.zip',
-      bytes: await BackupService.zip(parts),
+      bytes: await BackupService.zip(parts, seal: seal),
       allowedExtensions: const ['zip'],
     );
   } catch (e) {
@@ -137,10 +206,12 @@ Future<void> _importFile(BuildContext context) async {
   if (result == null || !context.mounted) return;
   try {
     if (await BackupService.restoreZip(
-      result.xFile.path,
-      (manifest) => selectRestoreParts(context, manifest),
-    )) {
-      SmartDialog.showToast('恢复成功');
+          result.xFile.path,
+          (manifest) => selectRestoreParts(context, manifest),
+          (retry) => askBackupPassword(context, export: false, retry: retry),
+        )
+        case final skipped?) {
+      toastRestored(skipped);
     }
   } catch (e) {
     SmartDialog.showToast('恢复失败：$e');
@@ -156,10 +227,12 @@ Future<void> _importText(BuildContext context) async {
   if (!context.mounted) return;
   try {
     if (await BackupService.restoreJson(
-      jsonDecode(text),
-      (json) => selectRestoreParts(context, json, textOnly: true),
-    )) {
-      SmartDialog.showToast('恢复成功');
+          jsonDecode(text),
+          (json) => selectRestoreParts(context, json, textOnly: true),
+          (retry) => askBackupPassword(context, export: false, retry: retry),
+        )
+        case final skipped?) {
+      toastRestored(skipped);
     }
   } catch (e) {
     SmartDialog.showToast('恢复失败：$e');
@@ -182,7 +255,14 @@ Future<void> showBackupMenu(BuildContext context) => showDialog(
               title: '导出至剪贴板',
               offered: BackupPart.values.where((part) => part.text),
             );
-            if (parts != null) Utils.copyText(BackupService.exportJson(parts));
+            if (parts != null && context.mounted) {
+              await sealedExport(
+                context,
+                parts,
+                (seal) async =>
+                    Utils.copyText(BackupService.exportJson(parts, seal: seal)),
+              );
+            }
           },
           child: const Text('导出至剪贴板', style: style),
         ),
@@ -194,10 +274,15 @@ Future<void> showBackupMenu(BuildContext context) => showDialog(
               title: '导出文件至本地',
               offered: BackupPart.values,
             );
-            if (parts != null) {
-              await exportBackupFile(
+            if (parts != null && context.mounted) {
+              await sealedExport(
+                context,
                 parts,
-                'backup_${DeviceUtils.platformName}',
+                (seal) => exportBackupFile(
+                  parts,
+                  'backup_${DeviceUtils.platformName}',
+                  seal: seal,
+                ),
               );
             }
           },

@@ -150,6 +150,7 @@ dependencies:
   permission_handler_android: ^14.0.0
   permission_handler_apple: ^9.4.7
   permission_handler_platform_interface: ^4.3.0
+  pointycastle: ^3.9.1
   pretty_qr_code: ^3.3.0
   protobuf: ^6.0.0
   re_highlight: ^0.0.3
