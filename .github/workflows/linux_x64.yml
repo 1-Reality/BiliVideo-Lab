@@ -73,7 +73,7 @@ jobs:
           cp -r ../build/linux/x64/release/bundle/* opt/PiliBro
           cp -r ../assets/linux/DEBIAN .
           cp ../assets/linux/org.BroTech.gege.pilibro.desktop usr/share/applications
-          cp ../assets/images/logo/logo.png usr/share/icons/hicolor/512x512/apps/pilibro.png
+          cp ../assets/linux/pilibro.png usr/share/icons/hicolor/512x512/apps/pilibro.png
 
           printf "修改控制文件...\n"
           # 替换版本号
@@ -115,7 +115,7 @@ jobs:
           mkdir -p "$SRC_DIR/bundle" "$SRC_DIR/assets"
           cp -r build/linux/x64/release/bundle/* "$SRC_DIR/bundle/"
           cp assets/linux/org.BroTech.gege.pilibro.desktop "$SRC_DIR/assets/org.BroTech.gege.pilibro.desktop"
-          cp assets/images/logo/logo.png "$SRC_DIR/assets/pilibro.png"
+          cp assets/linux/pilibro.png "$SRC_DIR/assets/pilibro.png"
           tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilibro-${{ env.version }}.tar.gz" -C "$PWD" "pilibro-${{ env.version }}"
 
           printf "生成 spec 文件...\n"
@@ -201,8 +201,8 @@ jobs:
           printf "复制桌面文件和图标...\n"
           cp assets/linux/org.BroTech.gege.pilibro.desktop "$APPDIR/org.BroTech.gege.pilibro.desktop"
           cp assets/linux/org.BroTech.gege.pilibro.desktop "$APPDIR/usr/share/applications/org.BroTech.gege.pilibro.desktop"
-          cp assets/images/logo/logo.png "$APPDIR/pilibro.png"
-          cp assets/images/logo/logo.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/pilibro.png"
+          cp assets/linux/pilibro.png "$APPDIR/pilibro.png"
+          cp assets/linux/pilibro.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/pilibro.png"
 
           printf "创建 AppRun 启动脚本...\n"
           cat > "$APPDIR/AppRun" <<'APPRUN_EOF'
