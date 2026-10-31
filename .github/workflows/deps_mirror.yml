@@ -23,6 +23,8 @@ jobs:
           done <<'LIST'
           https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20250930/mpv-dev-i686-20250930-git-05656cd.7z 909dc64c76b3f5c160774bb0b96bae30
           https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20260819/mpv-dev-x86_64-20260819-git-e7191f2a65.7z 84f1034c7a1d8cdcd520d359fe99d228
+          https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-v3-20261021-git-e471496c56.7z ba0553957a3fd7de5a3c75dc60fafa06
+          https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-20261021-git-e471496c56.7z 93a7a2a41d2c26def4084c0b289fc94b
           LIST
 
       - name: Upload

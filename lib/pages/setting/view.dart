@@ -9,6 +9,7 @@ import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/about/view.dart';
 import 'package:PiliBro/pages/login/controller.dart';
 import 'package:PiliBro/pages/setting/common_setting.dart';
+import 'package:PiliBro/pages/setting/pc_check.dart';
 import 'package:PiliBro/pages/setting/tv_remote_setup.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/webdav/view.dart';
@@ -201,6 +202,16 @@ class _SettingPageState extends State<SettingPage> {
             title: Text('📱桌面图标', style: titleStyle),
             subtitle: Text(
               '选择内置图标或添加自定义桌面快捷方式',
+              style: subTitleStyle,
+            ),
+          ),
+        if (Platform.isWindows)
+          ListTile(
+            onTap: PcCheck.show,
+            leading: const Icon(Icons.memory_outlined),
+            title: Text('💻电脑位宽与视频流畅度诊断', style: titleStyle),
+            subtitle: Text(
+              '系统和程序是否都是 64 位、CPU 能否直接用自带的播放内核、当前显卡',
               style: subTitleStyle,
             ),
           ),

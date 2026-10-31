@@ -6,6 +6,7 @@ import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
+import 'package:PiliBro/pages/setting/pc_check.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/services/daily_checkin.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
@@ -41,6 +42,12 @@ abstract final class Update {
       DailyCheckin.onNewDay(day);
     }
     cache.put(LocalCacheKey.launchSlot, slot + 1);
+    if (Platform.isWindows && cache.get(LocalCacheKey.pcChecked) == null) {
+      cache.put(LocalCacheKey.pcChecked, true);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => PcCheck.onFirstLaunch(),
+      );
+    }
     final bucket = slot % n;
     final ignore = cache.get(LocalCacheKey.updateIgnore);
     if (Pref.autoUpdate &&
