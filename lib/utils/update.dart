@@ -14,6 +14,7 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
+import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -79,7 +80,14 @@ abstract final class Update {
         }
         return;
       }
-      final data = res.data[0];
+      // 跳过预发布版：只在拿到列表后挑第一个正式版
+      final data = (res.data as List).firstWhereOrNull(
+        (e) => e['prerelease'] != true,
+      );
+      if (data == null) {
+        if (!isAuto) SmartDialog.showToast('已是最新版本');
+        return;
+      }
       final int latest =
           DateTime.parse(data['created_at']).millisecondsSinceEpoch ~/ 1000;
       final version = data['tag_name']?.toString() ?? data['created_at'].toString();

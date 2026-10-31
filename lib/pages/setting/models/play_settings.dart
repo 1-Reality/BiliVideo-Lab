@@ -115,7 +115,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '左侧双击快退/右侧双击快进，关闭则双击均为暂停/播放',
     leading: Icon(Icons.touch_app_outlined),
     setKey: SettingBoxKey.enableQuickDouble,
-    defaultVal: true,
+    defaultVal: false,
   ),
   if (Platform.isAndroid)
     const SwitchModel(
@@ -210,6 +210,13 @@ List<SettingsModel> get playSettings => [
     onSelected: (value, setState) => GStorage.setting
         .put(SettingBoxKey.relatedAutoFullscreenMode, value.index)
         .whenComplete(setState),
+  ),
+  const SwitchModel(
+    title: '退回上一个推荐视频时还原播放状态',
+    subtitle: '离开时在播就接着播、暂停就停着；关闭则按自动播放开关',
+    leading: Icon(Icons.undo_outlined),
+    setKey: SettingBoxKey.relatedBackRestore,
+    defaultVal: true,
   ),
   const SwitchModel(
     title: '自动退出全屏',

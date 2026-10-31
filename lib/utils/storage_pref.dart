@@ -1315,7 +1315,7 @@ abstract final class Pref {
       )];
 
   static bool get enableQuickDouble =>
-      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: true);
+      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: false);
 
   static bool get fullScreenGestureReverse =>
       _setting.get(SettingBoxKey.fullScreenGestureReverse, defaultValue: false);
@@ -1451,6 +1451,9 @@ abstract final class Pref {
         SettingBoxKey.relatedAutoFullscreenMode,
         defaultValue: AutoFullscreenMode.off.index,
       )];
+
+  static bool get relatedBackRestore =>
+      _setting.get(SettingBoxKey.relatedBackRestore, defaultValue: true);
 
   static bool get enableAutoLongPressSpeed =>
       _setting.get(SettingBoxKey.enableAutoLongPressSpeed, defaultValue: true);

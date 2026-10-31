@@ -39,6 +39,7 @@ abstract final class SettingBoxKey {
       enableAutoEnter = 'enableAutoEnter',
       autoFullscreenMode = 'autoFullscreenMode',
       relatedAutoFullscreenMode = 'relatedAutoFullscreenMode',
+      relatedBackRestore = 'relatedBackRestore',
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       superChatType = 'superChatType',

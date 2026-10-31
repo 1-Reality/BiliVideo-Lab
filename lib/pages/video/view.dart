@@ -288,7 +288,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         onRemove: () => scheduleMicrotask(() {
           if (!route.isCurrent) return;
           videoDetailController
-            ..autoPlay = status.isPlaying
+            ..autoPlay = Pref.relatedBackRestore
+                ? status.isPlaying
+                : Pref.autoPlayEnable
             ..args['progress'] = position;
           ugcIntroController.onChangeEpisode(prev);
           videoDetailController.introScrollCtr?.jumpToTop();
