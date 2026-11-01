@@ -567,16 +567,9 @@ class HeaderControlState extends State<HeaderControl>
                       '${videoDetailCtr.isCdnLockedForCurrentPlayback ? " · 已锁定" : ""}',
                       style: subTitleStyle,
                     ),
-                    onTap: () async {
+                    onTap: () {
                       Get.back();
-                      final selected = await showPlaybackCdnDialog(
-                        this.context,
-                        current: videoDetailCtr.currentCdn,
-                        locked: videoDetailCtr.isCdnLockedForCurrentPlayback,
-                      );
-                      if (selected != null) {
-                        await videoDetailCtr.selectCdnForCurrentPlayback(selected);
-                      }
+                      _selectCdn();
                     },
                   ),
                 SingleChildScrollView(
@@ -1134,6 +1127,17 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   // 选择解码格式
+  Future<void> _selectCdn() async {
+    final selected = await showPlaybackCdnDialog(
+      context,
+      current: videoDetailCtr.currentCdn,
+      locked: videoDetailCtr.isCdnLockedForCurrentPlayback,
+    );
+    if (selected != null) {
+      await videoDetailCtr.selectCdnForCurrentPlayback(selected);
+    }
+  }
+
   void showSetDecodeFormats() {
     final firstCode = videoDetailCtr.firstVideo.quality.code;
     // 当前视频可用的解码格式
@@ -1942,6 +1946,38 @@ class HeaderControlState extends State<HeaderControl>
                         : const SizedBox.shrink(),
                   ),
                 if (!isPortrait || isFullScreen || PlatformUtils.isDesktop) ...[
+                  if (!isFileSource)
+                    SizedBox(
+                      width: btnWidth,
+                      height: btnHeight,
+                      child: IconButton(
+                        tooltip: '解码格式',
+                        style: btnStyle,
+                        onPressed: showSetDecodeFormats,
+                        // 播放器每次初始化都会刷新 streamInfo，解码格式换了也跟着刷新
+                        icon: Obx(() {
+                          videoDetailCtr.streamInfo.value;
+                          return Column(
+                            mainAxisSize: .min,
+                            children: [
+                              const Icon(
+                                Icons.av_timer_outlined,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              Text(
+                                videoDetailCtr.currentDecodeFormats.label,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  height: 1,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ),
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,
@@ -2162,6 +2198,30 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                     onTap: () => introController.actionShareVideo(context),
                     semanticsLabel: '分享',
+                  ),
+                ),
+                if (plPlayerController.videoPlayerController case final player?)
+                  SizedBox(
+                    width: btnWidth,
+                    height: btnHeight,
+                    child: ActionItem(
+                      expand: false,
+                      icon: const Icon(Icons.info_outline, color: Colors.white),
+                      onTap: () => showPlayerInfo(context, player: player),
+                      semanticsLabel: '播放信息',
+                    ),
+                  ),
+                SizedBox(
+                  width: btnWidth,
+                  height: btnHeight,
+                  child: ActionItem(
+                    expand: false,
+                    icon: const Icon(
+                      MdiIcons.cloudPlusOutline,
+                      color: Colors.white,
+                    ),
+                    onTap: _selectCdn,
+                    semanticsLabel: '本次播放 CDN',
                   ),
                 ),
               ],
