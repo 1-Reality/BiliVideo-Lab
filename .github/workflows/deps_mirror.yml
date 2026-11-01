@@ -25,6 +25,9 @@ jobs:
           https://github.com/bggRGjQaUbCoE/mpv-winbuild-cmake/releases/download/20260819/mpv-dev-x86_64-20260819-git-e7191f2a65.7z 84f1034c7a1d8cdcd520d359fe99d228
           https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-v3-20261021-git-e471496c56.7z ba0553957a3fd7de5a3c75dc60fafa06
           https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-20261021-git-e471496c56.7z 93a7a2a41d2c26def4084c0b289fc94b
+          https://github.com/My-Responsitories/libmpv-win32-video-cmake/releases/download/20260911/mpv-dev-x86_64-v3-20260911-git-41f6a64.7z d774c8aca5f949e6b82682e6d6d2fe19
+          https://github.com/My-Responsitories/libmpv-win32-video-cmake/releases/download/20260911/mpv-dev-x86_64-20260911-git-41f6a64.7z e5be5d1fbc2a38ec98dd7fb9718a95da
+          https://github.com/My-Responsitories/libmpv-win32-video-cmake/releases/download/20260911/mpv-dev-i686-20260911-git-41f6a64.7z 4f22bda06c54e3d5481bf5360563c094
           LIST
 
       - name: Upload

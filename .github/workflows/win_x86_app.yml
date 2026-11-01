@@ -194,6 +194,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           lib/scripts/patch_x86_plugins.ps1
+          lib/scripts/media_kit_windows_d3d11.ps1
           lib/scripts/patch_media_kit_libmpv_x86.ps1
 
       - id: exe32

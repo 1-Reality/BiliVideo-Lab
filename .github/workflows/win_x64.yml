@@ -67,13 +67,9 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
-      - name: Apply media_kit decoder lab patch
+      - name: media_kit native D3D11 renderer
         shell: pwsh
-        run: lib/scripts/patch_media_kit_decoder_lab.ps1
-
-      - name: Pin libmpv build with D3D11 zero-copy
-        shell: pwsh
-        run: lib/scripts/patch_media_kit_libmpv.ps1
+        run: lib/scripts/media_kit_windows_d3d11.ps1
 
       - name: Build Windows
         run: |
