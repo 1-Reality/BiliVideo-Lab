@@ -99,7 +99,7 @@ abstract final class PcCheck {
                     ),
                   Text('安装版换成通用版内核（给不支持 AVX2 的电脑用）', style: head),
                   const Text(
-                    '1. 点下面的按钮，下载通用版内核的压缩包（约 30 MB）。已经下过 rar 便携包的，它里面的 libmpv-2.dll 就是通用版，直接跳到第 3 步。\n'
+                    '1. 点下面的按钮，下载通用版内核的压缩包（约 31.622MB | 解压后 115.498 M/121.1085 MB | NTFS压缩后 72.8 MiB）。已经下过 rar 便携包的，它里面的 libmpv-2.dll 就是通用版，直接跳到第 3 步。\n'
                     '2. 用 7-Zip、Bandizip 或 WinRAR 解压（较新的 Windows 11 也可以直接右键「全部解压缩」），解压出来的文件里有一个 libmpv-2.dll。\n'
                     '3. 完全退出 PiliBro：关掉窗口后，右下角托盘里如果还有它的图标，右键选「退出 PiliBro」。\n'
                     '4. 在桌面上右键 PiliBro 的快捷方式，选「打开文件所在的位置」。桌面上没有快捷方式的，在开始菜单里右键 PiliBro，选「更多」→「打开文件位置」，再对打开的快捷方式做一次同样的操作。\n'
@@ -126,10 +126,5 @@ abstract final class PcCheck {
             TextButton(
               onPressed: SmartDialog.dismiss,
               child: const Text('知道了'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
+            ), ],);
+      },    );  }}
