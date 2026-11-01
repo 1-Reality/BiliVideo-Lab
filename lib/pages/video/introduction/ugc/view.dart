@@ -3,7 +3,6 @@ import 'package:PiliBro/common/assets.dart';
 import 'package:PiliBro/common/constants.dart';
 import 'package:PiliBro/common/style.dart';
 import 'package:PiliBro/common/widgets/animated_height.dart';
-import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/dialog/dialog.dart';
 import 'package:PiliBro/common/widgets/expandable.dart';
 import 'package:PiliBro/common/widgets/gesture/tap_gesture_recognizer.dart';
@@ -620,12 +619,6 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               semanticsLabel: '收藏',
               text: !isLoading ? NumUtils.numFormat(stat!.favorite) : null,
             ),
-          ),
-          ActionItem(
-            icon: const Icon(CustomIcons.download),
-            onTap: () => videoDetailCtr.onDownload(context),
-            text: '缓存',
-            semanticsLabel: '缓存',
           ),
           Obx(
             () => ActionItem(
