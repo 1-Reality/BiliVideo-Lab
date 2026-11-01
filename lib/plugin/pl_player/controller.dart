@@ -102,7 +102,8 @@ class PlPlayerController
 
   final RxInt position = RxInt(0);
   final RxInt seekPosition = RxInt(0);
-  int get progress => isSeeking.value ? seekPosition.value : position.value;
+  int get progress =>
+      isSeeking.value && hoverDx == null ? seekPosition.value : position.value;
 
   int get positionInMilliseconds =>
       videoPlayerController?.state.position.inMilliseconds ?? 0;
@@ -2223,7 +2224,7 @@ class PlPlayerController
   void hideTaskControls() {
     _timer?.cancel();
     _timer = Timer(showControlDuration, () {
-      if (!isSeeking.value && !tripling) {
+      if (!isSeeking.value && !tripling && hoverDx == null) {
         controls = false;
       }
       _timer = null;
@@ -3200,6 +3201,7 @@ class PlPlayerController
 
   late final Map<String, ui.Image?> previewCache = {};
   LoadingState<VideoShotData>? videoShot;
+  double? hoverDx;
   late final RxBool showPreview = false.obs;
   late final showSeekPreview = Pref.showSeekPreview;
   late final previewIndex = RxnInt();
@@ -3223,7 +3225,12 @@ class PlPlayerController
           high = mid;
         }
       }
-      previewIndex.value = low > 1 ? low - 2 : 0;
+      final next = low > 1 ? low - 2 : 0;
+      if (previewIndex.value != next) {
+        previewIndex.value = next;
+      } else if (hoverDx != null) {
+        previewIndex.refresh();
+      }
     }
   }
 
