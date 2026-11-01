@@ -423,8 +423,28 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     plPlayerController.seekPosition.value = details.seconds;
   }
 
+  void _onProgressHover(double dx, int seconds) {
+    if (_animationController.isAnimating) return;
+    plPlayerController
+      ..hoverDx = dx
+      ..seekPosition.value = seconds
+      ..updatePreviewIndex(seconds);
+  }
+
+  void _onProgressExit() {
+    if (plPlayerController.isSeeking.value ||
+        plPlayerController.hoverDx == null) {
+      return;
+    }
+    plPlayerController
+      ..hoverDx = null
+      ..showPreview.value = false
+      ..hideTaskControls();
+  }
+
   void _onProgressSeek(int milliseconds) {
     plPlayerController
+      ..hoverDx = null
       ..position.value = milliseconds ~/ 1000
       ..onSeekEnd()
       ..seekTo(Duration(milliseconds: milliseconds), isSeek: false);
@@ -435,6 +455,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     final detail = videoDetailController;
     final thumbGlowColor = primary.withAlpha(80);
     final bufferedBarColor = primary.withValues(alpha: 0.4);
+    final enableHover =
+        PlatformUtils.isDesktop &&
+        controller.showSeekPreview &&
+        !controller.isFileSource;
 
     return Positioned(
       bottom: -2.2,
@@ -483,6 +507,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         onDragStart: _onProgressDragStart,
                         onDragUpdate: _onProgressDragUpdate,
                         onSeek: _onProgressSeek,
+                        onHover: enableHover ? _onProgressHover : null,
+                        onExit: enableHover ? _onProgressExit : null,
                       ),
                     ),
                   ),
