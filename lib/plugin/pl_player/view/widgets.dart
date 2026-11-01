@@ -51,8 +51,6 @@ Widget buildDmChart(
   );
 }
 
-const _kBarMargin = 20.0;
-
 Widget buildSeekPreviewWidget(
   PlPlayerController plPlayerController,
   double maxWidth,
@@ -129,10 +127,11 @@ Widget buildSeekPreviewWidget(
 
             if (hovering) {
               final width = height * imgXSize / imgYSize;
+              final side = plPlayerController.progressBarSideSpace;
               final left = clampDouble(
-                dx - width / 2 + _kBarMargin,
-                _kBarMargin,
-                maxWidth - width - _kBarMargin,
+                dx - width * 0.5 + side,
+                side,
+                maxWidth - width - side,
               );
 
               return Positioned(
