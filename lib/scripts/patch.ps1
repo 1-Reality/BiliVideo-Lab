@@ -145,11 +145,14 @@ switch ($platform.ToLower()) {
         $patches += $ScrollViewPatch
         $patches += $BottomSheetIOSFlutterPatch
         $patches += $NavigatorPatch
+
+        git reset --hard HEAD
     }
     "linux" {
         git reset --hard HEAD
     }
     "macos" {
+        git reset --hard HEAD
     }
     "windows" {
         git reset --hard HEAD
