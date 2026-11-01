@@ -244,6 +244,37 @@ jobs:
           if ($machine -ne '014C') { throw "exe is not x86: $machine" }
           Get-ChildItem $stage -Recurse -File | Format-Table FullName, Length
 
+      - id: cnativeapi32
+        name: Rebuild cnativeapi (Dart build hook) for x86 and put it into the stage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # nativeapi 的原生库由 Dart build hook 现编，flutter 只会按 windows_x64 调它。
+          # 照 flutter 留下的 input.json 改成 ia32、换 x86 编译器和输出目录，用同一个 hook.dill 再跑一遍
+          $dir = Get-ChildItem '.dart_tool\hooks_runner\cnativeapi' -Directory |
+            Where-Object { Test-Path (Join-Path $_.FullName 'input.json') } |
+            Sort-Object LastWriteTime | Select-Object -Last 1
+          $json = (Get-Content (Join-Path $dir.FullName 'input.json') -Raw)
+            .Replace('"target_architecture": "x64"', '"target_architecture": "ia32"')
+            .Replace('\\Hostx64\\x64\\', '\\Hostx64\\x86\\')
+            .Replace('vcvars64.bat', 'vcvarsamd64_x86.bat')
+            .Replace('\\hooks_runner\\', '\\hooks_runner32\\')
+          $cfg = $json | ConvertFrom-Json
+          New-Item -ItemType Directory -Force $cfg.out_dir_shared, (Split-Path $cfg.out_file) | Out-Null
+          $config = Join-Path (Split-Path $cfg.out_file) 'input.json'
+          Set-Content $config $json -Encoding UTF8
+          Push-Location $cfg.package_root
+          dart "--packages=$env:GITHUB_WORKSPACE\.dart_tool\package_config.json" (Join-Path $dir.FullName 'hook.dill') "--config=$config"
+          $code = $LASTEXITCODE
+          Pop-Location
+          if ($code -ne 0) { throw "cnativeapi hook (ia32) failed: $code" }
+          $dll = Get-ChildItem $cfg.out_dir_shared -Recurse -Filter cnativeapi.dll | Select-Object -First 1
+          $b = [IO.File]::ReadAllBytes($dll.FullName)
+          $machine = '{0:X4}' -f [BitConverter]::ToUInt16($b, [BitConverter]::ToInt32($b, 0x3C) + 4)
+          "cnativeapi.dll machine=$machine (expect 014C)"
+          if ($machine -ne '014C') { throw "cnativeapi.dll is not x86: $machine" }
+          Copy-Item $dll.FullName 'build32\runner\Release\cnativeapi.dll' -Force
+
       - id: check32
         name: Check every DLL and the exe in the staged folder is x86 (0x14c)
         shell: pwsh
