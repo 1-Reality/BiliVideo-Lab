@@ -8,6 +8,7 @@ import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/windows/network_info.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:nm/nm.dart';
 
 abstract final class ConnectivityUtils {
   static final _changes = StreamController<NetworkPolicyChange>.broadcast(
@@ -237,6 +238,17 @@ abstract final class ConnectivityUtils {
       final hasEthernet = connectivity.contains(ConnectivityResult.ethernet);
       final isWindows = Platform.isWindows;
       final isAndroid = Platform.isAndroid;
+      // Linux 认不出热点、USB 共享这类走手机流量的连接，按 NetworkManager 的计费标记当移动网络
+      var linuxMetered = false;
+      if (Platform.isLinux) {
+        final nm = NetworkManagerClient();
+        await nm.connect();
+        linuxMetered = switch (nm.metered) {
+          NetworkManagerMetered.yes || NetworkManagerMetered.guessYes => true,
+          _ => false,
+        };
+        await nm.close();
+      }
       final windows = isWindows
           ? WindowsNetworkInfoReader.read()
           : null;
@@ -256,7 +268,7 @@ abstract final class ConnectivityUtils {
         final rssi = windows?.rssi ?? android?.rssi;
         final linkSpeed = windowsLink?.minimumSpeedMbps ?? android?.linkSpeed;
         final signalLevel = android?.signalLevel;
-        final metered = android?.metered ?? false;
+        final metered = android?.metered ?? linuxMetered;
         final weakHint = _bufferingWeak || (android?.weakHint ?? false);
 
         final signalWeak = isAndroid && _wifiRssiThreshold == 0
@@ -310,7 +322,7 @@ abstract final class ConnectivityUtils {
                 _wiredNonstandardLinkSpeed && isNonstandard);
         return NetworkProfile(
           transport: NetworkTransport.wired,
-          useCellularPreferences: wiredWeak,
+          useCellularPreferences: wiredWeak || linuxMetered,
           linkSpeedMbps: speed,
           adapterName: windowsLink?.name,
           adapterDescription: windowsLink?.description,
@@ -318,6 +330,7 @@ abstract final class ConnectivityUtils {
           transmitLinkSpeedMbps: windowsLink?.transmitSpeedMbps,
           interfaceMetric: windowsLink?.metric,
           mtu: windowsLink?.mtu,
+          metered: linuxMetered,
         );
       }
 
