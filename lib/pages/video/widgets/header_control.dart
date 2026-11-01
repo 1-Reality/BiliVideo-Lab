@@ -1946,38 +1946,6 @@ class HeaderControlState extends State<HeaderControl>
                         : const SizedBox.shrink(),
                   ),
                 if (!isPortrait || isFullScreen || PlatformUtils.isDesktop) ...[
-                  if (!isFileSource)
-                    SizedBox(
-                      width: btnWidth,
-                      height: btnHeight,
-                      child: IconButton(
-                        tooltip: '解码格式',
-                        style: btnStyle,
-                        onPressed: showSetDecodeFormats,
-                        // 播放器每次初始化都会刷新 streamInfo，解码格式换了也跟着刷新
-                        icon: Obx(() {
-                          videoDetailCtr.streamInfo.value;
-                          return Column(
-                            mainAxisSize: .min,
-                            children: [
-                              const Icon(
-                                Icons.av_timer_outlined,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                              Text(
-                                videoDetailCtr.currentDecodeFormats.label,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  height: 1,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ),
-                    ),
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,

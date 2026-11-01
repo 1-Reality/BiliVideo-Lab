@@ -23,6 +23,7 @@ import 'package:PiliBro/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliBro/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliBro/models/common/super_resolution_type.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
+import 'package:PiliBro/models/common/video/video_decode_type.dart';
 import 'package:PiliBro/models/video/play/url.dart';
 import 'package:PiliBro/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliBro/pages/common/common_intro_controller.dart';
@@ -808,6 +809,58 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         },
       ),
 
+      BottomControlType.codec => Obx(
+        () {
+          // 播放器每次初始化都会刷新 streamInfo，解码格式换了也跟着刷新
+          videoDetailController.streamInfo.value;
+          if (videoDetailController.currentVideoQa.value == null ||
+              videoDetailController.data.dash == null) {
+            return const SizedBox.shrink();
+          }
+          final current = videoDetailController.currentDecodeFormats;
+          final code = videoDetailController.firstVideo.quality.code;
+          final codecs = videoDetailController.data.supportFormats!
+              .firstWhere((e) => e.quality == code)
+              .codecs;
+          return PopupMenuButton<VideoDecodeFormatType>(
+            tooltip: '解码格式',
+            requestFocus: false,
+            initialValue: current,
+            color: Colors.black.withValues(alpha: 0.8),
+            onSelected: (format) {
+              if (format != current) {
+                videoDetailController.setDecodeFormat(format);
+              }
+            },
+            itemBuilder: (context) => [
+              if (codecs != null)
+                for (final format in codecs
+                    .map(VideoDecodeFormatType.fromString)
+                    .toSet())
+                  PopupMenuItem<VideoDecodeFormatType>(
+                    height: 35,
+                    padding: const EdgeInsets.only(left: 30),
+                    value: format,
+                    child: Text(
+                      format.label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                current.label,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          );
+        },
+      ),
+
       BottomControlType.aiTranslate => Obx(
         () {
           final list = videoDetailController.languages.value;
@@ -1078,6 +1131,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (plPlayerController.isAnim) .superResolution,
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
       if (isNotFileSource && anySeason) .episode,
+      if (isNotFileSource && flag) .codec,
       if (flag) .fit,
       if (isNotFileSource) .aiTranslate,
       .subtitle,
