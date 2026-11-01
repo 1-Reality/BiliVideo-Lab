@@ -254,11 +254,11 @@ jobs:
           $dir = Get-ChildItem '.dart_tool\hooks_runner\cnativeapi' -Directory |
             Where-Object { Test-Path (Join-Path $_.FullName 'input.json') } |
             Sort-Object LastWriteTime | Select-Object -Last 1
-          $json = (Get-Content (Join-Path $dir.FullName 'input.json') -Raw)
-            .Replace('"target_architecture": "x64"', '"target_architecture": "ia32"')
-            .Replace('\\Hostx64\\x64\\', '\\Hostx64\\x86\\')
-            .Replace('vcvars64.bat', 'vcvarsamd64_x86.bat')
-            .Replace('\\hooks_runner\\', '\\hooks_runner32\\')
+          $json = Get-Content (Join-Path $dir.FullName 'input.json') -Raw
+          $json = $json.Replace('"target_architecture": "x64"', '"target_architecture": "ia32"')
+          $json = $json.Replace('\\Hostx64\\x64\\', '\\Hostx64\\x86\\')
+          $json = $json.Replace('vcvars64.bat', 'vcvarsamd64_x86.bat')
+          $json = $json.Replace('\\hooks_runner\\', '\\hooks_runner32\\')
           $cfg = $json | ConvertFrom-Json
           New-Item -ItemType Directory -Force $cfg.out_dir_shared, (Split-Path $cfg.out_file) | Out-Null
           $config = Join-Path (Split-Path $cfg.out_file) 'input.json'
