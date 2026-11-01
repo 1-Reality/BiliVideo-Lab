@@ -138,6 +138,16 @@ jobs:
           $frontendArgs = @($frontendArgs[0..($at - 1)]) + $regArgs + @($frontendArgs[$at..($frontendArgs.Count - 1)])
           Write-Host "plugin registrant: $regUri"
 
+          # 官方构建会用 --native-assets 把包到 DLL 的映射表（如 cnativeapi.dll）编进 kernel，这里同样要传。
+          # 表是 x64 debug 构建写的，键为 windows_x64；32 位运行时按 windows_ia32 查表，换成这个键
+          $na = Get-ChildItem '.dart_tool\flutter_build' -Recurse -Filter native_assets.json | Sort-Object LastWriteTime | Select-Object -Last 1
+          $naJson = (Get-Content $na.FullName -Raw).Replace('"windows_x64"', '"windows_ia32"')
+          $naFile = Join-Path $kernelDir 'native_assets.json'
+          Set-Content $naFile $naJson -Encoding UTF8
+          Write-Host "native assets: $naJson"
+          $at = [array]::IndexOf($frontendArgs, '--packages')
+          $frontendArgs = @($frontendArgs[0..($at - 1)]) + @('--native-assets', $naFile) + @($frontendArgs[$at..($frontendArgs.Count - 1)])
+
           # 日志里只写参数形状，不写 define 的值
           $shape = $frontendArgs | ForEach-Object { if ($_ -like '-D*=*') { ($_ -split '=')[0] + '=<value>' } else { $_ } }
           "dartaotruntime: $dartaot" | Tee-Object kernel-command.txt
