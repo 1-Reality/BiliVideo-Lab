@@ -1,14 +1,25 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart'
+    show
+        ObjectFlagProperty,
+        objectRuntimeType,
+        DiagnosticPropertiesBuilder,
+        StringProperty,
+        DoubleProperty,
+        FlagProperty;
+import 'package:flutter/gestures.dart'
+    show HorizontalDragGestureRecognizer, PointerHoverEvent, PointerExitEvent;
+import 'package:flutter/rendering.dart'
+    show BoxHitTestEntry, SemanticsConfiguration, PipelineOwner;
 import 'package:flutter/services.dart'
     show
         MouseTrackerAnnotation,
         PointerEnterEventListener,
         PointerExitEventListener;
 import 'package:material_ui/material_ui.dart';
+
+typedef PointerEventListener = void Function(double dx, int seconds);
 
 /// https://github.com/suragch/audio_video_progress_bar
 
@@ -45,6 +56,8 @@ class ProgressBar extends LeafRenderObjectWidget {
     this.thumbCanPaintOutsideBar = true,
     this.barBaseline,
     this.snapDistance = 0,
+    this.onHover,
+    this.onExit,
   });
 
   /// The elapsed playing time of the media.
@@ -180,6 +193,9 @@ class ProgressBar extends LeafRenderObjectWidget {
 
   /// Drag distance from a track endpoint that selects that endpoint.
   final double snapDistance;
+  final PointerEventListener? onHover;
+
+  final VoidCallback? onExit;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
@@ -202,6 +218,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
       barBaseline: barBaseline,
       snapDistance: snapDistance,
+      onHover: onHover,
+      onExit: onExit,
     );
   }
 
@@ -228,7 +246,9 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbGlowRadius = thumbGlowRadius
       ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
       ..barBaseline = barBaseline
-      ..snapDistance = snapDistance;
+      ..snapDistance = snapDistance
+      .._onHover = onHover
+      .._onExit = onExit;
   }
 
   @override
@@ -328,7 +348,7 @@ class _EagerHorizontalDragGestureRecognizer
   @override
   void addAllowedPointer(PointerDownEvent event) {
     super.addAllowedPointer(event);
-    resolve(GestureDisposition.accepted);
+    resolve(.accepted);
   }
 
   @override
@@ -355,6 +375,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     this._thumbCanPaintOutsideBar = true,
     double? barBaseline,
     this.snapDistance = 0,
+    PointerEventListener? onHover,
+    VoidCallback? onExit,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
@@ -362,7 +384,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
        _barBaseline = barBaseline,
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
-       _hitTestSelf = onDragStart != null,
+       _hitTestSelf = onDragStart != null || onHover != null,
        _inverseTotal = _total == 0 ? 0.0 : 1 / _total {
     _baseBarPaint
       ..color = _baseBarColor
@@ -389,6 +411,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
       _thumbValue = _proportionOfTotal(_progress);
     }
     _bufferedProportion = _proportionOfTotal(_buffered);
+    _onHover = onHover;
+    _onExit = onExit;
   }
 
   @override
@@ -420,6 +444,7 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   bool _userIsDraggingThumb = false;
 
   void _onDragStart(DragStartDetails details) {
+    // _hoverDx = null;
     _userIsDraggingThumb = true;
     _updateThumbPosition(details.localPosition);
     onDragStart?.call(
@@ -709,6 +734,11 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     assert(debugHandleEvent(event, entry));
     if (event is PointerDownEvent) {
       _drag?.addPointer(event);
+      return;
+    }
+    if (event is PointerHoverEvent && __onHover != null) {
+      _handleOnHover(event);
+      return;
     }
   }
 
@@ -784,6 +814,29 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (hasOffset) canvas.restore();
   }
 
+  static const _kIndicatorX = 6.0;
+  static const _kIndicatorY = 4.0;
+  static const _kIndicatorPadding = 2.0;
+  // ignore: unused_element
+  void _drawHoverIndicator(
+    Canvas canvas,
+    Size localSize,
+    double dx,
+    Paint thumbPaint,
+  ) {
+    final bottomDy = localSize.height + _kIndicatorY;
+    final path = Path()
+      ..moveTo(dx, _kIndicatorPadding)
+      ..lineTo(dx - _kIndicatorX, -_kIndicatorY)
+      ..lineTo(dx + _kIndicatorX, -_kIndicatorY)
+      ..close()
+      ..moveTo(dx, localSize.height - _kIndicatorPadding)
+      ..lineTo(dx - _kIndicatorX, bottomDy)
+      ..lineTo(dx + _kIndicatorX, bottomDy)
+      ..close();
+    canvas.drawPath(path, thumbPaint);
+  }
+
   double _proportionOfTotal(int duration) {
     final value = duration * _inverseTotal;
     return value < 0
@@ -840,9 +893,61 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   @override
   PointerEnterEventListener? onEnter;
 
+  int _offsetToPosition(double dx) {
+    return (dx / size.width * total).round();
+  }
+
+  // double? _hoverDx;
+  void _handleOnHover(PointerEvent event) {
+    final dx = event.localPosition.dx;
+    __onHover?.call(dx, _offsetToPosition(dx));
+    // markNeedsPaint();
+  }
+
+  PointerEventListener? __onHover;
+  set _onHover(PointerEventListener? value) {
+    if (__onHover == value) return;
+    __onHover = value;
+    if (__onHover != null) {
+      onEnter = _handleOnHover;
+    } else {
+      onEnter = null;
+    }
+  }
+
   @override
   PointerExitEventListener? onExit;
 
+  void _handleOnExit(PointerExitEvent event) {
+    __onExit?.call();
+    // _hoverDx = null;
+    // markNeedsPaint();
+  }
+
+  VoidCallback? __onExit;
+  set _onExit(VoidCallback? value) {
+    if (__onExit == value) return;
+    __onExit = value;
+    if (__onExit != null) {
+      onExit = _handleOnExit;
+    } else {
+      onEnter = null;
+    }
+  }
+
   @override
-  bool get validForMouseTracker => false;
+  bool get validForMouseTracker => _validForMouseTracker;
+  bool _validForMouseTracker = true;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _validForMouseTracker = true;
+  }
+
+  @override
+  void detach() {
+    _validForMouseTracker = false;
+    super.detach();
+  }
 }
