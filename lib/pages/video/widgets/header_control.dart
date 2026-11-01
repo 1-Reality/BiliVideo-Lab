@@ -1889,6 +1889,21 @@ class HeaderControlState extends State<HeaderControl>
                         ),
                       ),
                     ),
+                    if (Pref.headerBtnDownload)
+                      SizedBox(
+                        width: btnWidth,
+                        height: btnHeight,
+                        child: IconButton(
+                          tooltip: '缓存',
+                          style: btnStyle,
+                          onPressed: () => videoDetailCtr.onDownload(context),
+                          icon: const Icon(
+                            CustomIcons.download,
+                            size: 19,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                   ],
                   if ((kDebugMode || plPlayerController.enableSponsorBlock) &&
                       Pref.headerBtnSponsor)

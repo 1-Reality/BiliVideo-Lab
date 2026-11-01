@@ -84,7 +84,7 @@ List<SettingsModel> get playSettings => [
     leading: const Icon(Icons.view_week_outlined),
     getSubtitle: () =>
         '播放器顶部太挤（窄屏、曲面屏）时，勾掉用不到的。当前显示 '
-        '${_headerButtons.keys.where((k) => GStorage.setting.get(k, defaultValue: true) as bool).length}/${_headerButtons.length} 个',
+        '${_headerButtons.keys.where((k) => GStorage.setting.get(k, defaultValue: k != SettingBoxKey.headerBtnDownload) as bool).length}/${_headerButtons.length} 个',
     onTap: _showHeaderButtonsDialog,
   ),
   const SwitchModel(
@@ -702,6 +702,7 @@ const _headerButtons = {
   SettingBoxKey.headerBtnMiniWindow: '应用内小窗',
   SettingBoxKey.headerBtnListen: '听音频',
   SettingBoxKey.headerBtnCast: '投屏',
+  SettingBoxKey.headerBtnDownload: '缓存',
   SettingBoxKey.headerBtnSponsor: '空降助手',
   SettingBoxKey.headerBtnDmSettings: '弹幕设置',
   SettingBoxKey.headerBtnPip: '画中画',
@@ -716,7 +717,7 @@ Future<void> _showHeaderButtonsDialog(
     builder: (context) => MultiSelectDialog<String>(
       title: '顶栏显示哪些按钮',
       initValues: _headerButtons.keys.where(
-        (k) => GStorage.setting.get(k, defaultValue: true) as bool,
+        (k) => GStorage.setting.get(k, defaultValue: k != SettingBoxKey.headerBtnDownload) as bool,
       ),
       values: _headerButtons,
     ),

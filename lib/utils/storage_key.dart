@@ -263,6 +263,7 @@ abstract final class SettingBoxKey {
       headerBtnMiniWindow = 'headerBtnMiniWindow',
       headerBtnListen = 'headerBtnListen',
       headerBtnCast = 'headerBtnCast',
+      headerBtnDownload = 'headerBtnDownload',
       headerBtnSponsor = 'headerBtnSponsor',
       headerBtnDmSettings = 'headerBtnDmSettings',
       headerBtnPip = 'headerBtnPip',

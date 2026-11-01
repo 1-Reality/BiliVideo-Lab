@@ -1682,6 +1682,8 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.headerBtnListen, defaultValue: true);
   static bool get headerBtnCast =>
       _setting.get(SettingBoxKey.headerBtnCast, defaultValue: true);
+  static bool get headerBtnDownload =>
+      _setting.get(SettingBoxKey.headerBtnDownload, defaultValue: false);
   static bool get headerBtnSponsor =>
       _setting.get(SettingBoxKey.headerBtnSponsor, defaultValue: true);
   static bool get headerBtnDmSettings =>
