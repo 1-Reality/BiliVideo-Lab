@@ -146,6 +146,13 @@ List<SettingsModel> get playSettings => [
     defaultVal: true,
   ),
   const SwitchModel(
+    title: '横屏时显示解码格式',
+    subtitle: '底部控制栏显示当前解码格式（264、265、AV1、DV）',
+    leading: Icon(Icons.av_timer_outlined),
+    setKey: SettingBoxKey.showCodecLandscape,
+    defaultVal: true,
+  ),
+  const SwitchModel(
     title: '启用双指缩小视频',
     leading: Icon(Icons.pinch),
     setKey: SettingBoxKey.enableShrinkVideoSize,

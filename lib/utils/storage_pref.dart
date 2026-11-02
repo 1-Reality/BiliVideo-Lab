@@ -1059,6 +1059,9 @@ abstract final class Pref {
   static bool get showDmChart =>
       _setting.get(SettingBoxKey.showDmChart, defaultValue: true);
 
+  static bool get showCodecLandscape =>
+      _setting.get(SettingBoxKey.showCodecLandscape, defaultValue: true);
+
   static bool get enableCommAntifraud =>
       _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: true);
 

@@ -536,6 +536,7 @@ class PlPlayerController
   late final reverseFromFirst = Pref.reverseFromFirst;
   late final horizontalPreview = Pref.horizontalPreview;
   late final showDmChart = Pref.showDmChart;
+  late final showCodecLandscape = Pref.showCodecLandscape;
   late final showViewPoints = Pref.showViewPoints;
   late final showFsScreenshotBtn = Pref.showFsScreenshotBtn;
   late final showFsLockBtn = Pref.showFsLockBtn;

@@ -1158,6 +1158,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
       if (isNotFileSource && anySeason) .episode,
       if (isNotFileSource &&
+          plPlayerController.showCodecLandscape &&
           MediaQuery.orientationOf(context) == Orientation.landscape)
         .codec,
       if (flag) .fit,
