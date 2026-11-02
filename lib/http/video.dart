@@ -331,13 +331,6 @@ abstract final class VideoHttp {
           'gaia_source': 'pre-load',
           'isGaiaAvoided': true,
           'web_location': 1315873,
-          if (videoType == .pugv) ...const {
-            'biz_type': 'pugv',
-            'scene': 'normal',
-            'from_client': 'BROWSER',
-            'drm_tech_type': 0,
-            'app_id': 100,
-          },
           // 免登录查看1080p
           if (tryLook) 'try_look': 1,
           'dm_img_list': '[]',
@@ -386,7 +379,13 @@ abstract final class VideoHttp {
           case .ugc:
             data = PlayUrlModel.fromJson(res.data['data']);
 
-          case .pgc || .pugv:
+          case .pugv:
+            final result = res.data['data'];
+            data = PlayUrlModel.fromJson(result)
+              ..lastPlayTime =
+                  result['play_view_business_info']?['user_status']?['watch_progress']?['current_watch_progress'];
+
+          case .pgc:
             final result = res.data['data'];
             final videoInfo = result['video_info'];
             if (videoInfo != null) {

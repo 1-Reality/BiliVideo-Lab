@@ -13,7 +13,7 @@ enum VideoType {
   pugv(
     type: 10,
     replyType: 33,
-    api: Api.ogvUrl,
+    api: Api.pugvUrl,
   ),
   ;
 
