@@ -67,7 +67,7 @@ class ArticleController extends CommonDynController
 
     // to opus
     if (type == 'read') {
-      UrlUtils.parseRedirectUrl('https://www.bilibili.com/read/cv$id/').then((
+      UrlUtils.parseRedirectUrl('https://www.bilibili.com/read/cv$id').then((
         url,
       ) {
         if (url != null) {

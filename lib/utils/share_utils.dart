@@ -28,7 +28,7 @@ abstract final class ShareUtils {
 
   /// [id] 形如 `av123` 或 `BV1xx`；[part] 为分 P 序号（从 1 起）
   static String videoUrl(String id, [int? part]) =>
-      '${HttpString.baseUrl}/video/$id/${part != null ? '?p=$part' : ''}';
+      '${HttpString.baseUrl}/video/$id${part != null ? '?p=$part' : ''}';
 
   /// 系统分享面板里的「分享视频」，所有入口共用同一份文案
   static Future<void> shareVideo(String? title, String? up, String url) =>

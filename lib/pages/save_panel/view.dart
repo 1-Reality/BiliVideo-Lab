@@ -99,12 +99,12 @@ class _SavePanelState extends State<SavePanel> {
     String? enterUri,
   ]) {
     var uri =
-        'bilibili://comment/detail/${reply.type}/${reply.oid}/${hasRoot ? reply.root : reply.id}/';
+        'bilibili://comment/detail/${reply.type}/${reply.oid}/${hasRoot ? reply.root : reply.id}';
     final parameters = [
       if (hasRoot) 'anchor=${reply.id}',
       if (enterUri != null) 'enterUri=$enterUri',
     ];
-    if (parameters.isNotEmpty) uri += '?${parameters.join("&")}';
+    if (parameters.isNotEmpty) uri += '/?${parameters.join("&")}';
     return uri;
   }
 
