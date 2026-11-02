@@ -68,7 +68,7 @@ on:
                 type: string
 
             release_notes:
-                description: "Release notes"
+                description: "Release notes（换行输入两个分号 ;; ，空一行输入 ;;;;）"
                 required: false
                 default: ""
                 type: string
@@ -262,10 +262,18 @@ jobs:
                   merge-multiple: true
                   skip-decompress: true
 
+            - name: 整理 Release 正文（;; 转换为换行）
+              shell: bash
+              env:
+                  RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
+              run: |
+                  notes="${RELEASE_NOTES//;;/$'\n'}"
+                  notes="${notes//；；/$'\n'}"
+                  printf '%s\n' "$notes" > release_notes.md
             - name: Publish Release
               uses: softprops/action-gh-release@v3
               with:
                   tag_name: ${{ github.event.inputs.tag }}
                   name: ${{ github.event.inputs.tag }}
-                  body: ${{ github.event.inputs.release_notes }}
+                  body_path: release_notes.md
                   files: release-assets/**/*
