@@ -11,15 +11,20 @@
 [**开发版（最新）**](./.github/Install.md)&nbsp;
 [**发行版（稳定）**](https://github.com/ucxn/Bro-Stat/releases)&nbsp;**[故障排查](./.github/Install.md#故障排查)**
 
+
+[**手机 App**](.github/Install.md#安卓客户端)  ➡️ 在“我的”页选『网关诊断』，此版支持安卓，电脑请正常安装脚本。
+
+[![Bilibili](https://img.shields.io/badge/Bilibili-观看演示视频-FF8EB3?style=for-the-badge&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV19ZpB64E6D)
+
 文档介绍和思路参见[个人主页](https://github.com/UCXN/BroTech)，强烈建议阅读架构设计；当然我更欢迎直接审计源码，通常比看简介能感受到的惊喜多得多；这不是一个简单的 UI增强 插件，更是一套完整的针对混沌离散数据源的处理算法，颇具极客精神。
 
-我致力于改善各大品牌硬路由原生 Web 后台体验的浏览器扩展组件。目前通用版主要适配并优化 **TP-Link（普联）、小米（MiWiFi）、华硕 (ASUS/ROG)、腾达（Tenda）、华为**（或许还有HONOR）**、H3C定制型号、中兴（ZTE）** 等常见品牌的路由器后台，是一款 哥哥科技 开发的一套网络数据遥测与多端转发解决方案。
+我致力于改善各大品牌硬路由原生 Web 后台体验的浏览器扩展组件。目前通用版主要适配并优化 **TP-Link（普联）、小米（MiWiFi）、华硕 (ASUS/ROG)、腾达（Tenda）、华为**（或许还有HONOR）**、H3C定制型号、中兴（ZTE）、锐捷** 等常见品牌的路由器后台，是一款 哥哥科技 开发的一套网络数据遥测与多端转发解决方案。
 
 全屋智能家居平台联动接入插件：Home Assistant 极客集成、UI增强，硬路由+NPU 最佳伴侣、无需刷机，支持广泛！设备列表平铺化，大屏可视化一点通，你所要的，都在这里，无需频繁切换页面…
 
 原生路由器后台通常只能提供最基础的瞬时网速，且数据往往在设备掉线或路由器重启后直接清零。我们希望通过这套轻量级的组件，为你提供更持久、更直观的家庭网络流量可视化面板→支持定期导出.csv数据。
 
-![logo](./logo.png)
+![logo](.github/封面.png)
 
 
 **Bro-Stat 增强组件** Copyright © 2026 哥哥科技 (BroTech) | [点击分享](https://scriptcat.org/users/203510)

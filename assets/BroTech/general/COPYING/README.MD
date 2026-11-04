@@ -5,6 +5,14 @@
 
 若您无法理解何为“显著署名”，则您必须选择不使用本软件的任何代码。在此情况下，除分享官方原始链接及下载至本地仅供个人自用外，严禁对本软件进行任何其他操作或分发行为。
 
+无论本许可证其他条款如何规定，**哥哥科技显著署名要求——包括对“哥哥科技”字样的强制保留及显著显示义务——均必须严格且排他性地按照最有利于作者的方式解释。** 任何一般解释规则、技术例外或本许可证的其他条款，均不得削弱该署名要求、使其从属于其他要求，或取代该署名要求。
+
+根据本软件的实际源代码及其技术特性，不存在一种能够使软件的普通功能正常运行、同时又使必要署名在技术上自动消失的运行方式。只要软件的主要功能能够正常运行，且软件能够在该功能中正常显示中文文本（除非源代码中功能描述的中文被恶意删掉），即视为软件运行正常。**软件正常运行时，不存在任何正当理由可以不按照哥哥科技显著署名要求显示“哥哥科技”字样。**
+
+*在任何极端情形下，如果本许可证的某些条款能够得到履行，而其他条款无法同时得到履行，包括不同条款之间存在矛盾、不相容或直接对立的情形，哥哥科技显著署名要求——包括对“哥哥科技”字样的强制保留及显著显示义务——均对本许可证的其他一切条款享有绝对且无条件的优先地位。*
+
+***在上述情形下，履行哥哥科技显著署名要求是第一位且具有支配效力的义务。任何其他条款，包括但不限于限制商业使用的条款以及有关费用或收费的条款，均不得被视为优先于哥哥科技显著署名要求、或以牺牲该署名要求为代价而必须履行的义务。***
+
 ---
 以下指南仅严格适用于一种极其特定的情形：即您将本软件代码实质性地集成至一个更大的整体作品中，且由于系统结构或技术原因，导致实质上已无法原封不动地保留原汁原味的原版最终用户界面及其署名设计。</br>
 请特别注意（权利之保留）： 本指南仅出于指导合规之目的而提供。该指南并不代表作者向您授予了额外的权利，也不意味着您只需遵守另外的义务。您对本指南的参考或执行，绝不意味着您可以免除对前述所有累加式法定前置条件的严格遵守，其无法表示任何豁免、替代或削弱。
@@ -20,7 +28,18 @@ You shall understand and expressly agree that the [*BroTech Additional License*]
 The rights to use this software are granted to you ONLY subject to the absolute condition precedent of your complete, continuous, and strict compliance with the prominent attribution requirements herein. If you are unable to comprehend the legal implications of these terms, you are advised to consult independent legal counsel. Conversely, under no circumstances may you isolate, sever, or selectively apply the rights-granting clauses without fulfilling the prominent attribution obligations. 
 
 Should you fail to understand what constitutes "prominent attribution," you MUST elect NOT to use the source code of this software. In such an event, you are permitted solely to share the official original link or download the software exclusively for personal, local use; any and all other operations or distributions are strictly prohibited.
+## The Name Above All Else
+Notwithstanding anything to the contrary in this License, the **BroTech Prominent Attribution Requirements**—including the mandatory preservation and prominent display of the name “哥哥科技”—shall be interpreted strictly and exclusively in the manner most favorable to the Author. These requirements shall not be weakened, subordinated, or displaced by any general rule of interpretation, technical exception, or other provision of this License.
 
+Based on the actual source code of the Software and its technical characteristics, there is no technically possible mode of operation in which the Software’s ordinary functionality operates normally while the required attribution automatically disappears. Once the Software’s principal functionality operates normally, and the Software is capable of displaying Chinese text normally as part of that functionality—except where Chinese descriptions of functionality in the source code have themselves been deleted—the Software shall be deemed to be operating normally.
+
+Whenever the Software is operating normally, there is no legitimate basis whatsoever for failing to display the name “哥哥科技” as required by the BroTech Prominent Attribution Requirements.
+
+***In any extreme case in which compliance with certain provisions of this License is possible only at the expense of compliance with other provisions, including where such provisions are contradictory, incompatible, or directly opposed to one another, the Attribution Requirements shall take absolute priority.*** The Licensee must satisfy the Attribution Requirements first and in full.
+
+**All other provisions, including without limitation any restrictions on commercial use or requirements concerning fees or charges, shall not be mandatory to the extent that compliance with them would prevent, conflict with, or take priority over compliance with the Attribution Requirements.**
+
+---
 The following guidelines apply strictly and exclusively to the specific scenario where you integrate this software into a larger, overarching work, rendering it structurally or technically impossible to preserve the original unmodified actual end-user interface (UI) and its attribution design in their exact original form.</br>
 EXPRESS RESERVATION OF RIGHTS AND OBLIGATIONS: This guide is provided solely for instructional compliance purposes. It does NOT, under any circumstances, operate as an implicit or explicit grant of any additional rights or licenses beyond the primary agreement. Furthermore, it does NOT waive, substitute, or dilute any of your strict obligations under the primary licenses and the BroTech Prominent Attribution Terms. Adherence to this guide is merely a compliant implementation method for integration scenarios, and shall by no means exempt you from the absolute and simultaneous satisfaction of all conditions precedent set forth above.
 

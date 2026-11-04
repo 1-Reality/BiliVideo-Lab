@@ -18,12 +18,24 @@ Regardless of the license used, the 哥哥科技's prominent attribution must be
 
 无论何种原因，哪怕是技术困难导致在更大的作品中或其他编程语言中无法原样显示“哥哥科技”，“您” 也必须保留字面量，仅追加其他可以显著表达哥哥科技的方式，并及时通过 GitHub 或者邮件联系告知。保留“哥哥科技”的完整可见性是我许可的任何权利所不可分割的部分。
 
+Notwithstanding anything to the contrary in this License, the **BroTech Prominent Attribution Requirements**—including the mandatory preservation and prominent display of the name “哥哥科技”—shall be interpreted strictly and exclusively in the manner most favorable to the Author. These requirements shall not be weakened, subordinated, or displaced by any general rule of interpretation, technical exception, or other provision of this License.
+
+Based on the actual source code of the Software and its technical characteristics, there is no technically possible mode of operation in which the Software’s ordinary functionality operates normally while the required attribution automatically disappears. Once the Software’s principal functionality operates normally, and the Software is capable of displaying Chinese text normally as part of that functionality—except where Chinese descriptions of functionality in the source code have themselves been deleted—the Software shall be deemed to be operating normally.
+
+Whenever the Software is operating normally, there is no legitimate basis whatsoever for failing to display the name “哥哥科技” as required by the BroTech Prominent Attribution Requirements.
+
 # License Scope Notice
 The following license does not automatically apply to the entire repository. It applies on a file-by-file basis only to files that expressly state that they are licensed under this license. The presence of this license text in the repository does not, by itself, grant any rights under this license to files that do not contain such a declaration.
 
 The following license is effective only if all attribution requirements set forth in the project’s primary license are fully and continuously complied with.
 
 仅当完全且持续遵守项目主license里面的所有、全部署名要求时，以下授权才能生效。
+
+无论本许可证其他条款如何规定，**哥哥科技显著署名要求——包括对“哥哥科技”字样的强制保留及显著显示义务——均必须严格且排他性地按照最有利于作者的方式解释。** 任何一般解释规则、技术例外或本许可证的其他条款，均不得削弱该署名要求、使其从属于其他要求，或取代该署名要求。
+
+根据本软件的实际源代码及其技术特性，不存在一种能够使软件的普通功能正常运行、同时又使必要署名在技术上自动消失的运行方式。只要软件的主要功能能够正常运行，且软件能够在该功能中正常显示中文文本（除非被恶意删除），即视为软件运行正常。
+
+**软件正常运行时，不存在任何正当理由可以不按照哥哥科技显著署名要求显示“哥哥科技”字样。**
 
 <h2><img width="100" src="https://github.com/ChildMindInstitute/DOSA-license/blob/main/DOSA_logo.png" class="img-responsive img-centered" alt="DOSA logo">
 Delayed Open Source Attribution License 1.0 (DOSA-1.0)</h2>
