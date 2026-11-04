@@ -148,6 +148,7 @@ class _EmotePanelState extends State<EmotePanel>
                           onPressed: () => Get.toNamed(
                             '/webview',
                             parameters: {
+                              'uaType': 'mob',
                               'url':
                                   'https://www.bilibili.com/h5/mall/emoji-package/home?navhide=1&${ThemeUtils.themeUrl(theme.isDark)}',
                             },
