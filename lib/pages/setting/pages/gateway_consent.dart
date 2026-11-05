@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/utils/device_utils.dart';
+import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:material_ui/material_ui.dart';
@@ -156,6 +157,31 @@ class _GatewayConsentPageState extends State<GatewayConsentPage> {
                 label: const Text('查看完整许可证'),
               ),
 
+              const SizedBox(height: 12),
+
+              // ── 关注 / 支持开发者 ─────────────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: _DevButton(
+                      icon: Icons.person_pin_circle_outlined,
+                      iconColor: const Color(0xFF7C4DFF),
+                      label: '关注开发者',
+                      url: 'https://space.bilibili.com/388010726',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _DevButton(
+                      icon: Icons.favorite_border_rounded,
+                      iconColor: const Color(0xFFE91E63),
+                      label: '支持开发者',
+                      url: 'https://www.goofish.com/personal?userId=2216485229713',
+                    ),
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 20),
 
               // ── 本地网络权限状态（Android 17+ 专属） ──────────────────────
@@ -271,6 +297,52 @@ class _TermLine extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── 关注 / 支持开发者按钮 ────────────────────────────────────────────────────
+class _DevButton extends StatelessWidget {
+  const _DevButton({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.url,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = ColorScheme.of(context);
+    return Material(
+      color: iconColor.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => PageUtils.launchURL(url),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: iconColor, size: 24),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
