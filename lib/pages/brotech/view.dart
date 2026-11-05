@@ -308,7 +308,7 @@ class _BroTechPageState extends State<BroTechPage> {
       appBar: AppBar(
         title: Text.rich(
           TextSpan(
-            text: '路由器高阶统计增强组件（哥哥科技原创）',
+            text: '路由器高阶统计增强组件：哥哥科技原创',
             children: [
               WidgetSpan(
                 alignment: PlaceholderAlignment.top,
@@ -552,15 +552,15 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Bro-Stat增强组件（哥哥科技）',
+            '哥哥科技 Bro-Stat增强组件',
             style: textTheme.headlineSmall!.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-              '路由器高阶统计增强组件\n'
-              '可下方查看B站主页\n'
+              '若读完仍有时间\n'
+              '可在下左方查看B站主页\n'
               '也可以去我兄弟的闲鱼主页逛逛，有好的音像闲置\n'
               '播放视频期间不影响计时，看爽了可以正常返回。',
             textAlign: TextAlign.center,
@@ -578,9 +578,9 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: 8,
                 children: [
-                  term('该程序从云端加载脚本，并缓存到您的设备里，以方便随时之需；不到 1MiB，实现非常绿色和优雅。'),
-                  term('严格遵循哥哥科技显著署名许可证。'),
-                  term('脚本中的任何“哥哥科技”名字，均不得被篡改、弱化，或以非预期名称方式呈现.'),
+                  term('该程序从云端加载脚本，并缓存到您的设备里，以方便随时之需；不到 1MiB，实现非常绿色和优雅.'),
+                  term('严格遵循哥哥科技显著署名许可证.'),
+                  term('脚本中的任何“哥哥科技”名字，均不得被篡改、弱化，或以非预期名称方式呈现。'),
                 ],
               ),
             ),
@@ -638,8 +638,8 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               dev(
                 Icons.favorite_rounded,
                 Colors.pink,
-                '支持朋友\n'
-                '不影响倒计时',
+                '支持朋友/点击了解\n'
+                '查看期间不影响时钟',
                 () => PageUtils.launchURL(
                   'https://www.goofish.com/personal?userId=2216485229713',
                 ),
@@ -652,7 +652,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
         TextButton.icon(
           onPressed: () => Get.to(() => const BroTechFilesPage()),
           icon: const Icon(Icons.balance, size: 18),
-          label: const Text('查看许可证'),
+          label: const Text('许可证'),
         ),
         TextButton(
           onPressed: () => Get.back(result: false),
@@ -725,7 +725,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
       _values[key] = json;
     }
     BroTechGmStore.put(_id, key, json);
-    _reregister ??= Timer(const Duration(seconds: 1), () async {
+    _reregister ??= Timer(const Duration(seconds: 1.2), () async {
       _reregister = null;
       final controller = _controller;
       if (controller == null) return;
