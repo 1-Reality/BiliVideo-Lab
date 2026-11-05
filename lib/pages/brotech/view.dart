@@ -6,7 +6,6 @@ import 'package:PiliBro/main.dart' show webViewEnvironment;
 import 'package:PiliBro/pages/brotech/files.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/device_utils.dart';
-import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter/services.dart';
@@ -641,8 +640,13 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 Colors.pink,
                 '支持朋友/点击了解\n'
                 '查看期间不影响计时',
-                () => PageUtils.launchURL(
-                  'https://www.goofish.com/personal?userId=2216485229713',
+                () => Get.toNamed(
+                  '/webview',
+                  parameters: {
+                    'url':
+                        'https://www.goofish.com/personal?userId=2216485229713',
+                  },
+                  arguments: const {'inApp': true},
                 ),
               ),
             ],
