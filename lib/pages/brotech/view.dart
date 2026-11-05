@@ -725,7 +725,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
       _values[key] = json;
     }
     BroTechGmStore.put(_id, key, json);
-    _reregister ??= Timer(const Duration(seconds: 1.2), () async {
+    _reregister ??= Timer(const Duration(milliseconds: 1200), () async {
       _reregister = null;
       final controller = _controller;
       if (controller == null) return;
