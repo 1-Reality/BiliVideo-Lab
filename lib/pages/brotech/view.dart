@@ -44,24 +44,28 @@ class _BroTechPageState extends State<BroTechPage> {
 
   static String _pad(int v, [int w = 2]) => v.toString().padLeft(w, '0');
 
-  static String _micro(int us) =>
-      '${us ~/ 1000000}.${_pad(us % 1000000, 6)}';
+  static String _micro(int us) {
+    final s = us ~/ 1000000;
+    return '$s.${_pad(us - s * 1000000, 6)}';
+  }
 
   /// Within 10 days: how long ago. Older: the local time. Both at the full
   /// microsecond precision DateTime carries.
   static String _when(DateTime t) {
-    final ago = DateTime.now().difference(t);
-    if (ago.inDays >= 10) {
+    var us = DateTime.now().difference(t).inMicroseconds;
+    final d = us ~/ 86400000000;
+    if (d > 9) {
       return '${t.year}-${_pad(t.month)}-${_pad(t.day)} '
           '${_pad(t.hour)}:${_pad(t.minute)}:${_pad(t.second)}'
           '.${_pad(t.millisecond * 1000 + t.microsecond, 6)}';
     }
-    final d = ago.inDays;
-    final h = ago.inHours % 24;
-    final m = ago.inMinutes % 60;
+    us -= d * 86400000000;
+    final h = us ~/ 3600000000;
+    us -= h * 3600000000;
+    final m = us ~/ 60000000;
     return '${d > 0 ? '$d 天 ' : ''}${d + h > 0 ? '$h 小时 ' : ''}'
         '${d + h + m > 0 ? '$m 分 ' : ''}'
-        '${_micro(ago.inMicroseconds % 60000000)} 秒前';
+        '${_micro(us - m * 60000000)} 秒前';
   }
 
   static final _group = RegExp(r'\B(?=(\d{3})+$)');
@@ -415,7 +419,7 @@ class _BroTechConsent extends StatefulWidget {
 
 class _BroTechConsentState extends State<_BroTechConsent> {
   late final Timer _timer;
-  int _left = 10;
+  int _left = 15;
   bool? _lan;
 
   @override
@@ -425,7 +429,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
       if (--_left == 0) t.cancel();
       setState(() {});
     });
-    if (Platform.isAndroid && DeviceUtils.sdkInt >= 37) {
+    if (Platform.isAndroid && DeviceUtils.sdkInt > 36) {
       Permission.accessLocalNetwork.isGranted.then((v) {
         if (mounted) setState(() => _lan = v);
       });
@@ -515,7 +519,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               children: [
                 SizedBox.expand(
                   child: CircularProgressIndicator(
-                    value: (10 - _left) * 0.1,
+                    value: (15 - _left) /16,
                     strokeWidth: 5,
                     strokeCap: StrokeCap.round,
                     backgroundColor: colorScheme.surfaceContainerHighest,
@@ -542,7 +546,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           ),
           const SizedBox(height: 4),
           Text(
-            '路由器高阶统计增强组件（哥哥科技原创）',
+            '路由器高阶统计增强组件（等待时可先点击下方查看B站主页）',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.primary, fontSize: 13),
           ),
@@ -558,9 +562,9 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: 8,
                 children: [
-                  term('该程序从云端加载脚本，并缓存到您的设备里。'),
+                  term('该程序从云端加载脚本，并缓存到您的设备里，以方便随时之需；不到 1MiB，实现非常绿色和优雅。'),
                   term('严格遵循哥哥科技显著署名许可证。'),
-                  term('根据规定，脚本中的任何名称，尤其是“哥哥科技”，均不得被篡改、弱化，或以非预期方式呈现。'),
+                  term('根据规定，脚本中的任何名字，尤其是“哥哥科技”，均不得被篡改、弱化，或以非预期方式呈现名称。'),
                 ],
               ),
             ),
@@ -611,13 +615,13 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               dev(
                 Icons.person_add_alt_1_rounded,
                 colorScheme.primary,
-                '关注开发者',
+                '了解开发者 / 查看主页',
                 () => Get.toNamed('/member?mid=388010726'),
               ),
               dev(
                 Icons.favorite_rounded,
                 Colors.pink,
-                '支持开发者',
+                '支持我的朋友',
                 () => PageUtils.launchURL(
                   'https://www.goofish.com/personal?userId=2216485229713',
                 ),
@@ -630,7 +634,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
         TextButton.icon(
           onPressed: () => Get.to(() => const BroTechFilesPage()),
           icon: const Icon(Icons.gavel_rounded, size: 18),
-          label: const Text('查看许可证'),
+          label: const Text('查看许可证（不影响计时器）'),
         ),
         FilledButton(
           onPressed: _left == 0 ? _agree : null,
