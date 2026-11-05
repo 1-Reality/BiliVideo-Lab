@@ -313,8 +313,11 @@ class _BroTechPageState extends State<BroTechPage> {
               WidgetSpan(
                 alignment: PlaceholderAlignment.top,
                 child: IconButton(
-                  tooltip: '许可与说明',
-                  onPressed: () => Get.to(() => const BroTechFilesPage()),
+                  tooltip: '使用须知：许可与说明',
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => const _BroTechConsent(persistConsent: false),
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(
                     width: 24,
@@ -411,7 +414,10 @@ class _BroTechPageState extends State<BroTechPage> {
 /// this State alone: the licence page pushed on top leaves it running, and
 /// closing the dialog drops it.
 class _BroTechConsent extends StatefulWidget {
-  const _BroTechConsent();
+  const _BroTechConsent({this.persistConsent = true});
+
+  /// False when the panel is reopened for viewing after the initial consent.
+  final bool persistConsent;
 
   @override
   State<_BroTechConsent> createState() => _BroTechConsentState();
@@ -448,7 +454,9 @@ class _BroTechConsentState extends State<_BroTechConsent> {
   }
 
   Future<void> _agree() async {
-    await GStorage.localCache.put(_BroTechPageState._consentKey, true);
+    if (widget.persistConsent) {
+      await GStorage.localCache.put(_BroTechPageState._consentKey, true);
+    }
     Get.back(result: true);
   }
 
@@ -492,10 +500,15 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   spacing: 4,
                   children: [
                     Icon(icon, color: color, size: 26),
-                    Text(label, style: const TextStyle(fontSize: 13)),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -547,8 +560,8 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           const SizedBox(height: 4),
           Text(
               '路由器高阶统计增强组件\n'
-              '读完后仍等待，可下方查看B站主页\n'
-              '也可以去我兄弟的闲鱼主页逛逛好的音像二手\n'
+              '可下方查看B站主页\n'
+              '也可以去我兄弟的闲鱼主页逛逛，有好的音像闲置\n'
               '播放视频期间不影响计时，看爽了可以正常返回。',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.primary, fontSize: 13),
@@ -567,7 +580,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 children: [
                   term('该程序从云端加载脚本，并缓存到您的设备里，以方便随时之需；不到 1MiB，实现非常绿色和优雅。'),
                   term('严格遵循哥哥科技显著署名许可证。'),
-                  term('根据规定，脚本中的任何名字，尤其是“哥哥科技”，均不得被篡改、弱化，或以非预期名称方式呈现'),
+                  term('脚本中的任何“哥哥科技”名字，均不得被篡改、弱化，或以非预期名称方式呈现.'),
                 ],
               ),
             ),
@@ -618,15 +631,15 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               dev(
                 Icons.person_add_alt_1_rounded,
                 colorScheme.primary,
-                '了解开发者 / 查看主页\n'
-                '（不影响计时器）',
+                '了解开发者\n'
+                '查看B站主页',
                 () => Get.toNamed('/member?mid=388010726'),
               ),
               dev(
                 Icons.favorite_rounded,
                 Colors.pink,
-                '支持我的朋友\n'
-                '（不影响倒计时）',
+                '支持朋友\n'
+                '不影响倒计时',
                 () => PageUtils.launchURL(
                   'https://www.goofish.com/personal?userId=2216485229713',
                 ),
