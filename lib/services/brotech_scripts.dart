@@ -368,7 +368,7 @@ abstract final class BroTechPresets {
       .put('presets', jsonEncode([for (final e in presets) e.toJson()]));
 }
 
-/// Android only: fills the first visible password box (and the text box
+/// Android/iOS: fills the first visible password box (and the text box
 /// before it, when a user name is saved) as soon as one appears, exposes
 /// window.__broFill(force) for the manual button, and reports passwords the
 /// user types so they can be saved on the way out.

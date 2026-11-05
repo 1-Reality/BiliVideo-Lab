@@ -228,7 +228,7 @@ class _BroTechPageState extends State<BroTechPage> {
                   ],
                   onChanged: (value) => runAt = value!,
                 ),
-                if (Platform.isAndroid) ...[
+                if (Platform.isAndroid || Platform.isIOS) ...[
                   TextField(
                     controller: user,
                     decoration: const InputDecoration(
@@ -431,7 +431,10 @@ class _BroTechConsentState extends State<_BroTechConsent> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(milliseconds: 1250), (t) {
-      if (WidgetsBinding.instance.lifecycleState != .resumed) return;
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.paused ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.hidden) {
+        return;
+      }
       if (--_left == 0) t.cancel();
       setState(() {});
     });
@@ -756,7 +759,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
 
   @override
   Widget build(BuildContext context) {
-    final credentials = Platform.isAndroid;
+    final credentials = Platform.isAndroid || Platform.isIOS;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.preset.title),
