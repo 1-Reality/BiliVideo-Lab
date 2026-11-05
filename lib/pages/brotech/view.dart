@@ -552,7 +552,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           ),
           const SizedBox(height: 16),
           Text(
-            '哥哥科技 Bro-Stat增强组件',
+            '哥哥科技 Bro-Stat 增强组件',
             style: textTheme.headlineSmall!.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -561,8 +561,8 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           Text(
               '若读完仍有时间\n'
               '可在下左方查看B站主页\n'
-              '也可以去我兄弟的闲鱼主页逛逛，有好的音像闲置\n'
-              '播放视频期间不影响计时，看爽了可以正常返回。',
+              '播放视频期间不影响时钟，看爽了可以正常返回。\n'
+              '也可以点右下角去我兄弟的闲鱼主页逛，有好的音像闲置',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.primary, fontSize: 13),
           ),
@@ -639,7 +639,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 Icons.favorite_rounded,
                 Colors.pink,
                 '支持朋友/点击了解\n'
-                '查看期间不影响时钟',
+                '查看期间不影响计时',
                 () => PageUtils.launchURL(
                   'https://www.goofish.com/personal?userId=2216485229713',
                 ),
