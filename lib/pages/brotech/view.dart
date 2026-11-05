@@ -431,7 +431,8 @@ class _BroTechConsentState extends State<_BroTechConsent> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _timer = Timer.periodic(const Duration(milliseconds: 1250), (t) {
+      if (WidgetsBinding.instance.lifecycleState != .resumed) return;
       if (--_left == 0) t.cancel();
       setState(() {});
     });
@@ -725,7 +726,7 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
       _values[key] = json;
     }
     BroTechGmStore.put(_id, key, json);
-    _reregister ??= Timer(const Duration(milliseconds: 1200), () async {
+    _reregister ??= Timer(const Duration(seconds: 1), () async {
       _reregister = null;
       final controller = _controller;
       if (controller == null) return;
