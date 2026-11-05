@@ -565,7 +565,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               '若读完仍有时间\n'
               '可在下左方查看B站主页\n'
               '播放视频期间不影响时钟，看爽了可以正常返回。\n'
-              '也可点右下角“支持”去我兄弟的闲鱼逛，有好的音像闲置',
+              '也可点右下角“支持”逛我兄弟的闲鱼，有好的音像闲置',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.primary, fontSize: 13),
           ),
