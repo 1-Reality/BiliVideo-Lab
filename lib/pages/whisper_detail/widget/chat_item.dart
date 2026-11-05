@@ -737,7 +737,10 @@ class ChatItem extends StatelessWidget {
           Divider(color: theme.colorScheme.primary.withValues(alpha: 0.05)),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => PiliScheme.routePushFromUrl(uri),
+            onTap: () => PiliScheme.routePushFromUrl(
+              uri,
+              parameters: const {'uaType': 'pc'},
+            ),
             child: Text(
               text != null && text.isNotEmpty ? text : '查看详情',
             ),
