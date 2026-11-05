@@ -419,7 +419,7 @@ class _BroTechConsent extends StatefulWidget {
 
 class _BroTechConsentState extends State<_BroTechConsent> {
   late final Timer _timer;
-  int _left = 15;
+  int _left = 24;
   bool? _lan;
 
   @override
@@ -519,7 +519,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               children: [
                 SizedBox.expand(
                   child: CircularProgressIndicator(
-                    value: (15 - _left) /16,
+                    value: (24 - _left) * 0.04,
                     strokeWidth: 5,
                     strokeCap: StrokeCap.round,
                     backgroundColor: colorScheme.surfaceContainerHighest,
@@ -539,14 +539,17 @@ class _BroTechConsentState extends State<_BroTechConsent> {
           ),
           const SizedBox(height: 16),
           Text(
-            '使用须知',
+            'Bro-Stat增强组件（哥哥科技）',
             style: textTheme.headlineSmall!.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            '路由器高阶统计增强组件（等待时可先点击下方查看B站主页）',
+              '路由器高阶统计增强组件\n'
+              '读完后仍等待，可下方查看B站主页\n'
+              '也可以去我兄弟的闲鱼主页逛逛好的音像二手\n'
+              '播放视频期间不影响计时，看爽了可以正常返回。',
             textAlign: TextAlign.center,
             style: TextStyle(color: colorScheme.primary, fontSize: 13),
           ),
@@ -564,7 +567,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 children: [
                   term('该程序从云端加载脚本，并缓存到您的设备里，以方便随时之需；不到 1MiB，实现非常绿色和优雅。'),
                   term('严格遵循哥哥科技显著署名许可证。'),
-                  term('根据规定，脚本中的任何名字，尤其是“哥哥科技”，均不得被篡改、弱化，或以非预期方式呈现名称。'),
+                  term('根据规定，脚本中的任何名字，尤其是“哥哥科技”，均不得被篡改、弱化，或以非预期名称方式呈现'),
                 ],
               ),
             ),
@@ -615,13 +618,15 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               dev(
                 Icons.person_add_alt_1_rounded,
                 colorScheme.primary,
-                '了解开发者 / 查看主页',
+                '了解开发者 / 查看主页\n'
+                '（不影响计时器）',
                 () => Get.toNamed('/member?mid=388010726'),
               ),
               dev(
                 Icons.favorite_rounded,
                 Colors.pink,
-                '支持我的朋友',
+                '支持我的朋友\n'
+                '（不影响倒计时）',
                 () => PageUtils.launchURL(
                   'https://www.goofish.com/personal?userId=2216485229713',
                 ),
@@ -633,8 +638,12 @@ class _BroTechConsentState extends State<_BroTechConsent> {
       actions: [
         TextButton.icon(
           onPressed: () => Get.to(() => const BroTechFilesPage()),
-          icon: const Icon(Icons.gavel_rounded, size: 18),
-          label: const Text('查看许可证（不影响计时器）'),
+          icon: const Icon(Icons.balance, size: 18),
+          label: const Text('查看许可证'),
+        ),
+        TextButton(
+          onPressed: () => Get.back(result: false),
+          child: const Text('拒绝'),
         ),
         FilledButton(
           onPressed: _left == 0 ? _agree : null,
