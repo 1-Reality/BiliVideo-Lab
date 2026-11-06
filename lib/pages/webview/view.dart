@@ -426,11 +426,11 @@ document.querySelector('.info-bar').addEventListener('click', function() {
 });
 """,
                       );
-                  } else if (url.contains('goofish.com')) {
+                  } else if (uri?.host.endsWith('goofish.com') ?? false) {
                     // 闲鱼网页版会盖一层登录弹窗；点它的遮罩（满屏的那层）就关掉，不会点进商品
                     controller.evaluateJavascript(
                       source:
-                          r"""(()=>{const t=Date.now(),o=new MutationObserver(()=>{if(f()||Date.now()-t>30000)o.disconnect();}),f=()=>{for(const e of document.body.children){if(!e.textContent.includes('短信登录'))continue;for(const m of [e,...e.querySelectorAll('div')]){const r=m.getBoundingClientRect();if(getComputedStyle(m).position==='fixed'&&r.width>=innerWidth*.9&&r.height>=innerHeight*.9){m.dispatchEvent(new MouseEvent('click',{bubbles:true}));return true;}}}return false;};if(!f())o.observe(document.body,{childList:true,subtree:true});})();""",
+                          r"""(()=>{let q=0;const t=Date.now(),o=new MutationObserver(()=>{if(q)return;q=1;requestAnimationFrame(()=>{q=0;if(f()||Date.now()-t>30000)o.disconnect();});}),f=()=>{for(const e of document.body.children){if(!e.textContent.includes('短信登录'))continue;for(const m of [e,...e.querySelectorAll('div')]){const r=m.getBoundingClientRect();if(getComputedStyle(m).position==='fixed'&&r.width>=innerWidth*.9&&r.height>=innerHeight*.9){m.dispatchEvent(new MouseEvent('click',{bubbles:true}));return true;}}}return false;};if(!f())o.observe(document.body,{childList:true,subtree:true});})();""",
                     );
                   } else if (url.startsWith('https://live.bilibili.com')) {
                     controller.evaluateJavascript(
