@@ -789,6 +789,9 @@ abstract final class Pref {
   static bool get rcmdAnonymous =>
       _setting.get(SettingBoxKey.rcmdAnonymous, defaultValue: false);
 
+  static bool get rcmdBlockLive =>
+      _setting.get(SettingBoxKey.rcmdBlockLive, defaultValue: true);
+
   static bool get rcmdReportClick =>
       _setting.get(SettingBoxKey.rcmdReportClick, defaultValue: false);
 

@@ -160,6 +160,7 @@ abstract final class SettingBoxKey {
       rcmdSources = 'rcmdSources',
       rcmdPersonalized = 'rcmdPersonalized',
       rcmdAnonymous = 'rcmdAnonymous',
+      rcmdBlockLive = 'rcmdBlockLive',
       rcmdReportClick = 'rcmdReportClick',
       rcmdInterestDone = 'rcmdInterestDone',
       webRcmdPs = 'webRcmdPs',
