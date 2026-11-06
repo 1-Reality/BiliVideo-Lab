@@ -183,10 +183,10 @@ Commit Hash: ${BuildConfig.commitHash}''',
             ),
           ListTile(
             onTap: () => PageUtils.launchURL(
-              'https://www.goofish.com/personal?userId=2216485229713',
+              'https://pages.goofish.com/sharexy?userid=2216485229713&bft=personal&bfp',
             ),
             leading: const Icon(Icons.storefront_outlined),
-            title: const Text('影像 音频 闲鱼小铺（点我交流）'),
+            title: const Text('影像 音频 闲鱼小铺（点我交流经验技术）'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(
