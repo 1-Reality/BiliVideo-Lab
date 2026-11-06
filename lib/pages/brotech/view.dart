@@ -664,7 +664,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
         ),
         TextButton(
           onPressed: () => Get.back(result: false),
-          child: const Text('拒绝'),
+          child: const Text('关闭'),
         ),
         FilledButton(
           onPressed: _left == 0 ? _agree : null,
