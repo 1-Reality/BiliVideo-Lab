@@ -7,6 +7,7 @@ import 'package:PiliBro/pages/brotech/files.dart';
 import 'package:PiliBro/services/brotech_scripts.dart';
 import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
+import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -424,15 +425,16 @@ class _BroTechConsent extends StatefulWidget {
 
 class _BroTechConsentState extends State<_BroTechConsent> {
   late final Timer _timer;
-  int _left = 24;
+  int _left = 15;
   bool? _lan;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 1250), (t) {
-      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.paused ||
-          WidgetsBinding.instance.lifecycleState == AppLifecycleState.hidden) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      final s = WidgetsBinding.instance.lifecycleState;
+      // 手机：小窗失焦即 inactive，必须前台才计时；桌面：首次启动窗口未激活也是 inactive，只在最小化等真正离开时暂停
+      if (PlatformUtils.isMobile ? s != .resumed : s == .paused || s == .hidden) {
         return;
       }
       if (--_left == 0) t.cancel();
@@ -535,7 +537,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
               children: [
                 SizedBox.expand(
                   child: CircularProgressIndicator(
-                    value: (24 - _left) * 0.04,
+                    value: (15 - _left) * 0.0625, // 走满 15 秒停在 15/16，故意缺最后一格
                     strokeWidth: 5,
                     strokeCap: StrokeCap.round,
                     backgroundColor: colorScheme.surfaceContainerHighest,
@@ -636,7 +638,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                 colorScheme.primary,
                 '了解开发者\n'
                 '查看B站主页',
-                () => Get.toNamed('/member?mid=388010726'),
+                () => Get.toNamed('/member?mid=501430041'),
               ),
               dev(
                 Icons.favorite_rounded,
@@ -648,6 +650,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
                   parameters: {
                     'url':
                         'https://www.goofish.com/personal?userId=2216485229713',
+                    'uaType': 'pc',
                   },
                   arguments: const {'inApp': true},
                 ),

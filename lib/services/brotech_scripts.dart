@@ -267,10 +267,9 @@ UserScript buildBroTechUserScript({
     BroTechRunAt.load =>
       "document.readyState==='complete'?__run():window.addEventListener('load',__run,{once:true});",
   };
-  final patched = source.replaceFirst(
-    RegExp(r'injectMode:\s*\d+'),
-    'injectMode: 3',
-  );
+  final patched = source
+      .replaceFirst(RegExp(r'injectMode:\s*\d+'), 'injectMode: 3')
+      .replaceFirst(RegExp(r'''周期类型:\s*(['"])[^'"]*\1'''), "周期类型: '不散场'");
   final js =
       '''
 (()=>{const __v=${jsonEncode(values)},__q=[];
