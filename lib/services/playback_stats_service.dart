@@ -11,6 +11,12 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, debugPrint, kDebugMode;
 import 'package:flutter/widgets.dart';
 
+typedef _Target = ({
+  Map<String, dynamic> item,
+  Map<String, dynamic> month,
+  String dirtyKey,
+});
+
 abstract final class PlaybackStatsService {
   static const _seekThresholdUs = 1000000;
   static const _rewindEligibilityUs = 5000000;
@@ -152,24 +158,12 @@ abstract final class PlaybackStatsService {
   static String _partitionSpeedKey = '';
   static String _orientationSpeedKey = '';
   static int _crossKeyVersion = 0;
-  static List<
-    ({
-      Map<String, dynamic> item,
-      Map<String, dynamic> month,
-      String dirtyKey,
-    })
-  >? _dimensionTargetsCache;
+  static List<_Target>? _dimensionTargetsCache;
   static int _dimensionTargetsVersion = -1;
   static int _dimensionTargetsTimeKey = -1;
   static int _dimensionTargetsOffsetMinutes = 0;
   static String _dimensionTargetsMonth = '';
-  static List<
-    ({
-      Map<String, dynamic> item,
-      Map<String, dynamic> month,
-      String dirtyKey,
-    })
-  >? _crossTargetsCache;
+  static List<_Target>? _crossTargetsCache;
   static int _crossTargetsVersion = -1;
   static String _crossTargetsMonth = '';
   static Map<String, dynamic>? _monthValuesCache;
@@ -204,7 +198,7 @@ abstract final class PlaybackStatsService {
 
   static void _ensureInitialized() {
     if (_stats != null) return;
-    _stats = _loadStatsFromStorage();
+    _stats = _assemble(GStorage.playbackStats.toMap());
     // 只管存盘；归档只在启动时做（main 里首帧前）
     _flushTimer ??= Timer.periodic(_flushInterval, (_) => unawaited(flush()));
   }
@@ -232,35 +226,21 @@ abstract final class PlaybackStatsService {
   // their writes are deferred until the new hot Box is ready.
   static void beginArchiveRollover() {
     _snapshotting = true;
+    _startFreshPeriod();
+  }
+
+  // 换期和清零共用：内存里换成空的一期，正在放的媒体在新的一期里重新开头
+  static void _startFreshPeriod() {
     _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
     _dirty = true;
     _dirtyKeys
       ..clear()
       ..addAll(_stats!.keys);
-    _dirtyMonths.clear();
-    _dirtyVideoUpUids.clear();
-    _dirtyLiveUids.clear();
-    _dirtyDimensions.clear();
-    _dirtyCrossDimensions.clear();
-    _monthValuesCache = null;
-    _monthValuesKey = '';
-    _monthDirtyKeyCache.clear();
-    _monthBucketCache.clear();
-    _bucketMapCache.clear();
-    _dimensionTargetsCache = null;
-    _crossTargetsCache = null;
-    _videoUpItemCache = null;
-    _videoUpMonthCache = null;
-    _videoUpCacheUid = null;
-    _videoUpCacheMonth = '';
-    _wallTimeCache = null;
-    _wallTimeRefreshAtUs = 0;
+    _dropCaches();
     final now = _clock.elapsedMicroseconds;
     _appLastWallUs = now;
     _pageLastWallUs = now;
     _commentPanelLastWallUs = now;
-    // Continuing playback starts fresh counters in the new active file. The
-    // archived UP and session history is deliberately not consulted here.
     _rewind = null;
     _pendingPositionUs = null;
     _clearTrailingPause();
@@ -268,7 +248,10 @@ abstract final class PlaybackStatsService {
       if (_live) {
         _add('liveOpenCount', 1);
         final uid = _liveUid ?? 'unknown';
-        _map('liveByUid')[uid] = {'openCount': 1, 'watchUs': 0};
+        _map('liveByUid')[uid] = <String, dynamic>{
+          'openCount': 1,
+          'watchUs': 0,
+        };
         _markLiveDirty(uid);
       } else {
         _add('videoStarts', 1);
@@ -288,6 +271,27 @@ abstract final class PlaybackStatsService {
       }
       _lastWallUs = now;
     }
+  }
+
+  static void _dropCaches() {
+    _dirtyMonths.clear();
+    _dirtyVideoUpUids.clear();
+    _dirtyLiveUids.clear();
+    _dirtyDimensions.clear();
+    _dirtyCrossDimensions.clear();
+    _monthValuesCache = null;
+    _monthValuesKey = '';
+    _monthDirtyKeyCache.clear();
+    _monthBucketCache.clear();
+    _bucketMapCache.clear();
+    _dimensionTargetsCache = null;
+    _crossTargetsCache = null;
+    _videoUpItemCache = null;
+    _videoUpMonthCache = null;
+    _videoUpCacheUid = null;
+    _videoUpCacheMonth = '';
+    _wallTimeCache = null;
+    _wallTimeRefreshAtUs = 0;
   }
 
   static void endArchiveRollover() {
@@ -312,9 +316,6 @@ abstract final class PlaybackStatsService {
       ? _stringMap(value)
       : <String, dynamic>{};
 
-  static Map<String, dynamic> _loadStatsFromStorage() =>
-      _assemble(GStorage.playbackStats.toMap());
-
   // Shard keys (hot box or cold archive) -> the nested in-memory layout.
   static Map<String, dynamic> _assemble(Map raw) {
     if (raw.isEmpty) {
@@ -325,7 +326,13 @@ abstract final class PlaybackStatsService {
     final data = <String, dynamic>{};
     for (final entry in raw.entries) {
       final key = entry.key.toString();
-      if (!_isShardKey(key)) data[key] = entry.value;
+      if (!key.startsWith(_monthPrefix) &&
+          !key.startsWith(_videoUpPrefix) &&
+          !key.startsWith(_livePrefix) &&
+          !key.startsWith(_dimensionPrefix) &&
+          !key.startsWith(_crossDimensionPrefix)) {
+        data[key] = entry.value;
+      }
     }
     // Normalize each composite exactly once. Rebuilding it for every shard
     // recursively copies all previous shards and makes startup quadratic.
@@ -386,13 +393,6 @@ abstract final class PlaybackStatsService {
     return data;
   }
 
-  static bool _isShardKey(String key) =>
-      key.startsWith(_monthPrefix) ||
-      key.startsWith(_videoUpPrefix) ||
-      key.startsWith(_livePrefix) ||
-      key.startsWith(_dimensionPrefix) ||
-      key.startsWith(_crossDimensionPrefix);
-
   static void _restoreNestedShard(
     Map<String, dynamic> target,
     String shard,
@@ -419,7 +419,13 @@ abstract final class PlaybackStatsService {
         ? current.toDouble() + value
         : current.toInt() + value.toInt();
     _markDirty(key);
-    _addMonthValue(key, value);
+    final monthKey = _monthKey;
+    final month = _monthValues(monthKey);
+    final monthCurrent = month[key] as num? ?? 0;
+    month[key] = value is double || monthCurrent is double
+        ? monthCurrent.toDouble() + value
+        : monthCurrent.toInt() + value.toInt();
+    _markMonthDirty(key, monthKey);
   }
 
   static void _markDirty(String key) {
@@ -449,15 +455,6 @@ abstract final class PlaybackStatsService {
     _dirtyLiveUids.add(uid);
   }
 
-  static void _markDimensionDirty(
-    String axis,
-    String value, {
-    bool cross = false,
-  }) {
-    _dirty = true;
-    (cross ? _dirtyCrossDimensions : _dirtyDimensions).add('$axis:$value');
-  }
-
   static DateTime get _wallTime {
     final clock = _clock.elapsedMicroseconds;
     final cached = _wallTimeCache;
@@ -474,14 +471,12 @@ abstract final class PlaybackStatsService {
     final stamp = now.year * 12 + now.month;
     if (stamp != _monthStamp) {
       _monthStamp = stamp;
-      _cachedMonthKey = _monthKeyFor(now);
+      _cachedMonthKey =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}';
     }
     return _cachedMonthKey;
   }
-
-  static String _monthKeyFor(DateTime now) =>
-      '${now.year.toString().padLeft(4, '0')}-'
-      '${now.month.toString().padLeft(2, '0')}';
 
   static Map<String, dynamic> _monthValues(String monthKey) {
     final cached = _monthValuesCache;
@@ -494,25 +489,6 @@ abstract final class PlaybackStatsService {
     _monthDirtyKeyCache.clear();
     _monthBucketCache.clear();
     return month;
-  }
-
-  static Map<String, dynamic> _bucketMap(String key) {
-    final cached = _bucketMapCache[key];
-    if (cached != null) return cached;
-    final map = _map(key);
-    _bucketMapCache[key] = map;
-    return map;
-  }
-
-  static void _addMonthValue(String key, num value) {
-    if (value == 0 || key == 'months') return;
-    final monthKey = _monthKey;
-    final month = _monthValues(monthKey);
-    final current = month[key] as num? ?? 0;
-    month[key] = value is double || current is double
-        ? current.toDouble() + value
-        : current.toInt() + value.toInt();
-    _markMonthDirty(key, monthKey);
   }
 
   static void _settleAppForeground(int now) {
@@ -545,8 +521,7 @@ abstract final class PlaybackStatsService {
     final elapsed = _pendingCommentPanelUs;
     if (elapsed == 0) return;
     _pendingCommentPanelUs = 0;
-    _add('commentPanelForegroundUs', elapsed);
-    _addVideoUp('commentPanelForegroundUs', elapsed);
+    _addWithUp('commentPanelForegroundUs', elapsed);
     _addDimension('commentPanelForegroundUs', elapsed);
   }
 
@@ -632,7 +607,7 @@ abstract final class PlaybackStatsService {
 
   static void _addBucket(String key, String bucket, num value) {
     if (value == 0) return;
-    final map = _bucketMap(key);
+    final map = _bucketMapCache[key] ??= _map(key);
     final current = map[bucket] as num? ?? 0;
     map[bucket] = value is double || current is double
         ? current.toDouble() + value
@@ -702,6 +677,17 @@ abstract final class PlaybackStatsService {
     _markVideoUpDirty(uid);
   }
 
+  // 全局和当前视频的 UP 各记一份
+  static void _addWithUp(String key, num value) {
+    _add(key, value);
+    _addVideoUp(key, value);
+  }
+
+  static void _addBucketWithUp(String key, String bucket, num value) {
+    _addBucket(key, bucket, value);
+    _addVideoUpBucket(key, bucket, value);
+  }
+
   static void _recordVideoUpStart() {
     if (_videoUpUid == null || _videoUpStartRecorded) return;
     _videoUpStartRecorded = true;
@@ -757,13 +743,10 @@ abstract final class PlaybackStatsService {
     item['months'] = months;
   }
 
-  static List<
-    ({
-      Map<String, dynamic> item,
-      Map<String, dynamic> month,
-      String dirtyKey,
-    })
-  > _dimensionTargets(String month, Map<String, String> axes) {
+  static List<_Target> _dimensionTargets(
+    String month,
+    Map<String, String> axes,
+  ) {
     final cached = _dimensionTargetsCache;
     if (cached != null &&
         _dimensionTargetsVersion == _dimensionContextVersion &&
@@ -774,13 +757,7 @@ abstract final class PlaybackStatsService {
     }
 
     final dimensions = _map('dimensions');
-    final targets = <
-      ({
-        Map<String, dynamic> item,
-        Map<String, dynamic> month,
-        String dirtyKey,
-      })
-    >[];
+    final targets = <_Target>[];
     for (final axis in axes.entries) {
       final values = _mutableMap(dimensions[axis.key]);
       final item = _mutableMap(values[axis.value]);
@@ -805,32 +782,21 @@ abstract final class PlaybackStatsService {
     return targets;
   }
 
-  static void _updateCrossKeys(String speed) {
+  static List<_Target> _crossTargets(String speed, String month) {
     final uid = _videoUpUid;
-    if (speed == _crossSpeed &&
-        uid == _crossUpUid &&
-        _partitionId == _crossPartition &&
-        _orientation == _crossOrientation) {
-      return;
+    if (speed != _crossSpeed ||
+        uid != _crossUpUid ||
+        _partitionId != _crossPartition ||
+        _orientation != _crossOrientation) {
+      _crossSpeed = speed;
+      _crossUpUid = uid;
+      _crossPartition = _partitionId;
+      _crossOrientation = _orientation;
+      _upSpeedKey = '${uid ?? 'unknown'}|$speed';
+      _partitionSpeedKey = '$_partitionId|$speed';
+      _orientationSpeedKey = '$_orientation|$speed';
+      _crossKeyVersion++;
     }
-    _crossSpeed = speed;
-    _crossUpUid = uid;
-    _crossPartition = _partitionId;
-    _crossOrientation = _orientation;
-    _upSpeedKey = '${uid ?? 'unknown'}|$speed';
-    _partitionSpeedKey = '$_partitionId|$speed';
-    _orientationSpeedKey = '$_orientation|$speed';
-    _crossKeyVersion++;
-  }
-
-  static List<
-    ({
-      Map<String, dynamic> item,
-      Map<String, dynamic> month,
-      String dirtyKey,
-    })
-  > _crossTargets(String speed, String month) {
-    _updateCrossKeys(speed);
     final cached = _crossTargetsCache;
     if (cached != null &&
         _crossTargetsVersion == _crossKeyVersion &&
@@ -839,19 +805,12 @@ abstract final class PlaybackStatsService {
     }
 
     final crosses = _map('crossDimensions');
-    final keys = (
+    final targets = <_Target>[];
+    for (final (axis, valueKey) in [
       ('upSpeed', _upSpeedKey),
       ('partitionSpeed', _partitionSpeedKey),
       ('orientationSpeed', _orientationSpeedKey),
-    );
-    final targets = <
-      ({
-        Map<String, dynamic> item,
-        Map<String, dynamic> month,
-        String dirtyKey,
-      })
-    >[];
-    for (final (axis, valueKey) in [keys.$1, keys.$2, keys.$3]) {
+    ]) {
       final values = _mutableMap(crosses[axis]);
       final item = _mutableMap(values[valueKey]);
       final months = _mutableMap(item['months']);
@@ -985,35 +944,21 @@ abstract final class PlaybackStatsService {
     _pendingNormalPlaybackUs = 0;
     _pendingNormalMediaAdvanceUs = 0;
 
-    _add('activePlaybackUs', activePlaybackUs);
-    _addVideoUp('activePlaybackUs', activePlaybackUs);
-    _add('nominalMediaUs', nominalMediaUs);
-    _add('nominalMediaIncludingLongPressUs', nominalIncludingLongPressUs);
-    _addVideoUp('nominalMediaUs', nominalMediaUs);
-    _addVideoUp(
-      'nominalMediaIncludingLongPressUs',
-      nominalIncludingLongPressUs,
-    );
-    _addBucket('speedActiveUs', speed, activePlaybackUs);
-    _addVideoUpBucket('speedActiveUs', speed, activePlaybackUs);
+    _addWithUp('activePlaybackUs', activePlaybackUs);
+    _addWithUp('nominalMediaUs', nominalMediaUs);
+    _addWithUp('nominalMediaIncludingLongPressUs', nominalIncludingLongPressUs);
+    _addBucketWithUp('speedActiveUs', speed, activePlaybackUs);
     if (longPressActiveUs != 0) {
-      _add('longPressActiveUs', longPressActiveUs);
-      _addBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
-      _addVideoUp('longPressActiveUs', longPressActiveUs);
-      _addVideoUpBucket('longPressSpeedActiveUs', speed, longPressActiveUs);
+      _addWithUp('longPressActiveUs', longPressActiveUs);
+      _addBucketWithUp('longPressSpeedActiveUs', speed, longPressActiveUs);
     }
 
-    _add('mediaAdvanceUs', mediaAdvanceUs);
-    _addVideoUp('mediaAdvanceUs', mediaAdvanceUs);
+    _addWithUp('mediaAdvanceUs', mediaAdvanceUs);
     _addBucket('speedMediaAdvanceUs', speed, mediaAdvanceUs);
-    _add('rewindPlaybackUs', rewindPlaybackUs);
-    _add('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-    _add('normalPlaybackUs', normalPlaybackUs);
-    _add('normalMediaAdvanceUs', normalMediaAdvanceUs);
-    _addVideoUp('rewindPlaybackUs', rewindPlaybackUs);
-    _addVideoUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
-    _addVideoUp('normalPlaybackUs', normalPlaybackUs);
-    _addVideoUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
+    _addWithUp('rewindPlaybackUs', rewindPlaybackUs);
+    _addWithUp('rewindMediaAdvanceUs', rewindMediaAdvanceUs);
+    _addWithUp('normalPlaybackUs', normalPlaybackUs);
+    _addWithUp('normalMediaAdvanceUs', normalMediaAdvanceUs);
     _addDimensionPlayback(
       activePlaybackUs,
       mediaAdvanceUs,
@@ -1088,8 +1033,9 @@ abstract final class PlaybackStatsService {
       item['months'] = months;
       values[axis.value] = item;
       dimensions[axis.key] = values;
-      _markDimensionDirty(axis.key, axis.value);
+      _dirtyDimensions.add('${axis.key}:${axis.value}');
     }
+    _dirty = true;
   }
 
   static Map<String, String> _dimensionAxes(DateTime now) {
@@ -1501,21 +1447,16 @@ abstract final class PlaybackStatsService {
       },
     };
     for (final primitive in sessionPrimitives.entries) {
-      _add(primitive.key, primitive.value);
-      _addVideoUp(primitive.key, primitive.value);
+      _addWithUp(primitive.key, primitive.value);
     }
     _addStaticSessionDimensions(sessionPrimitives);
     if (_sourceDurationUs > 0) {
-      _add('openedSourceDurationUs', _sourceDurationUs);
-      _addVideoUp('openedSourceDurationUs', _sourceDurationUs);
+      _addWithUp('openedSourceDurationUs', _sourceDurationUs);
       _addDimension('openedSourceDurationUs', _sourceDurationUs);
     }
-    _add('grossMediaAdvanceUs', _sessionMediaAdvanceUs);
-    _add('uniqueCoveredUs', _sessionUniqueCoveredUs);
-    _add('repeatCoveredUs', _sessionRepeatCoveredUs);
-    _addVideoUp('grossMediaAdvanceUs', _sessionMediaAdvanceUs);
-    _addVideoUp('uniqueCoveredUs', _sessionUniqueCoveredUs);
-    _addVideoUp('repeatCoveredUs', _sessionRepeatCoveredUs);
+    _addWithUp('grossMediaAdvanceUs', _sessionMediaAdvanceUs);
+    _addWithUp('uniqueCoveredUs', _sessionUniqueCoveredUs);
+    _addWithUp('repeatCoveredUs', _sessionRepeatCoveredUs);
     _addDimension('grossMediaAdvanceUs', _sessionMediaAdvanceUs);
     _addDimension('uniqueCoveredUs', _sessionUniqueCoveredUs);
     _addDimension('repeatCoveredUs', _sessionRepeatCoveredUs);
@@ -1729,8 +1670,7 @@ abstract final class PlaybackStatsService {
         _add('playbackSegments', 1);
         if (_userPause) {
           _userPause = false;
-          _add('pauseCount', 1);
-          _addVideoUp('pauseCount', 1);
+          _addWithUp('pauseCount', 1);
         }
       } else if (playing != _playing) {
         _flushPlaybackPending();
@@ -1759,8 +1699,7 @@ abstract final class PlaybackStatsService {
           _seekBuffering = now < _suppressDiscontinuityUntilUs;
         } else if (!_seekBuffering &&
             now - _bufferingStartUs >= _stallCountUs) {
-          _add('bufferingCount', 1);
-          _addVideoUp('bufferingCount', 1);
+          _addWithUp('bufferingCount', 1);
         }
       }
     }
@@ -1786,13 +1725,11 @@ abstract final class PlaybackStatsService {
       if (recordSelection) {
         _addBucket('manualSpeedSelections', key, 1);
         _stats!['lastSelectedSpeed'] = speed;
-        _add('rateChangeCount', 1);
-        _addVideoUp('rateChangeCount', 1);
+        _addWithUp('rateChangeCount', 1);
         _markDirty('lastSelectedSpeed');
       }
       if (temporary && !_temporaryRate) {
-        _add('longPressCount', 1);
-        _addVideoUp('longPressCount', 1);
+        _addWithUp('longPressCount', 1);
       }
     }
     _rate = speed;
@@ -1938,29 +1875,22 @@ abstract final class PlaybackStatsService {
 
     if (_completedIdle) {
       // Waiting on an already completed video is neither playback nor pause.
-      _add('commentAreaUs', wallUs);
-      _addVideoUp('commentAreaUs', wallUs);
+      _addWithUp('commentAreaUs', wallUs);
       _addDimension('commentAreaUs', wallUs);
     } else if (_buffering && _seekBuffering) {
-      _add('seekBufferingUs', wallUs);
-      _addVideoUp('seekBufferingUs', wallUs);
+      _addWithUp('seekBufferingUs', wallUs);
       _rewind?.bufferingUs += wallUs;
     } else if (_buffering) {
-      _add('bufferingUs', wallUs);
-      _addVideoUp('bufferingUs', wallUs);
+      _addWithUp('bufferingUs', wallUs);
       _addDimension('bufferingUs', wallUs);
       final rewind = _rewind;
       final speed = _rateKey;
       if (rewind == null) {
-        _add('normalBufferingUs', wallUs);
-        _addVideoUp('normalBufferingUs', wallUs);
-        _addBucket('normalSpeedBufferingUs', speed, wallUs);
-        _addVideoUpBucket('normalSpeedBufferingUs', speed, wallUs);
+        _addWithUp('normalBufferingUs', wallUs);
+        _addBucketWithUp('normalSpeedBufferingUs', speed, wallUs);
       } else {
-        _add('rewindBufferingUs', wallUs);
-        _addVideoUp('rewindBufferingUs', wallUs);
-        _addBucket('rewindSpeedBufferingUs', speed, wallUs);
-        _addVideoUpBucket('rewindSpeedBufferingUs', speed, wallUs);
+        _addWithUp('rewindBufferingUs', wallUs);
+        _addBucketWithUp('rewindSpeedBufferingUs', speed, wallUs);
         rewind.bufferingUs += wallUs;
       }
     } else if (_playing) {
@@ -2036,21 +1966,17 @@ abstract final class PlaybackStatsService {
       final room = _awayAfterUs - _trailingPauseUs;
       final pausedUs = wallUs < room ? wallUs : room;
       if (pausedUs < wallUs) {
-        _add('awayUs', wallUs - pausedUs);
-        _addVideoUp('awayUs', wallUs - pausedUs);
+        _addWithUp('awayUs', wallUs - pausedUs);
       }
       _sessionPausedUs += pausedUs;
-      _add('pausedUs', pausedUs);
-      _addVideoUp('pausedUs', pausedUs);
+      _addWithUp('pausedUs', pausedUs);
       _addDimension('pausedUs', pausedUs);
       _trailingPauseUs += pausedUs;
       final rewind = _rewind;
       final speed = _rateKey;
       if (rewind == null) {
-        _add('normalPausedUs', pausedUs);
-        _addVideoUp('normalPausedUs', pausedUs);
-        _addBucket('normalSpeedPausedUs', speed, pausedUs);
-        _addVideoUpBucket('normalSpeedPausedUs', speed, pausedUs);
+        _addWithUp('normalPausedUs', pausedUs);
+        _addBucketWithUp('normalSpeedPausedUs', speed, pausedUs);
         _trailingNormalPauseUs += pausedUs;
         _trailingNormalPauseBySpeed.update(
           speed,
@@ -2058,10 +1984,8 @@ abstract final class PlaybackStatsService {
           ifAbsent: () => pausedUs,
         );
       } else {
-        _add('rewindPausedUs', pausedUs);
-        _addVideoUp('rewindPausedUs', pausedUs);
-        _addBucket('rewindSpeedPausedUs', speed, pausedUs);
-        _addVideoUpBucket('rewindSpeedPausedUs', speed, pausedUs);
+        _addWithUp('rewindPausedUs', pausedUs);
+        _addBucketWithUp('rewindSpeedPausedUs', speed, pausedUs);
         _trailingRewindPauseUs += pausedUs;
         _trailingRewindPauseBySpeed.update(
           speed,
@@ -2092,25 +2016,19 @@ abstract final class PlaybackStatsService {
   // duration reaching here is exactly: paused, then never played again.
   static void _reclassifyTrailingPauseAsComment() {
     if (_trailingPauseUs == 0) return;
-    _add('pausedUs', -_trailingPauseUs);
-    _addVideoUp('pausedUs', -_trailingPauseUs);
+    _addWithUp('pausedUs', -_trailingPauseUs);
     _addDimension('pausedUs', -_trailingPauseUs);
-    _add('commentAreaUs', _trailingPauseUs);
-    _addVideoUp('commentAreaUs', _trailingPauseUs);
+    _addWithUp('commentAreaUs', _trailingPauseUs);
     _addDimension('commentAreaUs', _trailingPauseUs);
-    _add('normalPausedUs', -_trailingNormalPauseUs);
-    _add('rewindPausedUs', -_trailingRewindPauseUs);
-    _addVideoUp('normalPausedUs', -_trailingNormalPauseUs);
-    _addVideoUp('rewindPausedUs', -_trailingRewindPauseUs);
+    _addWithUp('normalPausedUs', -_trailingNormalPauseUs);
+    _addWithUp('rewindPausedUs', -_trailingRewindPauseUs);
     final sessionPausedUs = _sessionPausedUs - _trailingPauseUs;
     _sessionPausedUs = sessionPausedUs > 0 ? sessionPausedUs : 0;
     for (final entry in _trailingNormalPauseBySpeed.entries) {
-      _addBucket('normalSpeedPausedUs', entry.key, -entry.value);
-      _addVideoUpBucket('normalSpeedPausedUs', entry.key, -entry.value);
+      _addBucketWithUp('normalSpeedPausedUs', entry.key, -entry.value);
     }
     for (final entry in _trailingRewindPauseBySpeed.entries) {
-      _addBucket('rewindSpeedPausedUs', entry.key, -entry.value);
-      _addVideoUpBucket('rewindSpeedPausedUs', entry.key, -entry.value);
+      _addBucketWithUp('rewindSpeedPausedUs', entry.key, -entry.value);
     }
     final rewind = _rewind;
     if (rewind != null) {
@@ -2125,23 +2043,17 @@ abstract final class PlaybackStatsService {
     if (delta.abs() < _seekThresholdUs) return;
     _finishRewind(now, completed: false);
     if (delta > 0) {
-      _add('forwardSeekCount', 1);
-      _add('forwardSeekUs', delta);
-      _addVideoUp('forwardSeekCount', 1);
-      _addVideoUp('forwardSeekUs', delta);
+      _addWithUp('forwardSeekCount', 1);
+      _addWithUp('forwardSeekUs', delta);
       return;
     }
 
     final distance = -delta;
-    _add('rewindCount', 1);
-    _add('rewindUs', distance);
-    _addVideoUp('rewindCount', 1);
-    _addVideoUp('rewindUs', distance);
+    _addWithUp('rewindCount', 1);
+    _addWithUp('rewindUs', distance);
     if (_rate > 1) {
-      _add('fastRewindCount', 1);
-      _add('fastRewindUs', distance);
-      _addVideoUp('fastRewindCount', 1);
-      _addVideoUp('fastRewindUs', distance);
+      _addWithUp('fastRewindCount', 1);
+      _addWithUp('fastRewindUs', distance);
     }
     _rewind = _RewindEpisode(
       checkpointUs: fromUs,
@@ -2186,50 +2098,18 @@ abstract final class PlaybackStatsService {
     if (rewind == null) return;
     final eligible =
         completed || now - rewind.startedAtUs >= _rewindEligibilityUs;
-    if (eligible) {
-      _add('eligibleRewindCount', 1);
-      _addVideoUp('eligibleRewindCount', 1);
-      if (completed) {
-        _add('completedRewindCount', 1);
-        _add('completedRewindUs', rewind.distanceUs);
-        _add('completedRewindPlaybackUs', rewind.activePlaybackUs);
-        _add('completedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-        _add('completedRewindPausedUs', rewind.pausedUs);
-        _add('completedRewindBufferingUs', rewind.bufferingUs);
-        _addVideoUp('completedRewindCount', 1);
-        _addVideoUp('completedRewindUs', rewind.distanceUs);
-        _addVideoUp('completedRewindPlaybackUs', rewind.activePlaybackUs);
-        _addVideoUp('completedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-        _addVideoUp('completedRewindPausedUs', rewind.pausedUs);
-        _addVideoUp('completedRewindBufferingUs', rewind.bufferingUs);
-      } else {
-        _add('abandonedRewindCount', 1);
-        _add('abandonedRewindUs', rewind.distanceUs);
-        _add('abandonedRewindPlaybackUs', rewind.activePlaybackUs);
-        _add('abandonedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-        _add('abandonedRewindPausedUs', rewind.pausedUs);
-        _add('abandonedRewindBufferingUs', rewind.bufferingUs);
-        _addVideoUp('abandonedRewindCount', 1);
-        _addVideoUp('abandonedRewindUs', rewind.distanceUs);
-        _addVideoUp('abandonedRewindPlaybackUs', rewind.activePlaybackUs);
-        _addVideoUp('abandonedRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-        _addVideoUp('abandonedRewindPausedUs', rewind.pausedUs);
-        _addVideoUp('abandonedRewindBufferingUs', rewind.bufferingUs);
-      }
-    } else {
-      _add('shortRewindExitCount', 1);
-      _add('shortRewindUs', rewind.distanceUs);
-      _add('shortRewindPlaybackUs', rewind.activePlaybackUs);
-      _add('shortRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-      _add('shortRewindPausedUs', rewind.pausedUs);
-      _add('shortRewindBufferingUs', rewind.bufferingUs);
-      _addVideoUp('shortRewindExitCount', 1);
-      _addVideoUp('shortRewindUs', rewind.distanceUs);
-      _addVideoUp('shortRewindPlaybackUs', rewind.activePlaybackUs);
-      _addVideoUp('shortRewindMediaAdvanceUs', rewind.mediaAdvanceUs);
-      _addVideoUp('shortRewindPausedUs', rewind.pausedUs);
-      _addVideoUp('shortRewindBufferingUs', rewind.bufferingUs);
-    }
+    if (eligible) _addWithUp('eligibleRewindCount', 1);
+    final kind = !eligible
+        ? 'short'
+        : completed
+        ? 'completed'
+        : 'abandoned';
+    _addWithUp(eligible ? '${kind}RewindCount' : 'shortRewindExitCount', 1);
+    _addWithUp('${kind}RewindUs', rewind.distanceUs);
+    _addWithUp('${kind}RewindPlaybackUs', rewind.activePlaybackUs);
+    _addWithUp('${kind}RewindMediaAdvanceUs', rewind.mediaAdvanceUs);
+    _addWithUp('${kind}RewindPausedUs', rewind.pausedUs);
+    _addWithUp('${kind}RewindBufferingUs', rewind.bufferingUs);
     _rewind = null;
     _pendingPositionUs = null;
   }
@@ -2571,60 +2451,7 @@ abstract final class PlaybackStatsService {
     _ensureInitialized();
     await PlaybackArchiveService.resetArchive();
     await GStorage.playbackStats.clear();
-    _stats = {'createdAtMs': DateTime.now().millisecondsSinceEpoch};
-    _rewind = null;
-    _pendingPositionUs = null;
-    _clearTrailingPause();
-    _dirty = true;
-    _dirtyKeys
-      ..clear()
-      ..addAll(_stats!.keys);
-    _dirtyMonths.clear();
-    _dirtyVideoUpUids.clear();
-    _dirtyLiveUids.clear();
-    _dirtyDimensions.clear();
-    _dirtyCrossDimensions.clear();
-    _wallTimeCache = null;
-    _wallTimeRefreshAtUs = 0;
-    _dimensionTargetsCache = null;
-    _crossTargetsCache = null;
-    _monthValuesCache = null;
-    _monthValuesKey = '';
-    _monthDirtyKeyCache.clear();
-    _monthBucketCache.clear();
-    _bucketMapCache.clear();
-    _videoUpItemCache = null;
-    _videoUpMonthCache = null;
-    _videoUpCacheUid = null;
-    _videoUpCacheMonth = '';
-    final now = _clock.elapsedMicroseconds;
-    _appLastWallUs = now;
-    _pageLastWallUs = now;
-    _commentPanelLastWallUs = now;
-    if (_active) {
-      if (_live) {
-        _add('liveOpenCount', 1);
-        final uid = _liveUid ?? 'unknown';
-        _map('liveByUid')[uid] = {'openCount': 1, 'watchUs': 0};
-        _markLiveDirty(uid);
-      } else {
-        _add('videoStarts', 1);
-        _videoUpStartRecorded = false;
-        _recordVideoUpStart();
-        _recordSourceSpeed(_rate, _defaultRate);
-        if (_completedIdle) {
-          _videoSessionOpen = false;
-          _coveredIntervals.clear();
-        } else {
-          _beginVideoSession(
-            _lastPositionUs,
-            _sourceDurationUs,
-            resetContext: false,
-          );
-        }
-      }
-      _lastWallUs = now;
-    }
+    _startFreshPeriod();
     await flush();
   }
 
@@ -2632,24 +2459,7 @@ abstract final class PlaybackStatsService {
     _stats = null;
     _dirty = false;
     _dirtyKeys.clear();
-    _dirtyMonths.clear();
-    _dirtyVideoUpUids.clear();
-    _dirtyLiveUids.clear();
-    _dirtyDimensions.clear();
-    _dirtyCrossDimensions.clear();
-    _wallTimeCache = null;
-    _wallTimeRefreshAtUs = 0;
-    _dimensionTargetsCache = null;
-    _crossTargetsCache = null;
-    _monthValuesCache = null;
-    _monthValuesKey = '';
-    _monthDirtyKeyCache.clear();
-    _monthBucketCache.clear();
-    _bucketMapCache.clear();
-    _videoUpItemCache = null;
-    _videoUpMonthCache = null;
-    _videoUpCacheUid = null;
-    _videoUpCacheMonth = '';
+    _dropCaches();
     _writeChain = Future.value();
     final now = _clock.elapsedMicroseconds;
     _lastWallUs = now;
