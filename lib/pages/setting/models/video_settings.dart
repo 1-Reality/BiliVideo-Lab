@@ -247,6 +247,16 @@ List<SettingsModel> get videoSettings => [
         '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec，按顺序尝试；未勾选 no 时全部失败即无法播放）',
     onTap: _showHwDecDialog,
   ),
+  if (Platform.isAndroid)
+    NormalModel(
+      title: '硬解工作帧率',
+      leading: const Icon(Icons.speed_outlined),
+      getSubtitle: () => Pref.mediacodecOperatingRate == 0
+          ? '当前：0，不指定，解码器按正常播放的节奏调度'
+          : '当前：${Pref.mediacodecOperatingRate} 帧/秒（MediaCodec 的 operating-rate）。'
+                '告诉硬解码器要跑多快，高倍速时按「视频帧率 × 常用倍速」填；下一个视频起生效',
+      onTap: _showOperatingRateDialog,
+    ),
   NormalModel(
     title: '硬解状态检查',
     leading: const Icon(Icons.manage_search),
@@ -567,6 +577,46 @@ Future<void> _showHwDecDialog(
     );
     setState();
   }
+}
+
+void _showOperatingRateDialog(BuildContext context, VoidCallback setState) {
+  String rate = Pref.mediacodecOperatingRate.toString();
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('硬解工作帧率'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: rate,
+        keyboardType: TextInputType.number,
+        onChanged: (value) => rate = value,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(
+          helperText: '例：30 帧视频常看 8 倍填 240；0 为不指定',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            Get.back();
+            await GStorage.setting.put(
+              SettingBoxKey.mediacodecOperatingRate,
+              int.tryParse(rate) ?? 0,
+            );
+            setState();
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
 }
 
 void _showAutoSyncDialog(BuildContext context, VoidCallback setState) {

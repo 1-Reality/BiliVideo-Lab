@@ -1652,6 +1652,10 @@ class PlPlayerController
     if (!_hwdecAllowsSoftware) {
       opt['hwdec-software-fallback'] = 'no';
     }
+    if (Platform.isAndroid) {
+      final rate = Pref.mediacodecOperatingRate;
+      if (rate > 0) opt['vd-lavc-o'] = 'operating_rate=$rate';
+    }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
