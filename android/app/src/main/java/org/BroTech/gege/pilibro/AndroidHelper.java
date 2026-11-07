@@ -104,7 +104,7 @@ public final class AndroidHelper {
             if (wifiInfo != null) {
                 linkSpeed = wifiInfo.getLinkSpeed();
                 rssi = wifiInfo.getRssi();
-                if (rssi > -127 && rssi <= 0) {
+                if (rssi > -127 && rssi < 0) { // 我不知道API会不会返回这么离谱的值，但是我记得设置的WiFi详细信息这里是可以出现RSSI等于0的。
                     signalLevel = WifiManager.calculateSignalLevel(rssi, 5);
                 }
             }

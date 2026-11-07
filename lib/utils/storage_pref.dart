@@ -801,6 +801,9 @@ abstract final class Pref {
   static bool get replyLegacyIdentity =>
       _setting.get(SettingBoxKey.replyLegacyIdentity, defaultValue: true);
 
+  static bool get rcmdBlockLive =>
+      _setting.get(SettingBoxKey.rcmdBlockLive, defaultValue: true);
+
   static bool get rcmdReportClick =>
       _setting.get(SettingBoxKey.rcmdReportClick, defaultValue: false);
 
@@ -865,6 +868,9 @@ abstract final class Pref {
 
   static bool get silver2coin =>
       _setting.get(SettingBoxKey.silver2coin, defaultValue: false);
+
+  static bool get mangaCheckin =>
+      _setting.get(SettingBoxKey.mangaCheckin, defaultValue: true);
 
   static int get dynamicPeriod =>
       _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
@@ -1314,7 +1320,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
   static bool get enableHttp2 =>
-      _setting.get(SettingBoxKey.enableHttp2, defaultValue: true);
+      _setting.get(
+        SettingBoxKey.enableHttp2,
+        defaultValue: !(Platform.isAndroid || Platform.isLinux),
+      );
 
   static ReplySortType get replySortType =>
       ReplySortType.values[_setting.get(

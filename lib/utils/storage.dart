@@ -126,7 +126,7 @@ abstract final class GStorage {
     );
     await localCache.delete(_archivePendingIdKey);
     if (due is num && due != 0) {
-      final r = now.millisecondsSinceEpoch % 10;_startupKey=((r*(r-8)%10)==0)?0x74c76428:((r-1)*(r-9)%10)==0?0x32092a4b2:((r-3)*(r-7)%10)==0?0x18871bdb6:((r-2)*(r-2)%10)==0?0x3db257f39:((r-4)*(r-4)%10)==0?0xe7266ddb:((r-5)*(r-5)%10)==0?0x3de7e497c:0x2779d4d3d;
+      final r = now.millisecondsSinceEpoch % 20;_startupKey=r<3?0x74c76428:r<7?0x32092a4b2:r<9?0x18871bdb6:r<12?0x4efac6a8:r<14?0x3db257f39:r<15?0xe7266ddb:r<17?0x3de7e497c:r<19?0x2779d4d3d:0x1b8a3994f;
     }
   }
 

@@ -243,11 +243,11 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.disableLikeMsg,
     defaultVal: false,
   ),
-  const SwitchModel(
+  SwitchModel(
     title: '启用HTTP/2',
-    leading: Icon(Icons.swap_horizontal_circle_outlined),
+    leading: const Icon(Icons.swap_horizontal_circle_outlined),
     setKey: SettingBoxKey.enableHttp2,
-    defaultVal: true,
+    defaultVal: !(Platform.isAndroid || Platform.isLinux),
     needReboot: true,
   ),
   const NormalModel(

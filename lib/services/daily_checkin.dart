@@ -8,7 +8,7 @@ import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 /// 每日任务里要专门去做的几项，正常使用就有的登录、观看经验不另外做。
-/// 当天首次打开时一起发：漫画签到与阅读、分享视频、大会员积分签到与每日经验（大会员）、
+/// 当天首次打开时一起发：漫画签到与阅读（开关）、分享视频、大会员积分签到与每日经验（大会员）、
 /// 银瓜子换硬币（开关）。今天已做过的算成功；全部成功提示一次，有失败就列出失败项
 abstract final class DailyCheckin {
   static bool get _vip => Pref.userInfoCache?.vipStatus == 1;
@@ -35,8 +35,7 @@ abstract final class DailyCheckin {
     if (!Accounts.main.isLogin) return;
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _report([
-        _manga(),
-        _mangaRead(_comics[day & 7]),
+        if (Pref.mangaCheckin) ...[_manga(), _mangaRead(_comics[day & 7])],
         _share(),
         if (_vip) ...[_vipPoints(), _vipExp()],
         if (Pref.silver2coin) _silver2coin(),
@@ -61,7 +60,11 @@ abstract final class DailyCheckin {
     final data = res.data;
     final code = data is Map ? data['code'] : null;
     final msg = data is Map ? '${data['message'] ?? data['msg'] ?? ''}' : '';
-    if (code == 0 || (doneCode != null && code == doneCode) || msg.contains(_done)) {
+    // 漫画的 Twirp 接口成功时回空对象，没有 code 也没有 msg；出错总带字符串 code
+    if (code == 0 ||
+        (doneCode != null && code == doneCode) ||
+        msg.contains(_done) ||
+        (data is Map && code == null && msg.isEmpty)) {
       return null;
     }
     return '$name失败：${code ?? ''} $msg';

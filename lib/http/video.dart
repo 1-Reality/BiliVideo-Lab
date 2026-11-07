@@ -50,6 +50,7 @@ import 'package:protobuf/protobuf.dart';
 abstract final class VideoHttp {
   static RegExp zoneRegExp = RegExp(Pref.banWordForZone, caseSensitive: false);
   static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
+  static bool blockLive = Pref.rcmdBlockLive;
 
   // 首页推荐视频
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
@@ -97,7 +98,8 @@ abstract final class VideoHttp {
   }
 
   static bool _filterAppRcmd(dynamic i) {
-    if (i['card_goto'] == 'ad_av' ||
+    if ((blockLive && i['card_goto'] == 'live') ||
+        i['card_goto'] == 'ad_av' ||
         i['card_goto'] == 'ad_web_s' ||
         i['ad_info'] != null ||
         i['can_play'] != 1) {
@@ -246,7 +248,7 @@ abstract final class VideoHttp {
       }
       final list = <RcmdVideoItemAppModel>[];
       for (final i in items) {
-        // 屏蔽推广和拉黑用户
+        // 屏蔽直播（可关）、推广和拉黑用户
         if (_filterAppRcmd(i)) continue;
         final videoItem = RcmdVideoItemAppModel.fromJson(i)..cursor = cursor;
         if (!RecommendFilter.filter(videoItem)) {

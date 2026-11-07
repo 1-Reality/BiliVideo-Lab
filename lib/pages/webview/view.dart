@@ -426,6 +426,12 @@ document.querySelector('.info-bar').addEventListener('click', function() {
 });
 """,
                       );
+                  } else if (uri?.host.endsWith('goofish.com') ?? false) {
+                    // 闲鱼网页版会弹 Ant Design 登录框（表单在 iframe 里）；点它自己的关闭按钮，找不到就点满屏的那层 wrap
+                    controller.evaluateJavascript(
+                      source:
+                          r"""(()=>{let q=0;const t=Date.now(),o=new MutationObserver(()=>{if(q)return;q=1;requestAnimationFrame(()=>{q=0;if(f()||Date.now()-t>30000)o.disconnect();});}),f=()=>{const w=document.querySelector('.ant-modal-wrap[class*="login-modal-wrap"]');if(!w)return false;const c=w.querySelector('[class*="closeIconBg"]');c?c.click():w.dispatchEvent(new MouseEvent('click',{bubbles:true}));return true;};if(!f())o.observe(document.body,{childList:true,subtree:true});})();""",
+                    );
                   } else if (url.startsWith('https://live.bilibili.com')) {
                     controller.evaluateJavascript(
                       source: '''
