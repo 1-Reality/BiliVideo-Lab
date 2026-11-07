@@ -191,6 +191,7 @@ abstract final class SettingBoxKey {
       previewQuality = 'previewQuality',
       checkDynamic = 'checkDynamic',
       silver2coin = 'silver2coin',
+      mangaCheckin = 'mangaCheckin',
       dynamicPeriod = 'dynamicPeriod',
       schemeVariant = 'schemeVariant',
       showViewPoints = 'showViewPoints',
