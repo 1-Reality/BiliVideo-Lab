@@ -30,7 +30,7 @@ class _BroTechPageState extends State<BroTechPage> {
   final _host = TextEditingController();
   late BroTechRunAt _runAt = BroTechRunAt.values.firstWhere(
     (e) => e.key == GStorage.localCache.get(_runAtKey),
-    orElse: () => BroTechRunAt.end,
+    orElse: () => BroTechRunAt.body,
   );
   List<BroTechPreset> _presets = const [];
   late Future<List<FileStat?>> _cached = _stat();
@@ -341,7 +341,7 @@ class _BroTechPageState extends State<BroTechPage> {
                 leading: const Icon(Icons.bookmark_outline),
                 title: Text(preset.title),
                 subtitle: Text(
-                  preset.runAt == BroTechRunAt.end
+                  preset.runAt == BroTechRunAt.body
                       ? preset.host
                       : '${preset.host} · ${preset.runAt.key}',
                 ),

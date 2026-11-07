@@ -146,8 +146,8 @@ abstract final class BroTechScripts {
 /// consulted. `load` is not a userscript standard; it waits for window load.
 enum BroTechRunAt {
   start('document-start', '文档开始'),
-  body('document-body', 'body 出现时'),
-  end('document-end', '文档结束（默认）'),
+  body('document-body', 'body 出现时（默认）'),
+  end('document-end', '文档结束'),
   idle('document-idle', '文档结束后空闲时'),
   load('load', '页面完全加载后（非标准）');
 
@@ -338,7 +338,7 @@ class BroTechPreset {
     host: json['host'] as String,
     runAt: BroTechRunAt.values.firstWhere(
       (e) => e.key == json['runAt'],
-      orElse: () => BroTechRunAt.end,
+      orElse: () => BroTechRunAt.body,
     ),
     name: json['name'] as String?,
     user: json['user'] as String?,
