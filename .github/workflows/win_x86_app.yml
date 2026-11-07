@@ -433,6 +433,20 @@ jobs:
           path: PiliBro_windows_*_x86_portable.*
           if-no-files-found: error
 
+      # 发版时把冒烟截图当附件留下；z 开头，排在发布页最后。Build 的发布步骤会收走全部工件
+      - name: Name the smoke screenshot
+        if: ${{ inputs.tag != '' }}
+        shell: pwsh
+        run: Copy-Item smoke.png "zsmoke_x86_$env:version.png"
+
+      - name: Upload smoke screenshot as release asset
+        if: ${{ inputs.tag != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          path: zsmoke_x86_*.png
+          if-no-files-found: error
+
       - name: Upload screenshot and smoke logs
         if: ${{ always() && inputs.tag == '' }}
         uses: actions/upload-artifact@v7

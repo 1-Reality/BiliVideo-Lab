@@ -30,7 +30,11 @@ abstract final class PcCheck {
       _exe.lookupFunction<Int32 Function(), int Function()>('PcCheckV3')() != 0;
 
   static void onFirstLaunch() {
-    if (_app32 ? _os64 : !_v3 && _installed) show();
+    // CI 冒烟测试的截图不能被提示框挡住
+    if (Platform.environment['GITHUB_ACTIONS'] != 'true' &&
+        (_app32 ? _os64 : !_v3 && _installed)) {
+      show();
+    }
   }
 
   static void show() {
