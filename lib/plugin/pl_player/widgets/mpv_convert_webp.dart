@@ -43,7 +43,6 @@ class MpvConvertWebp {
   Future<void> _init() async {
     final enableHA = Pref.enableHA;
     _ctx = await Initializer.create(
-      _mpv,
       _onEvent,
       options: {
         'idle': 'once',
@@ -54,7 +53,6 @@ class MpvConvertWebp {
         'ovc': 'libwebp_anim',
         'ofopts': 'loop=0',
         'ovcopts': 'preset=${preset.flag}',
-        if (enableHA) 'vo': 'gpu',
         if (enableHA)
           'hwdec':
               '${Pref.hardwareDecoding.replaceAll('mediacodec_embed', 'mediacodec-copy')},auto-copy', // transcode only support copy
@@ -65,12 +63,7 @@ class MpvConvertWebp {
       generated.mpv_event_id.MPV_EVENT_VIDEO_RECONFIG,
       0,
     );
-    NativePlayer.setHeader(
-      _mpv,
-      _ctx,
-      userAgent: BrowserUa.pc,
-      referer: HttpString.baseUrl,
-    );
+    _mpv.setHeader(_ctx, userAgent: BrowserUa.pc, referer: HttpString.baseUrl);
     if (progress != null) {
       _observeProperty('time-pos');
     }
@@ -81,7 +74,8 @@ class MpvConvertWebp {
 
   void dispose() {
     Initializer.dispose(_ctx);
-    _mpv.mpv_terminate_destroy(_ctx);
+    // 事件回调可能还在路上，晚一点再销毁
+    Timer(const Duration(seconds: 5), () => _mpv.mpv_terminate_destroy(_ctx));
     if (!_completer.isCompleted) _completer.complete(false);
   }
 

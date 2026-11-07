@@ -33,9 +33,9 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 android
 
-      - name: Apply media_kit Android decoder lab hook
+      - name: Apply media_kit Android patch
         shell: pwsh
-        run: lib/scripts/patch_media_kit_android_decoder_lab.ps1
+        run: lib/scripts/patch_media_kit_android.ps1
 
       - name: Write signing key
         env:

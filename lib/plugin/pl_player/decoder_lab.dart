@@ -43,9 +43,6 @@ final decoderLabLogPath = path.join(appSupportDirPath, 'mpv-decoder-lab.log');
 
 extension DecoderLabController on PlPlayerController {
   static const _androidVoProperty = 'user-data/pilibro-decoder-lab-vo';
-  static const _androidHwdecProperty = 'user-data/pilibro-decoder-lab-hwdec';
-  static const _androidFallbackProperty =
-      'user-data/pilibro-decoder-lab-hwdec-fallback';
 
   bool _decoderLabPrimary(String hwdec) {
     if (Platform.isAndroid) {
@@ -124,15 +121,14 @@ extension DecoderLabController on PlPlayerController {
       final labVo = mode.vo ?? 'gpu';
       final fallback = labVo == 'mediacodec_embed' ? 'no' : '3';
 
-      // vo/hwdec/hwdec-software-fallback are applied ONLY by media_kit's
-      // on_load hook. As per-file options they would be applied earlier, while
-      // wid is still 0 from the on_unload hook; mpv recreates the VO at once
-      // (UPDATE_VO + force-window) and mediacodec_embed's
-      // mp_assert(WinID != 0) aborts the process.
+      // 表面一直挂在 wid 上，先停掉 vo，换好 hwdec 再按新 vo 接回去；
+      // user-data 里记下 vo，切后台再回来重建表面时控制器照它接
       await player.command(['set', 'log-file', decoderLabLogPath]);
       await player.command(['set', _androidVoProperty, labVo]);
-      await player.command(['set', _androidHwdecProperty, mode.hwdec]);
-      await player.command(['set', _androidFallbackProperty, fallback]);
+      await player.command(['set', 'vo', 'null']);
+      await player.command(['set', 'hwdec', mode.hwdec]);
+      await player.command(['set', 'hwdec-software-fallback', fallback]);
+      await player.command(['set', 'vo', labVo]);
     } else {
       await player.command(['set', 'hwdec', mode.hwdec]);
     }
