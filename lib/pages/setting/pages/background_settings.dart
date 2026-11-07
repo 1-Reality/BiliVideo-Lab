@@ -5,6 +5,7 @@ import 'package:PiliBro/models/common/focus_reaction.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/widgets/duck_volume_dialog.dart';
 import 'package:PiliBro/services/service_locator.dart';
+import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -66,6 +67,16 @@ class BackgroundSettingsPage extends StatelessWidget {
         leading: Icon(Icons.headset_off_outlined),
         setKey: SettingBoxKey.pauseOnNoisy,
         defaultVal: true,
+      ),
+      SwitchModel(
+        title: 'vivo：媒体会话固定音量',
+        subtitle:
+            '只对 vivo 手机起作用，重启生效。上游为 OriginOS 6（Android 16）加的绕行；'
+            '低于 Android 16 时开着，音量键会被吞掉。默认按系统版本决定',
+        leading: const Icon(Icons.phonelink_setup_outlined),
+        setKey: SettingBoxKey.vivoFixedVolume,
+        defaultVal: DeviceUtils.sdkInt >= 36,
+        needReboot: true,
       ),
     ],
   ];

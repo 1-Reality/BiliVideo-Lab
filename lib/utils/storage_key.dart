@@ -105,7 +105,8 @@ abstract final class SettingBoxKey {
       preferAudioEntry = 'preferAudioEntry',
       showBatteryLevel = 'showBatteryLevel',
       playerVolume = 'playerVolume',
-      maxVolume = 'maxVolume';
+      maxVolume = 'maxVolume',
+      vivoFixedVolume = 'vivoFixedVolume';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',

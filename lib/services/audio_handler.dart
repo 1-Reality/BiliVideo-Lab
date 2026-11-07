@@ -16,7 +16,6 @@ import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
-import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
@@ -68,10 +67,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     // Android 14 dispatches volume keys from the activity straight to the
     // session without checking canHandleVolumeKey(), so a FIXED remote
     // session swallows them there. Only verified to fall back on Android 16.
-    if (Platform.isAndroid && DeviceUtils.sdkInt >= 36) {
+    // 是否启用交给设置，默认值即上游的 Android 16 判断
+    if (Platform.isAndroid) {
       final jStr = AndroidHelper.manufacturer();
       if (jStr != null &&
-          jStr.toDartString(releaseOriginal: true).toLowerCase() == 'vivo') {
+          jStr.toDartString(releaseOriginal: true).toLowerCase() == 'vivo' &&
+          Pref.vivoFixedVolume) {
         androidPlaybackInfo.add(
           RemoteAndroidPlaybackInfo(
             volumeControlType: .fixed,
