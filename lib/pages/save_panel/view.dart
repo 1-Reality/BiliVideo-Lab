@@ -507,7 +507,7 @@ class _SavePanelState extends State<SavePanel> {
                                 Align(
                                   alignment: .centerLeft,
                                   child: Image.asset(
-                                    Assets.logo2,
+                                    Assets.logoMono,
                                     width: 100,
                                     cacheWidth: 100.cacheSize(context),
                                     color: colorScheme.onSurfaceVariant,
