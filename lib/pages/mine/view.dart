@@ -41,6 +41,7 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
@@ -106,9 +107,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _buildUserInfo(theme, secondary),
-                    _buildActions(secondary),
-                    _buildQuickActions(secondary),
-                    _buildMoreActions(secondary),
+                    ..._buildActionRows(secondary),
                     for (final tab in controller.mineTabs)
                       switch (tab) {
                         .favorite => Obx(_buildFav),
@@ -154,79 +153,108 @@ class _MediaPageState extends CommonPageState<MinePage>
     ),
   );
 
-  Widget _buildActions(Color primary) => Row(
-    mainAxisAlignment: .spaceEvenly,
-    children: controller.list
-        .map(
-          (e) => _actionButton(
-            icon: Icon(e.icon, color: primary),
-            title: e.title,
-            onTap: e.onTap,
-          ),
-        )
-        .toList(),
-  );
-
-  Widget _buildMoreActions(Color primary) => Row(
-    mainAxisAlignment: .spaceEvenly,
-    children: [
+  // 倍速设置、网关管理、播放统计常驻，其余按「我的页快捷按钮」显示；
+  // 顺序固定，四个一行，最后一行用空位补齐，免得剩下的按钮被拉开
+  List<Widget> _buildActionRows(Color primary) {
+    final setting = GStorage.setting;
+    bool shown(String key) => setting.get(key, defaultValue: true) as bool;
+    final buttons = <Widget>[
       _actionButton(
-        icon: Icon(CustomIcons.folderDownloadOutline, color: primary),
-        title: '离线缓存',
-        onTap: () => Get.toNamed('/download'),
+        icon: Icon(Icons.speed_outlined, color: primary),
+        title: '倍速设置',
+        onTap: () => Get.toNamed('/playSpeedSet'),
       ),
+      if (shown(SettingBoxKey.mineBtnHistory))
+        _actionButton(
+          icon: Icon(CustomIcons.history, color: primary),
+          title: '观看记录',
+          onTap: () {
+            if (controller.isLogin) Get.toNamed('/history');
+          },
+        ),
+      if (shown(SettingBoxKey.mineBtnSub))
+        _actionButton(
+          icon: Icon(CustomIcons.subscriptions_outlined, color: primary),
+          title: '我的订阅',
+          onTap: () {
+            if (controller.isLogin) Get.toNamed('/subscription');
+          },
+        ),
+      if (shown(SettingBoxKey.mineBtnLater))
+        _actionButton(
+          icon: Icon(CustomIcons.watch_later_outlined, color: primary),
+          title: '稍后再看',
+          onTap: () {
+            if (controller.isLogin) Get.toNamed('/later');
+          },
+        ),
+      if (shown(SettingBoxKey.mineBtnAvSettings))
+        _actionButton(
+          icon: Icon(Icons.tune, color: primary),
+          title: '音画设置',
+          onTap: () => Get.toNamed('/avSettings'),
+        ),
+      if (shown(SettingBoxKey.mineBtnNetworkPolicy))
+        _actionButton(
+          icon: Icon(Icons.lan_outlined, color: primary),
+          title: '智能网优',
+          onTap: () => Get.toNamed('/networkPolicy'),
+        ),
+      if (shown(SettingBoxKey.mineBtnOrientation))
+        _actionButton(
+          icon: Icon(Icons.screen_rotation_outlined, color: primary),
+          title: '屏幕旋转',
+          onTap: () => Get.toNamed('/orientationSettings'),
+        ),
+      if (shown(SettingBoxKey.mineBtnCreator))
+        Flexible(
+          child: PopupMenuButton<void>(
+            tooltip: '创作中心',
+            itemBuilder: (_) => _creatorMenuItems(),
+            child: _actionBody(
+              SvgPicture.asset(
+                'assets/images/creator_center.svg',
+                width: 24,
+                height: 24,
+              ),
+              '创作中心',
+            ),
+          ),
+        ),
+      if (shown(SettingBoxKey.mineBtnDownload))
+        _actionButton(
+          icon: Icon(CustomIcons.folderDownloadOutline, color: primary),
+          title: '离线缓存',
+          onTap: () => Get.toNamed('/download'),
+        ),
       _actionButton(
         icon: Icon(MdiIcons.routerNetwork, color: primary),
         title: '网关管理',
         onTap: () => Get.to(() => const BroTechPage()),
       ),
-      _actionButton(
-        icon: Icon(MdiIcons.headphonesSettings, color: primary),
-        title: '特色播放',
-        onTap: () => Get.toNamed('/audioSettings'),
-      ),
+      if (shown(SettingBoxKey.mineBtnAudioSettings))
+        _actionButton(
+          icon: Icon(MdiIcons.headphonesSettings, color: primary),
+          title: '特色播放',
+          onTap: () => Get.toNamed('/audioSettings'),
+        ),
       _actionButton(
         icon: Icon(Icons.insights_outlined, color: primary),
         title: '播放统计',
         onTap: () => Get.toNamed('/playbackStats'),
       ),
-    ],
-  );
-
-  Widget _buildQuickActions(Color primary) => Row(
-    mainAxisAlignment: .spaceEvenly,
-    children: [
-      _actionButton(
-        icon: Icon(Icons.tune, color: primary),
-        title: '音画设置',
-        onTap: () => Get.toNamed('/avSettings'),
-      ),
-      _actionButton(
-        icon: Icon(Icons.lan_outlined, color: primary),
-        title: '智能网优',
-        onTap: () => Get.toNamed('/networkPolicy'),
-      ),
-      _actionButton(
-        icon: Icon(Icons.screen_rotation_outlined, color: primary),
-        title: '屏幕旋转',
-        onTap: () => Get.toNamed('/orientationSettings'),
-      ),
-      Flexible(
-        child: PopupMenuButton<void>(
-          tooltip: '创作中心',
-          itemBuilder: (_) => _creatorMenuItems(),
-          child: _actionBody(
-            SvgPicture.asset(
-              'assets/images/creator_center.svg',
-              width: 24,
-              height: 24,
-            ),
-            '创作中心',
-          ),
+    ];
+    return [
+      for (var i = 0; i < buttons.length; i += 4)
+        Row(
+          mainAxisAlignment: .spaceEvenly,
+          children: [
+            ...buttons.skip(i).take(4),
+            for (var j = buttons.length; j < i + 4; j++) const Spacer(),
+          ],
         ),
-      ),
-    ],
-  );
+    ];
+  }
 
   PopupMenuItem<void> _creatorMenuItem(
     Widget icon,
