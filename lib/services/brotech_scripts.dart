@@ -267,10 +267,9 @@ UserScript buildBroTechUserScript({
     BroTechRunAt.load =>
       "document.readyState==='complete'?__run():window.addEventListener('load',__run,{once:true});",
   };
-  final patched = source.replaceFirst(
-    RegExp(r'injectMode:\s*\d+'),
-    'injectMode: 3',
-  );
+  final patched = source
+      .replaceFirst(RegExp(r'injectMode:\s*\d+'), 'injectMode: 3')
+      .replaceFirst(RegExp(r'''周期类型:\s*(['"])[^'"]*\1'''), "周期类型: '不散场'");
   final js =
       '''
 (()=>{const __v=${jsonEncode(values)},__q=[];
@@ -368,7 +367,7 @@ abstract final class BroTechPresets {
       .put('presets', jsonEncode([for (final e in presets) e.toJson()]));
 }
 
-/// Android only: fills the first visible password box (and the text box
+/// Android/iOS: fills the first visible password box (and the text box
 /// before it, when a user name is saved) as soon as one appears, exposes
 /// window.__broFill(force) for the manual button, and reports passwords the
 /// user types so they can be saved on the way out.

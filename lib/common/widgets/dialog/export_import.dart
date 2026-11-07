@@ -101,7 +101,7 @@ Future<void> exportToQrCode(
 }
 
 List<String> _splitQrData(String data, int totalBytes, int pageCount) {
-  if (pageCount <= 1) return [data];
+  if (pageCount < 2) return [data];
 
   final chunks = <String>[];
   var buffer = StringBuffer();
