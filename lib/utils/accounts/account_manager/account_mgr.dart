@@ -1,6 +1,7 @@
 // edit from package:dio_cookie_manager
 import 'dart:io';
 
+import 'package:PiliBro/grpc/url.dart';
 import 'package:PiliBro/http/api.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/models/common/account_type.dart';
@@ -62,6 +63,9 @@ class AccountManager extends Interceptor {
       options.headers
         ..addAll(account.grpcHeaders)
         ..addAll(BiliSession.dynamicHeaders);
+      if (path.contains(GrpcUrl.reply)) {
+        options.headers.addAll(account.replyGrpcHeaders);
+      }
       return handler.next(options);
     }
 

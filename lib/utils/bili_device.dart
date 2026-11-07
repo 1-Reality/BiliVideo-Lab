@@ -112,10 +112,11 @@ abstract final class BiliDevice {
     ).writeToBuffer(),
   );
 
-  static String deviceBin(BiliApp app) => base64Encode(
+  static String deviceBin(BiliApp app, {int? build, String? version}) =>
+      base64Encode(
     Device(
       appId: app.appId,
-      build: app.build,
+      build: build ?? app.build,
       buvid: buvid,
       mobiApp: app.mobiApp,
       platform: 'android',
@@ -125,7 +126,7 @@ abstract final class BiliDevice {
       osver: osVer,
       fpLocal: fp,
       fpRemote: fp,
-      versionName: app.version,
+      versionName: version ?? app.version,
       fp: fp,
       fts: Int64(fts),
     ).writeToBuffer(),

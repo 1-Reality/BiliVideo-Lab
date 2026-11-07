@@ -15,6 +15,30 @@ abstract final class GrpcHeaders {
     ).writeToBuffer(),
   );
 
+  // 新版本客户端拿到的楼中楼正文不再带「回复 @某人 :」，靠客户端自己拼。
+  // 评论接口照 PiliPlus 自报 HD 2.0.1，让服务器把前缀写回正文
+  static const _replyBuild = 2001100;
+  static const _replyVersion = '2.0.1';
+
+  /// 盖在 [newHeaders] 上，只用于评论列表的 gRPC
+  static Map<String, String> replyHeaders(String? accessKey) => {
+    'x-bili-device-bin': BiliDevice.deviceBin(
+      BiliApp.hd,
+      build: _replyBuild,
+      version: _replyVersion,
+    ),
+    'x-bili-metadata-bin': base64Encode(
+      Metadata(
+        accessKey: accessKey,
+        mobiApp: BiliApp.hd.mobiApp,
+        build: _replyBuild,
+        channel: BiliDevice.channel,
+        buvid: BiliDevice.buvid,
+        platform: 'android',
+      ).writeToBuffer(),
+    ),
+  };
+
   static Map<String, String> newHeaders(
     BiliApp app,
     int mid, [

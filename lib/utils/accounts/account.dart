@@ -30,6 +30,8 @@ sealed class Account {
 
   Map<String, String> get grpcHeaders => throw UnimplementedError();
 
+  Map<String, String> get replyGrpcHeaders => throw UnimplementedError();
+
   bool get isLogin => throw UnimplementedError();
 
   int get mid => throw UnimplementedError();
@@ -101,6 +103,11 @@ class LoginAccount extends Account {
   late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(
     app,
     mid,
+    accessKey,
+  );
+
+  @override
+  late final Map<String, String> replyGrpcHeaders = GrpcHeaders.replyHeaders(
     accessKey,
   );
 
@@ -197,6 +204,11 @@ class AnonymousAccount extends Account {
   late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(
     BiliApp.phone,
     0,
+  );
+
+  @override
+  late final Map<String, String> replyGrpcHeaders = GrpcHeaders.replyHeaders(
+    null,
   );
 
   @override
