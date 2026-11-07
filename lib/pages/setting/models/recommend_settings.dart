@@ -8,6 +8,7 @@ import 'package:PiliBro/pages/rcmd/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/accounts/grpc_headers.dart';
 import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/recommend_filter.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -97,6 +98,16 @@ List<SettingsModel> get recommendSettings => [
     leading: Icon(Icons.visibility_off_outlined),
     setKey: SettingBoxKey.rcmdAnonymous,
     defaultVal: false,
+  ),
+  const SwitchModel(
+    title: '评论区自报旧版 HD 客户端',
+    subtitle:
+        '评论、楼中楼、查看对话的请求自报 HD 2.0.1（与 PiliPlus 相同），楼中楼才会显示「回复 @某人 :」；'
+        '其他请求的身份不变。评论加载出错或要求验证时可以关掉试试',
+    leading: Icon(Icons.forum_outlined),
+    setKey: SettingBoxKey.replyLegacyIdentity,
+    defaultVal: true,
+    onChanged: _setReplyLegacy,
   ),
   const SwitchModel(
     title: '向 B 站反馈推荐点击',
@@ -274,3 +285,5 @@ NormalModel _sourceModel(RcmdSource source) => NormalModel(
 
 void _redoInterest(BuildContext context, VoidCallback setState) =>
     RcmdController.redoInterest();
+
+void _setReplyLegacy(bool value) => GrpcHeaders.replyLegacy = value;

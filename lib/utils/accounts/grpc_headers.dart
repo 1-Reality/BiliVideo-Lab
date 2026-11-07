@@ -4,6 +4,7 @@ import 'package:PiliBro/grpc/bilibili/metadata.pb.dart';
 import 'package:PiliBro/grpc/bilibili/metadata/fawkes.pb.dart';
 import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/id_utils.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 
 /// gRPC 公共请求头；trace-id 与 ticket 由拦截器每次请求补上
 abstract final class GrpcHeaders {
@@ -17,6 +18,7 @@ abstract final class GrpcHeaders {
 
   // 新版本客户端拿到的楼中楼正文不再带「回复 @某人 :」，靠客户端自己拼。
   // 评论接口照 PiliPlus 自报 HD 2.0.1，让服务器把前缀写回正文
+  static bool replyLegacy = Pref.replyLegacyIdentity;
   static const _replyBuild = 2001100;
   static const _replyVersion = '2.0.1';
 

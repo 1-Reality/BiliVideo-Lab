@@ -8,6 +8,7 @@ import 'package:PiliBro/models/common/account_type.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
 import 'package:PiliBro/utils/accounts/api_type.dart';
+import 'package:PiliBro/utils/accounts/grpc_headers.dart';
 import 'package:PiliBro/utils/app_sign.dart';
 import 'package:PiliBro/utils/bili_session.dart';
 import 'package:PiliBro/utils/extension/string_ext.dart';
@@ -63,7 +64,7 @@ class AccountManager extends Interceptor {
       options.headers
         ..addAll(account.grpcHeaders)
         ..addAll(BiliSession.dynamicHeaders);
-      if (path.contains(GrpcUrl.reply)) {
+      if (GrpcHeaders.replyLegacy && path.contains(GrpcUrl.reply)) {
         options.headers.addAll(account.replyGrpcHeaders);
       }
       return handler.next(options);
