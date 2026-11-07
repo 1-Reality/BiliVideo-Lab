@@ -1305,7 +1305,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableSystemProxy, defaultValue: false);
 
   static bool get enableHttp2 =>
-      _setting.get(SettingBoxKey.enableHttp2, defaultValue: true);
+      _setting.get(
+        SettingBoxKey.enableHttp2,
+        defaultValue: !(Platform.isAndroid || Platform.isLinux),
+      );
 
   static ReplySortType get replySortType =>
       ReplySortType.values[_setting.get(
