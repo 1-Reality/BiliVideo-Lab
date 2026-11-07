@@ -14,6 +14,7 @@ import 'package:PiliBro/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
@@ -96,6 +97,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> pause() {
+    PlaybackStatsService.markUserPause();
     return onPause?.call() ??
         PlPlayerController.pauseIfExists() ??
         Future.syncValue(null);

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:isolate' show Isolate;
 import 'dart:math' show max;
@@ -15,6 +14,10 @@ import 'package:flutter/widgets.dart';
 abstract final class PlaybackStatsService {
   static const _seekThresholdUs = 1000000;
   static const _rewindEligibilityUs = 5000000;
+  // 一段暂停超过 10 分钟，超出部分算离开，不算暂停也不算评论区
+  static const _awayAfterUs = 600000000;
+  // 短于 300 毫秒的缓冲人感觉不到，不计次数
+  static const _stallCountUs = 300000;
   static const _flushInterval = Duration(minutes: 2);
 
   static final _clock = Stopwatch()..start();
@@ -56,6 +59,10 @@ abstract final class PlaybackStatsService {
   static bool _live = false;
   static bool _playing = false;
   static bool _buffering = false;
+  // 打开后 5 秒、拖动后 2 秒内开始的缓冲是自己拖出来的，不算网络卡顿
+  static bool _seekBuffering = false;
+  static int _bufferingStartUs = 0;
+  static bool _userPause = false;
   static bool _completedIdle = false;
   static bool _videoCommentPanelVisible = false;
   static int _commentPanelLastWallUs = 0;
@@ -1251,6 +1258,9 @@ abstract final class PlaybackStatsService {
     _mediaKey = nextKey;
     _playing = false;
     _buffering = true;
+    _seekBuffering = true;
+    _bufferingStartUs = now;
+    _userPause = false;
     _completedIdle = false;
     _rate = speed;
     _rateKey = _speedKey(speed);
@@ -1560,11 +1570,6 @@ abstract final class PlaybackStatsService {
         const [60, 300, 1200, 3600, 7200],
       );
     }
-    _addBucket(
-      'sessionOutcomeCounts',
-      _sessionCompleted ? 'completed' : 'earlyExit',
-      1,
-    );
     _coveredIntervals.clear();
   }
 
@@ -1716,15 +1721,19 @@ abstract final class PlaybackStatsService {
           _restartCompletedVideoSession(position.inMicroseconds, now);
         }
       }
-      if (playing != _playing) {
+      // 暂停次数只认手动按的暂停，恢复播放时才计：播放器、系统、程序自己
+      // 停下的不算，暂停后直接退出的也不算
+      if (playing && !_playing) {
         _flushPlaybackPending();
-        if (playing) {
-          _clearTrailingPause();
-          _add('playbackSegments', 1);
-        } else if (!_completedIdle) {
+        _clearTrailingPause();
+        _add('playbackSegments', 1);
+        if (_userPause) {
+          _userPause = false;
           _add('pauseCount', 1);
           _addVideoUp('pauseCount', 1);
         }
+      } else if (playing != _playing) {
+        _flushPlaybackPending();
       }
     }
     if (playing) _completedIdle = false;
@@ -1743,13 +1752,24 @@ abstract final class PlaybackStatsService {
           _restartCompletedVideoSession(position.inMicroseconds, now);
         }
       }
-      if (buffering != _buffering) _flushPlaybackPending();
-      if (buffering && !_buffering) {
-        _add('bufferingCount', 1);
-        _addVideoUp('bufferingCount', 1);
+      if (buffering != _buffering) {
+        _flushPlaybackPending();
+        if (buffering) {
+          _bufferingStartUs = now;
+          _seekBuffering = now < _suppressDiscontinuityUntilUs;
+        } else if (!_seekBuffering &&
+            now - _bufferingStartUs >= _stallCountUs) {
+          _add('bufferingCount', 1);
+          _addVideoUp('bufferingCount', 1);
+        }
       }
     }
     _buffering = buffering;
+  }
+
+  /// 用户亲手按暂停的入口调用，只在正在播放时生效
+  static void markUserPause() {
+    if (_playing) _userPause = true;
   }
 
   static void changeSpeed(
@@ -1921,6 +1941,10 @@ abstract final class PlaybackStatsService {
       _add('commentAreaUs', wallUs);
       _addVideoUp('commentAreaUs', wallUs);
       _addDimension('commentAreaUs', wallUs);
+    } else if (_buffering && _seekBuffering) {
+      _add('seekBufferingUs', wallUs);
+      _addVideoUp('seekBufferingUs', wallUs);
+      _rewind?.bufferingUs += wallUs;
     } else if (_buffering) {
       _add('bufferingUs', wallUs);
       _addVideoUp('bufferingUs', wallUs);
@@ -2009,36 +2033,42 @@ abstract final class PlaybackStatsService {
         _temporaryRate,
       );
     } else {
-      _sessionPausedUs += wallUs;
-      _add('pausedUs', wallUs);
-      _addVideoUp('pausedUs', wallUs);
-      _addDimension('pausedUs', wallUs);
-      _trailingPauseUs += wallUs;
+      final room = _awayAfterUs - _trailingPauseUs;
+      final pausedUs = wallUs < room ? wallUs : room;
+      if (pausedUs < wallUs) {
+        _add('awayUs', wallUs - pausedUs);
+        _addVideoUp('awayUs', wallUs - pausedUs);
+      }
+      _sessionPausedUs += pausedUs;
+      _add('pausedUs', pausedUs);
+      _addVideoUp('pausedUs', pausedUs);
+      _addDimension('pausedUs', pausedUs);
+      _trailingPauseUs += pausedUs;
       final rewind = _rewind;
       final speed = _rateKey;
       if (rewind == null) {
-        _add('normalPausedUs', wallUs);
-        _addVideoUp('normalPausedUs', wallUs);
-        _addBucket('normalSpeedPausedUs', speed, wallUs);
-        _addVideoUpBucket('normalSpeedPausedUs', speed, wallUs);
-        _trailingNormalPauseUs += wallUs;
+        _add('normalPausedUs', pausedUs);
+        _addVideoUp('normalPausedUs', pausedUs);
+        _addBucket('normalSpeedPausedUs', speed, pausedUs);
+        _addVideoUpBucket('normalSpeedPausedUs', speed, pausedUs);
+        _trailingNormalPauseUs += pausedUs;
         _trailingNormalPauseBySpeed.update(
           speed,
-          (value) => value + wallUs,
-          ifAbsent: () => wallUs,
+          (value) => value + pausedUs,
+          ifAbsent: () => pausedUs,
         );
       } else {
-        _add('rewindPausedUs', wallUs);
-        _addVideoUp('rewindPausedUs', wallUs);
-        _addBucket('rewindSpeedPausedUs', speed, wallUs);
-        _addVideoUpBucket('rewindSpeedPausedUs', speed, wallUs);
-        _trailingRewindPauseUs += wallUs;
+        _add('rewindPausedUs', pausedUs);
+        _addVideoUp('rewindPausedUs', pausedUs);
+        _addBucket('rewindSpeedPausedUs', speed, pausedUs);
+        _addVideoUpBucket('rewindSpeedPausedUs', speed, pausedUs);
+        _trailingRewindPauseUs += pausedUs;
         _trailingRewindPauseBySpeed.update(
           speed,
-          (value) => value + wallUs,
-          ifAbsent: () => wallUs,
+          (value) => value + pausedUs,
+          ifAbsent: () => pausedUs,
         );
-        rewind.pausedUs += wallUs;
+        rewind.pausedUs += pausedUs;
       }
     }
 
@@ -2274,7 +2304,8 @@ abstract final class PlaybackStatsService {
     final media = _number(raw['mediaAdvanceUs']);
     final paused = _number(raw['pausedUs']);
     final buffering = _number(raw['bufferingUs']);
-    final observed = active + paused + buffering;
+    final observed =
+        active + paused + buffering + _number(raw['seekBufferingUs']);
     final uniqueCovered = _number(raw['uniqueCoveredUs']);
     final sourceDuration = _number(raw['openedSourceDurationUs']);
     final nominal = _number(raw['nominalMediaUs']);
@@ -2393,11 +2424,6 @@ abstract final class PlaybackStatsService {
     };
   }
 
-  static Map<String, dynamic> _storageCopy(Map value) =>
-      (jsonDecode(jsonEncode(value)) as Map).map(
-        (key, value) => MapEntry(key.toString(), value),
-      );
-
   static Map<String, dynamic>? _nestedShardValue(
     String rootKey,
     String shard,
@@ -2409,7 +2435,7 @@ abstract final class PlaybackStatsService {
     final root = _stats![rootKey];
     if (root is! Map || root[axis] is! Map) return null;
     final value = (root[axis] as Map)[axisValue];
-    return value is Map ? _storageCopy(value) : null;
+    return value is Map ? _stringMap(value) : null;
   }
 
   static Future<void> flush({bool force = false}) async {
@@ -2460,7 +2486,7 @@ abstract final class PlaybackStatsService {
             : null;
         if (value != null) {
           writes['$_monthPrefix$shard'] = value is Map
-              ? _storageCopy(value)
+              ? _stringMap(value)
               : value;
         }
       }
@@ -2469,14 +2495,14 @@ abstract final class PlaybackStatsService {
     if (byUp is Map) {
       for (final uid in videoUpUids) {
         final value = byUp[uid];
-        if (value is Map) writes['$_videoUpPrefix$uid'] = _storageCopy(value);
+        if (value is Map) writes['$_videoUpPrefix$uid'] = _stringMap(value);
       }
     }
     final byLive = _stats!['liveByUid'];
     if (byLive is Map) {
       for (final uid in liveUids) {
         final value = byLive[uid];
-        if (value is Map) writes['$_livePrefix$uid'] = _storageCopy(value);
+        if (value is Map) writes['$_livePrefix$uid'] = _stringMap(value);
       }
     }
     for (final shard in dimensions) {

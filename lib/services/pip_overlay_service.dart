@@ -3,6 +3,7 @@ import 'dart:math' show max, min;
 
 import 'package:PiliBro/pages/video/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -133,7 +134,12 @@ class _PipWindowState extends State<_PipWindow> {
   }
 
   void _togglePlay() {
-    _status.isPlaying ? _player.pause() : _player.play();
+    if (_status.isPlaying) {
+      PlaybackStatsService.markUserPause();
+      _player.pause();
+    } else {
+      _player.play();
+    }
     _restartHideTimer();
   }
 

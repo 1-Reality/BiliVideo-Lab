@@ -2410,6 +2410,7 @@ class PlPlayerController
       await seekTo(Duration.zero, isSeek: false, recordStats: false);
       videoPlayerController!.play();
     } else {
+      PlaybackStatsService.markUserPause();
       videoPlayerController!.playOrPause();
     }
   }
