@@ -1,0 +1,88 @@
+diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
+index bc176d8..698a2f7 100644
+--- a/libavcodec/mediacodecdec.c
++++ b/libavcodec/mediacodecdec.c
+@@ -59,6 +59,9 @@ typedef struct MediaCodecH264DecContext {
+     int use_ndk_codec;
+     // Ref. MediaFormat KEY_OPERATING_RATE
+     int operating_rate;
++
++    // HEVC sps_max_sub_layers from extradata, 0 if unknown
++    int hevc_max_sub_layers;
+ } MediaCodecH264DecContext;
+ 
+ static av_cold int mediacodec_decode_close(AVCodecContext *avctx)
+@@ -194,6 +197,7 @@ done:
+ #if CONFIG_HEVC_MEDIACODEC_DECODER
+ static int hevc_set_extradata(AVCodecContext *avctx, FFAMediaFormat *format)
+ {
++    MediaCodecH264DecContext *s = avctx->priv_data;
+     int i;
+     int ret;
+ 
+@@ -245,6 +249,7 @@ static int hevc_set_extradata(AVCodecContext *avctx, FFAMediaFormat *format)
+ 
+         avctx->profile = sps->ptl.general_ptl.profile_idc;
+         avctx->level   = sps->ptl.general_ptl.level_idc;
++        s->hevc_max_sub_layers = sps->max_sub_layers;
+ 
+         if ((ret = h2645_ps_to_nalu(vps->data, vps->data_size, &vps_data, &vps_data_size)) < 0 ||
+             (ret = h2645_ps_to_nalu(sps->data, sps->data_size, &sps_data, &sps_data_size)) < 0 ||
+@@ -486,6 +491,44 @@ done:
+     return ret;
+ }
+ 
++/*
++ * MediaCodec ignores skip_frame, so honor AVDISCARD_NONREF here by never
++ * feeding packets whose pictures no other picture references. The packet is
++ * Annex B at this point (mp4toannexb runs first). All VCL NAL units of one
++ * picture share nal_ref_idc (H.264) or nal_unit_type and TemporalId (HEVC),
++ * so the first VCL NAL decides.
++ * H.264: nal_ref_idc == 0.
++ * HEVC: a sub-layer non-reference type (even, 0..14) in the highest temporal
++ * sub-layer; lower sub-layers may still be referenced by higher ones.
++ */
++static int mediacodec_pkt_is_nonref(AVCodecContext *avctx,
++                                    const MediaCodecH264DecContext *s,
++                                    const AVPacket *pkt)
++{
++    const uint8_t *p = pkt->data;
++    int size = pkt->size;
++
++    if (avctx->codec_id == AV_CODEC_ID_HEVC && s->hevc_max_sub_layers <= 0)
++        return 0;
++
++    for (int i = 0; i + 4 < size; i++) {
++        if (p[i] || p[i + 1] || p[i + 2] != 1)
++            continue;
++        i += 3;
++        if (avctx->codec_id == AV_CODEC_ID_H264) {
++            int type = p[i] & 0x1f;
++            if (type >= 1 && type <= 5)
++                return !(p[i] & 0x60);
++        } else {
++            int type = (p[i] >> 1) & 0x3f;
++            if (type < 32)
++                return type < 16 && !(type & 1) &&
++                       (p[i + 1] & 0x07) == s->hevc_max_sub_layers;
++        }
++    }
++    return 0;
++}
++
+ static int mediacodec_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ {
+     MediaCodecH264DecContext *s = avctx->priv_data;
+@@ -564,6 +607,12 @@ static int mediacodec_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+         } else if (ret < 0) {
+             return ret;
+         }
++
++        if (avctx->skip_frame >= AVDISCARD_NONREF &&
++            (avctx->codec_id == AV_CODEC_ID_H264 ||
++             avctx->codec_id == AV_CODEC_ID_HEVC) &&
++            mediacodec_pkt_is_nonref(avctx, s, &s->buffered_pkt))
++            av_packet_unref(&s->buffered_pkt);
+     }
+ 
+     return AVERROR(EAGAIN);

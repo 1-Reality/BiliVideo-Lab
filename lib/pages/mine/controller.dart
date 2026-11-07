@@ -1,4 +1,3 @@
-import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/http/fav.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/user.dart';
@@ -47,41 +46,6 @@ class MineController extends GetxController with AccountMixin {
 
   static RxBool anonymity =
       (Accounts.account.isNotEmpty && !Accounts.heartbeat.isLogin).obs;
-
-  late final list = <({IconData icon, String title, VoidCallback onTap})>[
-    (
-      icon: Icons.speed_outlined,
-      title: '倍速设置',
-      onTap: () => Get.toNamed('/playSpeedSet'),
-    ),
-    (
-      icon: CustomIcons.history,
-      title: '观看记录',
-      onTap: () {
-        if (isLogin) {
-          Get.toNamed('/history');
-        }
-      },
-    ),
-    (
-      icon: CustomIcons.subscriptions_outlined,
-      title: '我的订阅',
-      onTap: () {
-        if (isLogin) {
-          Get.toNamed('/subscription');
-        }
-      },
-    ),
-    (
-      icon: CustomIcons.watch_later_outlined,
-      title: '稍后再看',
-      onTap: () {
-        if (isLogin) {
-          Get.toNamed('/later');
-        }
-      },
-    ),
-  ];
 
   late final Set<MineTabType> mineTabs;
   FavCtr? favCtr;

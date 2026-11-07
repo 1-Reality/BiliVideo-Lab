@@ -337,6 +337,12 @@ class _PlaybackStatsPageState extends State<PlaybackStatsPage> {
             ),
             _item('暂停累计时间', _duration(_value('pausedUs'))),
             _item('缓冲等待时间', _duration(_value('bufferingUs'))),
+            _item('拖动与打开后的缓冲', _duration(_value('seekBufferingUs'))),
+            _item(
+              '离开时间',
+              _duration(_value('awayUs')),
+              '一段暂停超过 10 分钟的部分',
+            ),
             _item(
               '评论页前台停留',
               _duration(_value('commentPanelForegroundUs')),

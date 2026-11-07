@@ -200,9 +200,12 @@ Future<void> exportBackupFile(
 Future<void> _importFile(BuildContext context) async {
   final result = await FilePicker.pickFile(
     type: .custom,
-    allowedExtensions: const ['zip'],
+    allowedExtensions: const ['zip', 'json'],
   );
   if (result == null || !context.mounted) return;
+  if (result.xFile.path.endsWith('.json')) {
+    return _restoreText(context, await result.xFile.readAsString());
+  }
   try {
     if (await BackupService.restoreZip(
           result.xFile.path,
@@ -224,6 +227,10 @@ Future<void> _importText(BuildContext context) async {
     return;
   }
   if (!context.mounted) return;
+  return _restoreText(context, text);
+}
+
+Future<void> _restoreText(BuildContext context, String text) async {
   try {
     if (await BackupService.restoreJson(
           jsonDecode(text),

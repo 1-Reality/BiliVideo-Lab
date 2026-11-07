@@ -247,6 +247,26 @@ List<SettingsModel> get videoSettings => [
         '当前：${Pref.hardwareDecoding}（此项即mpv的--hwdec，按顺序尝试；未勾选 no 时全部失败即无法播放）',
     onTap: _showHwDecDialog,
   ),
+  if (Platform.isAndroid)
+    NormalModel(
+      title: '高倍速时提升硬解工作帧率',
+      leading: const Icon(Icons.speed_outlined),
+      getSubtitle: () => Pref.operatingRateFromSpeed == 0
+          ? '当前：关闭，解码器按正常播放的节奏调度'
+          : '当前：${Pref.operatingRateFromSpeed} 倍起。把「视频帧率 × 倍速」作为 MediaCodec 的 operating-rate '
+                '告诉硬解码器，让它跟上；低于这个倍速不传，照常省电。跨过时重建一次解码器，长按临时倍速不算',
+      onTap: _showOperatingRateDialog,
+    ),
+  const SwitchModel(
+    title: '画面落后时在解码环节丢帧',
+    subtitle:
+        'mpv 的 --framedrop=decoder+vo。关：只在显示时丢，每帧仍要解完。'
+        '开：画面跟不上时，落后的那几帧连非参考帧都不解，跟上了照常；1 倍时不受影响。'
+        '安卓硬解需要打过丢帧补丁的 FFmpeg 才生效。下一个视频起生效',
+    leading: Icon(Icons.fast_forward_outlined),
+    setKey: SettingBoxKey.decoderFramedrop,
+    defaultVal: false,
+  ),
   NormalModel(
     title: '硬解状态检查',
     leading: const Icon(Icons.manage_search),
@@ -567,6 +587,45 @@ Future<void> _showHwDecDialog(
     );
     setState();
   }
+}
+
+void _showOperatingRateDialog(BuildContext context, VoidCallback setState) {
+  String speed = Pref.operatingRateFromSpeed.toString();
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('高倍速时提升硬解工作帧率'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: speed,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onChanged: (value) => speed = value,
+        decoration: const InputDecoration(
+          helperText: '从多少倍起，例如 4；0 为关闭。下一个视频起生效',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            Get.back();
+            await GStorage.setting.put(
+              SettingBoxKey.operatingRateFromSpeed,
+              double.tryParse(speed) ?? 0,
+            );
+            setState();
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
 }
 
 void _showAutoSyncDialog(BuildContext context, VoidCallback setState) {

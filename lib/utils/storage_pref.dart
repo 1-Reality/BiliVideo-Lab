@@ -724,6 +724,15 @@ abstract final class Pref {
   static int get hwdecWatchSeconds =>
       _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 1719);
 
+  // 安卓硬解：倍速到这里起，把「帧率 × 倍速」作为 operating-rate 告诉解码器；0 关闭
+  static double get operatingRateFromSpeed =>
+      (_setting.get(SettingBoxKey.operatingRateFromSpeed, defaultValue: 0)
+              as num)
+          .toDouble();
+
+  static bool get decoderFramedrop =>
+      _setting.get(SettingBoxKey.decoderFramedrop, defaultValue: false);
+
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
     defaultValue: Platform.isAndroid ? '30' : '0',
@@ -788,6 +797,9 @@ abstract final class Pref {
 
   static bool get rcmdAnonymous =>
       _setting.get(SettingBoxKey.rcmdAnonymous, defaultValue: false);
+
+  static bool get replyLegacyIdentity =>
+      _setting.get(SettingBoxKey.replyLegacyIdentity, defaultValue: true);
 
   static bool get rcmdBlockLive =>
       _setting.get(SettingBoxKey.rcmdBlockLive, defaultValue: true);
@@ -1841,6 +1853,12 @@ abstract final class Pref {
 
   static double get maxVolume => // desktop
       _setting.get(SettingBoxKey.maxVolume, defaultValue: 1.0);
+
+  // 只在 vivo 上读；默认按上游的判断，Android 16 起才开
+  static bool get vivoFixedVolume => _setting.get(
+    SettingBoxKey.vivoFixedVolume,
+    defaultValue: DeviceUtils.sdkInt >= 36,
+  );
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
 

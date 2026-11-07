@@ -14,6 +14,7 @@ import 'package:PiliBro/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliBro/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliBro/plugin/pl_player/controller.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_status.dart';
+import 'package:PiliBro/services/playback_stats_service.dart';
 import 'package:PiliBro/utils/android/bindings.g.dart';
 import 'package:PiliBro/utils/image_utils.dart';
 import 'package:PiliBro/utils/path_utils.dart';
@@ -63,10 +64,15 @@ typedef _StatusConfig = (
 
 class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   VideoPlayerServiceHandler() {
+    // Android 14 dispatches volume keys from the activity straight to the
+    // session without checking canHandleVolumeKey(), so a FIXED remote
+    // session swallows them there. Only verified to fall back on Android 16.
+    // 是否启用交给设置，默认值即上游的 Android 16 判断
     if (Platform.isAndroid) {
       final jStr = AndroidHelper.manufacturer();
       if (jStr != null &&
-          jStr.toDartString(releaseOriginal: true).toLowerCase() == 'vivo') {
+          jStr.toDartString(releaseOriginal: true).toLowerCase() == 'vivo' &&
+          Pref.vivoFixedVolume) {
         androidPlaybackInfo.add(
           RemoteAndroidPlaybackInfo(
             volumeControlType: .fixed,
@@ -96,6 +102,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> pause() {
+    PlaybackStatsService.markUserPause();
     return onPause?.call() ??
         PlPlayerController.pauseIfExists() ??
         Future.syncValue(null);
