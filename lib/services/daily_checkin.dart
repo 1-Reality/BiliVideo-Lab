@@ -60,7 +60,11 @@ abstract final class DailyCheckin {
     final data = res.data;
     final code = data is Map ? data['code'] : null;
     final msg = data is Map ? '${data['message'] ?? data['msg'] ?? ''}' : '';
-    if (code == 0 || (doneCode != null && code == doneCode) || msg.contains(_done)) {
+    // 漫画的 Twirp 接口成功时回空对象，没有 code 也没有 msg；出错总带字符串 code
+    if (code == 0 ||
+        (doneCode != null && code == doneCode) ||
+        msg.contains(_done) ||
+        (data is Map && code == null && msg.isEmpty)) {
       return null;
     }
     return '$name失败：${code ?? ''} $msg';
