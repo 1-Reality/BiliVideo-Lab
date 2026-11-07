@@ -100,9 +100,8 @@ abstract final class PlaybackFocus {
         final player = _playing;
         if (player == null || _ducked != null) return;
         _ducked = player;
-        // upstream 的 PlayerState 不再带音量，直接问 mpv
-        _volume = double.parse(player.getProperty('volume'));
-        player.setVolume(_volume * Pref.duckPercent * 0.01);
+        _volume = player.state.volume;
+        player.setVolume(_volume * Pref.duckPercent / 100);
       case FocusReaction.pause:
         _pause();
     }

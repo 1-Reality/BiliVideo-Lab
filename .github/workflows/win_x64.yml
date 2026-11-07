@@ -67,6 +67,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
+      - name: media_kit native D3D11 renderer
+        shell: pwsh
+        run: lib/scripts/media_kit_windows_d3d11.ps1
+
       - name: Build Windows
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
