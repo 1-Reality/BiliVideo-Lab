@@ -324,70 +324,41 @@ abstract final class PlaybackStatsService {
       };
     }
     final data = <String, dynamic>{};
-    for (final entry in raw.entries) {
-      final key = entry.key.toString();
-      if (!key.startsWith(_monthPrefix) &&
-          !key.startsWith(_videoUpPrefix) &&
-          !key.startsWith(_livePrefix) &&
-          !key.startsWith(_dimensionPrefix) &&
-          !key.startsWith(_crossDimensionPrefix)) {
-        data[key] = entry.value;
-      }
-    }
-    // Normalize each composite exactly once. Rebuilding it for every shard
-    // recursively copies all previous shards and makes startup quadratic.
-    final composites = <String, Map<String, dynamic>>{};
-    Map<String, dynamic> composite(String key) {
-      final cached = composites[key];
-      if (cached != null) return cached;
-      final current = data[key];
-      final value = current is Map
-          ? _stringMap(current)
-          : <String, dynamic>{};
-      data[key] = value;
-      composites[key] = value;
-      return value;
-    }
-
+    Map<String, dynamic> composite(String key) =>
+        (data[key] ??= <String, dynamic>{}) as Map<String, dynamic>;
     for (final entry in raw.entries) {
       final key = entry.key.toString();
       final value = entry.value;
       if (key.startsWith(_monthPrefix)) {
         final shard = key.substring(_monthPrefix.length);
         final separator = shard.indexOf(':');
-        if (separator > 0) {
-          final month = shard.substring(0, separator);
-          final field = shard.substring(separator + 1);
-          final months = composite('months');
-          final currentMonth = months[month];
-          final monthValue = currentMonth is Map<String, dynamic>
-              ? currentMonth
-              : currentMonth is Map
-              ? _stringMap(currentMonth)
-              : <String, dynamic>{};
-          monthValue[field] = value is Map ? _stringMap(value) : value;
-          months[month] = monthValue;
-        } else if (value is Map) {
-          composite('months')[shard] = _stringMap(value);
-        }
-      } else if (key.startsWith(_videoUpPrefix) && value is Map) {
+        final month =
+            (composite('months')[shard.substring(0, separator)] ??=
+                    <String, dynamic>{})
+                as Map<String, dynamic>;
+        month[shard.substring(separator + 1)] = value is Map
+            ? _stringMap(value)
+            : value;
+      } else if (key.startsWith(_videoUpPrefix)) {
         composite('videoByUpUid')[key.substring(_videoUpPrefix.length)] =
             _stringMap(value);
-      } else if (key.startsWith(_livePrefix) && value is Map) {
+      } else if (key.startsWith(_livePrefix)) {
         composite('liveByUid')[key.substring(_livePrefix.length)] =
             _stringMap(value);
-      } else if (key.startsWith(_dimensionPrefix) && value is Map) {
+      } else if (key.startsWith(_dimensionPrefix)) {
         _restoreNestedShard(
           composite('dimensions'),
           key.substring(_dimensionPrefix.length),
           value,
         );
-      } else if (key.startsWith(_crossDimensionPrefix) && value is Map) {
+      } else if (key.startsWith(_crossDimensionPrefix)) {
         _restoreNestedShard(
           composite('crossDimensions'),
           key.substring(_crossDimensionPrefix.length),
           value,
         );
+      } else {
+        data[key] = value;
       }
     }
     return data;
@@ -399,17 +370,10 @@ abstract final class PlaybackStatsService {
     Map value,
   ) {
     final separator = shard.indexOf(':');
-    if (separator <= 0) return;
-    final axis = shard.substring(0, separator);
-    final axisValue = shard.substring(separator + 1);
-    final currentAxis = target[axis];
-    final values = currentAxis is Map<String, dynamic>
-        ? currentAxis
-        : currentAxis is Map
-        ? _stringMap(currentAxis)
-        : <String, dynamic>{};
-    values[axisValue] = _stringMap(value);
-    target[axis] = values;
+    final values =
+        (target[shard.substring(0, separator)] ??= <String, dynamic>{})
+            as Map<String, dynamic>;
+    values[shard.substring(separator + 1)] = _stringMap(value);
   }
 
   static void _add(String key, num value) {

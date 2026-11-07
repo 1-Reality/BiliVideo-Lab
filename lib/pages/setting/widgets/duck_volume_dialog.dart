@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:PiliBro/common/widgets/claude_flower.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -173,10 +173,12 @@ class _DuckVolumeDialogState extends State<_DuckVolumeDialog>
                         Positioned(
                           left: 4,
                           top: 4,
-                          child: _ClaudeFlower(
-                            scene: _scene,
-                            colors: colors,
-                            size: math.min(54, _sceneSize.height * 0.2),
+                          child: AnimatedBuilder(
+                            animation: _scene,
+                            builder: (context, _) => ClaudeFlower(
+                              fraction: _scene.shown * 0.01,
+                              size: math.min(54, _sceneSize.height * 0.2),
+                            ),
                           ),
                         ),
                       ],
@@ -485,186 +487,6 @@ class _ScenePainter extends CustomPainter {
   @override
   bool shouldRepaint(_ScenePainter oldDelegate) =>
       oldDelegate.colors != colors || oldDelegate.textStyle != textStyle;
-}
-
-const _claudePetalEdges = <double>[
-  271.8,
-  297.8,
-  341.4,
-  364.7,
-  386.9,
-  408.3,
-  433.9,
-  460.4,
-  488.1,
-  518.8,
-  548.5,
-  590.3,
-  631.8,
-];
-
-class _ClaudeFlower extends StatelessWidget {
-  const _ClaudeFlower({
-    required this.scene,
-    required this.colors,
-    required this.size,
-  });
-
-  static const _asset = 'assets/images/claude_ai_symbol.svg';
-
-  final _Scene scene;
-  final ColorScheme colors;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          SvgPicture.asset(
-            _asset,
-            colorFilter: ColorFilter.mode(
-              colors.outlineVariant.withValues(alpha: 0.5),
-              BlendMode.srcIn,
-            ),
-          ),
-          AnimatedBuilder(
-            animation: scene,
-            builder: (context, _) {
-              final open = (scene.shown / 100 * (_claudePetalEdges.length - 1))
-                  .clamp(0.0, (_claudePetalEdges.length - 1).toDouble());
-              final fraction = open - open.floor();
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipPath(
-                    clipper: _ClaudePetalClipper(open: open),
-                    child: SvgPicture.asset(
-                      _asset,
-                      colorFilter: ColorFilter.mode(
-                        const Color(0xFFD97757),
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                  ),
-                  if (fraction > 0)
-                    ClipPath(
-                      clipper: _ClaudePetalClipper(
-                        open: open,
-                        partialOnly: true,
-                      ),
-                      child: SvgPicture.asset(
-                        _asset,
-                        colorFilter: ColorFilter.mode(
-                          const Color(0xFFD97757).withValues(
-                            alpha: 0.25 + 0.75 * fraction,
-                          ),
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ClaudePetalClipper extends CustomClipper<Path> {
-  const _ClaudePetalClipper({required this.open, this.partialOnly = false});
-
-  final double open;
-  final bool partialOnly;
-
-  @override
-  Path getClip(Size size) {
-    final shown = open.clamp(0.0, (_claudePetalEdges.length - 1).toDouble());
-    final fullCount = shown.floor();
-    final fraction = shown - fullCount;
-    final center = size.center(Offset.zero);
-    final innerRadius = size.width * 0.12;
-    final outerRadius = size.width * 0.8;
-    final path = Path();
-
-    if (partialOnly) {
-      if (fraction > 0 && fullCount < (_claudePetalEdges.length - 1)) {
-        _addPetalSector(
-          path,
-          size,
-          fullCount,
-          innerRadius,
-          outerRadius,
-        );
-      }
-      return path;
-    }
-
-    // 中心保持完整，外侧按真实花瓣的角度逐瓣点亮。
-    path.addOval(Rect.fromCircle(center: center, radius: innerRadius));
-    for (var i = 0; i < fullCount; i++) {
-      _addPetalSector(path, size, i, innerRadius, outerRadius);
-    }
-    return path;
-  }
-
-  void _addPetalSector(
-    Path path,
-    Size size,
-    int index,
-    double innerRadius,
-    double outerRadius,
-  ) {
-    var start = _claudePetalEdges[index];
-    var end = _claudePetalEdges[index + 1];
-    if (partialOnly) {
-      end = start + (end - start) * (open - open.floor());
-    }
-
-    final center = size.center(Offset.zero);
-    final startRad = start * math.pi / 180;
-    final endRad = end * math.pi / 180;
-    final sector = Path()
-      ..moveTo(
-        center.dx + innerRadius * math.cos(startRad),
-        center.dy + innerRadius * math.sin(startRad),
-      )
-      ..lineTo(
-        center.dx + outerRadius * math.cos(startRad),
-        center.dy + outerRadius * math.sin(startRad),
-      );
-
-    for (var i = 1; i <= 8; i++) {
-      final a = startRad + (endRad - startRad) * i / 8;
-      sector.lineTo(
-        center.dx + outerRadius * math.cos(a),
-        center.dy + outerRadius * math.sin(a),
-      );
-    }
-
-    sector.lineTo(
-      center.dx + innerRadius * math.cos(endRad),
-      center.dy + innerRadius * math.sin(endRad),
-    );
-    for (var i = 7; i >= 0; i--) {
-      final a = startRad + (endRad - startRad) * i / 8;
-      sector.lineTo(
-        center.dx + innerRadius * math.cos(a),
-        center.dy + innerRadius * math.sin(a),
-      );
-    }
-    sector.close();
-    path.addPath(sector, Offset.zero);
-  }
-
-  @override
-  bool shouldReclip(_ClaudePetalClipper oldClipper) =>
-      oldClipper.open != open || oldClipper.partialOnly != partialOnly;
 }
 
 class _CupPainter extends CustomPainter {

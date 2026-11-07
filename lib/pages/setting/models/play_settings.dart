@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:PiliBro/common/widgets/claude_flower.dart';
 import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
@@ -11,7 +12,6 @@ import 'package:PiliBro/pages/setting/pages/fullscreen_sc.dart';
 import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliBro/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
@@ -565,9 +565,6 @@ Future<void> showMaxVolumeDialog(
   );
 }
 
-const kMinVolume = 100.0;
-const kMaxVolume = 300.0;
-
 Future<void> showVolumeDialog(
   BuildContext context, {
   required Widget title,
@@ -576,18 +573,110 @@ Future<void> showVolumeDialog(
 }) async {
   final res = await showDialog<double>(
     context: context,
-    builder: (context) => SliderDialog(
-      title: title,
-      min: kMinVolume,
-      max: kMaxVolume,
-      divisions: 40,
-      precise: 0,
-      value: value,
-      suffix: '%',
-    ),
+    builder: (context) => _VolumeDialog(title: title, value: value),
   );
   if (res != null) {
     onChanged(res);
+  }
+}
+
+/// 一朵花代表 100%，花的朵数跟着数值走；数值可以手动输入，不设上限
+class _VolumeDialog extends StatefulWidget {
+  const _VolumeDialog({required this.title, required this.value});
+
+  final Widget title;
+  final double value;
+
+  @override
+  State<_VolumeDialog> createState() => _VolumeDialogState();
+}
+
+class _VolumeDialogState extends State<_VolumeDialog> {
+  late int _percent = widget.value.round();
+  late final _controller = TextEditingController(text: '$_percent');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _step(int delta) {
+    final next = _percent + delta;
+    if (next < 0) return;
+    setState(() => _percent = next);
+    _controller.text = '$next';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final flowers = _percent < 100 ? 1 : (_percent + 99) ~/ 100;
+    return AlertDialog(
+      title: widget.title,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < flowers; i++)
+                ClaudeFlower(
+                  fraction: (_percent * 0.01 - i).clamp(0.0, 1.0),
+                  size: 48,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: () => _step(-1),
+                icon: const Icon(Icons.remove),
+              ),
+              SizedBox(
+                width: 112,
+                child: TextField(
+                  controller: _controller,
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: Theme.of(context).textTheme.headlineMedium,
+                  decoration: const InputDecoration(
+                    suffixText: '%',
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (text) {
+                    if (int.tryParse(text) case final value?) {
+                      setState(() => _percent = value);
+                    }
+                  },
+                ),
+              ),
+              IconButton(
+                onPressed: () => _step(1),
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: Navigator.of(context).pop,
+          child: Text(
+            '取消',
+            style: TextStyle(color: Theme.of(context).colorScheme.outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _percent.toDouble()),
+          child: const Text('确定'),
+        ),
+      ],
+    );
   }
 }
 
