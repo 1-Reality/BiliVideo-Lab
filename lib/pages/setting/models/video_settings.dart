@@ -249,12 +249,12 @@ List<SettingsModel> get videoSettings => [
   ),
   if (Platform.isAndroid)
     NormalModel(
-      title: '硬解工作帧率',
+      title: '高倍速时提升硬解工作帧率',
       leading: const Icon(Icons.speed_outlined),
-      getSubtitle: () => Pref.mediacodecOperatingRate == 0
-          ? '当前：0，不指定，解码器按正常播放的节奏调度'
-          : '当前：${Pref.mediacodecOperatingRate} 帧/秒（MediaCodec 的 operating-rate）。'
-                '告诉硬解码器要跑多快，高倍速时按「视频帧率 × 常用倍速」填；下一个视频起生效',
+      getSubtitle: () => Pref.operatingRateFromSpeed == 0
+          ? '当前：关闭，解码器按正常播放的节奏调度'
+          : '当前：${Pref.operatingRateFromSpeed} 倍起。把「视频帧率 × 倍速」作为 MediaCodec 的 operating-rate '
+                '告诉硬解码器，让它跟上；低于这个倍速不传，照常省电。跨过时重建一次解码器，长按临时倍速不算',
       onTap: _showOperatingRateDialog,
     ),
   NormalModel(
@@ -580,19 +580,18 @@ Future<void> _showHwDecDialog(
 }
 
 void _showOperatingRateDialog(BuildContext context, VoidCallback setState) {
-  String rate = Pref.mediacodecOperatingRate.toString();
+  String speed = Pref.operatingRateFromSpeed.toString();
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('硬解工作帧率'),
+      title: const Text('高倍速时提升硬解工作帧率'),
       content: TextFormField(
         autofocus: true,
-        initialValue: rate,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => rate = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        initialValue: speed,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        onChanged: (value) => speed = value,
         decoration: const InputDecoration(
-          helperText: '例：30 帧视频常看 8 倍填 240；0 为不指定',
+          helperText: '从多少倍起，例如 4；0 为关闭。下一个视频起生效',
         ),
       ),
       actions: [
@@ -607,8 +606,8 @@ void _showOperatingRateDialog(BuildContext context, VoidCallback setState) {
           onPressed: () async {
             Get.back();
             await GStorage.setting.put(
-              SettingBoxKey.mediacodecOperatingRate,
-              int.tryParse(rate) ?? 0,
+              SettingBoxKey.operatingRateFromSpeed,
+              double.tryParse(speed) ?? 0,
             );
             setState();
           },

@@ -724,9 +724,11 @@ abstract final class Pref {
   static int get hwdecWatchSeconds =>
       _setting.get(SettingBoxKey.hwdecWatchSeconds, defaultValue: 1719);
 
-  // 安卓硬解的 MediaFormat operating-rate，0 不传
-  static int get mediacodecOperatingRate =>
-      _setting.get(SettingBoxKey.mediacodecOperatingRate, defaultValue: 0);
+  // 安卓硬解：倍速到这里起，把「帧率 × 倍速」作为 operating-rate 告诉解码器；0 关闭
+  static double get operatingRateFromSpeed =>
+      (_setting.get(SettingBoxKey.operatingRateFromSpeed, defaultValue: 0)
+              as num)
+          .toDouble();
 
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,

@@ -559,6 +559,10 @@ class PlPlayerController
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
+  late final double _operatingRateFromSpeed = Platform.isAndroid
+      ? Pref.operatingRateFromSpeed
+      : 0;
+  int _operatingRate = 0;
   // The list is taken literally: mpv tries the entries in order and decodes in
   // software only where 'no' is listed. Without 'no', a file none of them can
   // decode fails to play.
@@ -1652,10 +1656,6 @@ class PlPlayerController
     if (!_hwdecAllowsSoftware) {
       opt['hwdec-software-fallback'] = 'no';
     }
-    if (Platform.isAndroid) {
-      final rate = Pref.mediacodecOperatingRate;
-      if (rate > 0) opt['vd-lavc-o'] = 'operating_rate=$rate';
-    }
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
@@ -2185,6 +2185,21 @@ class PlPlayerController
 
     if (!isLive) _playbackSpeed.value = speed;
     if (!unchanged) await player?.setRate(speed);
+    // 长按的临时倍速不动它：改 vd-lavc-o 会重建解码器，画面顿一下
+    if (_operatingRateFromSpeed > 0 && !temporary && player != null) {
+      final rate = speed < _operatingRateFromSpeed
+          ? 0
+          : ((double.tryParse(player.getProperty('container-fps')) ?? 30) *
+                    speed)
+                .ceil();
+      if (rate != _operatingRate) {
+        _operatingRate = rate;
+        player.setProperty(
+          'vd-lavc-o',
+          rate == 0 ? '' : 'operating_rate=$rate',
+        );
+      }
+    }
     _updatePlaybackState();
     final danmaku = danmakuController;
     if (danmaku != null) {

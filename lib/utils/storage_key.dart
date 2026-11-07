@@ -33,7 +33,7 @@ abstract final class SettingBoxKey {
       hardwareDecoding = 'hardwareDecoding',
       videoSync = 'videoSync',
       autosync = 'autosync',
-      mediacodecOperatingRate = 'mediacodecOperatingRate',
+      operatingRateFromSpeed = 'operatingRateFromSpeed',
       muteAboveSpeed = 'muteAboveSpeed',
       hwdecWatchWords = 'hwdecWatchWords',
       hwdecWatchWhitelist = 'hwdecWatchWhitelist',
