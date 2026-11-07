@@ -28,6 +28,13 @@ List<SettingsModel> get dynSettings => [
     ),
   ),
   const SwitchModel(
+    title: '每日漫画签到',
+    subtitle: '每天首次打开时签到漫画，并上报一条漫画阅读记录',
+    leading: Icon(Icons.menu_book_outlined),
+    setKey: SettingBoxKey.mangaCheckin,
+    defaultVal: true,
+  ),
+  const SwitchModel(
     title: '每日用银瓜子换硬币',
     subtitle: '每天首次打开时用 700 银瓜子换 1 枚硬币，不够就跳过',
     leading: Icon(Icons.monetization_on_outlined),

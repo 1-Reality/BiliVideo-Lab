@@ -857,6 +857,9 @@ abstract final class Pref {
   static bool get silver2coin =>
       _setting.get(SettingBoxKey.silver2coin, defaultValue: false);
 
+  static bool get mangaCheckin =>
+      _setting.get(SettingBoxKey.mangaCheckin, defaultValue: true);
+
   static int get dynamicPeriod =>
       _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 360000);
 
