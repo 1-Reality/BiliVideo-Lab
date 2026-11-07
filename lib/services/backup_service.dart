@@ -458,6 +458,14 @@ abstract final class BackupService {
     Future<Set<BackupPart>?> Function(Map manifest) choose,
     Future<String?> Function(bool retry) password,
   ) async {
+    // 上游 PiliPlus 的设置备份没有 parts 外壳，内容就是 {setting, video}，
+    // 和本项目的设置部分一模一样，只需套上外壳。只导入兼容，导出不兼容。
+    if (!json.containsKey('parts')) {
+      json = {
+        'databaseVersion': GStorage.databaseVersion,
+        'parts': {BackupPart.settings.name: json},
+      };
+    }
     final chosen = await choose(json);
     if (chosen == null) return null;
     final dir = await Directory.systemTemp.createTemp('pilibro-backup-');
