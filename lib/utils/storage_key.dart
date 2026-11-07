@@ -34,6 +34,7 @@ abstract final class SettingBoxKey {
       videoSync = 'videoSync',
       autosync = 'autosync',
       operatingRateFromSpeed = 'operatingRateFromSpeed',
+      decoderFramedrop = 'decoderFramedrop',
       muteAboveSpeed = 'muteAboveSpeed',
       hwdecWatchWords = 'hwdecWatchWords',
       hwdecWatchWhitelist = 'hwdecWatchWhitelist',

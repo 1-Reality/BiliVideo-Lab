@@ -730,6 +730,9 @@ abstract final class Pref {
               as num)
           .toDouble();
 
+  static bool get decoderFramedrop =>
+      _setting.get(SettingBoxKey.decoderFramedrop, defaultValue: false);
+
   static String get autosync => _setting.get(
     SettingBoxKey.autosync,
     defaultValue: Platform.isAndroid ? '30' : '0',

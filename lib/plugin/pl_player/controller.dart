@@ -559,7 +559,8 @@ class PlPlayerController
   int _networkProfileResolutions = 0;
   bool enableHeart = true;
   late final String? hwdec = Pref.enableHA ? Pref.hardwareDecoding : null;
-  late final double _operatingRateFromSpeed = Platform.isAndroid
+  // 软解时 vd-lavc-o 对解码器没用，改了却照样重建解码器，所以只在安卓硬解时开
+  late final double _operatingRateFromSpeed = Platform.isAndroid && hwdec != null
       ? Pref.operatingRateFromSpeed
       : 0;
   int _operatingRate = 0;
@@ -1656,6 +1657,7 @@ class PlPlayerController
     if (!_hwdecAllowsSoftware) {
       opt['hwdec-software-fallback'] = 'no';
     }
+    if (Pref.decoderFramedrop) opt['framedrop'] = 'decoder+vo';
 
     final player = await Player.create(
       configuration: PlayerConfiguration(
@@ -1978,6 +1980,9 @@ class PlPlayerController
         }
       }),
       stream.duration.listen((Duration duration) {
+        if (_operatingRateFromSpeed > 0 && !isLive) {
+          _applyOperatingRate(player, playbackSpeed);
+        }
         updateDuration(duration);
         _updateIOSPip();
       }),
@@ -2161,6 +2166,19 @@ class PlPlayerController
     }
   }
 
+  // vd-lavc-o 是全局选项，会带到下一个视频；换视频后读到真实帧率时再算一次。
+  // 只在数值变化时设，因为每设一次 mpv 都会重建解码器
+  void _applyOperatingRate(Player player, double speed) {
+    final rate = speed < _operatingRateFromSpeed
+        ? 0
+        : ((double.tryParse(player.getProperty('container-fps')) ?? 30) * speed)
+              .ceil();
+    if (rate != _operatingRate) {
+      _operatingRate = rate;
+      player.setProperty('vd-lavc-o', rate == 0 ? '' : 'operating_rate=$rate');
+    }
+  }
+
   /// 设置倍速
   Future<void> setPlaybackSpeed(
     double speed, {
@@ -2187,18 +2205,7 @@ class PlPlayerController
     if (!unchanged) await player?.setRate(speed);
     // 长按的临时倍速不动它：改 vd-lavc-o 会重建解码器，画面顿一下
     if (_operatingRateFromSpeed > 0 && !temporary && player != null) {
-      final rate = speed < _operatingRateFromSpeed
-          ? 0
-          : ((double.tryParse(player.getProperty('container-fps')) ?? 30) *
-                    speed)
-                .ceil();
-      if (rate != _operatingRate) {
-        _operatingRate = rate;
-        player.setProperty(
-          'vd-lavc-o',
-          rate == 0 ? '' : 'operating_rate=$rate',
-        );
-      }
+      _applyOperatingRate(player, speed);
     }
     _updatePlaybackState();
     final danmaku = danmakuController;

@@ -257,6 +257,16 @@ List<SettingsModel> get videoSettings => [
                 '告诉硬解码器，让它跟上；低于这个倍速不传，照常省电。跨过时重建一次解码器，长按临时倍速不算',
       onTap: _showOperatingRateDialog,
     ),
+  const SwitchModel(
+    title: '画面落后时在解码环节丢帧',
+    subtitle:
+        'mpv 的 --framedrop=decoder+vo。关：只在显示时丢，每帧仍要解完。'
+        '开：画面跟不上时，落后的那几帧连非参考帧都不解，跟上了照常；1 倍时不受影响。'
+        '安卓硬解需要打过丢帧补丁的 FFmpeg 才生效。下一个视频起生效',
+    leading: Icon(Icons.fast_forward_outlined),
+    setKey: SettingBoxKey.decoderFramedrop,
+    defaultVal: false,
+  ),
   NormalModel(
     title: '硬解状态检查',
     leading: const Icon(Icons.manage_search),
