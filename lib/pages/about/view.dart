@@ -88,7 +88,7 @@ class _AboutPageState extends State<AboutPage> {
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
     return SimpleScaffold(
-      appBar: showAppBar ? AppBar(title: const Text('关于')) : null,
+      appBar: showAppBar ? AppBar(title: const Text('关于、备份与恢复')) : null,
       body: ListView(
         padding: EdgeInsets.only(
           left: showAppBar ? padding.left : 0,
@@ -149,8 +149,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
           ListTile(
             title: Text(
-              '''
-Build Time: ${DateFormatUtils.format(BuildConfig.buildTime, format: DateFormatUtils.longFormatDs)}
+              '''Build Time: ${DateFormatUtils.format(BuildConfig.buildTime, format: DateFormatUtils.longFormatDs)}
 Commit Hash: ${BuildConfig.commitHash}''',
               style: const TextStyle(fontSize: 14),
             ),
@@ -194,6 +193,19 @@ Commit Hash: ${BuildConfig.commitHash}''',
                 PageUtils.launchURL('${Constants.sourceCodeUrl}/issues'),
             leading: const Icon(Icons.feedback_outlined),
             title: const Text('问题反馈'),
+            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
+          ),
+          ListTile(
+            onTap: () => Get.toNamed(
+              '/webview',
+              parameters: {
+                'url': 'https://www.goofish.com/personal?userId=2216485229713',
+                'uaType': 'pc',
+              },
+              arguments: const {'inApp': true},
+            ),
+            leading: const Icon(Icons.favorite_rounded, color: Colors.pink),
+            title: const Text('支持开发者'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(

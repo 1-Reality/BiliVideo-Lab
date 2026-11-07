@@ -431,7 +431,7 @@ class _BroTechConsentState extends State<_BroTechConsent> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+    _timer = Timer.periodic(const Duration(milliseconds: 1200), (t) {
       final s = WidgetsBinding.instance.lifecycleState;
       // 手机：小窗失焦即 inactive，必须前台才计时；桌面：首次启动窗口未激活也是 inactive，只在最小化等真正离开时暂停
       if (PlatformUtils.isMobile ? s != .resumed : s == .paused || s == .hidden) {
