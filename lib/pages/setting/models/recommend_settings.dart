@@ -98,6 +98,14 @@ List<SettingsModel> get recommendSettings => [
     setKey: SettingBoxKey.rcmdAnonymous,
     defaultVal: false,
   ),
+  SwitchModel(
+    title: 'App 推荐屏蔽直播',
+    subtitle: '网页推荐本来就只有视频',
+    leading: const Icon(Icons.live_tv_outlined),
+    setKey: SettingBoxKey.rcmdBlockLive,
+    defaultVal: true,
+    onChanged: (value) => VideoHttp.blockLive = value,
+  ),
   const SwitchModel(
     title: '向 B 站反馈推荐点击',
     subtitle: '从 App 推荐点开的视频，在打开和离开时按官方 App 的方式各报一次，附上它来自哪张推荐卡，让推荐更懂你的口味',

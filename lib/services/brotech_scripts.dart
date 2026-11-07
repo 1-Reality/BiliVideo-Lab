@@ -146,8 +146,8 @@ abstract final class BroTechScripts {
 /// consulted. `load` is not a userscript standard; it waits for window load.
 enum BroTechRunAt {
   start('document-start', '文档开始'),
-  body('document-body', 'body 出现时'),
-  end('document-end', '文档结束（默认）'),
+  body('document-body', 'body 出现时（默认）'),
+  end('document-end', '文档结束'),
   idle('document-idle', '文档结束后空闲时'),
   load('load', '页面完全加载后（非标准）');
 
@@ -267,10 +267,9 @@ UserScript buildBroTechUserScript({
     BroTechRunAt.load =>
       "document.readyState==='complete'?__run():window.addEventListener('load',__run,{once:true});",
   };
-  final patched = source.replaceFirst(
-    RegExp(r'injectMode:\s*\d+'),
-    'injectMode: 3',
-  );
+  final patched = source
+      .replaceFirst(RegExp(r'injectMode:\s*\d+'), 'injectMode: 3')
+      .replaceFirst(RegExp(r'''周期类型:\s*(['"])[^'"]*\1'''), "周期类型: '不散场'");
   final js =
       '''
 (()=>{const __v=${jsonEncode(values)},__q=[];
@@ -339,7 +338,7 @@ class BroTechPreset {
     host: json['host'] as String,
     runAt: BroTechRunAt.values.firstWhere(
       (e) => e.key == json['runAt'],
-      orElse: () => BroTechRunAt.end,
+      orElse: () => BroTechRunAt.body,
     ),
     name: json['name'] as String?,
     user: json['user'] as String?,
@@ -368,7 +367,7 @@ abstract final class BroTechPresets {
       .put('presets', jsonEncode([for (final e in presets) e.toJson()]));
 }
 
-/// Android only: fills the first visible password box (and the text box
+/// Android/iOS: fills the first visible password box (and the text box
 /// before it, when a user name is saved) as soon as one appears, exposes
 /// window.__broFill(force) for the manual button, and reports passwords the
 /// user types so they can be saved on the way out.
