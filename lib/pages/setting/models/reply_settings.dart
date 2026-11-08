@@ -112,6 +112,12 @@ List<SettingsModel> get replySettings => [
     setKey: SettingBoxKey.defaultShowComment,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '评论区显示视频大小和码率',
+    leading: Icon(Icons.data_usage),
+    setKey: SettingBoxKey.replyStreamInfo,
+    defaultVal: false,
+  ),
   NormalModel(
     title: '评论展示',
     leading: const Icon(Icons.whatshot_outlined),

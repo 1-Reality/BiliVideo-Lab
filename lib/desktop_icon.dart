@@ -20,6 +20,7 @@ const _desktopIconNames = <String, String>{
   'launcher_progress.png': '吸底进度条',
   'launcher_pixel.png': '像素播放',
   'launcher_jsonl.png': '流水账',
+  'launcher_jiejie.webp': 'Claude 姐姐',
 };
 
 class DesktopIconPage extends StatefulWidget {

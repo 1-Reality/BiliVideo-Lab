@@ -6,12 +6,12 @@ enum TimeDisplayMode with EnumWithLabel {
   relative('相对时间'),
   readable('易读时间'),
   absolute('绝对时间'),
-  hankou('漢口特別市时间');
+  hankow('漢口特別市时间');
 
   final String _label;
   const TimeDisplayMode(this._label);
 
   @override
   String get label =>
-      this == hankou && DateFormatUtils.hankou ? '$_label ✓' : _label;
+      this == hankow && DateFormatUtils.hankow ? '$_label ✓' : _label;
 }

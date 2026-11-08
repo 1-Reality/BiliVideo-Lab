@@ -5,6 +5,7 @@ abstract final class Assets {
   static const logo2 = 'assets/images/logo/logo_2.png';
   // 透明底的单色图标，拿来染色用；logo_2.png 现在是不透明的应用图标，染色会变成实心方块
   static const logoMono = 'assets/images/logo/logo_mono.png';
+  static const allDynamics = 'assets/images/all_dynamics.webp';
   static const logoIco = 'assets/images/logo/ico/app_icon.ico';
   static const logoLarge = 'assets/images/logo/desktop/logo_large.png';
 

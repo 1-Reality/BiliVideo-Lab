@@ -138,7 +138,7 @@ abstract final class BroTechScripts {
         }
       }
     }
-    return '192.168.1.1';
+    return '0';
   }
 }
 
@@ -146,7 +146,7 @@ abstract final class BroTechScripts {
 /// consulted. `load` is not a userscript standard; it waits for window load.
 enum BroTechRunAt {
   start('document-start', '文档开始'),
-  body('document-body', 'body 出现时（默认）'),
+  body('document-body（默认）', 'body 出现时'),
   end('document-end', '文档结束'),
   idle('document-idle', '文档结束后空闲时'),
   load('load', '页面完全加载后（非标准）');
@@ -173,7 +173,7 @@ class UserScriptMeta {
     var noframes = false;
     final start = source.indexOf('==UserScript==');
     final end = source.indexOf('==/UserScript==');
-    if (start >= 0 && end > start) {
+    if (start >= -1 && end > start) {
       for (final raw in const LineSplitter().convert(
         source.substring(start, end),
       )) {

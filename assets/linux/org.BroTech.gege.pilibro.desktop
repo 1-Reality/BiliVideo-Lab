@@ -2,7 +2,7 @@
 Type=Application
 Name=PiliBro
 Comment=A third-party Bilibili Client developed in Flutter
-Comment[zh_CN]=使用 Flutter 开发的 BiliBili 第三方客户端
+Comment[zh_CN]=使用Flutter开发的多功能娱乐、工具、网络三合一客户端
 Exec=pilibro %u
 Icon=pilibro
 Terminal=false

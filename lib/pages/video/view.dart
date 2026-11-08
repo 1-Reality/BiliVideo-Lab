@@ -839,7 +839,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                         if (videoDetailController.showReply)
                           videoReplyPanel(
                             isNested: true,
-                            header: Pref.defaultShowComment
+                            header: Pref.replyStreamInfo
                                 ? _replyStreamMetrics
                                 : null,
                           ),

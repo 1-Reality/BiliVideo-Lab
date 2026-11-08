@@ -1,4 +1,5 @@
 import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/utils/accounts.dart';
@@ -138,7 +139,11 @@ abstract final class DailyCheckin {
     await Request().post(
       Api.vipExpAdd,
       queryParameters: {'mid': Accounts.main.mid, 'csrf': Accounts.main.csrf},
-      options: _form(),
+      options: _form({
+        'origin': 'https://www.bilibili.com',
+        'referer': 'https://www.bilibili.com/video/BV1PtR7B8ECC',
+        'user-agent': BrowserUa.pc,
+      }),
     ),
     69198,
   );

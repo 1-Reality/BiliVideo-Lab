@@ -1,4 +1,5 @@
 import 'package:PiliBro/http/api.dart';
+import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/init.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/models/user/info.dart';
@@ -458,6 +459,13 @@ abstract final class UserHttp {
         'mid': Accounts.main.mid,
         'csrf': Accounts.main.csrf,
       },
+      options: Options(
+        headers: {
+          'origin': 'https://www.bilibili.com',
+          'referer': 'https://www.bilibili.com/video/BV1PtR7B8ECC',
+          'user-agent': BrowserUa.pc,
+        },
+      ),
     );
     if (res.data['code'] == 0) {
       return const Success(null);

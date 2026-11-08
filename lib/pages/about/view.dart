@@ -122,7 +122,7 @@ class _AboutPageState extends State<AboutPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '使用Flutter开发的B站第三方客户端',
+                  '使用Flutter开发的多功能娱乐、工具、网络三合一客户端',
                   style: TextStyle(color: outline),
                   semanticsLabel: '与你一起，发现不一样的世界',
                 ),
@@ -185,7 +185,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
               'https://pages.goofish.com/sharexy?userid=2216485229713&bft=personal&bfp',
             ),
             leading: const Icon(Icons.storefront_outlined),
-            title: const Text('影像 音频 闲鱼小铺（点我交流经验技术）'),
+            title: const Text('影像音频 鱼小铺（点我交流经验技术）'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(

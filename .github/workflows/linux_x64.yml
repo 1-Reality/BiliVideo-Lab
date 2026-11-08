@@ -129,7 +129,7 @@ jobs:
           Requires:       desktop-file-utils, hicolor-icon-theme
 
           %description
-          使用 Flutter 开发的 BiliBili 第三方客户端
+          使用Flutter开发的多功能娱乐、工具、网络三合一客户端
 
           %prep
           %setup -q -n pilibro-${{ env.version }}

@@ -29,7 +29,7 @@ List<SettingsModel> get dynSettings => [
   ),
   const SwitchModel(
     title: '每日漫画签到',
-    subtitle: '每天首次打开时签到漫画，并上报一条漫画阅读记录',
+    subtitle: '每天首次打开时签到，并上报一条漫画阅读记录',
     leading: Icon(Icons.menu_book_outlined),
     setKey: SettingBoxKey.mangaCheckin,
     defaultVal: true,

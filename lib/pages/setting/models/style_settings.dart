@@ -160,6 +160,42 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
+  PopupModel(
+    title: '时间显示',
+    leading: const Icon(Icons.schedule),
+    value: () => DateFormatUtils.timeMode,
+    items: TimeDisplayMode.values,
+    onSelected: (value, setState) {
+      final display = DateFormatUtils.display;
+      GStorage.setting
+          .put(
+            SettingBoxKey.timeDisplayMode,
+            DateFormatUtils.display = value == TimeDisplayMode.hankow
+                ? display ^ 4
+                : display & 4 | value.index,
+          )
+          .whenComplete(setState);
+    },
+  ),
+  NormalModel(
+    onTap: _showMineButtonsDialog,
+    title: '我的页快捷按钮',
+    leading: const Icon(Icons.apps_outlined),
+    getSubtitle: () {
+      final shown = [
+        for (final MapEntry(:key, :value) in _mineButtons.entries)
+          if (GStorage.setting.get(key, defaultValue: true) as bool) value,
+      ];
+      return shown.isEmpty ? '当前全部隐藏' : '当前显示：${shown.join('、')}';
+    },
+  ),
+  NormalModel(
+    onTap: _showMineTabsDialog,
+    title: '我的页卡片',
+    leading: const Icon(Icons.person_outline),
+    getSubtitle: () =>
+        '当前显示：${Pref.mineTabs.map((item) => item.label).join('、')}',
+  ),
   SwitchModel(
     title: '显示粉丝勋章',
     leading: const Icon(MdiIcons.medalOutline),
@@ -266,23 +302,6 @@ List<SettingsModel> get styleSettings => [
           .put(SettingBoxKey.barHideType, value.index)
           .whenComplete(setState);
       SmartDialog.showToast('重启生效');
-    },
-  ),
-  PopupModel(
-    title: '时间显示',
-    leading: const Icon(Icons.schedule),
-    value: () => DateFormatUtils.timeMode,
-    items: TimeDisplayMode.values,
-    onSelected: (value, setState) {
-      final display = DateFormatUtils.display;
-      GStorage.setting
-          .put(
-            SettingBoxKey.timeDisplayMode,
-            DateFormatUtils.display = value == TimeDisplayMode.hankou
-                ? display ^ 4
-                : display & 4 | value.index,
-          )
-          .whenComplete(setState);
     },
   ),
   NormalModel(
@@ -400,25 +419,6 @@ List<SettingsModel> get styleSettings => [
     title: '应用主题',
     getSubtitle: () => '当前主题：${Pref.dynamicColor ? '动态取色' : '指定颜色'}',
     getTrailing: _themeTrailing,
-  ),
-  NormalModel(
-    onTap: _showMineButtonsDialog,
-    title: '我的页快捷按钮',
-    leading: const Icon(Icons.apps_outlined),
-    getSubtitle: () {
-      final shown = [
-        for (final MapEntry(:key, :value) in _mineButtons.entries)
-          if (GStorage.setting.get(key, defaultValue: true) as bool) value,
-      ];
-      return shown.isEmpty ? '当前全部隐藏' : '当前显示：${shown.join('、')}';
-    },
-  ),
-  NormalModel(
-    onTap: _showMineTabsDialog,
-    title: '我的页卡片',
-    leading: const Icon(Icons.person_outline),
-    getSubtitle: () =>
-        '当前显示：${Pref.mineTabs.map((item) => item.label).join('、')}',
   ),
   PopupModel(
     leading: const Icon(Icons.home_outlined),
@@ -981,7 +981,7 @@ Widget _themeTrailing(ThemeData theme) {
   );
 }
 
-// 我的页上能藏的按钮；倍速设置、网关管理、播放统计常驻，不在这里
+// 我的页上能藏的按钮；倍速设置、网关管理常驻，不在这里
 const _mineButtons = {
   SettingBoxKey.mineBtnHistory: '观看记录',
   SettingBoxKey.mineBtnSub: '我的订阅',
@@ -992,6 +992,7 @@ const _mineButtons = {
   SettingBoxKey.mineBtnCreator: '创作中心',
   SettingBoxKey.mineBtnDownload: '离线缓存',
   SettingBoxKey.mineBtnAudioSettings: '特色播放',
+  SettingBoxKey.mineBtnPlaybackStats: '播放统计',
 };
 
 Future<void> _showMineButtonsDialog(

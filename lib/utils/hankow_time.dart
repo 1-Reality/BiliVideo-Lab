@@ -8,7 +8,7 @@ import 'dart:math';
 ///
 /// 均时差每个 UTC 日只在零点算一次并缓存，日内线性插值，
 /// 全年插值误差不超过 0.11 秒，低于秒级显示精度。
-abstract final class HankouTime {
+abstract final class HankowTime {
   static const _meanOffsetUs = 27435467479;
   static const _dayUs = 86400000000;
   static final _eotUsByDay = <int, double>{};

@@ -1,5 +1,5 @@
 import 'package:PiliBro/models/common/time_display_mode.dart';
-import 'package:PiliBro/utils/hankou_time.dart';
+import 'package:PiliBro/utils/hankow_time.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
@@ -14,7 +14,7 @@ abstract final class DateFormatUtils {
   /// 见 [Pref.timeDisplay]
   static int display = Pref.timeDisplay;
   static TimeDisplayMode get timeMode => TimeDisplayMode.values[display & 3];
-  static bool get hankou => display & 4 != 0;
+  static bool get hankow => display & 4 != 0;
   static const _weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 
   static String dateFormat(
@@ -69,15 +69,15 @@ abstract final class DateFormatUtils {
   static String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
   /// 漢口特別市时间在微秒上换算，秒以下由格式化时截去
-  static DateTime _hankou(int us) =>
-      DateTime.fromMicrosecondsSinceEpoch(us + HankouTime.offsetUs(us), isUtc: true);
+  static DateTime _hankow(int us) =>
+      DateTime.fromMicrosecondsSinceEpoch(us + HankowTime.offsetUs(us), isUtc: true);
 
-  static DateTime _date(int time) => hankou
-      ? _hankou(time * 1000000)
+  static DateTime _date(int time) => hankow
+      ? _hankow(time * 1000000)
       : DateTime.fromMillisecondsSinceEpoch(time * 1000);
 
-  static DateTime get _now => hankou
-      ? _hankou(DateTime.now().microsecondsSinceEpoch)
+  static DateTime get _now => hankow
+      ? _hankow(DateTime.now().microsecondsSinceEpoch)
       : DateTime.now();
 
   static String chatFormat(int? time, {bool isHistory = false}) {
