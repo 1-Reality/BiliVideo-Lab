@@ -153,7 +153,6 @@ class _MediaPageState extends CommonPageState<MinePage>
     ),
   );
 
-  // 倍速设置、网关管理常驻，其余按「我的页快捷按钮」显示；
   // 顺序固定，四个一行，最后一行用空位补齐，免得剩下的按钮被拉开
   List<Widget> _buildActionRows(Color primary) {
     final setting = GStorage.setting;

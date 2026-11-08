@@ -20,7 +20,7 @@ enum SettingType {
   styleSetting('外观设置'),
   extraSetting('其它设置'),
   webdavSetting('WebDAV 设置'),
-  about('关于、备份与恢复'),
+  about('关于、备份与恢复、存储空间'),
   ;
 
   final String title;

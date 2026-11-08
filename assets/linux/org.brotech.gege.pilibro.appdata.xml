@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.brotech.gege.pilibro</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>PiliBro</name>
+  <summary>A third-party Bilibili client built with Flutter</summary>
+  <description>
+    <p>PiliBro is a third-party Bilibili client built with Flutter, focused on performance and high-speed playback.</p>
+  </description>
+  <developer id="org.brotech">
+    <name>BroTech</name>
+  </developer>
+  <url type="homepage">https://github.com/1-Reality/BiliVideo-Lab</url>
+  <launchable type="desktop-id">org.brotech.gege.pilibro.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+</component>

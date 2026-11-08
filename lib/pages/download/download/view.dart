@@ -15,6 +15,7 @@ import 'package:PiliBro/pages/download/download_action_mixin.dart';
 import 'package:PiliBro/pages/download/search/view.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/utils/extension/iterable_ext.dart';
+import 'package:PiliBro/utils/extension/num_ext.dart';
 import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:collection/collection.dart';
@@ -189,6 +190,8 @@ class _DownloadPageState extends State<DownloadPage>
               slivers: [
                 if (!_showAudio)
                   Obx(() {
+                    final (v, a) = downloadService.usage;
+                    final t = v + a;
                     final audioCount = _controller.seasons
                         .where((e) => e.audioOnly)
                         .fold<int>(
@@ -197,7 +200,17 @@ class _DownloadPageState extends State<DownloadPage>
                               count + season.pages.first.entries.length,
                         );
                     return SliverToBoxAdapter(
-                      child: Padding(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 12, 0),
+                        child: Text(
+                          '占用空间 ${t.formatSize}${t < 1024 ? '' : 'iB'}，其中视频 ${v == 0 ? '0' : v.formatSize}，音频 ${a == 0 ? '0' : a.formatSize}',
+                          style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                        ),
+                      ),
+                      Padding(
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                         child: Material(
                           color: colorScheme.surfaceContainerLow,
@@ -236,6 +249,8 @@ class _DownloadPageState extends State<DownloadPage>
                             ),
                           ),
                         ),
+                      ),
+                        ],
                       ),
                     );
                   }),

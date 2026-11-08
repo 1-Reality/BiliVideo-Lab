@@ -44,6 +44,18 @@ class DownloadService extends GetxService {
   final waitDownloadQueue = RxList<BiliDownloadEntryInfo>();
   final downloadList = <BiliDownloadEntryInfo>[];
 
+  // 离线下载占用的字节数（视频, 音频）。只累加内存里已有的列表，不扫盘：已完成按总大小，排队中按已下载
+  (int, int) get usage {
+    var v = 0, a = 0;
+    for (final e in downloadList) {
+      if (e.mediaType == 3) { a += e.totalBytes; } else { v += e.totalBytes; }
+    }
+    for (final e in waitDownloadQueue) {
+      if (e.mediaType == 3) { a += e.downloadedBytes; } else { v += e.downloadedBytes; }
+    }
+    return (v, a);
+  }
+
   int? _curCid;
   int? get curCid => _curCid;
   final curDownload = Rxn<BiliDownloadEntryInfo>();
