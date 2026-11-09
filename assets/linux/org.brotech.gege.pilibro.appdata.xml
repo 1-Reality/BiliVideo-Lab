@@ -4,9 +4,9 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-only</project_license>
   <name>PiliBro</name>
-  <summary>A third-party Bilibili client built with Flutter</summary>
+  <summary>A multifunctional all-in-one client for entertainment, tools and networking, built with Flutter</summary>
   <description>
-    <p>PiliBro is a third-party Bilibili client built with Flutter, focused on performance and high-speed playback.</p>
+    <p>PiliBro is a multifunctional all-in-one client built with Flutter, combining entertainment, tools and networking.</p>
   </description>
   <developer id="org.brotech">
     <name>BroTech</name>
