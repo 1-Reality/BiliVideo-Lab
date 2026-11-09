@@ -316,7 +316,7 @@ class _SettingPageState extends State<SettingPage> {
                 _removeAccounts(result);
               },
               child: Text(
-                '仅登出',
+                '仅本地登出',
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
@@ -339,7 +339,7 @@ class _SettingPageState extends State<SettingPage> {
                   }
                 }
               },
-              child: const Text('确认'),
+              child: const Text('尝试从云端下线'),
             ),
           ],
         );
