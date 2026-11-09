@@ -7,6 +7,7 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliBro/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/pages/login/controller.dart';
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/extension/size_ext.dart';
 import 'package:PiliBro/utils/extension/widget_ext.dart';
 import 'package:PiliBro/utils/image_utils.dart';
@@ -40,6 +41,173 @@ class _LoginPageState extends State<LoginPage> {
   // 二维码生成时间
   bool showPassword = false;
   GlobalKey globalKey = GlobalKey();
+  // 还没有任何账号时先挑推荐口味，挑完再进登录方式
+  late bool _choosing = !Accounts.main.isLogin;
+
+  void _pick(LoginPlan plan) {
+    LoginPageController.plan = plan;
+    // 手机 token 只有短信登录给得了；平板直接扫码，拿到的就是平板 token
+    _loginPageCtr.tabController.index = plan == LoginPlan.hd ? 2 : 1;
+    setState(() => _choosing = false);
+  }
+
+  Widget _planChooser(ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    Widget card(
+      LoginPlan plan,
+      IconData icon,
+      String title,
+      String desc, {
+      String? badge,
+    }) => Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: badge == null
+            ? colorScheme.surfaceContainerLow
+            : colorScheme.primaryContainer.withValues(alpha: 0.55),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: badge == null
+              ? BorderSide.none
+              : BorderSide(color: colorScheme.primary.withValues(alpha: 0.5)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _pick(plan),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: badge == null
+                        ? colorScheme.secondaryContainer
+                        : colorScheme.primary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: badge == null
+                        ? colorScheme.onSecondaryContainer
+                        : colorScheme.onPrimary,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (badge != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                badge,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colorScheme.onPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        desc,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: colorScheme.outline),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return SingleChildScrollView(
+      padding: padding + const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '先挑个推荐口味',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '决定首页给你推什么，也决定接下来用哪种方式登录。挑错了也没关系，设置里随时能改。',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 22),
+          card(
+            LoginPlan.phone,
+            Icons.phone_android_outlined,
+            '安卓 App 模式',
+            '和原版手机 App 最像，推荐更个性化，越刷越懂你',
+          ),
+          card(
+            LoginPlan.hd,
+            Icons.tablet_android_outlined,
+            '平板 HD 模式',
+            '平板版自己的推荐池，和手机、网页都不太一样，常有新鲜内容',
+          ),
+          card(
+            LoginPlan.all,
+            Icons.auto_awesome_outlined,
+            '我全都要',
+            '手机和平板的推荐混着刷，评论区的属地和回复关系也一次配齐',
+            badge: '省心',
+          ),
+          card(
+            LoginPlan.any,
+            Icons.tune_outlined,
+            '万能模式',
+            '先按手机推荐来，以后想换哪种、想怎么混，都在设置里自己调',
+          ),
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _choosing = false),
+              child: Text(
+                '跳过，直接登录',
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).constraintWidth();
+  }
 
   @override
   void initState() {
@@ -541,7 +709,7 @@ class _LoginPageState extends State<LoginPage> {
         title: Row(
           children: [
             const Text('登录'),
-            if (isLandscape)
+            if (isLandscape && !_choosing)
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -584,7 +752,9 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
-      body: Column(
+      body: _choosing
+          ? _planChooser(theme)
+          : Column(
         children: [
           if (!isLandscape)
             TabBar(

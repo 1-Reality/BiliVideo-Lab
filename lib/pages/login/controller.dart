@@ -14,6 +14,7 @@ import 'package:PiliBro/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:PiliBro/pages/rcmd/controller.dart';
 import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/accounts/account.dart';
+import 'package:PiliBro/utils/accounts/grpc_headers.dart';
 import 'package:PiliBro/utils/bili_device.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
@@ -27,9 +28,15 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+/// 首次登录前挑的推荐口味：手机、平板、全都要（手机平板混推并换好平板 token）、万能（先按手机来，以后随便改）
+enum LoginPlan { phone, hd, all, any }
+
 class LoginPageController extends GetxController
     with GetSingleTickerProviderStateMixin {
   LoginPageController({this.initialIndex = 1});
+
+  /// 登录页开头选的口味，登录成功后的引导用完即清
+  static LoginPlan? plan;
 
   final int initialIndex;
   final TextEditingController telTextController = TextEditingController();
@@ -659,9 +666,21 @@ class LoginPageController extends GetxController
     }
   }
 
-  /// 首次登录后问一次首页推荐走 Web 还是 App，直接返回就不改。
-  /// 选 App 时有手机 token 走手机，否则走平板（扫码本就是平板 token，只有 cookie 的现换一份）
+  /// 首次登录后的引导：先问首页推荐走 Web 还是 App（直接返回就不改），
+  /// 再看有没有平板 token，没有就问评论区要属地还是楼中楼关系
   static Future<void> rcmdSourceDialog(LoginAccount account) async {
+    final plan = LoginPageController.plan;
+    LoginPageController.plan = null;
+    Future<void> swap() async {
+      SmartDialog.showLoading(msg: '正在换取平板凭证');
+      final res = await LoginHttp.cookieToHdToken(account);
+      SmartDialog.dismiss();
+      if (res case final Error error) error.toast();
+    }
+
+    if (plan == LoginPlan.all && account.tokenOf(BiliApp.hd) == null) {
+      await swap();
+    }
     final app = await showDialog<bool>(
       context: Get.context!,
       builder: (context) => AlertDialog(
@@ -682,18 +701,58 @@ class LoginPageController extends GetxController
         ],
       ),
     );
-    if (app != true) return;
-    // 选了 App 推荐，顺带打开推荐点击反馈
-    GStorage.setting.put(SettingBoxKey.rcmdReportClick, true);
-    final source = account.tokenOf(BiliApp.phone) != null
-        ? RcmdSource.phone
-        : RcmdSource.hd;
-    if (source == RcmdSource.hd && account.tokenOf(BiliApp.hd) == null) {
-      if (await LoginHttp.cookieToHdToken(account) case final Error error) {
-        error.toast();
+    if (app == true) {
+      // 选了 App 推荐，顺带打开推荐点击反馈
+      GStorage.setting.put(SettingBoxKey.rcmdReportClick, true);
+      final hasPhone = account.tokenOf(BiliApp.phone) != null;
+      final bits = switch (plan) {
+        LoginPlan.hd => RcmdSource.hd.bit,
+        LoginPlan.all when hasPhone => RcmdSource.phone.bit | RcmdSource.hd.bit,
+        _ => hasPhone ? RcmdSource.phone.bit : RcmdSource.hd.bit,
+      };
+      if (bits & RcmdSource.hd.bit != 0 && account.tokenOf(BiliApp.hd) == null) {
+        await swap();
       }
+      RcmdController.saveSources(Pref.rcmdSources & ~7 | bits);
     }
-    RcmdController.saveSources(Pref.rcmdSources & ~7 | source.bit);
+    if (account.tokenOf(BiliApp.hd) != null) return;
+    final pick = await showDialog<int>(
+      context: Get.context!,
+      builder: (context) {
+        final outline = ColorScheme.of(context).outline;
+        Widget option(int v, String title, String desc) => SimpleDialogOption(
+          onPressed: () => Get.back(result: v),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(desc, style: TextStyle(fontSize: 13, color: outline)),
+            ],
+          ),
+        );
+        return SimpleDialog(
+          title: const Text('评论区想看哪样？'),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Text(
+                '这个账号还没有平板凭证，下面两样只能先挑一样。以后在「推荐流设置」里随时能改。',
+                style: TextStyle(fontSize: 13, color: outline),
+              ),
+            ),
+            option(0, 'IP 属地', '每条评论后面显示发评论的地区'),
+            option(1, '楼中楼回复关系', '楼中楼里显示「回复 @某人」，这时评论区按未登录加载'),
+            option(2, '我全都要', '用当前登录再换一份平板凭证，B 站的登录记录里会多一条'),
+          ],
+        );
+      },
+    );
+    if (pick == null) return;
+    GStorage.setting.put(SettingBoxKey.replyLegacyIdentity, pick != 0);
+    GrpcHeaders.replyLegacy = pick != 0;
+    if (pick == 2) await swap();
   }
 
   static Future<void>? switchAccountDialog(BuildContext parentContext) {
