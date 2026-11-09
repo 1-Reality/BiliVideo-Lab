@@ -122,6 +122,7 @@ abstract final class SettingBoxKey {
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
       longPressSpeedFactor = 'longPressSpeedFactor',
       enableLongPressSlideSpeed = 'enableLongPressSlideSpeed',
+      longPressSlideKeep = 'longPressSlideKeep',
       speedPanelLayout = 'speedPanelLayout',
       speedGridCols = 'speedGridCols',
       speedGridColsLandscape = 'speedGridColsLandscape',

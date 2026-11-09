@@ -32,6 +32,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  late bool longPressSlideKeep = Pref.longPressSlideKeep;
   late int gridCols = Pref.speedGridCols;
   late int gridColsLandscape = Pref.speedGridColsLandscape;
   late bool gridManual = Pref.speedGridManual;
@@ -892,14 +893,25 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
               ),
             SetSwitchItem(
               title: '长按时上下滑动调整临时倍速',
-              subtitle: '向上加速、向下减速，每档 0.25 倍；松手后恢复原倍速',
+              subtitle: '向上加速、向下减速，每档 0.25 倍',
               setKey: SettingBoxKey.enableLongPressSlideSpeed,
               defaultVal: enableLongPressSlideSpeed,
               onChanged: (value) {
-                enableLongPressSlideSpeed = value;
+                setState(() => enableLongPressSlideSpeed = value);
                 PlPlayerController.instance?.enableLongPressSlideSpeed = value;
               },
             ),
+            if (enableLongPressSlideSpeed)
+              SetSwitchItem(
+                title: '停住 2 秒后松手保持倍速',
+                subtitle: '关闭时滑出来的倍速只是临时的，松手就恢复原倍速',
+                setKey: SettingBoxKey.longPressSlideKeep,
+                defaultVal: longPressSlideKeep,
+                onChanged: (value) {
+                  longPressSlideKeep = value;
+                  PlPlayerController.instance?.longPressSlideKeep = value;
+                },
+              ),
             for (final (shift, name) in const [
               (0, '竖屏倍速'),
               (4, '全屏倍速'),

@@ -1521,6 +1521,9 @@ abstract final class Pref {
     defaultValue: true,
   );
 
+  static bool get longPressSlideKeep =>
+      _setting.get(SettingBoxKey.longPressSlideKeep, defaultValue: false);
+
   // 倍速面板：半屏、全屏、电脑各占 4 位，位 0 常规、位 1 矩阵、位 2 滑杆、位 3 滑杆在上。
   // 矩阵与滑杆都勾时，勾常规合成一个面板，不勾为两个面板；位 3 取自勾选先后，后勾的在下。
   // 默认半屏只有矩阵（2），全屏两个面板滑杆在上（14），电脑一个面板矩阵在上（7）

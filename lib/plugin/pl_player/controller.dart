@@ -452,6 +452,7 @@ class PlPlayerController
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;
   late double longPressSpeedFactor = Pref.longPressSpeedFactor;
   late bool enableLongPressSlideSpeed = Pref.enableLongPressSlideSpeed;
+  late bool longPressSlideKeep = Pref.longPressSlideKeep;
   // 倍速面板、滚轮、方向键：倍速均为百分位整数，设置页已算好
   late int speedPanelLayout = Pref.speedPanelLayout;
   late int speedGridCols = Pref.speedGridCols;
@@ -2423,7 +2424,7 @@ class PlPlayerController
       recordSelection: false,
       temporary: true,
     );
-    _armLongPressSpeedLock();
+    if (longPressSlideKeep) _armLongPressSpeedLock();
   }
 
   bool get isCompleted =>
