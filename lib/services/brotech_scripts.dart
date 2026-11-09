@@ -367,7 +367,9 @@ abstract final class BroTechPresets {
       .put('presets', jsonEncode([for (final e in presets) e.toJson()]));
 }
 
-/// Android/iOS: fills the first visible password box (and the text box
+/// Android/iOS: fills the first visible password box (type=password, or a
+/// text box whose name/id/placeholder/autocomplete says password — some
+/// captive portals use plain text boxes) (and the text box
 /// before it, when a user name is saved) as soon as one appears, exposes
 /// window.__broFill(force) for the manual button, and reports passwords the
 /// user types so they can be saved on the way out.
@@ -381,11 +383,12 @@ UserScript buildBroTechCredentialScript({String? user, String? pass}) =>
 (()=>{const P=${jsonEncode(pass ?? '')},U=${jsonEncode(user ?? '')};
 const c=(...a)=>{const b=window.flutter_inappwebview;b&&b.callHandler&&b.callHandler(...a);};
 const vis=e=>e.getClientRects().length>0;
+const isPw=e=>e.type==='password'||(/^(text|)\$/.test(e.type)&&/pass|pwd|密码|口令|mima/i.test(e.name+' '+e.id+' '+e.placeholder+' '+e.autocomplete));
 const userOf=p=>{let u=null;for(const e of (p.form||document).querySelectorAll('input')){if(e===p)break;if(vis(e)&&/^(text|email|tel|)\$/.test(e.type))u=e;}return u;};
 const set=(e,v)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,v);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));};
-const fill=f=>{if(!P)return false;const p=[...document.querySelectorAll('input[type=password]')].find(e=>vis(e)&&(f||!e.value));if(!p)return false;set(p,P);const u=U&&userOf(p);if(u&&(f||!u.value))set(u,U);return true;};
+const fill=f=>{if(!P)return false;const p=[...document.querySelectorAll('input')].find(e=>isPw(e)&&vis(e)&&(f||!e.value));if(!p)return false;set(p,P);const u=U&&userOf(p);if(u&&(f||!u.value))set(u,U);return true;};
 window.__broFill=fill;
-document.addEventListener('change',e=>{const p=e.target;if(p instanceof HTMLInputElement&&p.type==='password'&&p.value&&p.value!==P){const u=userOf(p);c('broCred',p.value,u?u.value:'');}},true);
+document.addEventListener('change',e=>{const p=e.target;if(p instanceof HTMLInputElement&&isPw(p)&&p.value&&p.value!==P){const u=userOf(p);c('broCred',p.value,u?u.value:'');}},true);
 if(P&&!fill(false)){const o=new MutationObserver(()=>{if(fill(false))o.disconnect();});o.observe(document,{childList:true,subtree:true});setTimeout(()=>o.disconnect(),60000);}
 })();
 ''',
