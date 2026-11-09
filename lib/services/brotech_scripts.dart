@@ -138,7 +138,7 @@ abstract final class BroTechScripts {
         }
       }
     }
-    return '0';
+    return '';
   }
 }
 
