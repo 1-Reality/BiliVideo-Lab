@@ -220,16 +220,13 @@ class _AudioPageState extends State<AudioPage> {
     final colorScheme = ColorScheme.of(context);
     final isPortrait = MediaQuery.sizeOf(context).isPortrait;
     final padding = MediaQuery.viewPaddingOf(context);
-    // 键盘快捷键：空格播放暂停，←→ 快退快进 5 秒，↑↓ 音量，M 静音，P / N 上一首下一首
-    void seekBy(int ms) => _controller.onSeek(
-      Duration(milliseconds: (_controller.currPosInMilliseconds + ms).clamp(0, _controller.timeLength!)),
-    );
+    // 键盘快捷键：空格播放暂停，←→ 上一首下一首，↑↓ 音量，M 静音，P / N 上一首下一首
     void volBy(double d) => _controller.setVolume((_controller.desktopVolume.value + d).clamp(0.0, 1.0));
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.space): _controller.playOrPause,
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => seekBy(-5000),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () => seekBy(5000),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): _controller.playPrev,
+        const SingleActivator(LogicalKeyboardKey.arrowRight): _controller.playNext,
         const SingleActivator(LogicalKeyboardKey.arrowUp): () => volBy(0.1),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () => volBy(-0.1),
         const SingleActivator(LogicalKeyboardKey.keyM): _controller.toggleVolume,
