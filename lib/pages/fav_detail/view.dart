@@ -156,7 +156,7 @@ class _FavDetailPageState extends State<FavDetailPage>
               ],
             )
           : null,
-      expandedHeight: kToolbarHeight + 127,
+      expandedHeight: kToolbarHeight + 127 + (controller.account.isLogin ? 38 : 0),
       pinned: true,
       title: enableMultiSelect
           ? null
@@ -238,26 +238,6 @@ class _FavDetailPageState extends State<FavDetailPage>
             final isOwner = controller.isOwner;
             final folderInfo = controller.folderInfo.value;
             return [
-              // 整个收藏夹当播放列表交给听视频，从第一个视频开始；MEDIA_LIST 下收藏夹的业务类型是 3（合集是 8）
-              PopupMenuItem(
-                onTap: () {
-                  final first = controller.loadingState.value.dataOrNull
-                      ?.where((e) => e.type == 2)
-                      .firstOrNull;
-                  if (first == null) {
-                    SmartDialog.showToast('收藏夹里没有可听的视频');
-                    return;
-                  }
-                  AudioPage.toAudioPage(
-                    itemType: 1,
-                    oid: first.id!,
-                    id: controller.mediaId,
-                    extraId: 3,
-                    from: PlaylistSource.MEDIA_LIST,
-                  );
-                },
-                child: const Text('全部加到听视频'),
-              ),
               if (isOwner) ...[
                 PopupMenuItem(
                   onTap: controller.onSort,
@@ -376,6 +356,26 @@ class _FavDetailPageState extends State<FavDetailPage>
     ];
   }
 
+  // 整个收藏夹当播放列表交给听视频，从第一个视频开始；MEDIA_LIST 下收藏夹的业务类型是 3（合集是 8）
+  void _playAllInAudio() {
+    final first = controller.loadingState.value.dataOrNull
+        ?.where((e) => e.type == 2)
+        .firstOrNull;
+    final cid = first?.ugc?.firstCid;
+    if (first == null || cid == null) {
+      SmartDialog.showToast('收藏夹里没有可听的视频');
+      return;
+    }
+    AudioPage.toAudioPage(
+      itemType: 1,
+      oid: first.id!,
+      subId: [cid],
+      id: controller.mediaId,
+      extraId: 3,
+      from: PlaylistSource.MEDIA_LIST,
+    );
+  }
+
   Widget _flexibleSpace(ThemeData theme) {
     final style = TextStyle(
       height: 1,
@@ -390,103 +390,125 @@ class _FavDetailPageState extends State<FavDetailPage>
           right: 12,
           bottom: 7,
         ),
-        child: SizedBox(
-          height: 110,
-          child: Obx(
-            () {
-              final folderInfo = controller.folderInfo.value;
-              return Row(
-                spacing: 12,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
+        child: Column(
+          mainAxisSize: .min,
+          crossAxisAlignment: .start,
+          children: [
+            SizedBox(
+              height: 110,
+              child: Obx(
+                () {
+                  final folderInfo = controller.folderInfo.value;
+                  return Row(
+                    spacing: 12,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Hero(
-                        tag: controller.heroTag,
-                        child: NetworkImgLayer(
-                          width: 176,
-                          height: 110,
-                          src: folderInfo.cover,
-                        ),
-                      ),
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Obx(() {
-                          if (controller.isOwner ||
-                              controller.loadingState.value is! Success) {
-                            return const SizedBox.shrink();
-                          }
-                          bool isFav = folderInfo.favState == 1;
-                          return iconButton(
-                            size: 28,
-                            iconSize: 18,
-                            tooltip: '${isFav ? '取消' : ''}收藏',
-                            onPressed: () => controller.onFav(isFav),
-                            icon: isFav
-                                ? const Icon(Icons.favorite)
-                                : const Icon(Icons.favorite_border),
-                            bgColor: isFav
-                                ? theme.colorScheme.secondaryContainer
-                                : theme.colorScheme.onInverseSurface,
-                            iconColor: isFav
-                                ? theme.colorScheme.onSecondaryContainer
-                                : theme.colorScheme.onSurfaceVariant,
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                  if (folderInfo.title.isNotEmpty)
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          Expanded(
-                            child: Text(
-                              folderInfo.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: theme.textTheme.titleMedium!.fontSize,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          Hero(
+                            tag: controller.heroTag,
+                            child: NetworkImgLayer(
+                              width: 176,
+                              height: 110,
+                              src: folderInfo.cover,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => Get.toNamed(
-                              '/member?mid=${folderInfo.upper!.mid}',
-                            ),
-                            child: Text(
-                              folderInfo.upper!.name!,
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (folderInfo.intro?.isNotEmpty == true) ...[
-                            Text(
-                              folderInfo.intro!,
-                              style: style,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                          Text(
-                            '共${folderInfo.mediaCount}条视频 · '
-                            '${BiliUtils.isPublicFavText(folderInfo.attr)}',
-                            style: style,
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: Obx(() {
+                              if (controller.isOwner ||
+                                  controller.loadingState.value is! Success) {
+                                return const SizedBox.shrink();
+                              }
+                              bool isFav = folderInfo.favState == 1;
+                              return iconButton(
+                                size: 28,
+                                iconSize: 18,
+                                tooltip: '${isFav ? '取消' : ''}收藏',
+                                onPressed: () => controller.onFav(isFav),
+                                icon: isFav
+                                    ? const Icon(Icons.favorite)
+                                    : const Icon(Icons.favorite_border),
+                                bgColor: isFav
+                                    ? theme.colorScheme.secondaryContainer
+                                    : theme.colorScheme.onInverseSurface,
+                                iconColor: isFav
+                                    ? theme.colorScheme.onSecondaryContainer
+                                    : theme.colorScheme.onSurfaceVariant,
+                              );
+                            }),
                           ),
                         ],
                       ),
-                    ),
-                ],
-              );
-            },
-          ),
+                      if (folderInfo.title.isNotEmpty)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  folderInfo.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: theme.textTheme.titleMedium!.fontSize,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Get.toNamed(
+                                  '/member?mid=${folderInfo.upper!.mid}',
+                                ),
+                                child: Text(
+                                  folderInfo.upper!.name!,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (folderInfo.intro?.isNotEmpty == true) ...[
+                                Text(
+                                  folderInfo.intro!,
+                                  style: style,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              Text(
+                                '共${folderInfo.mediaCount}条视频 · '
+                                '${BiliUtils.isPublicFavText(folderInfo.attr)}',
+                                style: style,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            if (controller.account.isLogin) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 30,
+                child: FilledButton.tonalIcon(
+                  onPressed: _playAllInAudio,
+                  icon: const Icon(Icons.headphones_outlined, size: 16),
+                  label: const Text('全部加到听视频'),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
