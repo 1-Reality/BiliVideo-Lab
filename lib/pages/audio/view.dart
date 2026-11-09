@@ -235,6 +235,8 @@ class _AudioPageState extends State<AudioPage> {
         const SingleActivator(LogicalKeyboardKey.keyM): _controller.toggleVolume,
         const SingleActivator(LogicalKeyboardKey.keyP): _controller.playPrev,
         const SingleActivator(LogicalKeyboardKey.keyN): _controller.playNext,
+        const SingleActivator(LogicalKeyboardKey.bracketLeft): _controller.playPrev,
+        const SingleActivator(LogicalKeyboardKey.bracketRight): _controller.playNext,
       },
       child: Focus(
         autofocus: true,
