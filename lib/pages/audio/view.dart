@@ -53,6 +53,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart' hide DraggableScrollableSheet;
 import 'package:path/path.dart' as path;
 
@@ -219,7 +220,25 @@ class _AudioPageState extends State<AudioPage> {
     final colorScheme = ColorScheme.of(context);
     final isPortrait = MediaQuery.sizeOf(context).isPortrait;
     final padding = MediaQuery.viewPaddingOf(context);
-    return SimpleScaffold(
+    // 键盘快捷键：空格播放暂停，←→ 快退快进 5 秒，↑↓ 音量，M 静音，P / N 上一首下一首
+    void seekBy(int ms) => _controller.onSeek(
+      Duration(milliseconds: (_controller.currPosInMilliseconds + ms).clamp(0, _controller.timeLength!)),
+    );
+    void volBy(double d) => _controller.setVolume((_controller.desktopVolume.value + d).clamp(0.0, 1.0));
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.space): _controller.playOrPause,
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => seekBy(-5000),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => seekBy(5000),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => volBy(0.1),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => volBy(-0.1),
+        const SingleActivator(LogicalKeyboardKey.keyM): _controller.toggleVolume,
+        const SingleActivator(LogicalKeyboardKey.keyP): _controller.playPrev,
+        const SingleActivator(LogicalKeyboardKey.keyN): _controller.playNext,
+      },
+      child: Focus(
+        autofocus: true,
+        child: SimpleScaffold(
       appBar: AppBar(
         actions: [
           if (_controller.isUgc && !_controller.isOffline &&
@@ -373,6 +392,8 @@ class _AudioPageState extends State<AudioPage> {
                   ),
                 ],
               ),
+      ),
+        ),
       ),
     );
   }

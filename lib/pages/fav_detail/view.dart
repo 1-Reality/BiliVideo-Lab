@@ -20,6 +20,8 @@ import 'package:PiliBro/utils/grid.dart';
 import 'package:PiliBro/utils/request_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart';
+import 'package:PiliBro/pages/audio/view.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -236,6 +238,26 @@ class _FavDetailPageState extends State<FavDetailPage>
             final isOwner = controller.isOwner;
             final folderInfo = controller.folderInfo.value;
             return [
+              // 整个收藏夹当播放列表交给听视频，从第一个视频开始；MEDIA_LIST 下收藏夹的业务类型是 3（合集是 8）
+              PopupMenuItem(
+                onTap: () {
+                  final first = controller.loadingState.value.dataOrNull
+                      ?.where((e) => e.type == 2)
+                      .firstOrNull;
+                  if (first == null) {
+                    SmartDialog.showToast('收藏夹里没有可听的视频');
+                    return;
+                  }
+                  AudioPage.toAudioPage(
+                    itemType: 1,
+                    oid: first.id!,
+                    id: controller.mediaId,
+                    extraId: 3,
+                    from: PlaylistSource.MEDIA_LIST,
+                  );
+                },
+                child: const Text('全部加到听视频'),
+              ),
               if (isOwner) ...[
                 PopupMenuItem(
                   onTap: controller.onSort,
