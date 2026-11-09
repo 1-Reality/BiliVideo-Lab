@@ -266,7 +266,7 @@ class ReplyItemGrpc extends StatelessWidget {
                               text:
                                   _locationCache[replyItem
                                       .replyControl
-                                      .location] ??= ' • ${replyItem.replyControl.location.substring(replyItem.replyControl.location.indexOf('：') + 1)}', // 网页和新版客户端给「IP属地：xx」，HD 客户端只给地名，有冒号才切
+                                      .location] ??= ' • ${replyItem.replyControl.location.substring(5)}',
                             ),
                           ]
                         : null,
