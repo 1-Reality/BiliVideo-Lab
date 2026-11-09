@@ -22,8 +22,10 @@ abstract final class GrpcHeaders {
   static const _replyBuild = 2001100;
   static const _replyVersion = '2.0.1';
 
-  /// 盖在 [newHeaders] 上，只用于评论列表的 gRPC
+  /// 盖在 [newHeaders] 上，只用于评论列表的 gRPC。票要跟身份一套：有 HD token 就用它，
+  /// 拿粉版 token 自报 HD 时服务器当成未登录，IP 属地之类只给登录用户的字段就没了
   static Map<String, String> replyHeaders(String? accessKey) => {
+    if (accessKey != null) 'authorization': 'identify_v1 $accessKey',
     'x-bili-device-bin': BiliDevice.deviceBin(
       BiliApp.hd,
       build: _replyBuild,

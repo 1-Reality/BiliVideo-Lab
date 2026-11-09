@@ -106,10 +106,11 @@ class LoginAccount extends Account {
     accessKey,
   );
 
+  Map<String, String>? _replyGrpcHeaders;
+
   @override
-  late final Map<String, String> replyGrpcHeaders = GrpcHeaders.replyHeaders(
-    accessKey,
-  );
+  Map<String, String> get replyGrpcHeaders => _replyGrpcHeaders ??=
+      GrpcHeaders.replyHeaders(tokenOf(BiliApp.hd) ?? accessKey);
 
   @override
   late final String csrf =
@@ -125,6 +126,7 @@ class LoginAccount extends Account {
 
   @override
   Future<void>? onChange() {
+    _replyGrpcHeaders = null; // 换来 HD token 后评论请求头要跟着换
     if (_hasDelete) return null;
     return _box.put(_midStr, this);
   }
