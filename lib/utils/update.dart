@@ -14,7 +14,6 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
-import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -68,26 +67,24 @@ abstract final class Update {
     if (kDebugMode) return;
     SmartDialog.dismiss();
     try {
-      final res = await Request().get(
-        Api.latestApp,
-        options: Options(
-          headers: {'user-agent': BrowserUa.mob},
-          extra: {'account': const NoAccount()},
-        ),
+      final options = Options(
+        headers: {'user-agent': BrowserUa.mob},
+        extra: {'account': const NoAccount()},
       );
-      if (res.data is Map || res.data.isEmpty) {
-        if (!isAuto) {
-          SmartDialog.showToast('检查更新失败，GitHub接口未返回数据，请检查网络');
-        }
-        return;
-      }
-      // 跳过预发布版：只在拿到列表后挑第一个正式版
-      final data = (res.data as List).firstWhereOrNull(
-        (e) => e['prerelease'] != true,
-      );
+      // 带 Latest 标签的正式版；没有（比如只剩预发布）时 GitHub 返回 404，退回列表第一项
+      final latest = await Request().get('${Api.latestApp}/latest', options: options);
+      dynamic data = latest.data is Map && latest.data['tag_name'] != null
+          ? latest.data
+          : null;
       if (data == null) {
-        if (!isAuto) SmartDialog.showToast('已是最新版本');
-        return;
+        final res = await Request().get(Api.latestApp, options: options);
+        if (res.data is! List || res.data.isEmpty) {
+          if (!isAuto) {
+            SmartDialog.showToast('检查更新失败，GitHub接口未返回数据，请检查网络');
+          }
+          return;
+        }
+        data = res.data[0];
       }
       final version = data['tag_name']?.toString() ?? data['created_at'].toString();
       final updateIgnore = GStorage.localCache.get(LocalCacheKey.updateIgnore);
