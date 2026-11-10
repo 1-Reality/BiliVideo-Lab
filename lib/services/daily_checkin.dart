@@ -61,29 +61,37 @@ abstract final class DailyCheckin {
     final data = res.data;
     final code = data is Map ? data['code'] : null;
     final msg = data is Map ? '${data['message'] ?? data['msg'] ?? ''}' : '';
-    // 漫画的 Twirp 接口成功时回空对象，没有 code 也没有 msg；出错总带字符串 code
     if (code == 0 ||
         (doneCode != null && code == doneCode) ||
-        msg.contains(_done) ||
-        (data is Map && code == null && msg.isEmpty)) {
+        msg.contains(_done)) {
       return null;
     }
     return '$name失败：${code ?? ''} $msg';
   }
 
-  static Future<String?> _manga() async => _check(
+  // 漫画是 Twirp 接口：出错时 body 是 {"code":"字符串","msg":"..."}，成功时 body 为空或非对象。
+  // 放行所有状态码让 body 原样回来，按协议判断
+  static String? _mangaCheck(String name, Response res) {
+    final data = res.data;
+    if (data is Map && data['code'] is String) {
+      final msg = '${data['msg'] ?? ''}';
+      return msg.contains(_done) ? null : '$name失败：${data['code']} $msg';
+    }
+    final status = res.statusCode ?? 0;
+    return status >= 200 && status < 300 ? null : '$name失败：$status';
+  }
+
+  static Future<String?> _manga() async => _mangaCheck(
     '漫画签到',
     await Request().post(
       'https://manga.bilibili.com/twirp/activity.v1.Activity/ClockIn',
       queryParameters: {'platform': 'android'},
-      options: _form()
-        ..validateStatus = (status) =>
-            status != null && (status >= 200 && status < 300 || status == 400),
+      options: _form()..validateStatus = (_) => true,
     ),
   );
 
   // 直接上报一条阅读记录
-  static Future<String?> _mangaRead((int, int) comic) async => _check(
+  static Future<String?> _mangaRead((int, int) comic) async => _mangaCheck(
     '漫画阅读',
     await Request().post(
       'https://manga.bilibili.com/twirp/bookshelf.v1.Bookshelf/AddHistory',
@@ -92,7 +100,7 @@ abstract final class DailyCheckin {
         'comic_id': comic.$1,
         'ep_id': comic.$2,
       },
-      options: _form(),
+      options: _form()..validateStatus = (_) => true,
     ),
   );
 
