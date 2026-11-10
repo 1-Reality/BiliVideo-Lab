@@ -967,7 +967,25 @@ class AudioController extends GetxController
         return true;
       }
     }
-    return false;
+    return _playPart(-1);
+  }
+
+  // 切到同一稿件相邻的分 P，没有就返回 false
+  bool _playPart(int step) {
+    final parts = audioItem.value?.parts;
+    if (parts == null) return false;
+    final curr = parts.indexWhere((e) => e.subId == subId.first);
+    final target = curr + step;
+    if (curr < 0 || target < 0 || target >= parts.length) return false;
+    final part = parts[target];
+    oid = part.oid;
+    subId = [part.subId];
+    _queryPlayUrl().then((res) {
+      if (res) {
+        _videoDetailController = null;
+      }
+    });
+    return true;
   }
 
   bool playNext({bool nextPart = false}) {
@@ -984,25 +1002,7 @@ class AudioController extends GetxController
       }
       return false;
     }
-    if (nextPart) {
-      if (audioItem.value case DetailItem(:final parts)) {
-        if (parts.length > 1) {
-          final subId = this.subId.firstOrNull;
-          final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
-          if (nextIndex != 0 && nextIndex < parts.length) {
-            final nextPart = parts[nextIndex];
-            oid = nextPart.oid;
-            this.subId = [nextPart.subId];
-            _queryPlayUrl().then((res) {
-              if (res) {
-                _videoDetailController = null;
-              }
-            });
-            return true;
-          }
-        }
-      }
-    }
+    if (nextPart && _playPart(1)) return true;
     if (index != null && playlist != null && player != null) {
       final next = index! + 1;
       if (next < playlist!.length) {
@@ -1013,7 +1013,7 @@ class AudioController extends GetxController
         return true;
       }
     }
-    return false;
+    return !nextPart && _playPart(1);
   }
 
   void playIndex(int index, {List<Int64>? subId}) {
