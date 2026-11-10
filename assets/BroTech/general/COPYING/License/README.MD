@@ -28,13 +28,13 @@
 ## License Structure, Primary License and Conflict Resolution
 The [*BroTech Additional License*](https://github.com/ucxn/Bro-Stat?tab=License-1-ov-file#english-of-the-primary-lawbrotech-additional-license) constitute the **Primary LICENSE** of this project, serving as its license, contract, agreement, and covenant, and are a necessary condition for legal effect. ***Subject to the minimum conditions required by law, they are also the only agreement that must be observed.***
 
-Where you have fully understood, read, and agreed to the above rules and the BroTech Additional License below, it is understood that the original content of this project may be offered to the public under a single, complete, and unified composite license that may not be arbitrarily split. It is not a set of several licenses that a recipient may separately pick from, independently choose among, or substitute for one another.
+Where you have fully understood, read, and agreed to the above rules and the ***BroTech Additional License***, it is understood that the original content of this project may be offered to the public under a single, complete, and unified composite license that may not be arbitrarily split. It is not a set of several licenses that a recipient may separately pick from, independently choose among, or substitute for one another.
 
 Public licenses, general-purpose licenses, or other license texts referenced by individual source files through "@license" apply as supplementary components of the composite license only to the extent that their content is compatible with this project's primary agreement and has been expressly incorporated into this licensing system.
 
 "AND" indicates that the relevant terms apply jointly within the scope described above. It does not mean that the constituent texts share the same order of interpretive precedence, nor does it constitute any public grant that can be exercised separately from the BroTech Additional License.
 
-**In the event of any ambiguity, inconsistency, or conflict among license texts, the interpretation that fully preserves, and gives effect to, the BroTech Additional License, in particular BroTech's Prominent Attribution Terms requirement, shall prevail.**
+**In the event of any ambiguity, inconsistency, or conflict among license texts, the interpretation that fully preserves, and gives effect to, the BroTech Additional License, in particular the BroTech Prominent Attribution Terms, shall prevail.**
 
 *In any extreme case in which certain provisions of this License can be satisfied but other provisions cannot, including any case in which provisions are contradictory, incompatible, or opposed to one another, the BroTech Prominent Attribution Requirements—including the mandatory preservation and prominent display of the name “哥哥科技”—shall take absolute and unconditional priority over all other provisions of this License.*
 
@@ -48,7 +48,7 @@ Such a conflict shall not cause the BroTech Additional License to lapse automati
 
 The rights obtained by recipients of this project are at all times determined by the complete grant actually made by BroTech. No one may obtain rights that conflict with the primary agreement by citing any referenced public license in isolation, interpreting it in a fragmented manner, or applying it selectively. No single text, other than one that correctly incorporates the BroTech Additional License, may be extracted from this project's complete license statement in order to claim exemption from the license conditions that this project has expressly set out.
 
-**Regardless of the licensing path chosen, it is subject to the *[BroTech Prominent Attribution Terms](/License.md#brotech-prominent-attribution-terms)* set forth in this document.</br></br>无论选择何种授权路径，均同时受本文件所载 [哥哥科技显著署名附加条款](https://github.com/ucxn/Bro-Stat?tab=License-1-ov-file#哥哥科技显著署名附加条款) 约束。**
+**Regardless of the licensing path chosen, it is subject to the *[BroTech Prominent Attribution Terms](/License.md#brotech-prominent-attribution-terms)* set forth in License.md.</br></br>无论选择何种授权路径，均同时受本文件所载 [哥哥科技显著署名附加条款](https://github.com/ucxn/Bro-Stat?tab=License-1-ov-file#哥哥科技显著署名附加条款) 约束。**
 
 ### [Summary for Developers for a Quick Reference](/Copyright.md)
 
