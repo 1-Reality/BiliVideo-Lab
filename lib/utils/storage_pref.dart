@@ -1054,7 +1054,7 @@ abstract final class Pref {
   }
 
   static bool get preInitPlayer =>
-      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: true);
+      _setting.get(SettingBoxKey.preInitPlayer, defaultValue: false);
 
   static bool get mainTabBarView =>
       _setting.get(SettingBoxKey.mainTabBarView, defaultValue: true);
@@ -1236,7 +1236,14 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
+      _setting.get(
+        SettingBoxKey.autoPlayEnable,
+        defaultValue:
+            Platform.isWindows ||
+            (Platform.isAndroid &&
+                DeviceUtils.sdkInt >= 34 &&
+                !DeviceUtils.isTablet),
+      );
 
   static bool get replyNoAutoPlay =>
       _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);

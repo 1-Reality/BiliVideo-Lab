@@ -10,6 +10,7 @@ import 'package:PiliBro/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc.dart';
 import 'package:PiliBro/pages/setting/widgets/dual_slider_dialog.dart';
+import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
@@ -65,12 +66,16 @@ List<SettingsModel> get playSettings => [
         '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 copy系',
     onTap: _showSuperResolutionDialog,
   ),
-  const SwitchModel(
+  SwitchModel(
     title: '自动播放',
     subtitle: '进入详情页自动播放',
-    leading: Icon(Icons.motion_photos_auto_outlined),
+    leading: const Icon(Icons.motion_photos_auto_outlined),
     setKey: SettingBoxKey.autoPlayEnable,
-    defaultVal: true,
+    defaultVal:
+        Platform.isWindows ||
+        (Platform.isAndroid &&
+            DeviceUtils.sdkInt >= 34 &&
+            !DeviceUtils.isTablet),
   ),
   const SwitchModel(
     title: '评论区进入不自动播放',
@@ -130,7 +135,7 @@ List<SettingsModel> get playSettings => [
     subtitle: '相对减少手动播放加载时间',
     leading: Icon(Icons.play_circle_outlined),
     setKey: SettingBoxKey.preInitPlayer,
-    defaultVal: true,
+    defaultVal: false,
   ),
   const SwitchModel(
     title: '滑动跳转预览视频缩略图',
