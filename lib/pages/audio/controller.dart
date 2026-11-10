@@ -6,7 +6,12 @@ import 'package:PiliBro/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliBro/grpc/audio.dart';
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart'
     show
+        Author,
+        BKArcPart,
+        BKArchive,
+        BKStat,
         DetailItem,
+        PlayItem,
         PlayURLResp,
         PlaylistSource,
         PlayInfo,
@@ -21,6 +26,7 @@ import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
+import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models/video/play/url.dart' as http_model show Volume;
 import 'package:PiliBro/pages/common/common_intro_controller.dart'
@@ -381,6 +387,8 @@ class AudioController extends GetxController
           this.index = index;
           _updateCurrItem(response.list[index]);
           playlist = response.list;
+        } else if (isUgc) {
+          await _queryWebDetail();
         }
       } else if (isLoadPrev) {
         _prev = response.reachStart ? null : response.paginationReply.prev;
@@ -394,6 +402,57 @@ class AudioController extends GetxController
           playlist?.addAll(response.list);
         }
       }
+    } else if (isInit && isUgc) {
+      await _queryWebDetail();
+    } else {
+      res.toast();
+    }
+  }
+
+  // 私密稿件不在 Listener 里，列表和流地址都取不到：
+  // 用网页详情造一个只含自己的列表，信息区、通知栏、分 P 才有数据
+  Future<void> _queryWebDetail() async {
+    final res = await VideoHttp.videoIntro(bvid: IdUtils.av2bv(oid.toInt()));
+    if (res case Success(:final response)) {
+      final owner = response.owner!;
+      final stat = response.stat!;
+      final item = DetailItem(
+        item: PlayItem(itemType: itemType, oid: oid, subId: subId),
+        arc: BKArchive(
+          oid: oid,
+          title: response.title,
+          cover: response.pic,
+          desc: response.desc,
+          publish: Int64(response.pubdate!),
+          displayedOid: response.bvid,
+          copyright: response.copyright,
+        ),
+        parts: response.pages!.map(
+          (e) => BKArcPart(
+            oid: oid,
+            subId: Int64(e.cid!),
+            title: e.part,
+            duration: Int64(e.duration!),
+            page: e.page,
+          ),
+        ),
+        owner: Author(
+          mid: Int64(owner.mid!),
+          name: owner.name,
+          avatar: owner.face,
+        ),
+        stat: BKStat(
+          view: stat.view,
+          like: stat.like,
+          coin: stat.coin.toInt(),
+          favourite: stat.favorite,
+          reply: stat.reply,
+          share: stat.share,
+        ),
+      );
+      playlist = [item];
+      index = 0;
+      _updateCurrItem(item);
     } else {
       res.toast();
     }
@@ -422,13 +481,19 @@ class AudioController extends GetxController
         oid: oid,
         subId: subId,
       );
-      if (res case Success(:final response)) {
+      if (res case Success(:final response)
+          when response.playerInfo.isNotEmpty) {
         await _onPlay(response, autoplay: autoplay);
         return true;
+      }
+      // 私密稿件 Listener 取不到流（报错或没有播放信息），改走网页接口
+      if (isUgc && await _queryWebPlayUrl(autoplay: autoplay)) return true;
+      if (res is Success) {
+        SmartDialog.showToast('获取播放地址失败');
       } else {
         res.toast();
-        return false;
       }
+      return false;
     } finally {
       _queryingPlayUrl = false;
       if (_pendingNetworkReload) {
@@ -436,6 +501,31 @@ class AudioController extends GetxController
         await _reloadForNetworkPolicy();
       }
     }
+  }
+
+  Future<bool> _queryWebPlayUrl({required bool autoplay}) async {
+    final res = await VideoHttp.videoUrl(
+      bvid: IdUtils.av2bv(oid.toInt()),
+      cid: subId.first.toInt(),
+      qn: 80,
+      tryLook: false,
+      videoType: VideoType.ugc,
+    );
+    if (res case Success(:final response)) {
+      final audios = response.dash?.audio;
+      if (audios != null && audios.isNotEmpty) {
+        final audio = VideoUtils.findTargetAudio(audios, cacheAudioQa);
+        if (_start == null) position.value = 0;
+        await _onOpenMedia(
+          VideoUtils.getCdnUrl(audio.playUrls, isAudio: true),
+          ua: BrowserUa.pc,
+          referer: HttpString.baseUrl,
+          autoplay: autoplay,
+        );
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _onPlay(PlayURLResp data, {bool autoplay = true}) async {
