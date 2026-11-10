@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=PiliBro
-Comment=A third-party Bilibili Client developed in Flutter
+Comment=Multifunctional all-in-one client for entertainment, tools and networking, developed in Flutter
 Comment[zh_CN]=使用Flutter开发的多功能娱乐、工具、网络三合一客户端
 Exec=pilibro %u
 Icon=pilibro
