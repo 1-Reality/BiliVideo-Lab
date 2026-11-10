@@ -1236,14 +1236,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(
-        SettingBoxKey.autoPlayEnable,
-        defaultValue:
-            Platform.isWindows ||
-            (Platform.isAndroid &&
-                DeviceUtils.sdkInt >= 34 &&
-                !DeviceUtils.isTablet),
-      );
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
 
   static bool get replyNoAutoPlay =>
       _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);

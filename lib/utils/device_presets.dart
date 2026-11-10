@@ -61,6 +61,8 @@ abstract final class DevicePresets {
           Platform.isAndroid && DeviceUtils.sdkInt >= 34
               ? OrientationPolicyMode.brotherTech.index
               : OrientationPolicyMode.advanced.index,
+      if (Platform.isAndroid && DeviceUtils.sdkInt >= 34)
+        SettingBoxKey.autoPlayEnable: true,
       SettingBoxKey.horizontalScreen: false,
       SettingBoxKey.keyboardControl: true,
       SettingBoxKey.autoFullscreenMode: AutoFullscreenMode.off.index,

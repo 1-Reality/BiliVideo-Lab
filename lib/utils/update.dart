@@ -45,6 +45,7 @@ abstract final class Update {
     cache.put(LocalCacheKey.launchSlot, slot + 1);
     if (Platform.isWindows && cache.get(LocalCacheKey.pcChecked) == null) {
       cache.put(LocalCacheKey.pcChecked, true);
+      GStorage.setting.put(SettingBoxKey.autoPlayEnable, true);
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => PcCheck.onFirstLaunch(),
       );
