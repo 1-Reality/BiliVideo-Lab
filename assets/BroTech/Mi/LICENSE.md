@@ -5,10 +5,10 @@ Regardless of the licensing path chosen, it is subject to the **BroTech Prominen
 无论选择何种授权路径，均同时受本文件所载 **哥哥科技显著署名附加条款** 约束。
 
 This project is available under either of the following licensing options:
-1. Broware Attribution–Noncommercial License（**Bro-BY-NC**）1.0或更高</br>[（已经包含额外的署名要求条件）](https://github.com/ucxn/ZTE-Stat_Max/blob/main/LICENSE/BR-BY-NC-1.0.md) ; or
+1. Broware PBY-Attribution License（**Bro-PBY**）1.0或更高</br>[（已经包含额外的署名要求条件）](https://github.com/ucxn/ZTE-Stat_Max/blob/main/LICENSE/BR-BY-NC-1.0.md) ; or
 2. [BroTech Additional License](#哥哥科技许可证) 每版提交时或更新(or-later) **AND** [Sustainable Use License 1.0](#sustainable-use-license) (SUL-1.0).
 
-可以根据自己的使用场景自行抉择，第二种看似对商用更严格，但是针对个人使用，条款相对较简练通俗，方便非英语母语者理解。</br>
+可以根据自己的使用场景自行抉择，后者看似组合数量较复杂、严格，但是针对个人使用，条款相对更简练通俗，方便非英语母语者理解。</br>
 You may choose either licensing option.
 
 In SPDX notation:</br>
@@ -62,7 +62,7 @@ Regardless of the license used, the author's prominent attribution must be retai
 ### 署名条款始终第一
 无论本许可证其他条款如何规定，**哥哥科技显著署名要求——包括对“哥哥科技”字样的强制保留及显著显示义务——均必须严格且排他性地按照最有利于作者的方式解释。** 任何一般解释规则、技术例外或本许可证的其他条款，均不得削弱该署名要求、使其从属于其他要求，或取代该署名要求。
 
-根据本软件的实际源代码及其技术特性，不存在一种能够使软件的普通功能正常运行、同时又使必要署名在技术上自动消失的运行方式。只要软件的主要功能能够正常运行，且软件能够在该功能中正常显示中文文本（源代码中功能描述的中文被侵权者故意删除掉情形的除外），即视为软件运行正常。
+根据本软件的实际源代码及其技术特性，不存在一种能够使软件的普通功能正常运行、同时又使必要署名在技术上自动消失的运行方式。只要软件的主要功能能够正常运行，且软件能够在该功能中正常显示中文文本（源代码中功能描述的中文被侵权者故意删除掉情形的不影响此认定），即视为软件运行正常。
 
 **软件正常运行时，不存在任何正当理由可以不按照哥哥科技显著署名要求显示“哥哥科技”字样。**
 
@@ -76,10 +76,11 @@ Regardless of the license used, the author's prominent attribution must be retai
 
 您可以收取通常范围内交易双方认为合理的、与本程序没有直接或间接关联的技术服务费；例如：帮助用户上门安装路由器时附赠增值服务，但不得以哥哥科技的字号宣传；
 
-服务原则上应当以含有明确物理成本的线下服务为主，但不得以附带安装调试该脚本为由收取任何附加费用；不得以本程序的取得、复制、安装、配置、调试、更新、维护或者排错为对价；<br>也不得在在线平台以任何理由收取关于本程序的任何费用，来掩盖实质上为分发该软件所收取的任何费用。<br>
-无论如何、任何情况下不得将本软件本身源码或可执行产物打包倒卖，也不得作为售卖的商品的赠品。
+服务原则上应当以含有明确物理成本的线下服务为主，但不得以附带安装调试该脚本为由收取任何附加费用；不得以本程序的取得、复制、安装、配置、调试、更新、维护或者排错为对价；<br>若在线平台以不合理理由收取关于本程序的直接费用、**且修改了任何署名**，视为掩盖实质上为分发该软件所收取的费用。
 
-米家官方可以自行、先行、直接集成该程序，但是必须保留署名；署名具体的方式可以商榷，我或将可对小米官方提供更加合理的许可。
+最简单的方式是直接分享官方GitHub或B站链接，否则在任何情况下，您有义务保证所有显式或潜在的署名，及任何形式或意义上的名字，完全不会被 *移除、篡改或者误导性呈现*，严格地以不弱于原样保留或增强的显著程度呈现，否则因包括但不限于显示造成的任何责任由您自行承担。<br>无论如何、任何情况下均严格禁止移除任何作者的任何名字；否则将本软件本身源码或可执行产物打包倒卖将被视为恶意，也不得作为售卖的商品的赠品。
+
+米家官方可以自行、先行、直接集成该程序，但是必须保留署名；署名具体的方式可以商榷（最不能接受的是移除“哥哥”和名字，默认情况下均不可弱化署名），我或将可对小米官方提供更加合理的许可。
 
 哥哥科技 2026 © Bro-Tech 版权所有
 
@@ -128,7 +129,7 @@ For instance, when an end-user navigates into a module or feature primarily powe
 
 Based on the actual source code of the Software and its technical characteristics, there is no technically possible mode of operation in which the Software’s ordinary functionality operates normally while the required attribution automatically disappears.
 
-Once the Software’s principal functionality operates normally, and the Software is capable of displaying Chinese text normally as part of that functionality—except where Chinese descriptions of functionality in the source code have themselves been deleted—the Software shall be deemed to be operating normally.
+Once the Software's principal functionality operates normally, and the Software is capable of displaying Chinese text normally as part of that functionality, the Software shall be deemed to be operating normally. Deleting the Chinese functional descriptions from the source code does not change this, and cannot be relied on to claim that the Software is not operating normally.
 
 **Whenever the Software is operating normally, there is no legitimate basis whatsoever for failing to display the name “哥哥科技” as required by the Attribution Requirements.**
 
@@ -145,7 +146,7 @@ Services should, in principle, primarily consist of offline services involving i
 Nor may you charge any fees relating to this program on online platforms, under any pretext, to disguise what is in substance a fee for distributing the software.<br>
 Under no circumstances may the software itself, whether in source-code or executable form, be packaged and resold, or provided as a complimentary gift accompanying a product offered for sale.
 
-Developers of official, original factory firmware for Xiaomi Router already supported by this project may proceed with integration of this program on their own initiative, provided that attribution is retained. The specific form of attribution, and whether a more appropriate license can be provided, may be discussed to the MiHome teams official.
+Developers of official, original factory firmware for MiHome Router already supported by this project may proceed with integration of this program on their own initiative, provided that attribution is retained. The specific form of attribution, and whether a more appropriate license can be provided, may be discussed with Xiaomi’s official team.
 
 哥哥科技 2026 © Bro-Tech. All rights reserved.
 
