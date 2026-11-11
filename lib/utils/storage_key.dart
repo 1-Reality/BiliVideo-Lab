@@ -11,7 +11,6 @@ abstract final class SettingBoxKey {
       defaultAudioQa = 'defaultAudioQa',
       defaultAudioQaCellular = 'defaultAudioQaCellular',
       autoPlayEnable = 'autoPlayEnable',
-      brotechCredentialAuth = 'brotechCredentialAuth',
       replyNoAutoPlay = 'replyNoAutoPlay',
       enableInAppPip = 'enableInAppPip',
       fullScreenMode = 'fullScreenMode',

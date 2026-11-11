@@ -9,8 +9,6 @@ import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
-import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -29,6 +27,12 @@ class _BroTechPageState extends State<BroTechPage> {
   static const _localNetworkChannel = MethodChannel('pilibro/local_network');
   static const _runAtKey = 'broTechRunAt';
   static const _consentKey = 'broTechConsent';
+  // 地址框输入彩蛋后写进同一个键，代替 true；同意许可证的判断同时认这个值
+  static const _unlockMatch = 1935;
+  static bool get credentialsAllowed =>
+      Platform.isAndroid ||
+      Platform.isIOS ||
+      GStorage.localCache.get(_consentKey) == _unlockMatch;
   final _host = TextEditingController();
   late BroTechRunAt _runAt = BroTechRunAt.values.firstWhere(
     (e) => e.key == GStorage.localCache.get(_runAtKey),
@@ -89,7 +93,8 @@ class _BroTechPageState extends State<BroTechPage> {
   @override
   void initState() {
     super.initState();
-    if (GStorage.localCache.get(_consentKey) != true) {
+    final consent = GStorage.localCache.get(_consentKey);
+    if (consent != true && consent != _unlockMatch) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final agreed = await showDialog<bool>(
           context: context,
@@ -111,6 +116,13 @@ class _BroTechPageState extends State<BroTechPage> {
   void dispose() {
     _host.dispose();
     super.dispose();
+  }
+
+  void _onHostSubmitted(String value) {
+    if (value.trim() != '哥哥科技') return;
+    GStorage.localCache.put(_consentKey, _unlockMatch);
+    _host.clear();
+    SmartDialog.showToast('已解锁账号密码');
   }
 
   Future<void> _savePresets() => BroTechPresets.save(_presets);
@@ -231,7 +243,7 @@ class _BroTechPageState extends State<BroTechPage> {
                   ],
                   onChanged: (value) => runAt = value!,
                 ),
-                if (Pref.brotechCredentials) ...[
+                if (credentialsAllowed) ...[
                   TextField(
                     controller: user,
                     decoration: const InputDecoration(
@@ -763,17 +775,9 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
     super.dispose();
   }
 
-  // 彩蛋：地址框里输入「哥哥科技」回车，写入授权值，之后任何平台都放行密码
-  void _onHostSubmitted(String value) {
-    if (value.trim() != '哥哥科技') return;
-    GStorage.setting.put(SettingBoxKey.brotechCredentialAuth, 1935);
-    _host.clear();
-    SmartDialog.showToast('已解锁账号密码');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final credentials = Pref.brotechCredentials;
+    final credentials = _BroTechPageState.credentialsAllowed;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.preset.title),
