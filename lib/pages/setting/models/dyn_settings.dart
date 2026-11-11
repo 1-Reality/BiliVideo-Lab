@@ -97,7 +97,7 @@ List<SettingsModel> get dynSettings => [
     leading: const Icon(Icons.video_library_outlined),
     setKey: SettingBoxKey.dynCompactVideoCard,
     defaultVal: true,
-    onChanged: (value) => compactVideoCardEnabled.value = value,
+    onChanged: (value) => compactVideoCardEnabled = value,
   ),
 ];
 

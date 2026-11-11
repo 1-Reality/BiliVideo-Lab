@@ -2,7 +2,7 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliBro/http/fav.dart';
 import 'package:PiliBro/http/loading_state.dart';
-import 'package:PiliBro/models_new/fav/fav_detail/media.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
 import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
 import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/pages/audio/web_item.dart';
@@ -18,17 +18,7 @@ import 'package:material_ui/material_ui.dart';
 abstract final class OneKeyListen {
   static const String _mediaIdKey = SettingBoxKey.oneKeyListenMediaId;
   static const String _titleKey = SettingBoxKey.oneKeyListenFavTitle;
-  static const int _pageSize = 20;
-  static const int _maxPages = 10;
-
-  // 「我的」页是保活的，长按换收藏夹只写 Hive 不会触发页面重建；
-  // 用可监听的名称让按钮提示立刻跟着变，不用等重新打开页面。
-  static final ValueNotifier<String> titleNotifier = ValueNotifier<String>(
-    GStorage.setting.get(_titleKey) as String? ?? '',
-  );
-
   static int? get mediaId => GStorage.setting.get(_mediaIdKey) as int?;
-  static String get title => titleNotifier.value;
 
   /// 点击：播放已选收藏夹；没设置过就先选一次，选完立刻播放。
   static Future<void> play() async {
@@ -100,7 +90,6 @@ abstract final class OneKeyListen {
       if (folder == null) return null;
       await GStorage.setting.put(_mediaIdKey, folder.id);
       await GStorage.setting.put(_titleKey, folder.title);
-      titleNotifier.value = folder.title;
       SmartDialog.showToast('已设置：${folder.title}');
       return folder.id;
     } else {
@@ -110,78 +99,62 @@ abstract final class OneKeyListen {
   }
 
   static Future<void> _launch(int mediaId) async {
-    SmartDialog.showLoading(msg: '正在读取收藏夹…');
-    final items = <FavDetailItemModel>[];
-    try {
-      // 本地收藏夹页只加载首屏，一键听歌尽量把整个收藏夹读全，
-      // 免得列表后半段的私密稿件又被 gRPC 分页吞掉。
-      for (var pn = 1; pn <= _maxPages; pn++) {
-        final res = await FavHttp.userFavFolderDetail(
-          mediaId: mediaId,
-          pn: pn,
-          ps: _pageSize,
-        );
-        if (res case Success(:final response)) {
-          items.addAll(response.medias ?? const <FavDetailItemModel>[]);
-          if (response.hasMore != true) break;
-        } else {
-          if (pn == 1) {
-            res.toast();
-            return;
-          }
-          break;
-        }
-      }
-    } finally {
-      await SmartDialog.dismiss();
-    }
-
-    final playlist = favPlaylist(items);
-    if (playlist.isEmpty) {
-      SmartDialog.showToast('该收藏夹里没有可听的视频');
-      return;
-    }
-    final first = playlist.first.item;
-    AudioPage.toAudioPage(
-      itemType: 1,
-      oid: first.oid.toInt(),
-      subId: [first.subId.first.toInt()],
-      id: mediaId,
-      from: PlaylistSource.MEDIA_LIST,
-      playlist: playlist,
+    final res = await FavHttp.userFavFolderDetail(
+      mediaId: mediaId,
+      pn: 1,
+      ps: 20,
     );
+    if (res case Success(:final response)) {
+      final playlist = favPlaylist(response.medias!);
+      if (playlist.isEmpty) {
+        SmartDialog.showToast('该收藏夹第一页没有可听的视频');
+        return;
+      }
+      final first = playlist.first.item;
+      // 后面的页由听视频页接着读
+      AudioPage.toAudioPage(
+        itemType: 1,
+        oid: first.oid.toInt(),
+        subId: [first.subId.first.toInt()],
+        id: mediaId,
+        from: PlaylistSource.MEDIA_LIST,
+        playlist: playlist,
+        favPn: response.hasMore! ? 2 : null,
+        favOrder: FavOrderType.mtime,
+      );
+    } else {
+      res.toast();
+    }
   }
 }
 
 /// 「我的」页面动作区按钮：点击一键听歌，长按更换收藏夹。
 /// 布局与页面里其它 _actionButton 保持一致（四个一行、末尾空位补齐）。
 Widget oneKeyListenAction({required Color color}) {
+  final String? selected = GStorage.setting.get(
+    SettingBoxKey.oneKeyListenFavTitle,
+  );
   return Flexible(
-    child: ValueListenableBuilder<String>(
-      valueListenable: OneKeyListen.titleNotifier,
-      builder: (context, selected, _) => Tooltip(
-        // 提示正在显示时 message 变化不一定会重绘 overlay，换 key 强制刷新
-        key: ValueKey('oneKeyListen:$selected'),
-        message: selected.isEmpty
-            ? '一键听歌 · 长按选择收藏夹'
-            : '当前：$selected\n长按可更换收藏夹',
-        child: InkWell(
-          onTap: OneKeyListen.play,
-          onLongPress: OneKeyListen.configure,
-          borderRadius: BorderRadius.circular(12),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 80),
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: Column(
-                spacing: 6,
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.headphones, color: color),
-                  const Text('一键听歌', style: TextStyle(fontSize: 13)),
-                ],
-              ),
+    child: Tooltip(
+      message: selected == null
+          ? '一键听歌 · 长按选择收藏夹'
+          : '当前：$selected\n长按可更换收藏夹',
+      child: InkWell(
+        onTap: OneKeyListen.play,
+        onLongPress: OneKeyListen.configure,
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 80),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Column(
+              spacing: 6,
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.headphones, color: color),
+                const Text('一键听歌', style: TextStyle(fontSize: 13)),
+              ],
             ),
           ),
         ),

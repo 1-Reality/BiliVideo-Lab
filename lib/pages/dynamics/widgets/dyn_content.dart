@@ -25,30 +25,22 @@ List<Widget> dynContent(
         item: item,
         floor: floor,
       ),
-    ValueListenableBuilder<bool>(
-      valueListenable: compactVideoCardEnabled,
-      builder: (context, enabled, _) {
-        final compact = enabled
+    (compactVideoCardEnabled
             ? compactVideoCard(
-                context,
                 theme: theme,
                 item: item,
                 floor: floor,
                 isDetail: isDetail,
-                isSave: isSave,
               )
-            : null;
-        return compact ??
-            module(
-              context,
-              theme: theme,
-              isSave: isSave,
-              isDetail: isDetail,
-              item: item,
-              floor: floor,
-            );
-      },
-    ),
+            : null) ??
+        module(
+          context,
+          theme: theme,
+          isSave: isSave,
+          isDetail: isDetail,
+          item: item,
+          floor: floor,
+        ),
     if (moduleDynamic?.additional case final additional?)
       ?addWidget(
         theme: theme,

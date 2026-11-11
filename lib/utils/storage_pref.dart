@@ -835,7 +835,7 @@ abstract final class Pref {
 
   static bool get dynCompactVideoCard => _setting.get(
     SettingBoxKey.dynCompactVideoCard,
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static double get blockLimit =>
