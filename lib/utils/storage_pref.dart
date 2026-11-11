@@ -833,6 +833,11 @@ abstract final class Pref {
   static bool get showDynInteraction =>
       _setting.get(SettingBoxKey.showDynInteraction, defaultValue: true);
 
+  static bool get dynCompactVideoCard => _setting.get(
+    SettingBoxKey.dynCompactVideoCard,
+    defaultValue: false,
+  );
+
   static double get blockLimit =>
       _setting.get(SettingBoxKey.blockLimit, defaultValue: 0.0);
 

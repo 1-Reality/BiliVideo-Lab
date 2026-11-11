@@ -2,6 +2,7 @@ import 'package:PiliBro/common/widgets/custom_icon.dart';
 import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/dynamics/result.dart'
     show DynamicsDataModel, ItemModulesModel;
+import 'package:PiliBro/pages/dynamics/widgets/video_card.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/setting/models/model.dart';
 import 'package:PiliBro/pages/setting/widgets/select_dialog.dart';
@@ -89,6 +90,14 @@ List<SettingsModel> get dynSettings => [
     setKey: SettingBoxKey.showDynInteraction,
     defaultVal: true,
     onChanged: (val) => ItemModulesModel.showDynInteraction = val,
+  ),
+  SwitchModel(
+    title: '视频动态横排卡片',
+    subtitle: '开启后视频动态以「左封面 + 右标题/播放信息」显示，关闭则恢复大封面',
+    leading: const Icon(Icons.video_library_outlined),
+    setKey: SettingBoxKey.dynCompactVideoCard,
+    defaultVal: true,
+    onChanged: (value) => compactVideoCardEnabled.value = value,
   ),
 ];
 

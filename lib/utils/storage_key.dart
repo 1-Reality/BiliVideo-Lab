@@ -185,6 +185,7 @@ abstract final class SettingBoxKey {
       reply2SortType = 'reply2SortType',
       defaultDynamicType = 'defaultDynamicType',
       showDynInteraction = 'showDynInteraction',
+      dynCompactVideoCard = 'dynCompactVideoCard',
       enableHotKey = 'enableHotKey',
       enableSearchRcmd = 'enableSearchRcmd',
       enableQuickFav = 'enableQuickFav',

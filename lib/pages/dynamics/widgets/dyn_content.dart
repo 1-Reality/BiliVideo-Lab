@@ -3,6 +3,7 @@ import 'package:PiliBro/pages/dynamics/widgets/additional_panel.dart';
 import 'package:PiliBro/pages/dynamics/widgets/blocked_item.dart';
 import 'package:PiliBro/pages/dynamics/widgets/content_panel.dart';
 import 'package:PiliBro/pages/dynamics/widgets/module_panel.dart';
+import 'package:PiliBro/pages/dynamics/widgets/video_card.dart';
 import 'package:material_ui/material_ui.dart';
 
 List<Widget> dynContent(
@@ -24,13 +25,29 @@ List<Widget> dynContent(
         item: item,
         floor: floor,
       ),
-    module(
-      context,
-      theme: theme,
-      isSave: isSave,
-      isDetail: isDetail,
-      item: item,
-      floor: floor,
+    ValueListenableBuilder<bool>(
+      valueListenable: compactVideoCardEnabled,
+      builder: (context, enabled, _) {
+        final compact = enabled
+            ? compactVideoCard(
+                context,
+                theme: theme,
+                item: item,
+                floor: floor,
+                isDetail: isDetail,
+                isSave: isSave,
+              )
+            : null;
+        return compact ??
+            module(
+              context,
+              theme: theme,
+              isSave: isSave,
+              isDetail: isDetail,
+              item: item,
+              floor: floor,
+            );
+      },
     ),
     if (moduleDynamic?.additional case final additional?)
       ?addWidget(
