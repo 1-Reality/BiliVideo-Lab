@@ -1,5 +1,7 @@
 // 视频类动态的紧凑卡片：左封面 + 右标题/统计信息。
 // 用它替换 video_panel.dart 的「大封面 + 下方标题」竖排布局，是否启用由设置决定。
+import 'dart:math' show min;
+
 import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/svg/play_icon.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
@@ -11,7 +13,8 @@ import 'package:material_ui/material_ui.dart';
 bool compactVideoCardEnabled = Pref.dynCompactVideoCard;
 
 /// 只接管普通视频和合集，其余类型返回 null 走原卡片
-Widget? compactVideoCard({
+Widget? compactVideoCard(
+  BuildContext context, {
   required ThemeData theme,
   required DynamicItemModel item,
   required int floor,
@@ -32,6 +35,9 @@ Widget? compactVideoCard({
   }
   if (video == null) return null;
 
+  // 封面宽取 160 和屏宽 42% 里较小的，高按 16:10
+  final coverWidth = min(160.0, MediaQuery.widthOf(context) * 0.42);
+  final coverHeight = coverWidth * 0.625;
   final padding = floor == 1
       ? const EdgeInsets.symmetric(horizontal: 12)
       : EdgeInsets.zero;
@@ -43,13 +49,13 @@ Widget? compactVideoCard({
       spacing: 10,
       children: [
         SizedBox(
-          width: 160,
-          height: 100,
+          width: coverWidth,
+          height: coverHeight,
           child: Stack(
             children: [
               NetworkImgLayer(
-                width: 160,
-                height: 100,
+                width: coverWidth,
+                height: coverHeight,
                 src: video.cover,
                 quality: 40,
               ),

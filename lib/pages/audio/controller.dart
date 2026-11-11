@@ -954,6 +954,16 @@ class AudioController extends GetxController
     return player?.playOrPause();
   }
 
+  // 手动切歌先切当前稿件的分 P，到头了才换稿件
+  bool _playPart(int step) {
+    final parts = audioItem.value!.parts;
+    final i = parts.indexWhere((e) => e.subId == subId.first);
+    final target = i + step;
+    if (i < 0 || target < 0 || target >= parts.length) return false;
+    playIndex(index!, subId: [parts[target].subId]);
+    return true;
+  }
+
   bool playPrev() {
     if (_offlineEntries case final entries?) {
       if (_offlineIndex <= 0) return false;
@@ -961,6 +971,7 @@ class AudioController extends GetxController
       return true;
     }
     if (index != null && playlist != null && player != null) {
+      if (_playPart(-1)) return true;
       final prev = index! - 1;
       if (prev >= 0) {
         playIndex(prev);
@@ -1004,6 +1015,7 @@ class AudioController extends GetxController
       }
     }
     if (index != null && playlist != null && player != null) {
+      if (!nextPart && _playPart(1)) return true;
       final next = index! + 1;
       if (next < playlist!.length) {
         if (next == playlist!.length - 1 && _next != null) {

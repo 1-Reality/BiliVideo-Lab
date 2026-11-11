@@ -27,6 +27,7 @@ List<Widget> dynContent(
       ),
     (compactVideoCardEnabled
             ? compactVideoCard(
+                context,
                 theme: theme,
                 item: item,
                 floor: floor,
