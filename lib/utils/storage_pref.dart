@@ -288,6 +288,16 @@ abstract final class Pref {
         defaultValue: FullScreenAllowedOrientation.all.index,
       )];
 
+  // 0 关，1 按时段，2 跟随系统深色
+  static int get bedMode =>
+      _setting.get(SettingBoxKey.bedMode, defaultValue: 0);
+
+  static int get bedStart =>
+      _setting.get(SettingBoxKey.bedStart, defaultValue: 1380);
+
+  static int get bedEnd =>
+      _setting.get(SettingBoxKey.bedEnd, defaultValue: 420);
+
   static bool get gravityFollowSystemLock =>
       _setting.get(SettingBoxKey.gravityFollowSystemLock, defaultValue: true);
 

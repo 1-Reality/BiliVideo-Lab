@@ -49,6 +49,48 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
     if (mounted) setState(() {});
   }
 
+  String _hhmm(int minutes) =>
+      '${minutes ~/ 60}:${(minutes % 60).toString().padLeft(2, '0')}';
+
+  Future<void> _selectBedMode() async {
+    final mode = await showDialog<int>(
+      context: context,
+      builder: (context) => SelectDialog<int>(
+        title: '被窝模式',
+        value: Pref.bedMode,
+        values: const [(0, '关'), (1, '按时段'), (2, '跟随系统深色')],
+      ),
+    );
+    if (mode == null || !mounted) return;
+    if (mode == 1) {
+      final start = await showTimePicker(
+        context: context,
+        helpText: '开始',
+        initialTime: TimeOfDay(
+          hour: Pref.bedStart ~/ 60,
+          minute: Pref.bedStart % 60,
+        ),
+      );
+      if (start == null || !mounted) return;
+      final end = await showTimePicker(
+        context: context,
+        helpText: '结束',
+        initialTime: TimeOfDay(
+          hour: Pref.bedEnd ~/ 60,
+          minute: Pref.bedEnd % 60,
+        ),
+      );
+      if (end == null) return;
+      await GStorage.setting.putAll({
+        SettingBoxKey.bedStart: start.hour * 60 + start.minute,
+        SettingBoxKey.bedEnd: end.hour * 60 + end.minute,
+      });
+    }
+    await GStorage.setting.put(SettingBoxKey.bedMode, mode);
+    await OrientationPolicy.compile();
+    if (mounted) setState(() {});
+  }
+
   Future<void> _showAngleDegreesDialog({
     required String key,
     required int value,
@@ -1374,6 +1416,16 @@ class _OrientationSettingsPageState extends State<OrientationSettingsPage> {
                 setKey: SettingBoxKey.controlsLockOrientation,
                 defaultVal: Pref.controlsLockOrientation,
                 onChanged: (_) => OrientationPolicy.compile(),
+              ),
+              _selectTile(
+                title: '被窝模式',
+                subtitle: switch (Pref.bedMode) {
+                  1 =>
+                    '${_hhmm(Pref.bedStart)} 到 ${_hhmm(Pref.bedEnd)} 把系统旋转锁当作开着，重力感应不转屏',
+                  2 => '系统深色时把系统旋转锁当作开着，重力感应不转屏',
+                  _ => '关',
+                },
+                onTap: _selectBedMode,
               ),
               _selectTile(
                 title: '最终允许方向集合',

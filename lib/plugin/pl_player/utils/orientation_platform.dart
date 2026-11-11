@@ -13,7 +13,11 @@ abstract final class OrientationPlatform {
       .where((value) => value is int)
       .cast<int>();
 
+  // 被窝模式生效时为 true：系统旋转锁一律当作开着
+  static bool virtualLock = false;
+
   static Future<bool> systemAutoRotate() async {
+    if (virtualLock) return false;
     if (!Platform.isAndroid) return true;
     return await _channel.invokeMethod<bool>('systemAutoRotate') ?? true;
   }

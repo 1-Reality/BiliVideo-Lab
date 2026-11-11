@@ -1,4 +1,6 @@
+import 'dart:async' show Timer;
 import 'dart:io' show Platform;
+import 'dart:ui' show AppLifecycleState, Brightness;
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/orientation_mode.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
@@ -299,6 +301,8 @@ abstract final class OrientationPolicy {
     systemAutoRotate: true,
   );
 
+  static final _bedMode = _BedMode();
+
   static OrientationPlan get plan => _plan;
   static BrotherOrientationPlan get brotherPlan => _brotherPlan;
   static bool get isBrotherTech => _brotherEnabled;
@@ -354,6 +358,7 @@ abstract final class OrientationPolicy {
       };
 
   static Future<void> compile() async {
+    _bedMode.configure();
     _brotherAppRuntimeLatch.clear();
     final mode = Pref.orientationPolicyMode;
     _brotherEnabled = mode == OrientationPolicyMode.brotherTech;
@@ -390,9 +395,11 @@ abstract final class OrientationPolicy {
     final fullScreenAllowed = advanced
         ? Pref.advancedFullScreenAllowedOrientation
         : Pref.fullScreenAllowedOrientation;
-    final gravityFollowSystemLock = advanced
-        ? Pref.advancedGravityFollowSystemLock
-        : Pref.gravityFollowSystemLock;
+    final gravityFollowSystemLock =
+        OrientationPlatform.virtualLock ||
+        (advanced
+            ? Pref.advancedGravityFollowSystemLock
+            : Pref.gravityFollowSystemLock);
     final simpleTrigger =
         advanced ? null : Pref.orientationFullscreenTrigger;
     final triggerEnter = advanced
@@ -463,8 +470,12 @@ abstract final class OrientationPolicy {
 
   static Future<void> _compileBrotherTech() async {
     final app = Pref.brotherAppPhase;
-    final windowed = Pref.brotherWindowedPhase;
-    final fullscreen = Pref.brotherFullscreenPhase;
+    final windowed = OrientationPlatform.virtualLock
+        ? Pref.brotherWindowedPhase.copyWith(gravityFollowSystemLock: true)
+        : Pref.brotherWindowedPhase;
+    final fullscreen = OrientationPlatform.virtualLock
+        ? Pref.brotherFullscreenPhase.copyWith(gravityFollowSystemLock: true)
+        : Pref.brotherFullscreenPhase;
     bool usesGravity(BrotherPhaseConfig phase, {required bool appPhase}) =>
         !appPhase &&
         (phase.runtimeMode == BrotherRuntimeMode.appGravity ||
@@ -930,6 +941,71 @@ abstract final class OrientationPolicy {
   }
 }
 
+
+// 被窝模式：条件成立时把系统旋转锁当作开着。只在亮暗切换、回前台、时段分界点这三种事件上重新判断
+final class _BedMode with WidgetsBindingObserver {
+  int _mode = 0;
+  int _start = 0;
+  int _end = 0;
+  bool _observing = false;
+  Timer? _timer;
+
+  // compile 开头调用：读设置、定下当前是否生效、挂好下一次判断
+  void configure() {
+    _mode = Pref.bedMode;
+    _start = Pref.bedStart;
+    _end = Pref.bedEnd;
+    if ((_mode != 0) != _observing) {
+      _observing = !_observing;
+      if (_observing) {
+        WidgetsBinding.instance.addObserver(this);
+      } else {
+        WidgetsBinding.instance.removeObserver(this);
+      }
+    }
+    _timer?.cancel();
+    final now = DateTime.now();
+    final t = now.hour * 60 + now.minute;
+    final active = switch (_mode) {
+      1 => _start <= _end ? t >= _start && t < _end : t >= _start || t < _end,
+      2 =>
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark,
+      _ => false,
+    };
+    OrientationPlatform.virtualLock = active;
+    if (_mode == 1) {
+      var minutes = (active ? _end : _start) - t;
+      if (minutes < 1) minutes += 1440;
+      _timer = Timer(
+        Duration(seconds: minutes * 60 - now.second + 1),
+        _refresh,
+      );
+    }
+  }
+
+  // 生效状态翻转了才重新编译
+  void _refresh() {
+    final was = OrientationPlatform.virtualLock;
+    configure();
+    if (was != OrientationPlatform.virtualLock) OrientationPolicy.compile();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_mode == 2) _refresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_mode != 1) return;
+    if (state == AppLifecycleState.resumed) {
+      _refresh();
+    } else if (state == AppLifecycleState.paused) {
+      _timer?.cancel();
+    }
+  }
+}
 
 final class _BrotherAppRuntimeLatch with WidgetsBindingObserver {
   BrotherPhaseConfig? _targetPhase;
