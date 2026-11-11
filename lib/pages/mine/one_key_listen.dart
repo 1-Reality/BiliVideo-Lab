@@ -142,6 +142,7 @@ Widget oneKeyListenAction({required Color color}) {
       child: InkWell(
         onTap: OneKeyListen.play,
         onLongPress: OneKeyListen.configure,
+        onSecondaryTap: OneKeyListen.configure,
         borderRadius: BorderRadius.circular(12),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 80),
