@@ -93,7 +93,7 @@ class _BroTechPageState extends State<BroTechPage> {
   @override
   void initState() {
     super.initState();
-    if (GStorage.localCache.get(_consentKey, defaultValue: 0) < 1) {
+    if (GStorage.localCache.get(_consentKey, defaultValue: 0) == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final agreed = await showDialog<bool>(
           context: context,
