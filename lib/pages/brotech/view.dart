@@ -9,6 +9,8 @@ import 'package:PiliBro/utils/device_utils.dart';
 import 'package:PiliBro/utils/permission_handler.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -229,7 +231,7 @@ class _BroTechPageState extends State<BroTechPage> {
                   ],
                   onChanged: (value) => runAt = value!,
                 ),
-                if (Platform.isAndroid || Platform.isIOS) ...[
+                if (Pref.brotechCredentials) ...[
                   TextField(
                     controller: user,
                     decoration: const InputDecoration(
@@ -357,6 +359,7 @@ class _BroTechPageState extends State<BroTechPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: TextField(
               controller: _host,
+              onSubmitted: _onHostSubmitted,
               decoration: const InputDecoration(
                 labelText: '路由器后台地址',
                 border: OutlineInputBorder(),
@@ -760,9 +763,17 @@ class _BroTechWebPageState extends State<BroTechWebPage> {
     super.dispose();
   }
 
+  // 彩蛋：地址框里输入「哥哥科技」回车，写入授权值，之后任何平台都放行密码
+  void _onHostSubmitted(String value) {
+    if (value.trim() != '哥哥科技') return;
+    GStorage.setting.put(SettingBoxKey.brotechCredentialAuth, 1935);
+    _host.clear();
+    SmartDialog.showToast('已解锁账号密码');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final credentials = Platform.isAndroid || Platform.isIOS;
+    final credentials = Pref.brotechCredentials;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.preset.title),

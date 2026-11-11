@@ -1238,6 +1238,12 @@ abstract final class Pref {
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
 
+  // 网关里的账号密码：安卓与 iOS 直接放行，其他平台写过授权值（0 为未授权）即放行
+  static bool get brotechCredentials =>
+      Platform.isAndroid ||
+      Platform.isIOS ||
+      _setting.get(SettingBoxKey.brotechCredentialAuth, defaultValue: 0) > 0;
+
   static bool get replyNoAutoPlay =>
       _setting.get(SettingBoxKey.replyNoAutoPlay, defaultValue: true);
 
