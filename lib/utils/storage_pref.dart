@@ -13,6 +13,7 @@ import 'package:PiliBro/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliBro/models/common/focus_reaction.dart';
 import 'package:PiliBro/models/common/follow_order_type.dart';
 import 'package:PiliBro/models/common/member/tab_type.dart';
+import 'package:PiliBro/models/common/mine_button_type.dart';
 import 'package:PiliBro/models/common/mine_tab_type.dart';
 import 'package:PiliBro/models/common/rcmd_filter_scope.dart';
 import 'package:PiliBro/models/common/msg/msg_unread_type.dart';
@@ -1884,6 +1885,12 @@ abstract final class Pref {
           ?.map<MineTabType>((index) => .values[index])
           .toSet() ??
       MineTabType.kDefault;
+
+  static List<MineButtonType> get mineButtons =>
+      (_setting.get(SettingBoxKey.mineButtons) as List?)
+          ?.map<MineButtonType>((index) => .values[index])
+          .toList() ??
+      MineButtonType.kDefault;
 
   static bool get blockAtOnlyReply =>
       _setting.get(SettingBoxKey.blockAtOnlyReply, defaultValue: false);

@@ -10,6 +10,7 @@ import 'package:PiliBro/common/widgets/image/network_img_layer.dart';
 import 'package:PiliBro/common/widgets/player_bar.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/user.dart';
+import 'package:PiliBro/models/common/mine_button_type.dart';
 import 'package:PiliBro/models/common/mine_tab_type.dart';
 import 'package:PiliBro/models/common/nav_bar_config.dart';
 import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
@@ -42,7 +43,7 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
-import 'package:PiliBro/utils/storage_key.dart';
+import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_svg/svg.dart';
@@ -154,98 +155,107 @@ class _MediaPageState extends CommonPageState<MinePage>
     ),
   );
 
-  // 顺序固定，四个一行，最后一行用空位补齐，免得剩下的按钮被拉开
+  Widget _mineIcon(MineButtonType type, Color? color) => switch (type) {
+    .history => Icon(CustomIcons.history, color: color),
+    .sub => Icon(CustomIcons.subscriptions_outlined, color: color),
+    .oneKeyListen => Icon(Icons.headphones, color: color),
+    .later => Icon(CustomIcons.watch_later_outlined, color: color),
+    .avSettings => Icon(Icons.tune, color: color),
+    .networkPolicy => Icon(Icons.lan_outlined, color: color),
+    .orientation => Icon(Icons.screen_rotation_outlined, color: color),
+    .creator => SvgPicture.asset(
+      'assets/images/creator_center.svg',
+      width: 24,
+      height: 24,
+    ),
+    .download => Icon(CustomIcons.folderDownloadOutline, color: color),
+    .audioSettings => Icon(MdiIcons.headphonesSettings, color: color),
+    .playbackStats => Icon(Icons.insights_outlined, color: color),
+  };
+
+  // 网格里一键听歌、创作中心有自己的按钮，这两项只有从 ⋯ 菜单点才走到这里
+  void _mineTap(MineButtonType type, BuildContext context) {
+    switch (type) {
+      case .history:
+        if (controller.isLogin) Get.toNamed('/history');
+      case .sub:
+        if (controller.isLogin) Get.toNamed('/subscription');
+      case .oneKeyListen:
+        OneKeyListen.play();
+      case .later:
+        if (controller.isLogin) Get.toNamed('/later');
+      case .avSettings:
+        Get.toNamed('/avSettings');
+      case .networkPolicy:
+        Get.toNamed('/networkPolicy');
+      case .orientation:
+        Get.toNamed('/orientationSettings');
+      case .creator:
+        final offset = (context.findRenderObject()! as RenderBox)
+            .localToGlobal(Offset.zero);
+        showMenu<void>(
+          context: context,
+          position: RelativeRect.fromLTRB(offset.dx, offset.dy, 0, 0),
+          items: _creatorMenuItems(),
+        );
+      case .download:
+        Get.toNamed('/download');
+      case .audioSettings:
+        Get.toNamed('/audioSettings');
+      case .playbackStats:
+        Get.toNamed('/playbackStats');
+    }
+  }
+
+  // 没勾进网格的按钮收在这里，按枚举顺序
+  Widget _moreMenu() => PopupMenuButton<void>(
+    tooltip: '更多',
+    iconSize: 22,
+    padding: const EdgeInsets.all(8),
+    icon: const Icon(Icons.more_horiz),
+    itemBuilder: (context) {
+      final shown = Pref.mineButtons;
+      return [
+        for (final type in MineButtonType.values)
+          if (!shown.contains(type))
+            _creatorMenuItem(
+              _mineIcon(type, null),
+              type.label,
+              () => _mineTap(type, context),
+            ),
+      ];
+    },
+  );
+
+  // 四个一行，最后一行用空位补齐，免得剩下的按钮被拉开
   List<Widget> _buildActionRows(Color primary) {
-    final setting = GStorage.setting;
-    bool shown(String key) => setting.get(key, defaultValue: true) as bool;
     final buttons = <Widget>[
-      if (shown(SettingBoxKey.mineBtnOneKeyListen))
-        oneKeyListenAction(color: primary),
       _actionButton(
         icon: Icon(Icons.speed_outlined, color: primary),
         title: '倍速设置',
         onTap: () => Get.toNamed('/playSpeedSet'),
       ),
-      if (shown(SettingBoxKey.mineBtnHistory))
-        _actionButton(
-          icon: Icon(CustomIcons.history, color: primary),
-          title: '观看记录',
-          onTap: () {
-            if (controller.isLogin) Get.toNamed('/history');
-          },
-        ),
-      if (shown(SettingBoxKey.mineBtnSub))
-        _actionButton(
-          icon: Icon(CustomIcons.subscriptions_outlined, color: primary),
-          title: '我的订阅',
-          onTap: () {
-            if (controller.isLogin) Get.toNamed('/subscription');
-          },
-        ),
-      if (shown(SettingBoxKey.mineBtnLater))
-        _actionButton(
-          icon: Icon(CustomIcons.watch_later_outlined, color: primary),
-          title: '稍后再看',
-          onTap: () {
-            if (controller.isLogin) Get.toNamed('/later');
-          },
-        ),
-      if (shown(SettingBoxKey.mineBtnAvSettings))
-        _actionButton(
-          icon: Icon(Icons.tune, color: primary),
-          title: '音画设置',
-          onTap: () => Get.toNamed('/avSettings'),
-        ),
-      if (shown(SettingBoxKey.mineBtnNetworkPolicy))
-        _actionButton(
-          icon: Icon(Icons.lan_outlined, color: primary),
-          title: '智能网优',
-          onTap: () => Get.toNamed('/networkPolicy'),
-        ),
-      if (shown(SettingBoxKey.mineBtnOrientation))
-        _actionButton(
-          icon: Icon(Icons.screen_rotation_outlined, color: primary),
-          title: '屏幕旋转',
-          onTap: () => Get.toNamed('/orientationSettings'),
-        ),
-      if (shown(SettingBoxKey.mineBtnCreator))
-        Flexible(
-          child: PopupMenuButton<void>(
-            tooltip: '创作中心',
-            itemBuilder: (_) => _creatorMenuItems(),
-            child: _actionBody(
-              SvgPicture.asset(
-                'assets/images/creator_center.svg',
-                width: 24,
-                height: 24,
-              ),
-              '创作中心',
+      for (final type in Pref.mineButtons)
+        switch (type) {
+          .oneKeyListen => oneKeyListenAction(color: primary),
+          .creator => Flexible(
+            child: PopupMenuButton<void>(
+              tooltip: '创作中心',
+              itemBuilder: (_) => _creatorMenuItems(),
+              child: _actionBody(_mineIcon(type, null), '创作中心'),
             ),
           ),
-        ),
-      if (shown(SettingBoxKey.mineBtnDownload))
-        _actionButton(
-          icon: Icon(CustomIcons.folderDownloadOutline, color: primary),
-          title: '离线缓存',
-          onTap: () => Get.toNamed('/download'),
-        ),
+          _ => _actionButton(
+            icon: _mineIcon(type, primary),
+            title: type.label,
+            onTap: () => _mineTap(type, context),
+          ),
+        },
       _actionButton(
         icon: Icon(MdiIcons.routerNetwork, color: primary),
         title: '网关管理',
         onTap: () => Get.to(() => const BroTechPage()),
       ),
-      if (shown(SettingBoxKey.mineBtnAudioSettings))
-        _actionButton(
-          icon: Icon(MdiIcons.headphonesSettings, color: primary),
-          title: '特色播放',
-          onTap: () => Get.toNamed('/audioSettings'),
-        ),
-      if (shown(SettingBoxKey.mineBtnPlaybackStats))
-        _actionButton(
-          icon: Icon(Icons.insights_outlined, color: primary),
-          title: '播放统计',
-          onTap: () => Get.toNamed('/playbackStats'),
-        ),
     ];
     return [
       for (var i = 0; i < buttons.length; i += 4)
@@ -436,6 +446,7 @@ class _MediaPageState extends CommonPageState<MinePage>
             onPressed: () => Get.toNamed('/setting', preventDuplicates: false),
             icon: const Icon(Icons.settings_outlined),
           ),
+          if (Pref.mineButtons.length < MineButtonType.values.length) _moreMenu(),
           const SizedBox(width: 16),
         ],
       ),
