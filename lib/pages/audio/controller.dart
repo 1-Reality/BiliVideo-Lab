@@ -16,13 +16,17 @@ import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart'
         ResponseUrl;
 import 'package:PiliBro/http/browser_ua.dart';
 import 'package:PiliBro/http/constants.dart';
+import 'package:PiliBro/http/fav.dart';
 import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/audio_normalization.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
 import 'package:PiliBro/models/common/network_profile.dart';
 import 'package:PiliBro/models/common/video/base_quality.dart';
+import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliBro/models/video/play/url.dart' as http_model show Volume;
+import 'package:PiliBro/pages/audio/web_item.dart';
 import 'package:PiliBro/pages/common/common_intro_controller.dart'
     show FavMixin;
 import 'package:PiliBro/pages/dynamics_repost/view.dart';
@@ -112,6 +116,14 @@ class AudioController extends GetxController
 
   int? index;
   List<DetailItem>? playlist;
+
+  // 入口直接给了 web 数据构造的列表，不查 gRPC 播放列表
+  bool _local = false;
+  // 当前条目是私密稿件，取流走 web
+  bool _web = false;
+  // 收藏夹还没读的下一页
+  int? _favPn;
+  late final FavOrderType _favOrder;
 
   late double speed = 1.0;
 
@@ -229,7 +241,20 @@ class AudioController extends GetxController
       return;
     }
 
-    _queryPlayList(isInit: true);
+    if (args['playlist'] case final List<DetailItem> list?) {
+      _local = true;
+      playlist = list;
+      index = list.indexWhere((e) => e.item.oid == oid);
+      _web = list[index!].playable == -50;
+      _updateCurrItem(list[index!]);
+      if (args['favPn'] case final int pn?) {
+        _favPn = pn;
+        _favOrder = args['favOrder'];
+        _next = '';
+      }
+    } else {
+      _queryPlayList(isInit: true);
+    }
     final String? audioUrl = args['audioUrl'];
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
@@ -350,6 +375,20 @@ class AudioController extends GetxController
       (subId.firstOrNull ?? oid).toInt(),
       hashCode.toString(),
     );
+    if (item.parts.length == 1 && item.parts.first.page > 1) _fillParts(item);
+  }
+
+  // 收藏夹条目只带首 P，多 P 稿件选中后用 web 详情换成全部分 P
+  Future<void> _fillParts(DetailItem item) async {
+    final res = await VideoHttp.videoIntro(bvid: item.arc.displayedOid);
+    if (res case Success(:final response)) {
+      final full = viewDetailItem(response, item.item.subId);
+      final i = playlist!.indexWhere((e) => identical(e, item));
+      if (i != -1) playlist![i] = full;
+      if (identical(audioItem.value, item)) _updateCurrItem(full);
+    } else {
+      res.toast();
+    }
   }
 
   Future<void> _queryPlayList({
@@ -357,6 +396,26 @@ class AudioController extends GetxController
     bool isLoadPrev = false,
     bool isLoadNext = false,
   }) async {
+    if (_favPn case final pn?) {
+      final res = await FavHttp.userFavFolderDetail(
+        mediaId: id.toInt(),
+        pn: pn,
+        ps: 20,
+        order: _favOrder,
+      );
+      if (res case Success(:final response)) {
+        playlist!.addAll(favPlaylist(response.medias!));
+        if (response.hasMore!) {
+          _favPn = pn + 1;
+        } else {
+          _favPn = null;
+          _next = null;
+        }
+      } else {
+        res.toast();
+      }
+      return;
+    }
     final res = await AudioGrpc.audioPlayList(
       id: id,
       oid: isInit ? oid : null,
@@ -417,6 +476,7 @@ class AudioController extends GetxController
     _queryingPlayUrl = true;
     try {
       _querySponsorBlock();
+      if (_web) return await _queryWebPlayUrl(autoplay);
       final res = await AudioGrpc.audioPlayUrl(
         itemType: itemType,
         oid: oid,
@@ -436,6 +496,36 @@ class AudioController extends GetxController
         await _reloadForNetworkPolicy();
       }
     }
+  }
+
+  // 私密稿件不在 gRPC Listener 的数据里，带登录态的 web playurl 能取到 dash.audio
+  Future<bool> _queryWebPlayUrl(bool autoplay) async {
+    final res = await VideoHttp.videoUrl(
+      avid: oid.toInt(),
+      cid: subId.first.toInt(),
+      qn: 80,
+      tryLook: false,
+      videoType: VideoType.ugc,
+    );
+    if (res case Success(:final response)) {
+      if (_start == null) position.value = 0;
+      await _onOpenMedia(
+        VideoUtils.getCdnUrl(
+          VideoUtils.findTargetAudio(
+            response.dash!.audio!,
+            cacheAudioQa,
+          ).playUrls,
+          isAudio: true,
+        ),
+        ua: BrowserUa.pc,
+        referer: HttpString.baseUrl,
+        volume: response.volume,
+        autoplay: autoplay,
+      );
+      return true;
+    }
+    res.toast();
+    return false;
   }
 
   Future<void> _onPlay(PlayURLResp data, {bool autoplay = true}) async {
@@ -936,6 +1026,7 @@ class AudioController extends GetxController
         subId ??
         (item.subId.isNotEmpty ? item.subId : [audioItem.parts.first.subId]);
     itemType = item.itemType;
+    _web = audioItem.playable == -50;
     _queryPlayUrl().then((res) {
       if (res) {
         _videoDetailController = null;
@@ -976,7 +1067,9 @@ class AudioController extends GetxController
   }
 
   void onChangeOrder(ListOrder value) {
-    if (order != value) {
+    if (_local) {
+      SmartDialog.showToast('web 数据构造的列表不能改播放顺序');
+    } else if (order != value) {
       order = value;
       _queryPlayList(isInit: true);
     }

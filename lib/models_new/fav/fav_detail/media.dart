@@ -10,6 +10,7 @@ class FavDetailItemModel with MultiSelectData {
   String? title;
   String? cover;
   String? intro;
+  int? page;
   int? duration;
   Owner? upper;
   int? attr;
@@ -25,6 +26,7 @@ class FavDetailItemModel with MultiSelectData {
     this.title,
     this.cover,
     this.intro,
+    this.page,
     this.duration,
     this.upper,
     this.attr,
@@ -42,6 +44,7 @@ class FavDetailItemModel with MultiSelectData {
         title: json['title'] as String?,
         cover: json['cover'] as String?,
         intro: json['intro'] as String?,
+        page: json['page'] as int?,
         duration: json['duration'] as int?,
         upper: json['upper'] == null
             ? null

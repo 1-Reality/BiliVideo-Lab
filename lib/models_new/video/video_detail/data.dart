@@ -33,6 +33,7 @@ class VideoDetailData {
   Dimension? dimension;
   int? seasonId;
   bool? isUpowerExclusive;
+  bool? isViewSelf;
   List<Part>? pages;
   UgcSeason? ugcSeason;
   List<Staff>? staff;
@@ -86,6 +87,7 @@ class VideoDetailData {
     this.dimension,
     this.seasonId,
     this.isUpowerExclusive,
+    this.isViewSelf,
     this.pages,
     this.ugcSeason,
     this.staff,
@@ -131,6 +133,7 @@ class VideoDetailData {
             : Dimension.fromJson(json['dimension'] as Map<String, dynamic>),
         seasonId: json['season_id'] as int?,
         isUpowerExclusive: json['is_upower_exclusive'] as bool?,
+        isViewSelf: json['is_view_self'] as bool?,
         pages: (json['pages'] as List<dynamic>?)
             ?.map((e) => Part.fromJson(e as Map<String, dynamic>))
             .toList(),

@@ -16,6 +16,7 @@ import 'package:PiliBro/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliBro/common/widgets/selection_text.dart';
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart';
+import 'package:PiliBro/models/common/fav_order_type.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
 import 'package:PiliBro/models/common/image_type.dart';
 import 'package:PiliBro/pages/audio/controller.dart';
@@ -74,6 +75,9 @@ class AudioPage extends StatefulWidget {
     String? audioUrl,
     int? extraId,
     String? bvid,
+    List<DetailItem>? playlist,
+    int? favPn,
+    FavOrderType? favOrder,
     bool off = false,
   }) {
     final args = {
@@ -87,6 +91,9 @@ class AudioPage extends StatefulWidget {
       'audioUrl': ?audioUrl,
       'extraId': ?extraId,
       'bvid': ?bvid,
+      'playlist': ?playlist,
+      'favPn': ?favPn,
+      'favOrder': ?favOrder,
     };
     PipOverlayService.close();
     AudioPlaybackSession.prepare(args);
