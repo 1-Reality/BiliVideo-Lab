@@ -1774,6 +1774,7 @@ class VideoDetailController extends GetxController
   @override
   void onClose() {
     plPlayerController.onCdnFallback = null;
+    PlaybackStatsService.endVisit();
     PlaybackStatsService.endMediaIfMatches(
       isLive: false,
       cid: cid.value,

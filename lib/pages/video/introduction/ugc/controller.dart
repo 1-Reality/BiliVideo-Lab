@@ -144,6 +144,16 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         title: response.title,
         pubdate: response.pubdate,
       );
+      PlaybackStatsService.noteVisit(
+        cid: cid.value,
+        aid: response.aid!,
+        bvid: response.bvid!,
+        title: response.title,
+        pubdate: response.pubdate,
+        upUid: response.owner?.mid,
+        upName: response.owner?.name,
+        partitionId: response.tid,
+      );
       final page = response.pages?.firstWhereOrNull(
         (item) => item.cid == cid.value,
       );
