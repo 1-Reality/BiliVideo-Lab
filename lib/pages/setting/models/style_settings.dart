@@ -985,6 +985,7 @@ Widget _themeTrailing(ThemeData theme) {
 const _mineButtons = {
   SettingBoxKey.mineBtnHistory: '观看记录',
   SettingBoxKey.mineBtnSub: '我的订阅',
+  SettingBoxKey.mineBtnOneKeyListen: '一键听歌',
   SettingBoxKey.mineBtnLater: '稍后再看',
   SettingBoxKey.mineBtnAvSettings: '音画设置',
   SettingBoxKey.mineBtnNetworkPolicy: '智能网优',

@@ -25,6 +25,7 @@ import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/pages/member_video_web/archive/view.dart';
 import 'package:PiliBro/pages/brotech/view.dart';
 import 'package:PiliBro/pages/mine/controller.dart';
+import 'package:PiliBro/pages/mine/one_key_listen.dart';
 import 'package:PiliBro/pages/mine/widgets/fav_item.dart';
 import 'package:PiliBro/pages/mine/widgets/history_item.dart';
 import 'package:PiliBro/pages/mine/widgets/later_item.dart';
@@ -158,6 +159,8 @@ class _MediaPageState extends CommonPageState<MinePage>
     final setting = GStorage.setting;
     bool shown(String key) => setting.get(key, defaultValue: true) as bool;
     final buttons = <Widget>[
+      if (shown(SettingBoxKey.mineBtnOneKeyListen))
+        oneKeyListenAction(color: primary),
       _actionButton(
         icon: Icon(Icons.speed_outlined, color: primary),
         title: '倍速设置',
