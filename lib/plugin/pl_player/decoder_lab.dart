@@ -25,12 +25,21 @@ class DecoderBenchmarkResult {
     required this.targetSpeed,
     required this.wallTime,
     required this.mediaTime,
+    required this.voDrops,
+    required this.decoderDrops,
+    required this.voDelayed,
+    required this.avsync,
   });
 
   final String modeLabel;
   final double targetSpeed;
   final Duration wallTime;
   final Duration mediaTime;
+  // 测量窗口内：显示环节丢的帧、解码环节丢的帧、上屏迟到的帧；结束那一刻的音画差（秒）
+  final int voDrops;
+  final int decoderDrops;
+  final int voDelayed;
+  final String avsync;
 
   double get effectiveSpeed => wallTime.inMilliseconds == 0
       ? 0
@@ -151,39 +160,41 @@ extension DecoderLabController on PlPlayerController {
     }
   }
 
-  Future<void> setDecoderLabFrameDrop(bool enabled) async {
-    final player = videoPlayerController;
-    if (player == null) return;
-    await player.command([
-      'set',
-      'framedrop',
-      enabled ? 'decoder+vo' : 'vo',
-    ]);
-  }
-
-  Future<void> setDecoderLabSkipNonRef(bool enabled) async {
+  // reopen：解码器初始化时才读的选项，设完重开当前文件
+  Future<void> setDecoderLabOption(
+    String name,
+    String value, {
+    bool reopen = false,
+  }) async {
     final player = videoPlayerController;
     if (player == null || player.current.isEmpty) return;
+    await player.command(['set', name, value]);
+    if (!reopen) return;
 
     final wasPlaying = player.state.playing;
-    final oldPosition = player.state.position;
     final speed = playbackSpeed;
-    final media = player.current.last.copyWith(start: oldPosition);
-
-    await player.command([
-      'set',
-      'vd-lavc-skipframe',
-      enabled ? 'nonref' : 'none',
-    ]);
-    await player.open(media, play: false);
+    await player.open(
+      player.current.last.copyWith(start: player.state.position),
+      play: false,
+    );
     await setPlaybackSpeed(speed, recordSelection: false);
     if (wasPlaying) await play();
+  }
+
+  // 正式路径改倍速时会整条重写 vd-lavc-o，所以这里用 change-list 只增删 ndk_codec 这一个键
+  Future<void> setDecoderLabNdkCodec(bool enabled) async {
+    await videoPlayerController?.command(
+      enabled
+          ? ['change-list', 'vd-lavc-o', 'add', 'ndk_codec=1']
+          : ['change-list', 'vd-lavc-o', 'remove', 'ndk_codec'],
+    );
   }
 
   Future<DecoderBenchmarkResult> runDecoderBenchmark({
     required DecoderLabMode mode,
     double? targetSpeed,
     Duration wallTime = const Duration(seconds: 10),
+    bool ndkCodec = false,
   }) async {
     if (!isFileSource) {
       throw StateError('Decoder benchmark requires an offline file.');
@@ -215,30 +226,43 @@ extension DecoderLabController on PlPlayerController {
     try {
       await seekTo(start, recordStats: false);
       await setPlaybackSpeed(speed, recordSelection: false);
+      if (ndkCodec) await setDecoderLabNdkCodec(true);
       await play();
 
       await Future<void>.delayed(const Duration(milliseconds: 350));
       final measuredStart = player.state.position;
+      final voDrops = int.parse(player.getProperty('frame-drop-count'));
+      final decoderDrops = int.parse(
+        player.getProperty('decoder-frame-drop-count'),
+      );
+      final voDelayed = int.parse(player.getProperty('vo-delayed-frame-count'));
       final stopwatch = Stopwatch()..start();
       await Future<void>.delayed(wallTime);
       stopwatch.stop();
       final measuredEnd = player.state.position;
-      await pause(notify: false);
-
-      final mediaDelta = measuredEnd > measuredStart
-          ? measuredEnd - measuredStart
-          : Duration.zero;
-      return DecoderBenchmarkResult(
+      final result = DecoderBenchmarkResult(
         modeLabel: mode.label,
         targetSpeed: speed,
         wallTime: stopwatch.elapsed,
-        mediaTime: mediaDelta,
+        mediaTime: measuredEnd > measuredStart
+            ? measuredEnd - measuredStart
+            : Duration.zero,
+        voDrops: int.parse(player.getProperty('frame-drop-count')) - voDrops,
+        decoderDrops:
+            int.parse(player.getProperty('decoder-frame-drop-count')) -
+            decoderDrops,
+        voDelayed:
+            int.parse(player.getProperty('vo-delayed-frame-count')) - voDelayed,
+        avsync: player.getProperty('avsync'),
       );
+      await pause(notify: false);
+      return result;
     } finally {
       enableShowDanmakuAdaptive.value = oldDanmakuEnabled;
       showDanmaku = oldShowDanmaku;
       await seekTo(originalPosition, recordStats: false);
       await setPlaybackSpeed(originalSpeed, recordSelection: false);
+      if (ndkCodec) await setDecoderLabNdkCodec(true);
       if (originalPlaying) {
         await play();
       } else {

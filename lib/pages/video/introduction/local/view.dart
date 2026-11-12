@@ -42,6 +42,9 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
   bool _benchmarking = false;
   bool _decoderFrameDrop = false;
   bool _skipNonRef = false;
+  bool _vdQueue = false;
+  bool _ndkCodec = false;
+  int _displayFps = 0;
   DecoderBenchmarkResult? _lastBenchmark;
   String? _labMessage;
 
@@ -187,7 +190,10 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                         : (value) async {
                             setState(() => _decoderFrameDrop = value);
                             try {
-                              await player.setDecoderLabFrameDrop(value);
+                              await player.setDecoderLabOption(
+                                'framedrop',
+                                value ? 'decoder+vo' : 'vo',
+                              );
                             } catch (e) {
                               if (mounted) {
                                 setState(() => _labMessage = '丢帧切换失败：$e');
@@ -203,13 +209,83 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                         : (value) async {
                             setState(() => _skipNonRef = value);
                             try {
-                              await player.setDecoderLabSkipNonRef(value);
+                              await player.setDecoderLabOption(
+                                'vd-lavc-skipframe',
+                                value ? 'nonref' : 'none',
+                                reopen: true,
+                              );
                             } catch (e) {
                               if (mounted) {
                                 setState(() => _labMessage = '跳帧切换失败：$e');
                               }
                             }
                           },
+                  ),
+                  FilterChip(
+                    label: const Text('解码独立线程'),
+                    selected: _vdQueue,
+                    onSelected: _benchmarking
+                        ? null
+                        : (value) async {
+                            setState(() => _vdQueue = value);
+                            try {
+                              await player.setDecoderLabOption(
+                                'vd-queue-enable',
+                                value ? 'yes' : 'no',
+                                reopen: true,
+                              );
+                            } catch (e) {
+                              if (mounted) {
+                                setState(() => _labMessage = '解码线程切换失败：$e');
+                              }
+                            }
+                          },
+                  ),
+                  if (Platform.isAndroid)
+                    FilterChip(
+                      label: const Text('NDK 接口'),
+                      selected: _ndkCodec,
+                      onSelected: _benchmarking
+                          ? null
+                          : (value) async {
+                              setState(() => _ndkCodec = value);
+                              try {
+                                await player.setDecoderLabNdkCodec(value);
+                              } catch (e) {
+                                if (mounted) {
+                                  setState(() => _labMessage = 'NDK 切换失败：$e');
+                                }
+                              }
+                            },
+                    ),
+                  PopupMenuButton<int>(
+                    enabled: !_benchmarking,
+                    initialValue: _displayFps,
+                    onSelected: (value) async {
+                      setState(() => _displayFps = value);
+                      try {
+                        await player.setDecoderLabOption(
+                          'display-fps-override',
+                          '$value',
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() => _labMessage = '上屏帧率切换失败：$e');
+                        }
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 0, child: Text('不告诉 mpv')),
+                      PopupMenuItem(value: 30, child: Text('30')),
+                      PopupMenuItem(value: 60, child: Text('60')),
+                      PopupMenuItem(value: 90, child: Text('90')),
+                      PopupMenuItem(value: 120, child: Text('120')),
+                    ],
+                    child: Chip(
+                      label: Text(
+                        _displayFps == 0 ? '上屏帧率：不告诉 mpv' : '上屏帧率：$_displayFps',
+                      ),
+                    ),
                   ),
                   PopupMenuButton<double>(
                     enabled: !_benchmarking,
@@ -288,7 +364,9 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                   '${result.modeLabel}：实际 ${result.effectiveSpeed.toStringAsFixed(2)}× '
                   '/ 设定 ${result.targetSpeed.toStringAsFixed(2)}× · '
                   '${(result.wallTime.inMilliseconds * 0.001).toStringAsFixed(2)}s '
-                  '推进 ${(result.mediaTime.inMilliseconds * 0.001).toStringAsFixed(1)}s',
+                  '推进 ${(result.mediaTime.inMilliseconds * 0.001).toStringAsFixed(1)}s\n'
+                  '显示丢 ${result.voDrops} · 解码丢 ${result.decoderDrops} · '
+                  '上屏迟到 ${result.voDelayed} · 音画差 ${result.avsync}s',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -317,6 +395,7 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
         mode: mode,
         targetSpeed: _benchmarkSpeed == 0 ? null : _benchmarkSpeed,
         wallTime: Duration(seconds: _benchmarkSeconds),
+        ndkCodec: _ndkCodec,
       );
       if (!mounted) return;
       setState(() {
