@@ -1865,7 +1865,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.removeSafeAreaPortrait, defaultValue: false);
 
   static bool get removeSafeAreaLandscape =>
-      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: true);
+      _setting.get(SettingBoxKey.removeSafeAreaLandscape, defaultValue: false);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);
