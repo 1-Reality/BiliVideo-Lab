@@ -333,6 +333,22 @@ abstract final class PageUtils {
         try {
           String bvid = archive.bvid!;
           String cover = archive.cover!;
+          // 私密稿件（动态带「仅自己可见」）查不到分 P 列表，改用视频详情取首 P
+          if (item.modules.moduleAuthor?.badgeText != null) {
+            final res = await VideoHttp.videoIntro(bvid: bvid);
+            if (res case Success(:final response)) {
+              toVideoPage(
+                bvid: bvid,
+                cid: response.cid!,
+                cover: cover,
+                dimension: response.dimension,
+                title: archive.title,
+              );
+            } else {
+              res.toast();
+            }
+            break;
+          }
           final res = await SearchHttp.ab2cWithDimension(bvid: bvid);
           final cid = res?.cid;
           if (cid != null) {
