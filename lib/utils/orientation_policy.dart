@@ -945,16 +945,12 @@ abstract final class OrientationPolicy {
 // 被窝模式：条件成立时把系统旋转锁当作开着。只在亮暗切换、回前台、时段分界点这三种事件上重新判断
 final class _BedMode with WidgetsBindingObserver {
   int _mode = 0;
-  int _start = 0;
-  int _end = 0;
   bool _observing = false;
   Timer? _timer;
 
-  // compile 开头调用：读设置、定下当前是否生效、挂好下一次判断
+  // compile 开头调用：读设置、挂好监听，再定一次当前是否生效
   void configure() {
     _mode = Pref.bedMode;
-    _start = Pref.bedStart;
-    _end = Pref.bedEnd;
     if ((_mode != 0) != _observing) {
       _observing = !_observing;
       if (_observing) {
@@ -963,32 +959,39 @@ final class _BedMode with WidgetsBindingObserver {
         WidgetsBinding.instance.removeObserver(this);
       }
     }
+    _arm();
+  }
+
+  // 定下当前是否生效、挂好下一次判断；生效状态翻转了返回 true
+  bool _arm() {
     _timer?.cancel();
     final now = DateTime.now();
     final t = now.hour * 60 + now.minute;
+    final start = Pref.bedStart;
+    final end = Pref.bedEnd;
     final active = switch (_mode) {
-      1 => _start <= _end ? t >= _start && t < _end : t >= _start || t < _end,
+      1 => start <= end ? t >= start && t < end : t >= start || t < end,
       2 =>
         WidgetsBinding.instance.platformDispatcher.platformBrightness ==
             Brightness.dark,
       _ => false,
     };
-    OrientationPlatform.virtualLock = active;
     if (_mode == 1) {
-      var minutes = (active ? _end : _start) - t;
+      var minutes = (active ? end : start) - t;
       if (minutes < 1) minutes += 1440;
       _timer = Timer(
         Duration(seconds: minutes * 60 - now.second + 1),
         _refresh,
       );
     }
+    if (active == OrientationPlatform.virtualLock) return false;
+    OrientationPlatform.virtualLock = active;
+    return true;
   }
 
   // 生效状态翻转了才重新编译
   void _refresh() {
-    final was = OrientationPlatform.virtualLock;
-    configure();
-    if (was != OrientationPlatform.virtualLock) OrientationPolicy.compile();
+    if (_arm()) OrientationPolicy.compile();
   }
 
   @override

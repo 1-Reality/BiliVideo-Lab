@@ -262,7 +262,7 @@ class _AudioPageState extends State<AudioPage> {
               }
               return const SizedBox.shrink();
             }),
-          if (!_controller.isOffline) Builder(
+          if (!_controller.isOffline && !_controller.isLocal) Builder(
             builder: (context) {
               return PopupMenuButton<ListOrder>(
                 tooltip: '排序',

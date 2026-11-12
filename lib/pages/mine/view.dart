@@ -248,8 +248,8 @@ class _MediaPageState extends CommonPageState<MinePage>
               },
               child: InkWell(
                 onTap: OneKeyListen.play,
-                onLongPress: OneKeyListen.configure,
-                onSecondaryTap: OneKeyListen.configure,
+                onLongPress: OneKeyListen.selectFolder,
+                onSecondaryTap: OneKeyListen.selectFolder,
                 borderRadius: Style.mdRadius,
                 child: _actionBody(_mineIcon(type, primary), type.label),
               ),
@@ -463,7 +463,9 @@ class _MediaPageState extends CommonPageState<MinePage>
             onPressed: () => Get.toNamed('/setting', preventDuplicates: false),
             icon: const Icon(Icons.settings_outlined),
           ),
-          if (Pref.mineButtons.length < MineButtonType.values.length) _moreMenu(),
+          if (((GStorage.setting.get(SettingBoxKey.mineButtons) as List?)?.length ?? 0) <
+              MineButtonType.values.length)
+            _moreMenu(),
           const SizedBox(width: 16),
         ],
       ),

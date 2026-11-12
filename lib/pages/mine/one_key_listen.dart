@@ -20,28 +20,16 @@ abstract final class OneKeyListen {
 
   /// 点击：播放已选收藏夹；没设置过就先选一次，选完立刻播放。
   static Future<void> play() async {
-    if (!Accounts.main.isLogin) {
-      SmartDialog.showToast('请先登录');
-      return;
-    }
-    var folderId = mediaId;
-    if (folderId == null) {
-      folderId = await _selectFolder();
-      if (folderId == null) return;
-    }
-    await _launch(folderId);
+    final folderId = mediaId ?? await selectFolder();
+    if (folderId != null) await _launch(folderId);
   }
 
   /// 长按：只改选中的收藏夹，不立即播放。
-  static Future<void> configure() async {
+  static Future<int?> selectFolder() async {
     if (!Accounts.main.isLogin) {
       SmartDialog.showToast('请先登录');
-      return;
+      return null;
     }
-    await _selectFolder();
-  }
-
-  static Future<int?> _selectFolder() async {
     final res = await FavHttp.allFavFolders(Accounts.main.mid);
     if (res case Success(:final response)) {
       final list = response.list;
