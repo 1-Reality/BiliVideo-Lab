@@ -240,13 +240,13 @@ abstract final class BackupService {
 
   /// Settings go last: they flip switches the other parts are read under.
   /// Sealed parts ask [password] (true when the last one was wrong) until
-  /// they open or it returns null; those left closed are skipped and
-  /// returned, everything else is restored all the same.
-  static Future<List<BackupPart>> restore(
+  /// they open or it returns null. A part that stays closed or fails is
+  /// listed in the result with the reason; the others are restored all the same.
+  static Future<List<String>> restore(
     Map<BackupPart, List<File>> parts, {
     Future<String?> Function(bool retry)? password,
   }) async {
-    final skipped = <BackupPart>[];
+    final skipped = <String>[];
     String? known;
     var retry = false;
     for (final part in BackupPart.sealed) {
@@ -270,7 +270,7 @@ abstract final class BackupService {
       }
       if (known == null) {
         parts.remove(part);
-        skipped.add(part);
+        skipped.add('${part.label}（没有密码）');
       } else {
         await file.writeAsString(jsonEncode(opened));
       }
@@ -280,13 +280,18 @@ abstract final class BackupService {
         parts.containsKey(BackupPart.watchLog);
     if (locked) await PlaybackArchiveService.beginExplicitAccess();
     try {
-      for (final part in BackupPart.values) {
-        if (parts[part] case final files? when part != BackupPart.settings) {
-          await _restore(part, files);
+      for (final part in [
+        for (final part in BackupPart.values)
+          if (part != BackupPart.settings) part,
+        BackupPart.settings,
+      ]) {
+        if (parts[part] case final files?) {
+          try {
+            await _restore(part, files);
+          } catch (e) {
+            skipped.add('${part.label}：$e');
+          }
         }
-      }
-      if (parts[BackupPart.settings] case final files?) {
-        await _restore(BackupPart.settings, files);
       }
     } finally {
       if (locked) {
@@ -302,10 +307,13 @@ abstract final class BackupService {
         jsonDecode(await files.single.readAsString());
     switch (part) {
       case BackupPart.settings:
+        // 备份里没有的盒子保持原样，不清空
         final Map boxes = await decoded();
         for (final box in [GStorage.setting, GStorage.video]) {
-          await box.clear();
-          await box.putAll(boxes[box.name] as Map);
+          if (boxes[box.name] case final Map values) {
+            await box.clear();
+            await box.putAll(values);
+          }
         }
       case BackupPart.searchHistory:
         await GStorage.historyWord.put(
@@ -415,8 +423,8 @@ abstract final class BackupService {
     }
   }
 
-  /// Null when [choose] declined, else the sealed parts left closed.
-  static Future<List<BackupPart>?> restoreZip(
+  /// Null when [choose] declined, else the parts not restored and why.
+  static Future<List<String>?> restoreZip(
     String zipPath,
     Future<Set<BackupPart>?> Function(Map manifest) choose,
     Future<String?> Function(bool retry) password,
@@ -452,8 +460,8 @@ abstract final class BackupService {
     }
   }
 
-  /// Null when [choose] declined, else the sealed parts left closed.
-  static Future<List<BackupPart>?> restoreJson(
+  /// Null when [choose] declined, else the parts not restored and why.
+  static Future<List<String>?> restoreJson(
     Map json,
     Future<Set<BackupPart>?> Function(Map manifest) choose,
     Future<String?> Function(bool retry) password,

@@ -91,7 +91,8 @@ Future<Set<BackupPart>?> selectBackupParts(
   return result;
 }
 
-/// A different database version leaves everything greyed out.
+/// A different database version leaves only the text parts: the others are
+/// database files written in that version's layout.
 Future<Set<BackupPart>?> selectRestoreParts(
   BuildContext context,
   Map manifest, {
@@ -105,15 +106,15 @@ Future<Set<BackupPart>?> selectRestoreParts(
     offered: textOnly
         ? BackupPart.values.where((part) => part.text)
         : BackupPart.values,
-    present: same
-        ? {
-            for (final name in (manifest['parts'] as Map).keys)
-              ?BackupPart.byName[name],
-          }
-        : const <BackupPart>{},
+    present: {
+      for (final name in (manifest['parts'] as Map).keys)
+        if (BackupPart.byName[name] case final part?
+            when same || part.text)
+          part,
+    },
     note: same
         ? null
-        : '这份备份是数据库 $version，当前是 ${GStorage.databaseVersion}，不能恢复',
+        : '这份备份是数据库 $version，当前是 ${GStorage.databaseVersion}，只能恢复设置这类文本项',
   );
 }
 
@@ -175,10 +176,8 @@ Future<void> sealedExport(
   await export(seal);
 }
 
-void toastRestored(List<BackupPart> skipped) => SmartDialog.showToast(
-  skipped.isEmpty
-      ? '恢复成功'
-      : '恢复成功，${skipped.map((e) => e.label).join('、')}未恢复',
+void toastRestored(List<String> skipped) => SmartDialog.showToast(
+  skipped.isEmpty ? '恢复成功' : '其余已恢复，未恢复：\n${skipped.join('\n')}',
 );
 
 Future<void> exportBackupFile(
