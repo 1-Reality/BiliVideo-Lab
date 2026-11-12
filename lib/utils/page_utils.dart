@@ -10,10 +10,12 @@ import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/http/search.dart';
 import 'package:PiliBro/http/video.dart';
 import 'package:PiliBro/models/common/image_preview_type.dart';
+import 'package:PiliBro/grpc/bilibili/app/listener/v1.pb.dart' show DetailItem;
 import 'package:PiliBro/grpc/bilibili/app/listener/v1.pbenum.dart' show PlaylistSource;
 import 'package:PiliBro/models/common/video/source_type.dart' as video_source;
 import 'package:PiliBro/models/common/video/video_type.dart';
 import 'package:PiliBro/pages/audio/view.dart';
+import 'package:PiliBro/pages/audio/web_item.dart';
 import 'package:PiliBro/pages/audio/session.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
 import 'package:PiliBro/models_new/pgc/pgc_info_model/episode.dart';
@@ -40,6 +42,7 @@ import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/url_utils.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:collection/collection.dart';
+import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -343,6 +346,10 @@ abstract final class PageUtils {
                 cover: cover,
                 dimension: response.dimension,
                 title: archive.title,
+                // 听视频模式下会进听视频页：私密稿件不在 gRPC 播放列表里，直接给它这一条
+                audioPlaylist: [
+                  viewDetailItem(response, [Int64(response.cid!)]),
+                ],
               );
             } else {
               res.toast();
@@ -597,6 +604,7 @@ abstract final class PageUtils {
     int? rootRpId,
     int? secondRpId,
     bool forceVideo = false,
+    List<DetailItem>? audioPlaylist,
   }) {
     PipOverlayService.close();
     final source =
@@ -614,6 +622,7 @@ abstract final class PageUtils {
         from: source.playlistSource ?? PlaylistSource.UP_ARCHIVE,
         extraId: source.extraId,
         bvid: bvid ?? IdUtils.av2bv(videoAid),
+        playlist: audioPlaylist,
         off: off,
         start: progress == null ? null : Duration(milliseconds: progress),
       );
