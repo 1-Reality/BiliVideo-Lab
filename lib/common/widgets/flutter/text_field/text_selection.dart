@@ -1552,7 +1552,7 @@ class _TextSelectionGestureDetectorState
         // selection is moved to the precise click position, on the fifth click
         // the word at the position is selected, and on the sixth click the
         // paragraph at the position is selected.
-        return rawCount <= 3
+        return rawCount < 4
             ? rawCount
             : (rawCount % 3 == 0 ? 3 : rawCount % 3);
       case TargetPlatform.iOS:

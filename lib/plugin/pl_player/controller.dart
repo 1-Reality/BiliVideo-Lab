@@ -771,7 +771,7 @@ class PlPlayerController
           : _orientationPlan.manualExitConfirmationEnabled);
 
   bool get _supportsProposedRotation =>
-      Platform.isAndroid && DeviceUtils.sdkInt >= 34;
+      Platform.isAndroid && DeviceUtils.sdkInt > 33;
 
   bool get _manualConfirmationUsesProposedSystem =>
       _supportsProposedRotation &&
@@ -2429,7 +2429,7 @@ class PlPlayerController
 
   bool get isCompleted =>
       videoPlayerController!.state.completed ||
-      durationInMilliseconds - positionInMilliseconds <= 50;
+      durationInMilliseconds - positionInMilliseconds < 50;
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
@@ -2567,7 +2567,7 @@ class PlPlayerController
       portrait ? removeSafeAreaPortrait : removeSafeAreaLandscape;
 
   bool get removeSafeArea => removeSafeAreaFor(
-    portrait: screenRatio > 0 ? screenRatio >= 1 : !_currentSystemLandscape,
+    portrait: screenRatio > 0 ? screenRatio > 0 : !_currentSystemLandscape,
   );
 
   bool get anyRemoveSafeArea =>
@@ -3067,13 +3067,13 @@ class PlPlayerController
           return send();
         }
       case .status:
-        if (progress - _heartDuration >= 2) {
+        if (progress - _heartDuration > 1) {
           _heartDuration = progress;
           return send();
         }
       case .completed:
         if (playerStatus.isCompleted &&
-            (durationInMilliseconds - positionInMilliseconds) <= 1000) {
+            (durationInMilliseconds - positionInMilliseconds) < 1000) {
           progress = -1;
         }
         return send();
