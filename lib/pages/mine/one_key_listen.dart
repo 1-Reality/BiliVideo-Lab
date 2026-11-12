@@ -7,6 +7,7 @@ import 'package:PiliBro/models_new/fav/fav_folder/list.dart';
 import 'package:PiliBro/pages/audio/view.dart';
 import 'package:PiliBro/pages/audio/web_item.dart';
 import 'package:PiliBro/utils/accounts.dart';
+import 'package:PiliBro/utils/audio_first_mode.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -21,7 +22,13 @@ abstract final class OneKeyListen {
   /// 点击：播放已选收藏夹；没设置过就先选一次，选完立刻播放。
   static Future<void> play() async {
     final folderId = mediaId ?? await selectFolder();
-    if (folderId != null) await _launch(folderId);
+    if (folderId == null) return;
+    // 第一次用时，没动过听视频模式开关的人替他打开；动过的不管
+    if (!GStorage.setting.containsKey(SettingBoxKey.enableAudioFirst)) {
+      AudioFirstMode.enabled.value = true;
+      GStorage.setting.put(SettingBoxKey.enableAudioFirst, true);
+    }
+    await _launch(folderId);
   }
 
   /// 长按：只改选中的收藏夹，不立即播放。

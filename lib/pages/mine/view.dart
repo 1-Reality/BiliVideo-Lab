@@ -392,12 +392,18 @@ class _MediaPageState extends CommonPageState<MinePage>
     const padding = EdgeInsets.all(8);
     const style = ButtonStyle(tapTargetSize: .shrinkWrap);
     return PlayerBar(
-      left: widget.showBackBtn
-          ? const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: BackButton(),
-            )
-          : const SizedBox.shrink(),
+      left: Row(
+        mainAxisSize: .min,
+        children: [
+          const SizedBox(width: 8),
+          if (widget.showBackBtn) const BackButton(),
+          if (((GStorage.setting.get(SettingBoxKey.mineButtons) as List?)
+                      ?.length ??
+                  0) <
+              MineButtonType.values.length)
+            _moreMenu(),
+        ],
+      ),
       right: Row(
         spacing: 5,
         mainAxisSize: .min,
@@ -463,9 +469,6 @@ class _MediaPageState extends CommonPageState<MinePage>
             onPressed: () => Get.toNamed('/setting', preventDuplicates: false),
             icon: const Icon(Icons.settings_outlined),
           ),
-          if (((GStorage.setting.get(SettingBoxKey.mineButtons) as List?)?.length ?? 0) <
-              MineButtonType.values.length)
-            _moreMenu(),
           const SizedBox(width: 16),
         ],
       ),

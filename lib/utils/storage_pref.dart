@@ -293,10 +293,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.bedMode, defaultValue: 0);
 
   static int get bedStart =>
-      _setting.get(SettingBoxKey.bedStart, defaultValue: 1380);
+      _setting.get(SettingBoxKey.bedStart, defaultValue: 1410);
 
   static int get bedEnd =>
-      _setting.get(SettingBoxKey.bedEnd, defaultValue: 420);
+      _setting.get(SettingBoxKey.bedEnd, defaultValue: 540);
 
   static bool get gravityFollowSystemLock =>
       _setting.get(SettingBoxKey.gravityFollowSystemLock, defaultValue: true);

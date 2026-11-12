@@ -2567,7 +2567,7 @@ class PlPlayerController
       portrait ? removeSafeAreaPortrait : removeSafeAreaLandscape;
 
   bool get removeSafeArea => removeSafeAreaFor(
-    portrait: screenRatio > 0 ? screenRatio > 0 : !_currentSystemLandscape,
+    portrait: screenRatio > 0 ? screenRatio >= 1 : !_currentSystemLandscape,
   );
 
   bool get anyRemoveSafeArea =>
