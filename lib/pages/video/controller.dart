@@ -307,11 +307,9 @@ class VideoDetailController extends GetxController
       plPlayerController.cachePreferCodecs ?? Pref.preferCodecs;
   bool _pendingNetworkRefresh = false;
 
-  bool get showReply =>
-      !isFileSource &&
-      (isUgc
-          ? plPlayerController.showVideoReply
-          : plPlayerController.showBangumiReply);
+  bool get showReply => isUgc
+      ? plPlayerController.showVideoReply
+      : plPlayerController.showBangumiReply;
 
   bool get showRelatedVideo =>
       !isFileSource && plPlayerController.showRelatedVideo;
@@ -558,7 +556,10 @@ class VideoDetailController extends GetxController
     tabCtr = TabController(
       length: 2,
       vsync: this,
-      initialIndex: Pref.defaultShowComment || args.containsKey(rootRpIdKey)
+      // 离线视频固定从列表页开始：评论区切过去才建、才联网
+      initialIndex:
+          !isFileSource &&
+              (Pref.defaultShowComment || args.containsKey(rootRpIdKey))
           ? 1
           : 0,
     );

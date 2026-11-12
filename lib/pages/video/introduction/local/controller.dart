@@ -3,6 +3,8 @@ import 'package:PiliBro/models_new/video/video_detail/episode.dart';
 import 'package:PiliBro/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliBro/pages/common/common_intro_controller.dart';
 import 'package:PiliBro/pages/download/download/controller.dart';
+import 'package:PiliBro/pages/video/reply/controller.dart';
+import 'package:PiliBro/http/loading_state.dart';
 import 'package:PiliBro/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliBro/services/service_locator.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
@@ -150,6 +152,12 @@ class LocalIntroController extends CommonIntroController {
     BiliDownloadEntryInfo? entry,
   }) {
     entry ??= list[index];
+    // 换了稿件才重拉评论；同一稿件的分 P 共用一个评论区
+    if (videoDetailCtr.showReply && entry.avid != videoDetailCtr.aid) {
+      videoDetailCtr.aid = entry.avid;
+      final replyCtr = Get.find<VideoReplyController>(tag: heroTag);
+      if (replyCtr.loadingState.value is! Loading) replyCtr.onReload();
+    }
     videoDetailCtr
       ..onReset()
       ..cover.value = entry.cover
