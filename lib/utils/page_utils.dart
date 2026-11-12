@@ -348,7 +348,9 @@ abstract final class PageUtils {
                 title: archive.title,
                 // 听视频模式下会进听视频页：私密稿件不在 gRPC 播放列表里，直接给它这一条
                 audioPlaylist: [
-                  viewDetailItem(response, [Int64(response.cid!)]),
+                  // 动态上已经标了仅自己可见，不再看详情里的 is_view_self
+                  viewDetailItem(response, [Int64(response.cid!)])
+                    ..playable = -50,
                 ],
               );
             } else {
