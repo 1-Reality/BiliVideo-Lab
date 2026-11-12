@@ -1207,7 +1207,7 @@ abstract final class PlaybackStatsService {
     }
   }
 
-  // 进了视频页还没开始播放的那一条：开始播放就交给会话，页面关掉还没播放就写进日志
+  // 进了视频页还没开始播放的那一条：只在内存里等，开始播放就交给会话，页面关掉还没播放就写进日志
   static Map<String, Object>? _visit;
 
   static void noteVisit({
@@ -1220,27 +1220,26 @@ abstract final class PlaybackStatsService {
     String? upName,
     int? partitionId,
   }) {
-    if (_videoSessionOpen && _mediaKey == 'cid:$cid') return;
+    if (_videoSessionOpen && _mediaKey == 'cid:$cid' || _visit?['cid'] == cid) {
+      return;
+    }
     endVisit();
     final now = DateTime.now();
-    WatchLogService.checkpoint(
-      _visit = {
-        'k': 'v',
-        't0': now.millisecondsSinceEpoch,
-        't1': now.millisecondsSinceEpoch,
-        'z': now.timeZoneOffset.inMinutes,
-        'bv': bvid,
-        'av': aid,
-        'cid': cid,
-        'ti': ?title,
-        'pd': ?pubdate,
-        'up': ?upUid,
-        'un': ?upName,
-        'tid': ?partitionId,
-        'a': 0,
-      },
-      Accounts.heartbeat.mid,
-    );
+    _visit = {
+      'k': 'v',
+      't0': now.millisecondsSinceEpoch,
+      't1': now.millisecondsSinceEpoch,
+      'z': now.timeZoneOffset.inMinutes,
+      'bv': bvid,
+      'av': aid,
+      'cid': cid,
+      'ti': ?title,
+      'pd': ?pubdate,
+      'up': ?upUid,
+      'un': ?upName,
+      'tid': ?partitionId,
+      'a': 0,
+    };
   }
 
   static void endVisit() {
@@ -1555,12 +1554,6 @@ abstract final class PlaybackStatsService {
     if (title != null) _logTitle = title;
     if (episodeTitle != null) _logEpTitle = episodeTitle;
     if (pubdate != null) _logPubdate = pubdate;
-    if (_videoSessionOpen) {
-      WatchLogService.checkpoint(
-        _videoLogRecord(DateTime.now()),
-        Accounts.heartbeat.mid,
-      );
-    }
   }
 
   static void markInteraction(int bits) {
