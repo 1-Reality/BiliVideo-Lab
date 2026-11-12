@@ -130,3 +130,23 @@ $Text = $Text.Replace($OldSurface, $NewSurface)
 
 [IO.File]::WriteAllText($Target, $Text, [Text.UTF8Encoding]::new($false))
 Write-Host "media-kit Android decoder-lab hwdec/VO hook applied: $Target"
+
+
+# libmpv 换成 1-Reality/libmpv-android-video-build 的 20261107：mpv 与 20260906 同一份源码，
+# 只多了 FFmpeg 的 MediaCodec 解码器支持 skip_frame=nonref（丢非参考帧补丁）
+$Gradle = Join-Path $MediaKitDir.FullName 'libs/android/media_kit_libs_android_video/android/build.gradle'
+$GradleText = [IO.File]::ReadAllText($Gradle)
+$Jars = @(
+    @{ Abi = 'arm64-v8a';   Old = '98df6410375cc7a4be7e6eff56f9ccd88fa52678973cc23bcf7e934ab8c8682d'; New = '919c591cb8c523afcfec3fafe48b636e0b5e503e5ea3aa520d348e7d3523a0fb' },
+    @{ Abi = 'armeabi-v7a'; Old = '75ba2199848cd6224817320ddfabb7d7ea48fb4cfb1721b0090043d5a8a38602'; New = '30381cfd8ef0d38477271a0798038ce7d94a3593774bf0f56f897a9cb676bfc4' },
+    @{ Abi = 'x86_64';      Old = '1caa6198de22808bd7f10fcff2923f5eb174cc42ef24569aeafb98c6597457a4'; New = 'e91f369670ba609a4b0fc4ddcb91c3aea8920e89ef11082733aaf007a7803b5b' }
+)
+foreach ($j in $Jars) {
+    $OldLine = "[`"url`": `"https://github.com/My-Responsitories/libmpv-android-video-build/releases/download/20260906/default-$($j.Abi).jar`", `"sha256`": `"$($j.Old)`", `"destination`": file(`"`$buildDir/20260906/default-$($j.Abi).jar`")]"
+    $NewLine = "[`"url`": `"https://github.com/1-Reality/libmpv-android-video-build/releases/download/20261107/default-$($j.Abi).jar`", `"sha256`": `"$($j.New)`", `"destination`": file(`"`$buildDir/20261107/default-$($j.Abi).jar`")]"
+    $n = ([regex]::Matches($GradleText, [regex]::Escape($OldLine))).Count
+    if ($n -ne 1) { throw "expected exactly one libmpv jar line for $($j.Abi), found $n" }
+    $GradleText = $GradleText.Replace($OldLine, $NewLine)
+}
+[IO.File]::WriteAllText($Gradle, $GradleText, [Text.UTF8Encoding]::new($false))
+Write-Host "libmpv jars -> 1-Reality 20261107: $Gradle"
