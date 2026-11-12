@@ -7,11 +7,11 @@ import 'package:fixnum/fixnum.dart' show Int64;
 // 私密稿件（state=-50）不在 gRPC Listener 的数据里，播放列表条目由 web 数据构造。
 // DetailItem.playable 借来放稿件 state：-50 的条目取流走 web playurl，其余照旧走 gRPC。
 
-/// 收藏夹一页 -> 播放列表条目；失效稿件（attr 1、9）不进列表。
+/// 收藏夹一页 -> 播放列表条目；失效稿件（attr 最低位是 1，见过 1、9）不进列表。
 /// 条目里只有首 P：占位分 P 的 page 放的是分 P 总数，大于 1 的选中后再用详情换成真实分 P
 List<DetailItem> favPlaylist(List<FavDetailItemModel> medias) => [
   for (final e in medias)
-    if (e.type == 2 && e.attr != 1 && e.attr != 9)
+    if (e.type == 2 && e.attr! & 1 == 0)
       DetailItem(
         item: PlayItem(
           itemType: 1,

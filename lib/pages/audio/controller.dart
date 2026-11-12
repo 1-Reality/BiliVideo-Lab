@@ -118,7 +118,7 @@ class AudioController extends GetxController
   List<DetailItem>? playlist;
 
   // 入口直接给了 web 数据构造的列表，不查 gRPC 播放列表
-  bool _local = false;
+  bool isLocal = false;
   // 当前条目是私密稿件，取流走 web
   bool _web = false;
   // 收藏夹还没读的下一页
@@ -242,7 +242,7 @@ class AudioController extends GetxController
     }
 
     if (args['playlist'] case final List<DetailItem> list?) {
-      _local = true;
+      isLocal = true;
       playlist = list;
       index = list.indexWhere((e) => e.item.oid == oid);
       _web = list[index!].playable == -50;
@@ -1079,9 +1079,7 @@ class AudioController extends GetxController
   }
 
   void onChangeOrder(ListOrder value) {
-    if (_local) {
-      SmartDialog.showToast('web 数据构造的列表不能改播放顺序');
-    } else if (order != value) {
+    if (order != value) {
       order = value;
       _queryPlayList(isInit: true);
     }
