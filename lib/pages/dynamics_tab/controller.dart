@@ -1,5 +1,6 @@
 import 'package:PiliBro/http/dynamics.dart';
 import 'package:PiliBro/http/loading_state.dart';
+import 'package:PiliBro/http/member.dart';
 import 'package:PiliBro/http/msg.dart';
 import 'package:PiliBro/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliBro/models/dynamics/result.dart';
@@ -7,6 +8,7 @@ import 'package:PiliBro/pages/common/common_list_controller.dart';
 import 'package:PiliBro/pages/dynamics/controller.dart';
 import 'package:PiliBro/pages/main/controller.dart';
 import 'package:PiliBro/services/account_service.dart';
+import 'package:PiliBro/utils/accounts.dart';
 import 'package:PiliBro/utils/extension/scroll_controller_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -45,12 +47,15 @@ class DynamicsTabController
 
   @override
   Future<LoadingState<DynamicsDataModel>> customGetData() =>
-      DynamicsHttp.followDynamic(
-        offset: offset,
-        type: dynamicsType,
-        hostMid: dynamicsController.hostMid,
-        tempBannedList: dynamicsController.tempBannedList,
-      );
+      // 关注流按某人筛选时不带私密稿件；筛的是自己就改用空间动态接口，和自己主页里看到的一样
+      dynamicsType == .up && dynamicsController.hostMid == Accounts.main.mid
+      ? MemberHttp.memberDynamic(offset: offset, mid: Accounts.main.mid)
+      : DynamicsHttp.followDynamic(
+          offset: offset,
+          type: dynamicsType,
+          hostMid: dynamicsController.hostMid,
+          tempBannedList: dynamicsController.tempBannedList,
+        );
 
   Future<void> onRemove(int index, dynamic dynamicId) async {
     final res = await MsgHttp.removeDynamic(dynIdStr: dynamicId);
