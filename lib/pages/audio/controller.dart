@@ -509,14 +509,15 @@ class AudioController extends GetxController
     );
     if (res case Success(:final response)) {
       if (_start == null) position.value = 0;
+      // 刚投的稿件转码没完成时网页接口只给 durl（整段 mp4），没有分离的音频流
+      final audios = response.dash?.audio;
       await _onOpenMedia(
-        VideoUtils.getCdnUrl(
-          VideoUtils.findTargetAudio(
-            response.dash!.audio!,
-            cacheAudioQa,
-          ).playUrls,
-          isAudio: true,
-        ),
+        audios == null || audios.isEmpty
+            ? VideoUtils.getCdnUrl(response.durl!.first.playUrls)
+            : VideoUtils.getCdnUrl(
+                VideoUtils.findTargetAudio(audios, cacheAudioQa).playUrls,
+                isAudio: true,
+              ),
         ua: BrowserUa.pc,
         referer: HttpString.baseUrl,
         volume: response.volume,
