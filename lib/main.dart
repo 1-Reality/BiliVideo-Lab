@@ -14,7 +14,6 @@ import 'package:PiliBro/pages/setting/first_run_device_setup.dart';
 import 'package:PiliBro/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliBro/router/app_pages.dart';
 import 'package:PiliBro/services/account_service.dart';
-import 'package:PiliBro/services/cdn_diagnostics_service.dart';
 import 'package:PiliBro/services/download/download_service.dart';
 import 'package:PiliBro/services/logger.dart';
 import 'package:PiliBro/services/playback_stats_service.dart';

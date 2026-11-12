@@ -14,11 +14,9 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// 「一键听歌」：在「我的」页面用预先选好的收藏夹直接进入听音频模式。
-/// 设置与网络逻辑都放这里，页面只负责放一个按钮。
 abstract final class OneKeyListen {
-  static const String _mediaIdKey = SettingBoxKey.oneKeyListenMediaId;
-  static const String _titleKey = SettingBoxKey.oneKeyListenFavTitle;
-  static int? get mediaId => GStorage.setting.get(_mediaIdKey) as int?;
+  static int? get mediaId =>
+      GStorage.setting.get(SettingBoxKey.oneKeyListenMediaId) as int?;
 
   /// 点击：播放已选收藏夹；没设置过就先选一次，选完立刻播放。
   static Future<void> play() async {
@@ -51,11 +49,9 @@ abstract final class OneKeyListen {
         SmartDialog.showToast('没有可用的收藏夹');
         return null;
       }
-      final context = Get.context;
-      if (context == null || !context.mounted) return null;
       final current = mediaId;
       final folder = await showDialog<FavFolderInfo>(
-        context: context,
+        context: Get.context!,
         builder: (context) => AlertDialog(
           clipBehavior: Clip.hardEdge,
           title: const Text('选择一键听歌的收藏夹'),
@@ -88,8 +84,10 @@ abstract final class OneKeyListen {
         ),
       );
       if (folder == null) return null;
-      await GStorage.setting.put(_mediaIdKey, folder.id);
-      await GStorage.setting.put(_titleKey, folder.title);
+      await GStorage.setting.putAll({
+        SettingBoxKey.oneKeyListenMediaId: folder.id,
+        SettingBoxKey.oneKeyListenFavTitle: folder.title,
+      });
       SmartDialog.showToast('已设置：${folder.title}');
       return folder.id;
     } else {
@@ -126,40 +124,4 @@ abstract final class OneKeyListen {
       res.toast();
     }
   }
-}
-
-/// 「我的」页面动作区按钮：点击一键听歌，长按更换收藏夹。
-/// 布局与页面里其它 _actionButton 保持一致（四个一行、末尾空位补齐）。
-Widget oneKeyListenAction({required Color color}) {
-  final String? selected = GStorage.setting.get(
-    SettingBoxKey.oneKeyListenFavTitle,
-  );
-  return Flexible(
-    child: Tooltip(
-      message: selected == null
-          ? '一键听歌 · 长按选择收藏夹'
-          : '当前：$selected\n长按可更换收藏夹',
-      child: InkWell(
-        onTap: OneKeyListen.play,
-        onLongPress: OneKeyListen.configure,
-        onSecondaryTap: OneKeyListen.configure,
-        borderRadius: BorderRadius.circular(12),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 80),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Column(
-              spacing: 6,
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.headphones, color: color),
-                const Text('一键听歌', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }

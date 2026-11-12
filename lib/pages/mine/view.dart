@@ -43,6 +43,7 @@ import 'package:PiliBro/utils/page_utils.dart';
 import 'package:PiliBro/utils/platform_utils.dart';
 import 'package:PiliBro/utils/share_utils.dart';
 import 'package:PiliBro/utils/storage.dart';
+import 'package:PiliBro/utils/storage_key.dart';
 import 'package:PiliBro/utils/storage_pref.dart';
 import 'package:PiliBro/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -237,7 +238,23 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       for (final type in Pref.mineButtons)
         switch (type) {
-          .oneKeyListen => oneKeyListenAction(color: primary),
+          .oneKeyListen => Flexible(
+            child: Tooltip(
+              message: switch (GStorage.setting.get(
+                SettingBoxKey.oneKeyListenFavTitle,
+              )) {
+                final String title => '当前：$title\n长按可更换收藏夹',
+                _ => '一键听歌 · 长按选择收藏夹',
+              },
+              child: InkWell(
+                onTap: OneKeyListen.play,
+                onLongPress: OneKeyListen.configure,
+                onSecondaryTap: OneKeyListen.configure,
+                borderRadius: Style.mdRadius,
+                child: _actionBody(_mineIcon(type, primary), type.label),
+              ),
+            ),
+          ),
           .creator => Flexible(
             child: PopupMenuButton<void>(
               tooltip: '创作中心',
