@@ -592,7 +592,8 @@ class PlPlayerController
   late final progressBarSideSpace = Pref.progressBarSideSpace;
   late final bottomControlSideSpace = Pref.bottomControlSideSpace;
   late final enableQuickDouble = Pref.enableQuickDouble;
-  late final fullScreenGestureDirection = Pref.fullScreenGestureDirection;
+  late final fullScreenEnterDirection = Pref.fullScreenEnterDirection;
+  late final fullScreenExitDirection = Pref.fullScreenExitDirection;
 
   late final isRelative = Pref.useRelativeSlide;
   late final offset = isRelative
