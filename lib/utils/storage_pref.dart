@@ -709,7 +709,7 @@ abstract final class Pref {
   );
 
   static String get videoSync =>
-      _setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample');
+      _setting.get(SettingBoxKey.videoSync, defaultValue: 'display-resample-vdrop');
 
   // 与 mpv 自动插入的 scaletempo2 的 max-speed 默认值一致；等于它时不传 af，
   // 完全走 mpv 原生路径。设置时等于 8 会删掉这个键，这里比较的是同一个字面量。

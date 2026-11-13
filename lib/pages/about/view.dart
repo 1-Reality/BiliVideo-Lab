@@ -185,7 +185,7 @@ Commit Hash: ${BuildConfig.commitHash}''',
               'https://pages.goofish.com/sharexy?userid=2216485229713&bft=personal&bfp',
             ),
             leading: const Icon(Icons.storefront_outlined),
-            title: const Text('影像音频 鱼小铺（点我交流经验技术）'),
+            title: const Text('影像音频 鱼小铺（点我交流观影体验）'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(
