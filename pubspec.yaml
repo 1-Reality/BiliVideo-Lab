@@ -297,6 +297,9 @@ flutter:
     - path: assets/BroTech/general/
     - path: assets/BroTech/general/COPYING/
     - path: assets/BroTech/general/COPYING/License/
+    - path: assets/BroTech/哥哥科技/
+    - path: assets/BroTech/RSA/
+    - path: assets/BroTech/NAT/
     - path: assets/web/
   fonts:
     - family: digital_id_num

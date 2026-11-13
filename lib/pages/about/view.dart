@@ -163,9 +163,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
               style: const TextStyle(fontSize: 14),
             ),
             leading: const Icon(Icons.info_outline),
-            onTap: () => PageUtils.launchURL(
-              '${Constants.sourceCodeUrl}/commit/${BuildConfig.commitHash}',
-            ),
             onLongPress: () => Utils.copyText(BuildConfig.commitHash),
             onSecondaryTap: PlatformUtils.isMobile
                 ? null
@@ -175,12 +172,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
             thickness: 1,
             height: 30,
             color: theme.colorScheme.outlineVariant,
-          ),
-          ListTile(
-            onTap: () => PageUtils.launchURL(Constants.sourceBranchUrl),
-            leading: const Icon(Icons.code),
-            title: const Text('Source Code'),
-            subtitle: Text(Constants.sourceBranchUrl, style: subTitleStyle),
           ),
           if (Platform.isAndroid)
             ListTile(
@@ -195,13 +186,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
             ),
             leading: const Icon(Icons.storefront_outlined),
             title: const Text('影像音频 鱼小铺（点我交流经验技术）'),
-            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
-          ),
-          ListTile(
-            onTap: () =>
-                PageUtils.launchURL('${Constants.sourceCodeUrl}/issues'),
-            leading: const Icon(Icons.feedback_outlined),
-            title: const Text('问题反馈'),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
           ListTile(

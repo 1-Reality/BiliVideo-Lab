@@ -31,6 +31,9 @@ String _repo(String asset) => switch (asset.substring(_root.length)) {
   final p when p.startsWith('general/') => 'Bro-Stat',
   final p when p.startsWith('ZTE/') => 'ZTE-Stat_Max',
   final p when p.startsWith('Mi/') => 'Mi-Stat_Max',
+  final p when p.startsWith('哥哥科技/') => 'BroTech',
+  final p when p.startsWith('NAT/') => 'NAT-Checker',
+  final p when p.startsWith('RSA/') => 'RSA-message-encrypt',
   _ => 'ZTE-Stat_HA',
 };
 
@@ -80,7 +83,7 @@ class BroTechFilesPage extends StatelessWidget {
               for (final name in files..sort(byName))
                 ListTile(
                   leading: Icon(
-                    name.toLowerCase().endsWith('.svg')
+                    name.toLowerCase().endsWith('.svg')||name.toLowerCase().endsWith('.png')
                         ? Icons.image_outlined
                         : Icons.description_outlined,
                   ),
@@ -182,7 +185,7 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
     final top = _dir.length > _root.length
         ? _dir.indexOf('/', _root.length) + 1
         : _root.length;
-    return 'https://raw.githubusercontent.com/ucxn/${_repo(widget.asset)}/main/'
+    return 'https://raw.githubusercontent.com/ucxn/${_repo(widget.asset)}/HEAD/'
         '${_dir.substring(top)}';
   }();
   late final String _self = _raw + _name;
@@ -260,16 +263,16 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
   @override
   Widget build(BuildContext context) {
     final svg = _lower.endsWith('.svg');
+    final img = svg || _lower.endsWith('.png');
     return Scaffold(
       appBar: AppBar(
         title: Text(_name),
         actions: [
-          if (!svg && !Platform.isLinux)
-            IconButton(
-              tooltip: '刷新',
-              onPressed: () => setState(() => _web = !_web),
-              icon: const Icon(Icons.refresh_rounded),
-            ),
+          IconButton(
+            tooltip: '刷新',
+            onPressed: () => setState(() => _web = !_web),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
           IconButton(
             tooltip: '分享',
             onPressed: _share,
@@ -279,11 +282,13 @@ class _BroTechDocPageState extends State<BroTechDocPage> {
       ),
       body: SafeArea(
         top: false,
-        child: svg
+        child: img
             ? Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: SvgPicture.asset(widget.asset),
+                  child: svg
+                      ? SvgPicture.asset(widget.asset)
+                      : InteractiveViewer(child: Image.asset(widget.asset)),
                 ),
               )
             : _web
