@@ -151,7 +151,7 @@ abstract final class SettingBoxKey {
       useRelativeSlide = 'useRelativeSlide',
       sliderDuration = 'sliderDuration',
       enableQuickDouble = 'enableQuickDouble',
-      fullScreenGestureReverse = 'fullScreenGestureReverse',
+      fullScreenGestureDirection = 'fullScreenGestureDirection',
       enableBackgroundPlay = 'enableBackgroundPlay',
       continuePlayInBackground = 'continuePlayInBackground',
       lockPlayVideo = 'lockPlayVideo',

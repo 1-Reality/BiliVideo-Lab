@@ -1,6 +1,5 @@
 import 'package:PiliBro/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliBro/common/widgets/view_safe_area.dart';
-import 'package:PiliBro/pages/setting/widgets/switch_item.dart';
 import 'package:PiliBro/plugin/pl_player/models/slide_action.dart';
 import 'package:PiliBro/utils/storage.dart';
 import 'package:PiliBro/utils/storage_key.dart';
@@ -27,6 +26,7 @@ class _GestureSettingsPageState extends State<GestureSettingsPage> {
 
   int vertical = Pref.slideVertical;
   int horizontal = Pref.slideHorizontal;
+  int fullScreenDirection = Pref.fullScreenGestureDirection;
 
   void _saveVertical(int value) {
     setState(() => vertical = value);
@@ -36,6 +36,11 @@ class _GestureSettingsPageState extends State<GestureSettingsPage> {
   void _saveHorizontal(int value) {
     setState(() => horizontal = value);
     GStorage.setting.put(SettingBoxKey.slideHorizontal, value);
+  }
+
+  void _saveFullScreenDirection(int value) {
+    setState(() => fullScreenDirection = value);
+    GStorage.setting.put(SettingBoxKey.fullScreenGestureDirection, value);
   }
 
   Widget _zone(
@@ -168,11 +173,28 @@ class _GestureSettingsPageState extends State<GestureSettingsPage> {
               ),
             ),
             const SizedBox(height: 20),
-            const SetSwitchItem(
-              title: '全屏手势反向',
-              subtitle: '竖滑选了「全屏」的那一列：默认向上进入、向下退出，开启后反过来',
-              setKey: SettingBoxKey.fullScreenGestureReverse,
-              contentPadding: EdgeInsets.zero,
+            Row(
+              children: [
+                Text('全屏手势方向', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 1, label: Text('向上全屏')),
+                    ButtonSegment(value: 2, label: Text('向下全屏')),
+                    ButtonSegment(value: 3, label: Text('双向')),
+                  ],
+                  selected: {fullScreenDirection},
+                  onSelectionChanged: (value) =>
+                      _saveFullScreenDirection(value.first),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '竖滑选了「全屏」的那一列：向上全屏是向上进入、向下退出，向下全屏反过来，'
+              '双向则任意方向都在进入和退出之间切换',
+              style: TextStyle(color: border),
             ),
           ],
         ),

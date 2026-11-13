@@ -1371,8 +1371,9 @@ abstract final class Pref {
   static bool get enableQuickDouble =>
       _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: false);
 
-  static bool get fullScreenGestureReverse =>
-      _setting.get(SettingBoxKey.fullScreenGestureReverse, defaultValue: false);
+  /// 位 0：向上进入全屏，位 1：向下进入全屏；退出是反方向，双向则任意方向都切换
+  static int get fullScreenGestureDirection =>
+      _setting.get(SettingBoxKey.fullScreenGestureDirection, defaultValue: 1);
 
   static bool get autoPiP =>
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);

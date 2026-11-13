@@ -1396,17 +1396,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
       if (cumulativeDy > threshold) {
         _gestureType = .fullscreen_down;
-        if (isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          plPlayerController.triggerFullScreen(
-            status: plPlayerController.fullScreenGestureReverse,
-          );
+        if (plPlayerController.fullScreenGestureDirection &
+                (isFullScreen ? 1 : 2) !=
+            0) {
+          plPlayerController.triggerFullScreen(status: !isFullScreen);
         }
       } else if (cumulativeDy < -threshold) {
         _gestureType = .fullscreen_up;
-        if (!isFullScreen ^ plPlayerController.fullScreenGestureReverse) {
-          plPlayerController.triggerFullScreen(
-            status: !plPlayerController.fullScreenGestureReverse,
-          );
+        if (plPlayerController.fullScreenGestureDirection &
+                (isFullScreen ? 2 : 1) !=
+            0) {
+          plPlayerController.triggerFullScreen(status: !isFullScreen);
         }
       }
     } else if (_gestureType == .volume) {
