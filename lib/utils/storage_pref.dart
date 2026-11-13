@@ -32,7 +32,6 @@ import 'package:PiliBro/models/user/danmaku_rule.dart';
 import 'package:PiliBro/models/user/info.dart';
 import 'package:PiliBro/pages/setting/pages/fullscreen_sc.dart'
     show kFullScreenSCWidth;
-import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
@@ -1502,7 +1501,7 @@ abstract final class Pref {
 
   static String get audioOutput => _setting.get(
     SettingBoxKey.audioOutput,
-    defaultValue: AudioOutput.defaultValue,
+    defaultValue: 'opensles,aaudio,audiotrack',
   );
 
   static bool get enableAi =>

@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:PiliBro/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliBro/plugin/pl_player/models/auto_fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliBro/plugin/pl_player/models/hwdec_type.dart';
@@ -57,12 +58,14 @@ abstract final class DevicePresets {
     ]);
     await _apply(
     {
-      SettingBoxKey.orientationPolicyMode:
-          Platform.isAndroid && DeviceUtils.sdkInt > 33
-              ? OrientationPolicyMode.brotherTech.index
-              : OrientationPolicyMode.advanced.index,
-      if (Platform.isAndroid && DeviceUtils.sdkInt > 33)
+      if (Platform.isAndroid && DeviceUtils.sdkInt > 33) ...{
+        SettingBoxKey.orientationPolicyMode:
+            OrientationPolicyMode.brotherTech.index,
         SettingBoxKey.autoPlayEnable: true,
+        SettingBoxKey.audioOutput: AudioOutput.defaultValue,
+      } else
+        SettingBoxKey.orientationPolicyMode:
+            OrientationPolicyMode.advanced.index,
       SettingBoxKey.horizontalScreen: false,
       SettingBoxKey.keyboardControl: true,
       SettingBoxKey.autoFullscreenMode: AutoFullscreenMode.off.index,
