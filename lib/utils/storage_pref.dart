@@ -1388,6 +1388,8 @@ abstract final class Pref {
 
   static bool get showAudioMiniPlayer =>
       _setting.get(SettingBoxKey.showAudioMiniPlayer, defaultValue: true);
+  static bool get showVideoMiniPlayer =>
+      _setting.get(SettingBoxKey.showVideoMiniPlayer, defaultValue: true);
 
   static Set<int> get danmakuBlockType => Set<int>.from(
     _setting.get(SettingBoxKey.danmakuBlockType, defaultValue: const <int>{}),

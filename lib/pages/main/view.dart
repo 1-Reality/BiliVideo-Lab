@@ -389,7 +389,7 @@ class _MainAppState extends PopScopeState<MainApp>
         sideBar: sideBar,
         bottomNav: bottomNav,
         body: Padding(padding: padding, child: child),
-        miniPlayer: PlaybackBar.enabled
+        miniPlayer: PlaybackBar.audioEnabled || PlaybackBar.videoEnabled
             ? PlaybackMiniBar(
                 bottomInset: bottomNav == null ? _padding.bottom : 0,
               )

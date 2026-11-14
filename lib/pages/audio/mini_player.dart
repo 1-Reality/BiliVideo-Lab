@@ -28,11 +28,13 @@ typedef LastVideo = ({
   int? progressMs,
 });
 
-/// The bottom playback bar, independent of AudioFirstMode. [enabled] is read
-/// once per launch; when false nothing below is touched: the video page does
-/// not record [lastVideo] and MainLayout gets no miniPlayer child.
+/// The bottom playback bar, independent of AudioFirstMode. [audioEnabled] and
+/// [videoEnabled] are read once per launch: when [videoEnabled] is false the
+/// video page does not record [lastVideo]; when both are false MainLayout gets
+/// no miniPlayer child.
 abstract final class PlaybackBar {
-  static final bool enabled = Pref.showAudioMiniPlayer;
+  static final bool audioEnabled = Pref.showAudioMiniPlayer;
+  static final bool videoEnabled = Pref.showVideoMiniPlayer;
 
   /// The video page left most recently, shown when no audio session exists.
   static final lastVideo = Rxn<LastVideo>();
@@ -52,7 +54,8 @@ class PlaybackMiniBar extends StatelessWidget {
   Widget build(BuildContext context) => Obx(() {
     final controller = AudioPlaybackSession.current.value;
     if (controller != null) {
-      if (AudioPlaybackSession.visiblePages.value > 0) {
+      if (!PlaybackBar.audioEnabled ||
+          AudioPlaybackSession.visiblePages.value > 0) {
         return const SizedBox.shrink();
       }
       return _audio(context, controller);

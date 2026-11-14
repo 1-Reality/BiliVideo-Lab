@@ -550,7 +550,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       tag: videoDetailController.heroTag,
     );
 
-    if (PlaybackBar.enabled &&
+    if (PlaybackBar.videoEnabled &&
         !continueListening &&
         !videoDetailController.isFileSource &&
         !playerController.isCloseAll) {

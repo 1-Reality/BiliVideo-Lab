@@ -20,6 +20,7 @@ abstract final class SettingBoxKey {
       defaultPicQa = 'defaultPicQa',
       enableHA = 'enableHA',
       showAudioMiniPlayer = 'showAudioMiniPlayer',
+      showVideoMiniPlayer = 'showVideoMiniPlayer',
       audioOutput = 'audioOutput',
       bufferSize = 'bufferSize',
       bufferSec = 'bufferSec',
