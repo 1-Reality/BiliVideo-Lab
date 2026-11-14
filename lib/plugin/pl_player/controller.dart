@@ -322,7 +322,7 @@ class PlPlayerController
       'pip',
       videoPlayerController?.state.position ?? Duration.zero,
     );
-
+    window.unmaximize();
     _lastWindowBounds = window.bounds;
 
     if (showWindowTitleBar) window.titleBarStyle = .hidden;
