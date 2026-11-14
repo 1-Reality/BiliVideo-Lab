@@ -235,6 +235,22 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     }
   }
 
+  @override
+  void didChangeMetrics() {
+    final routing = Get.routing;
+    if (!Platform.isAndroid ||
+        !AndroidHelper.isPipMode ||
+        !plPlayerController.isLive ||
+        routing.current != '/liveRoom' ||
+        routing.route is! PopupRoute) {
+      return;
+    }
+
+    final liveRoute = ModalRoute.of(context);
+    if (liveRoute == null || liveRoute.isCurrent) return;
+    Navigator.of(context).popUntil((route) => identical(route, liveRoute));
+  }
+
   late double maxWidth;
   late double maxHeight;
   bool isWindowMode = false;
