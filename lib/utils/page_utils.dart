@@ -336,30 +336,9 @@ abstract final class PageUtils {
         try {
           String bvid = archive.bvid!;
           String cover = archive.cover!;
-          // 私密稿件（动态带「仅自己可见」）查不到分 P 列表，改用视频详情取首 P
-          if (item.modules.moduleAuthor?.badgeText != null) {
-            final res = await VideoHttp.videoIntro(bvid: bvid);
-            if (res case Success(:final response)) {
-              toVideoPage(
-                bvid: bvid,
-                cid: response.cid!,
-                cover: cover,
-                dimension: response.dimension,
-                title: archive.title,
-                // 听视频模式下会进听视频页：私密稿件不在 gRPC 播放列表里，直接给它这一条
-                audioPlaylist: [
-                  // 动态上已经标了仅自己可见，不再看详情里的 is_view_self
-                  viewDetailItem(response, [Int64(response.cid!)])
-                    ..playable = -50,
-                ],
-              );
-            } else {
-              res.toast();
-            }
-            break;
-          }
-          final res = await SearchHttp.ab2cWithDimension(bvid: bvid);
-          final cid = res?.cid;
+          final data = await VideoHttp.videoIntro(bvid: bvid);
+          final res = data.dataOrNull;
+          final cid = res?.cid ?? res?.pages?.firstOrNull?.cid;
           if (cid != null) {
             toVideoPage(
               bvid: bvid,
