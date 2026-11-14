@@ -837,12 +837,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                       children: [
                         videoIntro(isHorizontal: false, needCtr: false),
                         if (videoDetailController.showReply)
-                          videoReplyPanel(
-                            isNested: true,
-                            header: Pref.replyStreamInfo
-                                ? _replyStreamMetrics
-                                : null,
-                          ),
+                          videoReplyPanel(isNested: true),
                         if (_shouldShowSeasonPanel) seasonPanel,
                       ],
                     ),
@@ -2247,12 +2242,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     );
   });
 
-  Widget videoReplyPanel({bool isNested = false, Widget? header}) =>
+  Widget videoReplyPanel({bool isNested = false}) =>
       VideoReplyPanel(
         key: videoReplyPanelKey,
         isNested: isNested,
         heroTag: heroTag,
-        header: header,
+        header: Pref.replyStreamInfo ? _replyStreamMetrics : null,
         directionalFocus:
             !isNested &&
             !videoDetailController.plPlayerController.keyboardControl,
