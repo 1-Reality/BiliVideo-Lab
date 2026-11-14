@@ -237,18 +237,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   @override
   void didChangeMetrics() {
-    final routing = Get.routing;
-    if (!Platform.isAndroid ||
-        !AndroidHelper.isPipMode ||
-        !plPlayerController.isLive ||
-        routing.current != '/liveRoom' ||
-        routing.route is! PopupRoute) {
-      return;
+    // 进入 PiP 后，盖在直播间上的弹层（表情面板、线路菜单等）会挡住画面
+    if (Get.routing.route is PopupRoute &&
+        Platform.isAndroid &&
+        AndroidHelper.isPipMode) {
+      Navigator.of(context).popUntil(ModalRoute.withName('/liveRoom'));
     }
-
-    final liveRoute = ModalRoute.of(context);
-    if (liveRoute == null || liveRoute.isCurrent) return;
-    Navigator.of(context).popUntil((route) => identical(route, liveRoute));
   }
 
   late double maxWidth;
