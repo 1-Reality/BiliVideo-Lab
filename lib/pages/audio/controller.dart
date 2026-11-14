@@ -453,7 +453,8 @@ class AudioController extends GetxController
           playlist?.addAll(response.list);
         }
       }
-    } else {
+    } else if (!(isInit && res is Error && res.code == -404)) {
+      // 首次取列表的 -404 交给 _queryPlayUrl 处理：自己的私密稿件不在 gRPC 里
       res.toast();
     }
   }
@@ -486,6 +487,20 @@ class AudioController extends GetxController
         await _onPlay(response, autoplay: autoplay);
         return true;
       } else {
+        if (res is Error && res.code == -404) {
+          final intro = await VideoHttp.videoIntro(
+            bvid: IdUtils.av2bv(oid.toInt()),
+          );
+          if (intro case Success(:final response)
+              when response.isViewSelf == true) {
+            final item = viewDetailItem(response, subId);
+            playlist = [item];
+            index = 0;
+            _web = true;
+            _updateCurrItem(item);
+            return await _queryWebPlayUrl(autoplay);
+          }
+        }
         res.toast();
         return false;
       }
